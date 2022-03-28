@@ -48,7 +48,7 @@ pub enum Vulnerability {
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands
 pub enum Constraints<'a> {
     None,
-    Bounds(&'a dyn Fn(&[Hand; 4]) -> bool), // Pointer to type implementing Fn trait
+    Bounds(&'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
 }
 
 ///The principal struct of the module: represents a bridge deal, with
@@ -61,13 +61,13 @@ pub struct Deal {
 }
 
 impl Deal {
-    pub fn new(func: Constraints) -> Self {
+    pub fn new(func: Constraints, factory: &mut ShapeFactory) -> Self {
         let mut hands: [Hand; 4];
         match func {
             Constraints::Bounds(f) => {
                 while {
                     hands = Deal::deal();
-                    !f(&hands)
+                    !f(&hands, factory)
                 } {}
             }
             _ => {
@@ -102,6 +102,18 @@ impl Deal {
     pub fn set_vuln(&mut self, vuln: Vulnerability) {
         self.vulnerability = vuln;
     }
+    pub fn west(&self) -> Hand {
+        self.hands[3]
+    }
+    pub fn north(&self) -> Hand {
+        self.hands[0]
+    }
+    pub fn east(&self) -> Hand {
+        self.hands[1]
+    }
+    pub fn south(&self) -> Hand {
+        self.hands[2]
+    }
 }
 
 impl std::ops::Index<usize> for Deal {
@@ -133,16 +145,19 @@ impl<'a> IntoIterator for &'a Deal {
 #[cfg(test)]
 #[test]
 fn can_deal_test() {
-    let deal = Deal::new(Constraints::None);
+    let deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
     println!("{}", deal);
 }
 
 #[test]
 fn deal_with_constraints_test() {
     for _ in 0..10 {
-        let deal = Deal::new(Constraints::Bounds(&|x: &[Hand; 4]| {
-            x[1].diamonds().high_card_points() > 5
-        }));
+        let deal = Deal::new(
+            Constraints::Bounds(&|x: &[Hand; 4], y: &mut ShapeFactory| {
+                x[1].diamonds().high_card_points() > 5
+            }),
+            &mut ShapeFactory::new(),
+        );
         assert!(deal[1].diamonds().high_card_points() > 5);
     }
 }

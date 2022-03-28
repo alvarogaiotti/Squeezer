@@ -39,7 +39,7 @@ impl<'a> ShapeFactory<'a> {
         }
     }
     pub fn new_shape(
-        &'a mut self,
+        &mut self,
         shape: Option<&'a str>,
     ) -> Result<Shape, Box<(dyn Error + 'static)>> {
         if let Some(pattern) = shape {
@@ -132,7 +132,7 @@ impl Shape {
                 .into_iter()
                 .map(|&x| {
                     if x == ShapeFactory::JOKER {
-                        Ok(15u8)
+                        Ok(RANKS + 1)
                     } else {
                         match x.to_digit(10) {
                             Some(value) => Ok(value as u8),
@@ -150,7 +150,7 @@ impl Shape {
                 .into_iter()
                 .map(|&x| {
                     if x == ShapeFactory::JOKER {
-                        Ok(15u8)
+                        Ok(RANKS + 1)
                     } else {
                         match x.to_digit(10) {
                             Some(value) => Ok(value as u8),
@@ -172,8 +172,8 @@ impl Shape {
         Ok(())
     }
     fn insert1(&mut self, shape: Vec<u8>, safe: bool) -> Result<(), Box<dyn Error>> {
-        let jokers = any(shape.iter(), |&x| x == 15);
-        let pre_set: u8 = shape.iter().sum();
+        let jokers = any(shape.iter(), |&x| x == RANKS + 1);
+        let pre_set: u8 = shape.iter().filter(|&&x| x != RANKS + 1).sum();
         if !jokers {
             if pre_set == 13 {
                 for suit in Suit::ALL {
@@ -238,12 +238,12 @@ pub enum LenHint {
 
 ///Trait for checking membership, used in particular to check if a
 ///Hand shape is matched by a Shape instance
-trait Membership<Contenuto> {
-    fn includes(self, contenuto: Contenuto) -> bool;
+pub trait Membership<Contenuto> {
+    fn includes(&self, contenuto: &Contenuto) -> bool;
 }
 
 impl Membership<Hand> for Shape {
-    fn includes(self, contenuto: Hand) -> bool {
+    fn includes(&self, contenuto: &Hand) -> bool {
         self.table[self.flatten(contenuto.shape())] as bool
     }
 }
@@ -255,7 +255,7 @@ impl std::ops::Add for Shape {
         } else {
             let mut min_ls = [0u8; 4];
             let mut max_ls = [0u8; 4];
-            for index in 0..=4 {
+            for index in 0..4 {
                 min_ls[index] = u8::min(self.min_ls[index], rhs.min_ls[index]);
                 max_ls[index] = u8::max(self.max_ls[index], rhs.max_ls[index]);
             }
@@ -284,7 +284,7 @@ impl std::ops::Sub for Shape {
         } else {
             let mut min_ls = [0u8; 4];
             let mut max_ls = [0u8; 4];
-            for index in 0..=4 {
+            for index in 0..4 {
                 min_ls[index] = u8::min(self.min_ls[index], rhs.min_ls[index]);
                 max_ls[index] = u8::max(self.max_ls[index], rhs.max_ls[index]);
             }
@@ -344,5 +344,5 @@ fn membership_shape_hand_test() {
         .union(hearts);
 
     let cards = Hand { cards: hand };
-    assert!(res.includes(cards))
+    assert!(res.includes(&cards))
 }
