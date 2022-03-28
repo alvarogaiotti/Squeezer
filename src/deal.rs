@@ -48,7 +48,7 @@ pub enum Vulnerability {
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands
 pub enum Constraints<'a> {
     None,
-    Bounds(&'a dyn Fn(&Deal) -> bool), // Pointer to type implementing Fn trait
+    Bounds(&'a dyn Fn(&[Hand; 4]) -> bool), // Pointer to type implementing Fn trait
 }
 
 ///The principal struct of the module: represents a bridge deal, with
@@ -62,25 +62,22 @@ pub struct Deal {
 
 impl Deal {
     pub fn new(func: Constraints) -> Self {
-        let mut deal: Deal;
+        let mut hands: [Hand; 4];
         match func {
             Constraints::Bounds(f) => {
                 while {
-                    deal = Self {
-                        vulnerability: Vulnerability::NONE,
-                        hands: Deal::deal(),
-                    };
-                    !f(&deal)
+                    hands = Deal::deal();
+                    !f(&hands)
                 } {}
             }
             _ => {
-                deal = Self {
-                    vulnerability: Vulnerability::NONE,
-                    hands: Deal::deal(),
-                }
+                hands = Deal::deal();
             }
         };
-        deal
+        Self {
+            vulnerability: Vulnerability::NONE,
+            hands,
+        }
     }
 
     pub fn deal() -> [Hand; 4] {
@@ -99,8 +96,11 @@ impl Deal {
         };
         [north, east, south, west]
     }
-    fn check(self, f: impl FnOnce(&Deal) -> bool) -> bool {
+    fn check(&self, f: impl FnOnce(&Deal) -> bool) -> bool {
         f(&self)
+    }
+    pub fn set_vuln(&mut self, vuln: Vulnerability) {
+        self.vulnerability = vuln;
     }
 }
 
@@ -139,8 +139,8 @@ fn can_deal_test() {
 
 #[test]
 fn deal_with_constraints_test() {
-    for _ in 1..11 {
-        let deal = Deal::new(Constraints::Bounds(&|x: &Deal| {
+    for _ in 0..10 {
+        let deal = Deal::new(Constraints::Bounds(&|x: &[Hand; 4]| {
             x[1].diamonds().high_card_points() > 5
         }));
         assert!(deal[1].diamonds().high_card_points() > 5);

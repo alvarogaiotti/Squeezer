@@ -327,7 +327,7 @@ cartesian_product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/i
 cartesian_product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn cartesian_product<J>(self, other: J) -> Product<Self, J::IntoIter>$/;"	f
 chain	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn chain<I, J>(i: I, j: J) -> iter::Chain<<I as IntoIterator>::IntoIter, <J as IntoIterator>::IntoIter>$/;"	f
 chain	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^macro_rules! chain {$/;"	d
-check	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn check(self, f: impl FnOnce(&Deal) -> bool) -> bool {$/;"	f
+check	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn check(&self, f: impl FnOnce(&Deal) -> bool) -> bool {$/;"	f
 chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn chunks(self, size: usize) -> IntoChunks<Self>$/;"	f
 circular_tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn circular_tuple_windows<T>(self) -> CircularTupleWindows<Self, T>$/;"	f
 circular_tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub fn circular_tuple_windows<I, T>(iter: I) -> CircularTupleWindows<I, T>$/;"	f
@@ -780,6 +780,7 @@ rev_for_each_ident	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/
 right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn right(self) -> Option<B> {$/;"	f
 right_and_then	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn right_and_then<F, R>(self, f: F) -> EitherOrBoth<A, R>$/;"	f
 set_from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn set_from<'a, A: 'a, J>(&mut self, from: J) -> usize$/;"	f
+set_vuln	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn set_vuln(&mut self, vuln: Vulnerability) {$/;"	f
 shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn shape(self) -> Vec<u8> {$/;"	f
 shape_error_unbal_parentheses_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^fn shape_error_unbal_parentheses_test() {$/;"	f
 shape_parens_interpretation_working_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^fn shape_parens_interpretation_working_test() {$/;"	f
