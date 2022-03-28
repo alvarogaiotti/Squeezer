@@ -1,0 +1,869 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+ACES	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const ACES: Cards = Cards::EMPTY$/;"	c
+ALL	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const ALL: &'static [Self] = &[Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades];$/;"	c
+ALL	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const ALL: Cards = Self::SPADES$/;"	c
+Batching	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Batching<I, F> {$/;"	s
+Buffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            type Buffer = [Option<A>; count_ident!($($Y,)*) - 1];$/;"	T
+Buffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    type Buffer: Default + AsRef<[Option<Self::Item>]> + AsMut<[Option<Self::Item>]>;$/;"	T
+ByFn	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub struct ByFn<F>(pub(crate) F);$/;"	s
+ById	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub struct ById;$/;"	s
+C10	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C10: Card = Card::new(Suit::Clubs, 10);$/;"	c
+C2	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C2: Card = Card::new(Suit::Clubs, 2);$/;"	c
+C3	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C3: Card = Card::new(Suit::Clubs, 3);$/;"	c
+C4	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C4: Card = Card::new(Suit::Clubs, 4);$/;"	c
+C5	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C5: Card = Card::new(Suit::Clubs, 5);$/;"	c
+C6	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C6: Card = Card::new(Suit::Clubs, 6);$/;"	c
+C7	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C7: Card = Card::new(Suit::Clubs, 7);$/;"	c
+C8	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C8: Card = Card::new(Suit::Clubs, 8);$/;"	c
+C9	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const C9: Card = Card::new(Suit::Clubs, 9);$/;"	c
+CA	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const CA: Card = Card::new(Suit::Clubs, 14);$/;"	c
+CJ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const CJ: Card = Card::new(Suit::Clubs, 11);$/;"	c
+CK	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const CK: Card = Card::new(Suit::Clubs, 13);$/;"	c
+CLUBS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const CLUBS: Cards = Cards { bits: 0x7ffc };$/;"	c
+CQ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const CQ: Card = Card::new(Suit::Clubs, 12);$/;"	c
+Card	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub struct Card {$/;"	s
+CardMap	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub struct CardMap {$/;"	s
+Cards	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub struct Cards {$/;"	s
+Cards	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/simd.rs	/^pub struct Cards {$/;"	s
+Chunk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub struct Chunk<'a, I: 'a>$/;"	s
+ChunkIndex	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^struct ChunkIndex {$/;"	s
+Chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub struct Chunks<'a, I: 'a>$/;"	s
+CircularTupleWindows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub struct CircularTupleWindows<I, T: Clone>$/;"	s
+Coalesce	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub type Coalesce<I, F> = CoalesceBy<I, F, <I as Iterator>::Item>;$/;"	T
+CoalesceBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub struct CoalesceBy<I, F, T>$/;"	s
+CoalescePredicate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub trait CoalescePredicate<Item, T> {$/;"	t
+Combination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^            type Combination = $C<Fuse<I>>;$/;"	T
+Combination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Combination = Tuple1Combination<I>;$/;"	T
+Combination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Combination: From<I> + Iterator<Item = Self>;$/;"	T
+Combinations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^pub struct Combinations<I: Iterator> {$/;"	s
+CombinationsWithReplacement	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations_with_replacement.rs	/^pub struct CombinationsWithReplacement<I>$/;"	s
+CompleteState	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^enum CompleteState {$/;"	g
+CompleteStateRemaining	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^enum CompleteStateRemaining {$/;"	g
+ConsTuples	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^pub struct ConsTuples<I, J>$/;"	s
+Constraints	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub enum Constraints<'a> {$/;"	g
+Container	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        type Container = JustValue<V>;$/;"	T
+Container	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        type Container = KeyValue<K, V>;$/;"	T
+Container	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        type Container: KeyXorValue<K, V>;$/;"	T
+D10	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D10: Card = Card::new(Suit::Diamonds, 10);$/;"	c
+D2	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D2: Card = Card::new(Suit::Diamonds, 2);$/;"	c
+D3	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D3: Card = Card::new(Suit::Diamonds, 3);$/;"	c
+D4	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D4: Card = Card::new(Suit::Diamonds, 4);$/;"	c
+D5	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D5: Card = Card::new(Suit::Diamonds, 5);$/;"	c
+D6	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D6: Card = Card::new(Suit::Diamonds, 6);$/;"	c
+D7	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D7: Card = Card::new(Suit::Diamonds, 7);$/;"	c
+D8	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D8: Card = Card::new(Suit::Diamonds, 8);$/;"	c
+D9	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const D9: Card = Card::new(Suit::Diamonds, 9);$/;"	c
+DA	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const DA: Card = Card::new(Suit::Diamonds, 14);$/;"	c
+DIAMONDS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const DIAMONDS: Cards = Cards { bits: 0x7ffc << 16 };$/;"	c
+DJ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const DJ: Card = Card::new(Suit::Diamonds, 11);$/;"	c
+DK	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const DK: Card = Card::new(Suit::Diamonds, 13);$/;"	c
+DQ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const DQ: Card = Card::new(Suit::Diamonds, 12);$/;"	c
+Deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct Deal {$/;"	s
+Dedup	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub type Dedup<I> = DedupBy<I, DedupEq>;$/;"	T
+DedupBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub type DedupBy<I, Pred> = CoalesceBy<I, DedupPred2CoalescePred<Pred>, <I as Iterator>::Item>;$/;"	T
+DedupByWithCount	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub type DedupByWithCount<I, Pred> =$/;"	T
+DedupEq	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub struct DedupEq;$/;"	s
+DedupPred2CoalescePred	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub struct DedupPred2CoalescePred<DP>(DP);$/;"	s
+DedupPredWithCount2CoalescePred	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub struct DedupPredWithCount2CoalescePred<DP>(DP);$/;"	s
+DedupPredicate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub trait DedupPredicate<T> {$/;"	t
+DedupWithCount	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub type DedupWithCount<I> = DedupByWithCount<I, DedupEq>;$/;"	T
+Diff	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/diff.rs	/^pub enum Diff<I, J>$/;"	g
+Duplicates	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^pub type Duplicates<I> = private::DuplicatesBy<I, <I as Iterator>::Item, private::ById>;$/;"	T
+DuplicatesBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub struct DuplicatesBy<I: Iterator, Key, F> {$/;"	s
+DuplicatesBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^pub type DuplicatesBy<I, V, F> = private::DuplicatesBy<I, V, private::ByFn<F>>;$/;"	T
+EMPTY	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const EMPTY: Cards = Cards { bits: 0 };$/;"	c
+EitherOrBoth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^pub enum EitherOrBoth<A, B> {$/;"	g
+Err	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Err = String;$/;"	T
+ExactlyOneError	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^pub struct ExactlyOneError<I>$/;"	s
+FilterMapOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct FilterMapOk<I, F> {$/;"	s
+FilterOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct FilterOk<I, F> {$/;"	s
+FlattenOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^pub struct FlattenOk<I, T, E>$/;"	s
+FoldWhile	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub enum FoldWhile<T> {$/;"	g
+Format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub struct Format<'a, I> {$/;"	s
+FormatWith	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub struct FormatWith<'a, I, F> {$/;"	s
+Group	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub struct Group<'a, K: 'a, I: 'a, F: 'a>$/;"	s
+GroupBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub struct GroupBy<K, I, F>$/;"	s
+GroupInner	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^struct GroupInner<K, I, F>$/;"	s
+GroupingMap	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^pub struct GroupingMap<I> {$/;"	s
+GroupingMapBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^pub type GroupingMapBy<I, F> = GroupingMap<MapForGrouping<I, F>>;$/;"	T
+Groups	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub struct Groups<'a, K: 'a, I: 'a, F: 'a>$/;"	s
+H10	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H10: Card = Card::new(Suit::Hearts, 10);$/;"	c
+H2	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H2: Card = Card::new(Suit::Hearts, 2);$/;"	c
+H3	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H3: Card = Card::new(Suit::Hearts, 3);$/;"	c
+H4	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H4: Card = Card::new(Suit::Hearts, 4);$/;"	c
+H5	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H5: Card = Card::new(Suit::Hearts, 5);$/;"	c
+H6	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H6: Card = Card::new(Suit::Hearts, 6);$/;"	c
+H7	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H7: Card = Card::new(Suit::Hearts, 7);$/;"	c
+H8	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H8: Card = Card::new(Suit::Hearts, 8);$/;"	c
+H9	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const H9: Card = Card::new(Suit::Hearts, 9);$/;"	c
+HA	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const HA: Card = Card::new(Suit::Hearts, 14);$/;"	c
+HEARTS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const HEARTS: Cards = Cards { bits: 0x7ffc << 32 };$/;"	c
+HJ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const HJ: Card = Card::new(Suit::Hearts, 11);$/;"	c
+HK	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const HK: Card = Card::new(Suit::Hearts, 13);$/;"	c
+HQ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const HQ: Card = Card::new(Suit::Hearts, 12);$/;"	c
+Hand	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct Hand {$/;"	s
+HandIterator	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct HandIterator<'a> {$/;"	s
+HandValuation	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub struct HandValuation {$/;"	s
+HasCombination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub trait HasCombination<I>: Sized {$/;"	t
+HeadTail	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^struct HeadTail<I>$/;"	s
+HomogeneousTuple	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub trait HomogeneousTuple$/;"	t
+Interleave	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Interleave<I, J> {$/;"	s
+InterleaveShortest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct InterleaveShortest<I, J>$/;"	s
+Intersperse	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^pub type Intersperse<I> = IntersperseWith<I, IntersperseElementSimple<<I as Iterator>::Item>>;$/;"	T
+IntersperseElement	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^pub trait IntersperseElement<Item> {$/;"	t
+IntersperseElementSimple	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^pub struct IntersperseElementSimple<Item>(Item);$/;"	s
+IntersperseWith	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^pub struct IntersperseWith<I, ElemF>$/;"	s
+IntoChunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub struct IntoChunks<I>$/;"	s
+IntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type IntoIter = Chunks<'a, I>;$/;"	T
+IntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type IntoIter = Groups<'a, K, I, F>;$/;"	T
+IntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    type IntoIter = RcIter<I>;$/;"	T
+IntoIter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type IntoIter = HandIterator<'a>;$/;"	T
+IntoIter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type IntoIter = std::array::IntoIter<Hand, 4>;$/;"	T
+Item	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Item = Card;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    type Item = T;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    type Item = R::Out;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^            type Item = (A, $(ignore_ident!($X, A)),*);$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = (I::Item, J::Item);$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = (I::Item,);$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = A;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = B;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = Result<T, E>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = Result<U, E>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = T;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    type Item = usize;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    type Item = Vec<I::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^    type Item = Vec<I::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations_with_replacement.rs	/^    type Item = Vec<I::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^            type Item = ($($B,)* X, );$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^    type Item = Result<T::Item, E>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type Item = (K, Group<'a, K, I, F>);$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type Item = Chunk<'a, I>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    type Item = (K, V);$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^    type Item = EitherOrBoth<I::Item, J::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    type Item = Vec<I::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^    type Item = Vec<I::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^    type Item = T;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    type Item = A;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^    type Item = A;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^    type Item = A;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^    type Item = St;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tee.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            type Item = A;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    type Item = T::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    type Item = T;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    type Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^    type Item = I::Item;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^    type Item = Position<I::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_eq_impl.rs	/^    type Item = (I::Item, J::Item);$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_longest.rs	/^    type Item = EitherOrBoth<T::Item, U::Item>;$/;"	T
+Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^            type Item = ($($B::Item,)*);$/;"	T
+Item	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type Item = Cards;$/;"	T
+Item	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type Item = Hand;$/;"	T
+Iterate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub struct Iterate<St, F> {$/;"	s
+Itertools	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub trait Itertools : Iterator {$/;"	t
+JACKS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const JACKS: Cards = Cards::EMPTY$/;"	c
+JOKER	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub const JOKER: char = 'x';$/;"	c
+JustValue	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub struct JustValue<V>(V);$/;"	s
+KINGS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const KINGS: Cards = Cards::EMPTY$/;"	c
+KMerge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^pub type KMerge<I> = KMergeBy<I, KMergeByLt>;$/;"	T
+KMergeBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^pub struct KMergeBy<I, F>$/;"	s
+KMergeByLt	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^pub struct KMergeByLt;$/;"	s
+KMergePredicate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^pub trait KMergePredicate<T> {$/;"	t
+Key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type Key = K;$/;"	T
+Key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type Key = usize;$/;"	T
+Key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type Key;$/;"	T
+KeyFunction	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^trait KeyFunction<A> {$/;"	t
+KeyMethod	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub trait KeyMethod<K, V> {$/;"	t
+KeyValue	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub struct KeyValue<K, V>(K, V);$/;"	s
+KeyXorValue	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub trait KeyXorValue<K, V> {$/;"	t
+LazyBuffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^pub struct LazyBuffer<I: Iterator> {$/;"	s
+LenHint	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^enum LenHint {$/;"	g
+MAX	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const MAX: HandValuation = HandValuation {$/;"	c
+MIN	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const MIN: HandValuation = HandValuation {$/;"	c
+MapForGrouping	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^pub struct MapForGrouping<I, F>(I, F);$/;"	s
+MapInto	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub type MapInto<I, R> = MapSpecialCase<I, MapSpecialCaseFnInto<R>>;$/;"	T
+MapOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub type MapOk<I, F> = MapSpecialCase<I, MapSpecialCaseFnOk<F>>;$/;"	T
+MapResults	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub type MapResults<I, F> = MapOk<I, F>;$/;"	T
+MapSpecialCase	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub struct MapSpecialCase<I, F> {$/;"	s
+MapSpecialCaseFn	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub trait MapSpecialCaseFn<T> {$/;"	t
+MapSpecialCaseFnInto	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub struct MapSpecialCaseFnInto<U>(PhantomData<U>);$/;"	s
+MapSpecialCaseFnOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub struct MapSpecialCaseFnOk<F>(F);$/;"	s
+Membership	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^trait Membership<Contenuto> {$/;"	t
+Merge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub type Merge<I, J> = MergeBy<I, J, MergeLte>;$/;"	T
+MergeBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct MergeBy<I, J, F>$/;"	s
+MergeJoinBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^pub struct MergeJoinBy<I: Iterator, J: Iterator, F> {$/;"	s
+MergeLte	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct MergeLte;$/;"	s
+MergePredicate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub trait MergePredicate<T> {$/;"	t
+Meta	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^    pub struct Meta<Key, F> {$/;"	s
+MinMaxResult	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/minmax.rs	/^pub enum MinMaxResult<T> {$/;"	g
+MultiPeek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^pub struct MultiPeek<I>$/;"	s
+MultiProduct	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^pub struct MultiProduct<I>(Vec<MultiProductIter<I>>)$/;"	s
+MultiProductIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^struct MultiProductIter<I>$/;"	s
+MultiProductIterState	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^enum MultiProductIterState {$/;"	g
+MultiUnzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^pub trait MultiUnzip<FromI>: Iterator {$/;"	t
+Out	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    type Out = Result<U, E>;$/;"	T
+Out	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    type Out = U;$/;"	T
+Out	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    type Out;$/;"	T
+Output	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Output = Card;$/;"	T
+Output	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Output = Self;$/;"	T
+Output	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Output = T;$/;"	T
+Output	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    type Output = <Vec<I::Item> as Index<J>>::Output;$/;"	T
+Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type Output = Hand;$/;"	T
+Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type Output = Seat;$/;"	T
+Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    type Output = Shape;$/;"	T
+PER_SUITS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^const PER_SUITS: PerSuit<Suit> = PerSuit {$/;"	c
+PadUsing	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^pub struct PadUsing<I, F> {$/;"	s
+PeekNth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^pub struct PeekNth<I>$/;"	s
+PeekingNext	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^pub trait PeekingNext : Iterator {$/;"	t
+PeekingTakeWhile	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^pub struct PeekingTakeWhile<'a, I: 'a, F>$/;"	s
+PerSuit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub struct PerSuit<T> {$/;"	s
+PermutationState	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^enum PermutationState {$/;"	g
+Permutations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^pub struct Permutations<I: Iterator> {$/;"	s
+Position	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^pub enum Position<T> {$/;"	g
+Positions	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Positions<I, F> {$/;"	s
+Powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^pub struct Powerset<I: Iterator> {$/;"	s
+ProcessResults	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^pub struct ProcessResults<'a, I, E: 'a> {$/;"	s
+Product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Product<I, J>$/;"	s
+PutBack	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct PutBack<I>$/;"	s
+PutBackN	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^pub struct PutBackN<I: Iterator> {$/;"	s
+QUEENS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const QUEENS: Cards = Cards::EMPTY$/;"	c
+RANKS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^const RANKS: u8 = 13;$/;"	c
+RcIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^pub struct RcIter<I> {$/;"	s
+RepeatCall	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub struct RepeatCall<F> {$/;"	s
+RepeatN	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^pub struct RepeatN<A> {$/;"	s
+S10	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S10: Card = Card::new(Suit::Spades, 10);$/;"	c
+S2	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S2: Card = Card::new(Suit::Spades, 2);$/;"	c
+S3	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S3: Card = Card::new(Suit::Spades, 3);$/;"	c
+S4	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S4: Card = Card::new(Suit::Spades, 4);$/;"	c
+S5	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S5: Card = Card::new(Suit::Spades, 5);$/;"	c
+S6	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S6: Card = Card::new(Suit::Spades, 6);$/;"	c
+S7	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S7: Card = Card::new(Suit::Spades, 7);$/;"	c
+S8	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S8: Card = Card::new(Suit::Spades, 8);$/;"	c
+S9	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S9: Card = Card::new(Suit::Spades, 9);$/;"	c
+SA	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SA: Card = Card::new(Suit::Spades, 14);$/;"	c
+SHAPE_COMBINATIONS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^const SHAPE_COMBINATIONS: usize = 14usize.pow(4);$/;"	c
+SJ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SJ: Card = Card::new(Suit::Spades, 11);$/;"	c
+SK	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SK: Card = Card::new(Suit::Spades, 13);$/;"	c
+SPADES	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SPADES: Cards = Cards { bits: 0x7ffc << 48 };$/;"	c
+SQ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SQ: Card = Card::new(Suit::Spades, 12);$/;"	c
+SUITS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^const SUITS: usize = 4;$/;"	c
+Seat	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub enum Seat {$/;"	g
+Shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct Shape {$/;"	s
+ShapeFactory	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct ShapeFactory<'a> {$/;"	s
+SizeHint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub type SizeHint = (usize, Option<usize>);$/;"	T
+State	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        type State<T> = Result<T, Option<T>>;$/;"	T
+Step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Step<I> {$/;"	s
+Suit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub enum Suit {$/;"	g
+TENS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const TENS: Cards = Cards::EMPTY$/;"	c
+TakeWhileRef	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct TakeWhileRef<'a, I: 'a, F> {$/;"	s
+Tee	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tee.rs	/^pub struct Tee<I>$/;"	s
+TeeBuffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tee.rs	/^struct TeeBuffer<A, I> {$/;"	s
+Tuple1Combination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Tuple1Combination<I> {$/;"	s
+TupleBuffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub struct TupleBuffer<T>$/;"	s
+TupleCollect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub trait TupleCollect: Sized {$/;"	t
+TupleCombinations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct TupleCombinations<I, T>$/;"	s
+TupleWindows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub struct TupleWindows<I, T>$/;"	s
+Tuples	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub struct Tuples<I, T>$/;"	s
+Unfold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub struct Unfold<St, F> {$/;"	s
+Unique	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^pub struct Unique<I: Iterator> {$/;"	s
+UniqueBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^pub struct UniqueBy<I: Iterator, V, F> {$/;"	s
+Update	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Update<I, F> {$/;"	s
+VecIntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^type VecIntoIter<T> = alloc::vec::IntoIter<T>;$/;"	T
+VecIntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^type VecIntoIter<T> = alloc::vec::IntoIter<T>;$/;"	T
+Vulnerability	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub enum Vulnerability {$/;"	g
+WhileSome	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct WhileSome<I> {$/;"	s
+WithPosition	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^pub struct WithPosition<I>$/;"	s
+WrongShapeError	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^struct WrongShapeError {$/;"	s
+Zip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^pub struct Zip<T> {$/;"	s
+ZipEq	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_eq_impl.rs	/^pub struct ZipEq<I, J> {$/;"	s
+ZipLongest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_longest.rs	/^pub struct ZipLongest<T, U> {$/;"	s
+add	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn add(self, rhs: Self) -> Self {$/;"	f
+add	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn add(a: SizeHint, b: SizeHint) -> SizeHint {$/;"	f
+add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn add(mut self, rhs: Self) -> Self::Output {$/;"	f
+add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn add(self, rhs: usize) -> Self::Output {$/;"	f
+add_assign	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn add_assign(&mut self, rhs: Self) {$/;"	f
+add_scalar	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn add_scalar(sh: SizeHint, x: usize) -> SizeHint {$/;"	f
+additional_len	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^    fn additional_len(&self) -> usize {$/;"	f
+advance	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    fn advance(&mut self) {$/;"	f
+aggregate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn aggregate<FO, R>(self, mut operation: FO) -> HashMap<K, R>$/;"	f
+all	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn all<G>(&mut self, mut f: G) -> bool$/;"	f
+all	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn all<I, F>(iterable: I, f: F) -> bool$/;"	f
+all_cards	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn all_cards() {$/;"	f
+all_equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn all_equal(&mut self) -> bool$/;"	f
+all_unique	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn all_unique(&mut self) -> bool$/;"	f
+any	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn any<I, F>(iterable: I, f: F) -> bool$/;"	f
+as_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_mut(&mut self) -> EitherOrBoth<&mut A, &mut B> {$/;"	f
+as_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_ref(&self) -> EitherOrBoth<&A, &B> {$/;"	f
+assert_equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn assert_equal<I, J>(a: I, b: J)$/;"	f
+at_most_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn at_most_one(mut self) -> Result<Option<Self::Item>, ExactlyOneError<Self>>$/;"	f
+batching	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn batching<I, F>(iter: I, f: F) -> Batching<I, F> {$/;"	f
+batching	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn batching<B, F>(self, f: F) -> Batching<Self, F>$/;"	f
+bitand	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn bitand(self, rhs: Self) -> Self {$/;"	f
+both	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn both(self) -> Option<(A, B)> {$/;"	f
+call	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn call(&mut self, t: Result<T, E>) -> Self::Out {$/;"	f
+call	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn call(&mut self, t: T) -> Self::Out {$/;"	f
+call	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn call(&mut self, t: T) -> Self::Out;$/;"	f
+call_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn call_mut(&mut self, _arg: A) -> Self::Key {$/;"	f
+call_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn call_mut(&mut self, arg: A) -> Self::Key {$/;"	f
+call_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn call_mut(&mut self, arg: A) -> Self::Key;$/;"	f
+can_deal_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^fn can_deal_test() {$/;"	f
+card_display	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn card_display() {$/;"	f
+cartesian_product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn cartesian_product<I, J>(mut i: I, j: J) -> Product<I, J>$/;"	f
+cartesian_product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn cartesian_product<J>(self, other: J) -> Product<Self, J::IntoIter>$/;"	f
+chain	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn chain<I, J>(i: I, j: J) -> iter::Chain<<I as IntoIterator>::IntoIter, <J as IntoIterator>::IntoIter>$/;"	f
+chain	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^macro_rules! chain {$/;"	d
+check	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn check(self, f: impl FnOnce(&Deal) -> bool) -> bool {$/;"	f
+chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn chunks(self, size: usize) -> IntoChunks<Self>$/;"	f
+circular_tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn circular_tuple_windows<T>(self) -> CircularTupleWindows<Self, T>$/;"	f
+circular_tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub fn circular_tuple_windows<I, T>(iter: I) -> CircularTupleWindows<I, T>$/;"	f
+clone	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^        fn clone(&self) -> Self {$/;"	f
+clone_fields	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^macro_rules! clone_fields {$/;"	d
+cloned	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn cloned<'a, I, T: 'a>(iterable: I) -> iter::Cloned<I::IntoIter>$/;"	f
+clubs	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn clubs(self) -> Cards {$/;"	f
+coalesce	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub fn coalesce<I, F>(mut iter: I, f: F) -> Coalesce<I, F>$/;"	f
+coalesce	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn coalesce<F>(self, f: F) -> Coalesce<Self, F>$/;"	f
+coalesce_pair	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn coalesce_pair($/;"	f
+coalesce_pair	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn coalesce_pair(&mut self, t: T, item: Item) -> Result<T, (T, T)> {$/;"	f
+coalesce_pair	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn coalesce_pair(&mut self, t: T, item: Item) -> Result<T, (T, T)>;$/;"	f
+coalesce_pair	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn coalesce_pair(&mut self, t: T, item: T) -> Result<T, (T, T)> {$/;"	f
+collect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn collect<C>(self) -> C$/;"	f
+collect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn collect<C>(self) -> C$/;"	f
+collect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn collect<C>(self) -> HashMap<K, C>$/;"	f
+collect_from_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            fn collect_from_iter<I>(iter: I, buf: &mut Self::Buffer) -> Option<Self>$/;"	f
+collect_from_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn collect_from_iter<I>(iter: I, buf: &mut Self::Buffer) -> Option<Self>$/;"	f
+collect_from_iter_no_buf	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            fn collect_from_iter_no_buf<I>(iter: I) -> Option<Self>$/;"	f
+collect_from_iter_no_buf	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn collect_from_iter_no_buf<I>(iter: I) -> Option<Self>$/;"	f
+collect_tuple	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn collect_tuple<T>(mut self) -> Option<T>$/;"	f
+collect_vec	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn collect_vec(self) -> Vec<Self::Item>$/;"	f
+combinations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^pub fn combinations<I>(iter: I, k: usize) -> Combinations<I>$/;"	f
+combinations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn combinations(self, k: usize) -> Combinations<Self>$/;"	f
+combinations_with_replacement	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations_with_replacement.rs	/^pub fn combinations_with_replacement<I>(iter: I, k: usize) -> CombinationsWithReplacement<I>$/;"	f
+combinations_with_replacement	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn combinations_with_replacement(self, k: usize) -> CombinationsWithReplacement<Self>$/;"	f
+concat	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/concat_impl.rs	/^pub fn concat<I>(iterable: I) -> I::Item$/;"	f
+concat	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn concat(self) -> Self::Item$/;"	f
+cons_tuples	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^pub fn cons_tuples<I, J>(iterable: I) -> ConsTuples<I::IntoIter, J>$/;"	f
+contains	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn contains<Q>(&mut self, query: &Q) -> bool$/;"	f
+count	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn count(self) -> usize {$/;"	f
+count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn count(self) -> usize {$/;"	f
+count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn count(self) -> usize {$/;"	f
+count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^    fn count(mut self) -> usize {$/;"	f
+count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    fn count(self) -> usize {$/;"	f
+count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^    fn count(self) -> usize {$/;"	f
+count_ident	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^macro_rules! count_ident{$/;"	d
+count_new_keys	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^fn count_new_keys<I, K>(mut used: HashMap<K, ()>, iterable: I) -> usize$/;"	f
+counts	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn counts(self) -> HashMap<Self::Item, usize>$/;"	f
+counts_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn counts_by<K, F>(self, f: F) -> HashMap<K, usize>$/;"	f
+curr_iterator	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn curr_iterator(&self) -> Vec<I::Item> {$/;"	f
+current	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations_with_replacement.rs	/^    fn current(&self) -> Vec<I::Item> {$/;"	f
+deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn deal() -> [Hand; 4] {$/;"	f
+deal_with_constraints_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^fn deal_with_constraints_test() {$/;"	f
+debug	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn debug() {$/;"	f
+debug_fmt_fields	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^macro_rules! debug_fmt_fields {$/;"	d
+dedup	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub fn dedup<I>(iter: I) -> Dedup<I>$/;"	f
+dedup	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dedup(self) -> Dedup<Self>$/;"	f
+dedup_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub fn dedup_by<I, Pred>(mut iter: I, dedup_pred: Pred) -> DedupBy<I, Pred>$/;"	f
+dedup_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dedup_by<Cmp>(self, cmp: Cmp) -> DedupBy<Self, Cmp>$/;"	f
+dedup_by_with_count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub fn dedup_by_with_count<I, Pred>(mut iter: I, dedup_pred: Pred) -> DedupByWithCount<I, Pred>$/;"	f
+dedup_by_with_count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dedup_by_with_count<Cmp>(self, cmp: Cmp) -> DedupByWithCount<Self, Cmp>$/;"	f
+dedup_pair	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn dedup_pair(&mut self, a: &T, b: &T) -> bool {$/;"	f
+dedup_pair	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn dedup_pair(&mut self, a: &T, b: &T) -> bool;$/;"	f
+dedup_with_count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub fn dedup_with_count<I>(iter: I) -> DedupWithCount<I>$/;"	f
+dedup_with_count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dedup_with_count(self) -> DedupWithCount<Self>$/;"	f
+description	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn description(&self) -> &str {$/;"	f
+diamonds	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn diamonds(self) -> Cards {$/;"	f
+diff_with	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/diff.rs	/^pub fn diff_with<I, J, F>(i: I, j: J, is_equal: F)$/;"	f
+disp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/display.rs	/^fn disp() {$/;"	f
+drop	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn drop(&mut self) {$/;"	f
+drop_group	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn drop_group(&mut self, client: usize) {$/;"	f
+drop_group	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn drop_group(&self, client: usize) {$/;"	f
+dropping	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dropping(mut self, n: usize) -> Self$/;"	f
+dropping_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dropping_back(mut self, n: usize) -> Self$/;"	f
+duplicates	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^pub fn duplicates<I>(iter: I) -> Duplicates<I>$/;"	f
+duplicates	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn duplicates(self) -> Duplicates<Self>$/;"	f
+duplicates_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^pub fn duplicates_by<I, Key, F>(iter: I, f: F) -> DuplicatesBy<I, Key, F>$/;"	f
+duplicates_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn duplicates_by<V, F>(self, f: F) -> DuplicatesBy<Self, V, F>$/;"	f
+enumerate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn enumerate<I>(iterable: I) -> iter::Enumerate<I::IntoIter>$/;"	f
+eq	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn eq(&self, other: &Self) -> bool {$/;"	f
+equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn equal<I, J>(a: I, b: J) -> bool$/;"	f
+exactly_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn exactly_one(mut self) -> Result<Self::Item, ExactlyOneError<Self>>$/;"	f
+exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn exceeds(self, upper: Self) -> bool {$/;"	f
+exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn exceeds(self, upper: HandValuation) -> bool {$/;"	f
+filter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn filter<I>(&mut self, item: I) -> Option<I>$/;"	f
+filter_map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn filter_map_ok<I, F, T, U, E>(iter: I, f: F) -> FilterMapOk<I, F>$/;"	f
+filter_map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn filter_map_ok<F, T, U, E>(self, f: F) -> FilterMapOk<Self, F>$/;"	f
+filter_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn filter_ok<I, F, T, E>(iter: I, f: F) -> FilterOk<I, F>$/;"	f
+filter_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn filter_ok<F, T, E>(self, f: F) -> FilterOk<Self, F>$/;"	f
+find_or_first	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn find_or_first<P>(mut self, mut predicate: P) -> Option<Self::Item>$/;"	f
+find_or_last	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn find_or_last<P>(mut self, mut predicate: P) -> Option<Self::Item>$/;"	f
+find_position	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn find_position<P>(&mut self, mut pred: P) -> Option<(usize, Self::Item)>$/;"	f
+flatten	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn flatten(&self, shape: Vec<u8>) -> usize {$/;"	f
+flatten_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^pub fn flatten_ok<I, T, E>(iter: I) -> FlattenOk<I, T, E>$/;"	f
+flatten_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn flatten_ok<T, E>(self) -> FlattenOk<Self, T, E>$/;"	f
+flip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn flip(self) -> EitherOrBoth<B, A> {$/;"	f
+fmt	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/display.rs	/^    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {$/;"	f
+fmt	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {$/;"	f
+fmt	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^    fn fmt(&self, f: &mut Formatter) -> FmtResult {$/;"	f
+fmt	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {$/;"	f
+fmt	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {$/;"	f
+fmt	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {$/;"	f
+fmt	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {$/;"	f
+fmt	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {$/;"	f
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    const fn intersection(self, rhs: Self) -> Self {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn aces(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn clubs(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn contains(&self, card: Card) -> bool {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn diamonds(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn difference(&self, cards: Cards) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn hearts(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn high_card_points(self) -> usize {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn insert(self, card: Card) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn is_empty(&self) -> bool {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn jacks(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn kings(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn len(&self) -> usize {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn long_card_points(self) -> usize {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn long_suits(self, at_least: usize) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn new(internal: [T; 4]) -> Self {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn new(suit: Suit, rank: u8) -> Card {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn non_empty(&self) -> bool {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn protected_high_card_points(self) -> usize {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn queens(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn rank(self) -> u8 {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn rankchar(self) -> char {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn rankname(self) -> &'static str {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn remove(self, card: Card) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn short_card_points(self) -> usize {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn singleton(card: Card) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn spades(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn suit(self) -> Suit {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn tens(self) -> Cards {$/;"	c
+fn	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const fn union(&self, cards: Cards) -> Cards {$/;"	c
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn fold<Acc, FnAcc>(self, acc: Acc, mut fn_acc: FnAcc) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn fold<Acc, Fold>(self, init: Acc, mut fold_f: Fold) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn fold<Acc, Fold>(self, init: Acc, fold_f: Fold) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn fold<Acc, G>(mut self, init: Acc, mut f: G) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn fold<Acc, G>(mut self, mut accum: Acc, mut f: G) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn fold<Acc, G>(self, init: Acc, mut g: G) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^            fn fold<Acc, Fold>(self, accum: Acc, mut f: Fold) -> Acc$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn fold<I, B, F>(iterable: I, init: B, f: F) -> B$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn fold<FO, R>(self, init: R, mut operation: FO) -> HashMap<K, R>$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn fold<B, F>(mut self, init: B, mut f: F) -> B where$/;"	f
+fold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^    fn fold<B, F>(mut self, init: B, mut f: F) -> B$/;"	f
+fold1	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn fold1<F>(mut self, f: F) -> Option<Self::Item>$/;"	f
+fold_first	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn fold_first<FO>(self, mut operation: FO) -> HashMap<K, V>$/;"	f
+fold_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn fold_ok<A, E, B, F>(&mut self, mut start: B, mut f: F) -> Result<B, E>$/;"	f
+fold_options	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn fold_options<A, B, F>(&mut self, mut start: B, mut f: F) -> Option<B>$/;"	f
+fold_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn fold_results<A, E, B, F>(&mut self, start: B, f: F) -> Result<B, E>$/;"	f
+fold_while	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn fold_while<B, F>(&mut self, init: B, mut f: F) -> FoldWhile<B>$/;"	f
+following_suit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn following_suit(self, suit: Suit) -> Cards {$/;"	f
+foreach	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn foreach<F>(self, f: F)$/;"	f
+format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^    fn format<F>(&self, f: &mut fmt::Formatter, mut cb: F) -> fmt::Result$/;"	f
+format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn format(self, sep: &str) -> Format<Self>$/;"	f
+format_with	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn format_with<F>(self, sep: &str, format: F) -> FormatWith<Self, F>$/;"	f
+from	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn from(internal: [T; 4]) -> Self {$/;"	f
+from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^            fn from(iter: I) -> Self {$/;"	f
+from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^            fn from(mut iter: I) -> Self {$/;"	f
+from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn from(iter: I) -> Self {$/;"	f
+from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^            fn from(t: ($($B,)*)) -> Self {$/;"	f
+from	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn from(n: usize) -> Self {$/;"	f
+from_complete	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^        fn from_complete(complete_state: CompleteState) -> usize {$/;"	f
+from_str	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn from_str(s: &str) -> Result<Self, Self::Err> {$/;"	f
+from_str	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn from_str(hand: &str) -> Result<Hand, String> {$/;"	f
+from_table	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn from_table(table: [bool; SHAPE_COMBINATIONS], len_hints: LenHint) -> Self {$/;"	f
+generate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn generate(&mut self) -> Item {$/;"	f
+generate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn generate(&mut self) -> Item;$/;"	f
+get_next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn get_next(&mut self) -> bool {$/;"	f
+group_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn group_by<K, F>(self, key: F) -> GroupBy<K, Self, F>$/;"	f
+group_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn group_key(&mut self, client: usize) -> K {$/;"	f
+has_left	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn has_left(&self) -> bool {$/;"	f
+has_right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn has_right(&self) -> bool {$/;"	f
+hash	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn hash<H: Hasher>(&self, hasher: &mut H) {$/;"	f
+hcp	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn hcp(self) -> usize {$/;"	f
+heapify	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^fn heapify<T, S>(data: &mut [T], mut less_than: S)$/;"	f
+hearts	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn hearts(self) -> Cards {$/;"	f
+ignore_ident	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^macro_rules! ignore_ident{$/;"	d
+impl_cons_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^macro_rules! impl_cons_iter($/;"	d
+impl_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^macro_rules! impl_format {$/;"	d
+impl_tuple_collect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^macro_rules! impl_tuple_collect {$/;"	d
+impl_tuple_combination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^macro_rules! impl_tuple_combination {$/;"	d
+impl_unzip_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^macro_rules! impl_unzip_iter {$/;"	d
+impl_zip_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^macro_rules! impl_zip_iter {$/;"	d
+in_progress	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn in_progress(&self) -> bool {$/;"	f
+in_suit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn in_suit(self, suit: Suit) -> Cards {$/;"	f
+in_suits	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn in_suits(self) -> PerSuit<Cards> {$/;"	f
+include	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn include(self, contenuto: Contenuto) -> bool;$/;"	f
+include	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn include(self, contenuto: Hand) -> bool {$/;"	f
+index	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn index(&self, index: Card) -> &Card {$/;"	f
+index	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn index(&self, index: Suit) -> &T {$/;"	f
+index	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    fn index(&self, _index: J) -> &Self::Output {$/;"	f
+index	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn index(&self, index: usize) -> &Self::Output {$/;"	f
+index_mut	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn index_mut(&mut self, index: Card) -> &mut Card {$/;"	f
+index_mut	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn index_mut(&mut self, index: Suit) -> &mut T {$/;"	f
+inner	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        fn inner<T, II, FF>(stop: usize, it: &mut II, f: &mut FF) -> State<T>$/;"	f
+inner0	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        fn inner0<T, II, FF>(it: &mut II, f: &mut FF) -> State<T>$/;"	f
+insert	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn insert($/;"	f
+insert1	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn insert1(&mut self, shape: Vec<u8>, safe: bool) -> Result<(), Box<dyn Error>> {$/;"	f
+interleave	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn interleave<I, J>(i: I, j: J) -> Interleave<<I as IntoIterator>::IntoIter, <J as IntoIterator>::IntoIter>$/;"	f
+interleave	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn interleave<J>(self, other: J) -> Interleave<Self, J::IntoIter>$/;"	f
+interleave_shortest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn interleave_shortest<I, J>(a: I, b: J) -> InterleaveShortest<I, J>$/;"	f
+interleave_shortest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn interleave_shortest<J>(self, other: J) -> InterleaveShortest<Self, J::IntoIter>$/;"	f
+intersperse	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn intersperse<I>(iterable: I, element: I::Item) -> Intersperse<I::IntoIter>$/;"	f
+intersperse	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^pub fn intersperse<I>(iter: I, elt: I::Item) -> Intersperse<I>$/;"	f
+intersperse	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn intersperse(self, element: Self::Item) -> Intersperse<Self>$/;"	f
+intersperse_with	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn intersperse_with<I, F>(iterable: I, element: F) -> IntersperseWith<I::IntoIter, F>$/;"	f
+intersperse_with	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^pub fn intersperse_with<I, ElemF>(iter: I, elt: ElemF) -> IntersperseWith<I, ElemF>$/;"	f
+intersperse_with	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn intersperse_with<F>(self, element: F) -> IntersperseWith<Self, F>$/;"	f
+into	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    fn into(self) -> Option<Either<A, B>> {$/;"	f
+into_buffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    pub fn into_buffer(self) -> TupleBuffer<T> {$/;"	f
+into_group_map	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/group_map.rs	/^pub fn into_group_map<I, K, V>(iter: I) -> HashMap<K, Vec<V>>$/;"	f
+into_group_map	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn into_group_map<K, V>(self) -> HashMap<K, Vec<V>>$/;"	f
+into_group_map_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/group_map.rs	/^pub fn into_group_map_by<I, K, V>(iter: I, f: impl Fn(&V) -> K) -> HashMap<K, Vec<V>>$/;"	f
+into_group_map_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn into_group_map_by<K, V, F>(self, f: F) -> HashMap<K, Vec<V>>$/;"	f
+into_grouping_map	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn into_grouping_map<K, V>(self) -> GroupingMap<Self>$/;"	f
+into_grouping_map_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn into_grouping_map_by<K, V, F>(self, key_mapper: F) -> GroupingMapBy<Self, F>$/;"	f
+into_inner	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    pub fn into_inner(self) -> T {$/;"	f
+into_inner	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^    pub fn into_inner(self) -> T {$/;"	f
+into_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn into_iter(self) -> Self::IntoIter {$/;"	f
+into_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    fn into_iter(self) -> RcIter<I> {$/;"	f
+into_iter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn into_iter(self) -> Self::IntoIter {$/;"	f
+into_option	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/minmax.rs	/^    pub fn into_option(self) -> Option<(T,T)> {$/;"	f
+into_parts	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    pub fn into_parts(self) -> (Option<I::Item>, I) {$/;"	f
+iproduct	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^macro_rules! iproduct {$/;"	d
+is_both	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn is_both(&self) -> bool {$/;"	f
+is_done	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    pub fn is_done(&self) -> bool {$/;"	f
+is_left	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn is_left(&self) -> bool {$/;"	f
+is_right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn is_right(&self) -> bool {$/;"	f
+iter	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn iter() -> impl Iterator<Item = Suit> {$/;"	f
+iter	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn iter(&self) -> std::slice::Iter<'_, T> {$/;"	f
+iterate	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn iterate() {$/;"	f
+iterate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn iterate(&mut self) {$/;"	f
+iterate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub fn iterate<St, F>(initial_value: St, f: F) -> Iterate<St, F>$/;"	f
+iterate_last	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn iterate_last($/;"	f
+izip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^macro_rules! izip {$/;"	d
+join	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn join<I>(iterable: I, sep: &str) -> String$/;"	f
+join	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn join(&mut self, sep: &str) -> String$/;"	f
+k	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^    pub fn k(&self) -> usize { self.indices.len() }$/;"	f
+k_smallest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn k_smallest(self, k: usize) -> VecIntoIter<Self::Item>$/;"	f
+key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn key(self) -> K {$/;"	f
+key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn key(self) -> K;$/;"	f
+key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn key(self) -> V {$/;"	f
+key_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn key_ref(&self) -> &K {$/;"	f
+key_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn key_ref(&self) -> &K;$/;"	f
+key_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn key_ref(&self) -> &V {$/;"	f
+kmerge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^pub fn kmerge<I>(iterable: I) -> KMerge<<I::Item as IntoIterator>::IntoIter>$/;"	f
+kmerge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn kmerge(self) -> KMerge<<Self::Item as IntoIterator>::IntoIter>$/;"	f
+kmerge_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^pub fn kmerge_by<I, F>(iterable: I, mut less_than: F)$/;"	f
+kmerge_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn kmerge_by<F>(self, first: F)$/;"	f
+kmerge_pred	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    fn kmerge_pred(&mut self, a: &T, b: &T) -> bool {$/;"	f
+kmerge_pred	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    fn kmerge_pred(&mut self, a: &T, b: &T) -> bool;$/;"	f
+last	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn last(self) -> Option<Self::Item> {$/;"	f
+last	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn last(self) -> Option<Self::Item> {$/;"	f
+last	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^    fn last(mut self) -> Option<Self::Item> {$/;"	f
+latin	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn latin(self) -> char {$/;"	f
+left	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn left(self) -> Option<A> {$/;"	f
+left_and_then	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn left_and_then<F, L>(self, f: F) -> EitherOrBoth<L, B>$/;"	f
+left_shift_push	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            fn left_shift_push(&mut self, mut item: A) {$/;"	f
+left_shift_push	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn left_shift_push(&mut self, item: Self::Item);$/;"	f
+len	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn len(&self) -> usize {$/;"	f
+lookup_buffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn lookup_buffer(&mut self, client: usize) -> Option<I::Item> {$/;"	f
+main	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^fn main() {}$/;"	f
+make	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn make(&mut self, v: V) -> Self::Container {$/;"	f
+make	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn make(&mut self, value: V) -> Self::Container;$/;"	f
+map	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn map<U, F: Fn(T) -> U>(self, f: F) -> PerSuit<U> {$/;"	f
+map_any	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn map_any<F, L, G, R>(self, f: F, g: G) -> EitherOrBoth<L, R>$/;"	f
+map_into	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub fn map_into<I, R>(iter: I) -> MapInto<I, R> {$/;"	f
+map_into	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn map_into<R>(self) -> MapInto<Self, R>$/;"	f
+map_left	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn map_left<F, M>(self, f: F) -> EitherOrBoth<M, B>$/;"	f
+map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub fn map_ok<I, F, T, U, E>(iter: I, f: F) -> MapOk<I, F>$/;"	f
+map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn map_ok<F, T, U, E>(self, f: F) -> MapOk<Self, F>$/;"	f
+map_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn map_results<F, T, U, E>(self, f: F) -> MapOk<Self, F>$/;"	f
+map_right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn map_right<F, M>(self, f: F) -> EitherOrBoth<A, M>$/;"	f
+max	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn max(self) -> Option<Card> {$/;"	f
+max	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn max(self, other: HandValuation) -> HandValuation {$/;"	f
+max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn max<I>(iterable: I) -> Option<I::Item>$/;"	f
+max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn max(self) -> HashMap<K, V>$/;"	f
+max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn max(a: SizeHint, b: SizeHint) -> SizeHint {$/;"	f
+max_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn max_by<F>(self, mut compare: F) -> HashMap<K, V>$/;"	f
+max_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn max_by_key<F, CK>(self, mut f: F) -> HashMap<K, V>$/;"	f
+max_with	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn max_with(self, other: Self) -> Self {$/;"	f
+merge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn merge<I, J>(i: I, j: J) -> Merge<<I as IntoIterator>::IntoIter, <J as IntoIterator>::IntoIter>$/;"	f
+merge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn merge<J>(self, other: J) -> Merge<Self, J::IntoIter>$/;"	f
+merge_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn merge_by<J, F>(self, other: J, is_first: F) -> MergeBy<Self, J::IntoIter, F>$/;"	f
+merge_by_new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn merge_by_new<I, J, F>(a: I, b: J, cmp: F) -> MergeBy<I::IntoIter, J::IntoIter, F>$/;"	f
+merge_join_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn merge_join_by<J, F>(self, other: J, cmp_fn: F) -> MergeJoinBy<Self, J::IntoIter, F>$/;"	f
+merge_join_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^pub fn merge_join_by<I, J, F>(left: I, right: J, cmp_fn: F)$/;"	f
+merge_pred	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn merge_pred(&mut self, a: &T, b: &T) -> bool {$/;"	f
+merge_pred	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn merge_pred(&mut self, a: &T, b: &T) -> bool;$/;"	f
+min	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn min(self) -> Option<Card> {$/;"	f
+min	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn min(self, other: HandValuation) -> HandValuation {$/;"	f
+min	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn min<I>(iterable: I) -> Option<I::Item>$/;"	f
+min	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn min(self) -> HashMap<K, V>$/;"	f
+min	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn min(a: SizeHint, b: SizeHint) -> SizeHint {$/;"	f
+min_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn min_by<F>(self, mut compare: F) -> HashMap<K, V>$/;"	f
+min_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn min_by_key<F, CK>(self, mut f: F) -> HashMap<K, V>$/;"	f
+min_with	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn min_with(self, other: Self) -> Self {$/;"	f
+minmax	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn minmax(self) -> HashMap<K, MinMaxResult<V>>$/;"	f
+minmax	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn minmax(self) -> MinMaxResult<Self::Item>$/;"	f
+minmax_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn minmax_by<F>(self, mut compare: F) -> HashMap<K, MinMaxResult<V>>$/;"	f
+minmax_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn minmax_by<F>(self, mut compare: F) -> MinMaxResult<Self::Item>$/;"	f
+minmax_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn minmax_by_key<F, CK>(self, mut f: F) -> HashMap<K, MinMaxResult<V>>$/;"	f
+minmax_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn minmax_by_key<K, F>(self, key: F) -> MinMaxResult<Self::Item>$/;"	f
+minmax_impl	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/minmax.rs	/^pub fn minmax_impl<I, K, F, L>(mut it: I, mut key_for: F,$/;"	f
+mul	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn mul(a: SizeHint, b: SizeHint) -> SizeHint {$/;"	f
+mul_scalar	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn mul_scalar(sh: SizeHint, x: usize) -> SizeHint {$/;"	f
+multi_cartesian_product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^pub fn multi_cartesian_product<H>(iters: H) -> MultiProduct<<H::Item as IntoIterator>::IntoIter>$/;"	f
+multi_cartesian_product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn multi_cartesian_product(self) -> MultiProduct<<Self::Item as IntoIterator>::IntoIter>$/;"	f
+multipeek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn multipeek(self) -> MultiPeek<Self>$/;"	f
+multipeek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^pub fn multipeek<I>(iterable: I) -> MultiPeek<I::IntoIter>$/;"	f
+multiunzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn multiunzip<FromI>(self) -> FromI$/;"	f
+multiunzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^            fn multiunzip(self) -> ($($FromT,)*) {$/;"	f
+multiunzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^    fn multiunzip(self) -> FromI;$/;"	f
+multiunzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^pub fn multiunzip<FromI, I>(i: I) -> FromI$/;"	f
+multizip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^pub fn multizip<T, U>(t: U) -> Zip<T>$/;"	f
+n	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^    pub fn n(&self) -> usize { self.pool.len() }$/;"	f
+name	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn name(self) -> &'static str {$/;"	f
+ne	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn ne(&self, other: &Self) -> bool {$/;"	f
+new	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn new() -> Self {$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn new(iter: I) -> Self {$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn new(size: usize) -> Self {$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub fn new<K, J, F>(iter: J, f: F) -> GroupBy<K, J::IntoIter, F>$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^pub fn new<I, K, V>(iter: I) -> GroupingMap<I>$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    fn new(mut it: I) -> Option<HeadTail<I>> {$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn new(it: I) -> LazyBuffer<I> {$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tee.rs	/^pub fn new<I>(iter: I) -> (Tee<I>, Tee<I>)$/;"	f
+new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn new(buf: T::Buffer) -> Self {$/;"	f
+new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn new() -> Self {$/;"	f
+new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn new(_shape: Option<&str>) -> Self {$/;"	f
+new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn new(func: Constraints) -> Self {$/;"	f
+new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn new(msg: &str) -> Self {$/;"	f
+new_chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub fn new_chunks<J>(iter: J, size: usize) -> IntoChunks<J::IntoIter>$/;"	f
+new_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format<I, F>(iter: I, separator: &str, f: F) -> FormatWith<'_, I, F>$/;"	f
+new_format_default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format_default<I>(iter: I, separator: &str) -> Format<'_, I>$/;"	f
+new_losing_trick_count	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn new_losing_trick_count(self) -> f64 {$/;"	f
+new_shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn new_shape($/;"	f
+next	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^            fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations_with_replacement.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^            fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    fn next(&mut self) -> Option<I::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tee.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_eq_impl.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_longest.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^            fn next(&mut self) -> Option<Self::Item>$/;"	f
+next	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
+next	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn next(self) -> Seat {$/;"	f
+next_back	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^            fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_longest.rs	/^    fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^            fn next_back(&mut self) -> Option<Self::Item> {$/;"	f
+next_element	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn next_element(&mut self) -> Option<I::Item> {$/;"	f
+next_tuple	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn next_tuple<T>(&mut self) -> Option<T>$/;"	f
+nth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn nth(&mut self, n: usize) -> Option<Self::Item> {$/;"	f
+nth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {$/;"	f
+num_items	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            fn num_items() -> usize {$/;"	f
+num_items	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn num_items() -> usize;$/;"	f
+or_default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn or_default(self) -> (A, B)$/;"	f
+pad_using	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn pad_using<F>(self, min: usize, f: F) -> PadUsing<Self, F>$/;"	f
+pad_using	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^pub fn pad_using<I, F>(iter: I, min: usize, filler: F) -> PadUsing<I, F>$/;"	f
+partition	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn partition<'a, A: 'a, I, F>(iter: I, mut pred: F) -> usize$/;"	f
+partition_map	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn partition_map<A, B, F, L, R>(self, mut predicate: F) -> (A, B)$/;"	f
+partition_result	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn partition_result<A, B, T, E>(self) -> (A, B)$/;"	f
+peek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    pub fn peek(&mut self) -> Option<&I::Item> {$/;"	f
+peek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    pub fn peek(&mut self) -> Option<&I::Item> {$/;"	f
+peek_nth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    pub fn peek_nth(&mut self, n: usize) -> Option<&I::Item> {$/;"	f
+peek_nth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^pub fn peek_nth<I>(iterable: I) -> PeekNth<I::IntoIter>$/;"	f
+peeking_next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    fn peeking_next<F>(&mut self, accept: F) -> Option<Self::Item>$/;"	f
+peeking_next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    fn peeking_next<F>(&mut self, accept: F) -> Option<Self::Item>$/;"	f
+peeking_next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^            fn peeking_next<F>(&mut self, accept: F) -> Option<Self::Item>$/;"	f
+peeking_next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^    fn peeking_next<F>(&mut self, accept: F) -> Option<Self::Item>$/;"	f
+peeking_next_by_clone	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^macro_rules! peeking_next_by_clone {$/;"	d
+peeking_take_while	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn peeking_take_while<F>(&mut self, accept: F) -> PeekingTakeWhile<Self, F>$/;"	f
+peeking_take_while	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^pub fn peeking_take_while<I, F>(iter: &mut I, f: F) -> PeekingTakeWhile<I, F>$/;"	f
+permutations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn permutations(self, k: usize) -> Permutations<Self>$/;"	f
+permutations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^pub fn permutations<I: Iterator>(iter: I, k: usize) -> Permutations<I> {$/;"	f
+pick	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn pick(&mut self, num: usize) -> Option<Cards> {$/;"	f
+pick_rng	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn pick_rng<R: Rng>(&mut self, rng: &mut R, mut num: usize) -> Option<Cards> {$/;"	f
+position_max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max(self) -> Option<usize>$/;"	f
+position_max_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max_by<F>(self, mut compare: F) -> Option<usize>$/;"	f
+position_max_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max_by_key<K, F>(self, mut key: F) -> Option<usize>$/;"	f
+position_min	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_min(self) -> Option<usize>$/;"	f
+position_min_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_min_by<F>(self, mut compare: F) -> Option<usize>$/;"	f
+position_min_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_min_by_key<K, F>(self, mut key: F) -> Option<usize>$/;"	f
+position_minmax	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_minmax(self) -> MinMaxResult<usize>$/;"	f
+position_minmax_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_minmax_by<F>(self, mut compare: F) -> MinMaxResult<usize>$/;"	f
+position_minmax_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_minmax_by_key<K, F>(self, mut key: F) -> MinMaxResult<usize>$/;"	f
+positions	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn positions<I, F>(iter: I, f: F) -> Positions<I, F>$/;"	f
+positions	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn positions<P>(self, predicate: P) -> Positions<Self, P>$/;"	f
+pow_scalar_base	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn pow_scalar_base(base: usize, exp: SizeHint) -> SizeHint {$/;"	f
+powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn powerset(self) -> Powerset<Self>$/;"	f
+powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^pub fn powerset<I>(src: I) -> Powerset<I>$/;"	f
+prefill	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn prefill(&mut self, len: usize) {$/;"	f
+private	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^mod private {$/;"	m
+process_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^pub fn process_results<I, F, T, E, R>(iterable: I, processor: F) -> Result<R, E>$/;"	f
+product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn product(self) -> HashMap<K, V>$/;"	f
+product1	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn product1<P>(mut self) -> Option<P>$/;"	f
+push_next_group	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn push_next_group(&mut self, group: Vec<I::Item>) {$/;"	f
+put_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    pub fn put_back(&mut self, x: I::Item) {$/;"	f
+put_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn put_back<I>(iterable: I) -> PutBack<I::IntoIter>$/;"	f
+put_back	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^    pub fn put_back(&mut self, x: I::Item) {$/;"	f
+put_back_n	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^pub fn put_back_n<I>(iterable: I) -> PutBackN<I::IntoIter>$/;"	f
+rciter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^pub fn rciter<I>(iterable: I) -> RcIter<I::IntoIter>$/;"	f
+reduce	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn reduce<F>(self, f: F) -> T$/;"	f
+remaining	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    fn remaining(&self) -> CompleteStateRemaining {$/;"	f
+repeat_call	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub fn repeat_call<F, A>(function: F) -> RepeatCall<F>$/;"	f
+repeat_n	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^pub fn repeat_n<A>(element: A, n: usize) -> RepeatN<A>$/;"	f
+replace_item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^                macro_rules! replace_item{($i:ident) => {$/;"	d
+reset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn reset(&mut self) {$/;"	f
+reset_peek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    pub fn reset_peek(&mut self) {$/;"	f
+rev	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn rev<I>(iterable: I) -> iter::Rev<I::IntoIter>$/;"	f
+rev_for_each_ident	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^macro_rules! rev_for_each_ident{$/;"	d
+right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn right(self) -> Option<B> {$/;"	f
+right_and_then	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn right_and_then<F, R>(self, f: F) -> EitherOrBoth<A, R>$/;"	f
+set_from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn set_from<'a, A: 'a, J>(&mut self, from: J) -> usize$/;"	f
+shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn shape(self) -> Vec<u8> {$/;"	f
+shape_error_unbal_parentheses_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^fn shape_error_unbal_parentheses_test() {$/;"	f
+shape_parens_ok_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^fn shape_parens_ok_test() {$/;"	f
+sift_down	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^fn sift_down<T, S>(heap: &mut [T], index: usize, mut less_than: S)$/;"	f
+size_hint	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^            fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peeking_take_while.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tee.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_eq_impl.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_longest.rs	/^    fn size_hint(&self) -> (usize, Option<usize>) {$/;"	f
+size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^            fn size_hint(&self) -> (usize, Option<usize>)$/;"	f
+sorted	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn sorted<I>(iterable: I) -> VecIntoIter<I::Item>$/;"	f
+sorted	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted(self) -> VecIntoIter<Self::Item>$/;"	f
+sorted_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted_by<F>(self, cmp: F) -> VecIntoIter<Self::Item>$/;"	f
+sorted_by_cached_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted_by_cached_key<K, F>(self, f: F) -> VecIntoIter<Self::Item>$/;"	f
+sorted_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted_by_key<K, F>(self, f: F) -> VecIntoIter<Self::Item>$/;"	f
+sorted_unstable	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted_unstable(self) -> VecIntoIter<Self::Item>$/;"	f
+sorted_unstable_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted_unstable_by<F>(self, cmp: F) -> VecIntoIter<Self::Item>$/;"	f
+sorted_unstable_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sorted_unstable_by_key<K, F>(self, f: F) -> VecIntoIter<Self::Item>$/;"	f
+spades	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn spades(self) -> Cards {$/;"	f
+step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn step<I>(iter: I, step: usize) -> Step<I>$/;"	f
+step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn step(&mut self, client: usize) -> Option<I::Item> {$/;"	f
+step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn step(&self, client: usize) -> Option<I::Item> {$/;"	f
+step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn step(&self, client: usize) -> Option<I::Item>$/;"	f
+step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn step(self, n: usize) -> Step<Self>$/;"	f
+step_buffering	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn step_buffering(&mut self, client: usize) -> Option<I::Item> {$/;"	f
+step_current	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn step_current(&mut self) -> Option<I::Item> {$/;"	f
+structs	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub mod structs {$/;"	m
+sub	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn sub(self, rhs: Self) -> Self {$/;"	f
+sub	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    fn sub(mut self, rhs: Self) -> Self::Output {$/;"	f
+sub_assign	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn sub_assign(&mut self, rhs: Self) {$/;"	f
+sub_scalar	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn sub_scalar(sh: SizeHint, x: usize) -> SizeHint {$/;"	f
+sum	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn sum(self) -> u8 {$/;"	f
+sum	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn sum(self) -> usize {$/;"	f
+sum	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn sum(self) -> HashMap<K, V>$/;"	f
+sum1	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sum1<S>(mut self) -> Option<S>$/;"	f
+take_while_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn take_while_ref<I, F>(iter: &mut I, f: F) -> TakeWhileRef<I, F>$/;"	f
+take_while_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn take_while_ref<F>(&mut self, accept: F) -> TakeWhileRef<Self, F>$/;"	f
+tee	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn tee(self) -> (Tee<Self>, Tee<Self>)$/;"	f
+test_hcp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn test_hcp() {$/;"	f
+traits	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub mod traits {$/;"	m
+transpose_result	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^fn transpose_result<T, E>(result: Result<Option<T>, E>) -> Option<Result<T, E>> {$/;"	f
+tree_fold1	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn tree_fold1<F>(mut self, mut f: F) -> Option<Self::Item>$/;"	f
+try_collect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn try_collect<T, U, E>(self) -> Result<U, E>$/;"	f
+tuple_combinations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn tuple_combinations<T, I>(iter: I) -> TupleCombinations<I, T>$/;"	f
+tuple_combinations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn tuple_combinations<T>(self) -> TupleCombinations<Self, T>$/;"	f
+tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn tuple_windows<T>(self) -> TupleWindows<Self, T>$/;"	f
+tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub fn tuple_windows<I, T>(mut iter: I) -> TupleWindows<I, T>$/;"	f
+tuples	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn tuples<T>(self) -> Tuples<Self, T>$/;"	f
+tuples	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub fn tuples<I, T>(iter: I) -> Tuples<I, T>$/;"	f
+unfold	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub fn unfold<A, St, F>(initial_state: St, f: F) -> Unfold<St, F>$/;"	f
+unicode	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn unicode(self) -> char {$/;"	f
+unicode	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn unicode(self) -> char {$/;"	f
+unicode_test	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn unicode_test() {$/;"	f
+unique	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn unique(self) -> Unique<Self>$/;"	f
+unique	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^pub fn unique<I>(iter: I) -> Unique<I>$/;"	f
+unique_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn unique_by<V, F>(self, f: F) -> UniqueBy<Self, V, F>$/;"	f
+unique_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^pub fn unique_by<I, V, F>(iter: I, f: F) -> UniqueBy<I, V, F>$/;"	f
+update	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn update<I, F>(iter: I, f: F) -> Update<I, F>$/;"	f
+update	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn update<F>(self, updater: F) -> Update<Self, F>$/;"	f
+value	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn value(self) -> V {$/;"	f
+value	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn value(self) -> V;$/;"	f
+values	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn values(self) -> HandValuation {$/;"	f
+while_some	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn while_some<I>(iter: I) -> WhileSome<I> {$/;"	f
+while_some	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn while_some<A>(self) -> WhileSome<Self>$/;"	f
+with_hcp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn with_hcp(mut self, hcp: u8) -> Self {$/;"	f
+with_lhcp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn with_lhcp(mut self, lhcp: u8) -> Self {$/;"	f
+with_position	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn with_position(self) -> WithPosition<Self>$/;"	f
+with_position	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/with_position.rs	/^pub fn with_position<I>(iter: I) -> WithPosition<I>$/;"	f
+with_shcp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn with_shcp(mut self, shcp: u8) -> Self {$/;"	f
+with_value	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    pub fn with_value(mut self, value: I::Item) -> Self {$/;"	f
+zip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn zip<I, J>(i: I, j: J) -> Zip<I::IntoIter, J::IntoIter>$/;"	f
+zip_eq	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn zip_eq<J>(self, other: J) -> ZipEq<Self, J::IntoIter>$/;"	f
+zip_eq	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_eq_impl.rs	/^pub fn zip_eq<I, J>(i: I, j: J) -> ZipEq<I::IntoIter, J::IntoIter>$/;"	f
+zip_longest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn zip_longest<J>(self, other: J) -> ZipLongest<Self, J::IntoIter>$/;"	f
+zip_longest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_longest.rs	/^pub fn zip_longest<T, U>(a: T, b: U) -> ZipLongest<T, U>$/;"	f

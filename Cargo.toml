@@ -1,0 +1,11 @@
+[package]
+name = "rusty-dealer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bridge-deck = {git = "https://github.com/droundy/bridge-cards"}
+# druid = "0.7.0"
+itertools = "0.10.3"
