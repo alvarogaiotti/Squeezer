@@ -75,6 +75,7 @@ DuplicatesBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iterto
 EMPTY	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const EMPTY: Cards = Cards { bits: 0 };$/;"	c
 EitherOrBoth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^pub enum EitherOrBoth<A, B> {$/;"	g
 Err	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Err = String;$/;"	T
+Evaluator	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^pub struct Evaluator {}$/;"	s
 ExactlyOneError	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^pub struct ExactlyOneError<I>$/;"	s
 FilterMapOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct FilterMapOk<I, F> {$/;"	s
 FilterOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct FilterOk<I, F> {$/;"	s
@@ -264,6 +265,7 @@ Seat	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^pub enum
 Shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub struct Shape {$/;"	s
 ShapeFactory	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub struct ShapeFactory<'a> {$/;"	s
 SizeHint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub type SizeHint = (usize, Option<usize>);$/;"	T
+Smartstack	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^pub struct Smartstack {$/;"	s
 State	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        type State<T> = Result<T, Option<T>>;$/;"	T
 Step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Step<I> {$/;"	s
 Suit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub enum Suit {$/;"	g
@@ -398,6 +400,7 @@ duplicates_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itert
 enumerate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn enumerate<I>(iterable: I) -> iter::Enumerate<I::IntoIter>$/;"	f
 eq	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn eq(&self, other: &Self) -> bool {$/;"	f
 equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn equal<I, J>(a: I, b: J) -> bool$/;"	f
+evaluate_correctly_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^fn evaluate_correctly_test() {$/;"	f
 exactly_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn exactly_one(mut self) -> Result<Self::Item, ExactlyOneError<Self>>$/;"	f
 exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn exceeds(self, upper: Self) -> bool {$/;"	f
 exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn exceeds(self, upper: HandValuation) -> bool {$/;"	f
@@ -654,6 +657,8 @@ new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new() -> Self {$/;"	f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new(_shape: Option<&str>) -> Self {$/;"	f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new(msg: &str) -> Self {$/;"	f
+new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^    pub fn new(shape: Shape) -> Self {$/;"	f
+new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^    pub fn new(values: &[u8]) -> impl Fn(&Cards) -> u8 {$/;"	f
 new_chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub fn new_chunks<J>(iter: J, size: usize) -> IntoChunks<J::IntoIter>$/;"	f
 new_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format<I, F>(iter: I, separator: &str, f: F) -> FormatWith<'_, I, F>$/;"	f
 new_format_default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format_default<I>(iter: I, separator: &str) -> Format<'_, I>$/;"	f
@@ -752,6 +757,7 @@ powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-
 powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^pub fn powerset<I>(src: I) -> Powerset<I>$/;"	f
 prefill	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn prefill(&mut self, len: usize) {$/;"	f
 prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^mod prelude {$/;"	m
+print_type_of	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^fn print_type_of<T>(_: &T) {$/;"	f
 private	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^mod private {$/;"	m
 process_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^pub fn process_results<I, F, T, E, R>(iterable: I, processor: F) -> Result<R, E>$/;"	f
 product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn product(self) -> HashMap<K, V>$/;"	f

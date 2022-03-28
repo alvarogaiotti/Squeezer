@@ -1,6 +1,7 @@
 mod deal;
 mod hand;
 mod shape;
+mod smartstack;
 
 mod prelude {
     pub const SUITS: usize = 4;
@@ -9,6 +10,7 @@ mod prelude {
     pub use crate::deal::*;
     pub use crate::hand::*;
     pub use crate::shape::*;
+    pub use crate::smartstack::*;
     pub use bridge_deck::{Card, Cards, Suit};
     pub use itertools::{any, Itertools};
     pub use std::{
@@ -22,6 +24,9 @@ mod prelude {
 use prelude::*;
 
 fn main() {
-    let constraint = Constraints::None;
-    let _placeholder = Deal::new(constraint);
+    let mut deck = Cards::ALL;
+}
+
+fn print_type_of<T>(_: &T) {
+    println!("{}", std::any::type_name::<T>())
 }
