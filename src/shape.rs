@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::prelude::*;
 
 ///Error for wrong Shape pattern passed to ShapeFactory.
@@ -26,21 +28,24 @@ impl Error for WrongShapeError {
 }
 
 ///A Shape producing struct, with some sort of cache. Really doubious.
-pub struct ShapeFactory<'a> {
-    cache_table: HashMap<&'a str, Shape>,
+#[derive(Debug, PartialEq, Eq)]
+pub struct ShapeFactory<'a, 'b> {
+    cache_table: HashMap<&'b str, Shape<'a>>,
+    op_cache: HashMap<(&'a Shape<'a>, &'a Shape<'a>, &'b str), &'a Shape<'a>>,
 }
 
-impl<'a> ShapeFactory<'a> {
+impl<'a, 'b> ShapeFactory<'a, 'b> {
     pub const JOKER: char = 'x';
 
     pub fn new() -> Self {
         ShapeFactory {
             cache_table: HashMap::new(),
+            op_cache: HashMap::new(),
         }
     }
     pub fn new_shape(
-        &mut self,
-        shape: Option<&'a str>,
+        &'b mut self,
+        shape: Option<&'b str>,
     ) -> Result<Shape, Box<(dyn Error + 'static)>> {
         if let Some(pattern) = shape {
             //if a pattern is provided
@@ -54,7 +59,7 @@ impl<'a> ShapeFactory<'a> {
                     min_ls: [13, 13, 13, 13],
                     max_ls: [13, 13, 13, 13],
                     table: [false; SHAPE_COMBINATIONS],
-                    op_cache: HashMap::new(),
+                    father: Rc::new(RefCell::new(self)),
                 };
                 let shape_pattern: Vec<char> = pattern.chars().into_iter().collect();
                 let parsed: Vec<u8> = Vec::new();
@@ -68,7 +73,7 @@ impl<'a> ShapeFactory<'a> {
                 min_ls: [4, 3, 3, 3],
                 max_ls: [4, 3, 3, 3],
                 table: [false; SHAPE_COMBINATIONS],
-                op_cache: HashMap::new(),
+                father: Rc::new(RefCell::new(self)),
             };
             let pattern: Vec<char> = vec!['4', '3', '3', '3'];
             let parsed: Vec<u8> = Vec::new();
@@ -77,7 +82,123 @@ impl<'a> ShapeFactory<'a> {
             Ok(self.cache_table.get("4333").unwrap().clone())
         }
     }
+    fn add(&'a self, lhs: &'a Shape<'a>, rhs: &'a Shape<'a>, op: &str) -> &Shape {
+        if let Some(shape) = self.op_cache.get(&(lhs, rhs, "+")) {
+            return shape.clone();
+        } else {
+            let mut min_ls = [0u8; 4];
+            let mut max_ls = [0u8; 4];
+            for index in 0..4 {
+                min_ls[index] = u8::min(lhs.min_ls[index], rhs.min_ls[index]);
+                max_ls[index] = u8::max(lhs.max_ls[index], rhs.max_ls[index]);
+            }
+            let mut table = [false; SHAPE_COMBINATIONS];
+            for (i, bit) in lhs
+                .table
+                .iter()
+                .zip(rhs.table.iter())
+                .map(|(&x, &y)| x | y)
+                .enumerate()
+            {
+                table[i] = bit;
+            }
+            let shape = self.from_table(table, LenHint::Lenghts { min_ls, max_ls });
+            self.op_cache.insert((lhs, rhs, "+"), &shape);
+            self.op_cache.insert((rhs, lhs, "+"), &shape);
+            &shape
+        }
+    }
+    fn sub(&'a self, lhs: &'a Shape<'a>, rhs: &'a Shape<'a>, op: &str) -> &Shape {
+        if let Some(shape) = self.op_cache.get(&(lhs, rhs, "-")) {
+            return shape.clone();
+        } else {
+            let mut min_ls = [0u8; 4];
+            let mut max_ls = [0u8; 4];
+            for index in 0..4 {
+                min_ls[index] = u8::min(lhs.min_ls[index], rhs.min_ls[index]);
+                max_ls[index] = u8::max(lhs.max_ls[index], rhs.max_ls[index]);
+            }
+            let mut table = [false; SHAPE_COMBINATIONS];
+            for (i, bit) in lhs
+                .table
+                .iter()
+                .zip(rhs.table.iter())
+                .map(|(&x, &y)| x ^ y)
+                .enumerate()
+            {
+                table[i] = bit;
+            }
+            let shape = self.from_table(table, LenHint::Lenghts { min_ls, max_ls });
+            self.op_cache.insert((lhs, rhs, "-"), &shape);
+            self.op_cache.insert((rhs, lhs, "-"), &shape);
+            &shape
+        }
+    }
+    pub fn from_table(
+        &'a mut self,
+        table: [bool; SHAPE_COMBINATIONS],
+        len_hints: LenHint,
+    ) -> &Shape {
+        match len_hints {
+            LenHint::Lenghts { min_ls, max_ls } => {
+                let shape = Shape {
+                    table,
+                    min_ls,
+                    max_ls,
+                    father: Rc::new(RefCell::new(self)),
+                };
+                let stringa = format!(
+                    "{}{}{}{}{}{}{}{}",
+                    min_ls[0],
+                    min_ls[1],
+                    min_ls[2],
+                    min_ls[3],
+                    max_ls[0],
+                    max_ls[1],
+                    max_ls[2],
+                    max_ls[3],
+                )
+                .as_str();
+                self.cache_table.insert(stringa.clone(), shape);
+                &shape
+            }
+            LenHint::None => {
+                let mut shape = Shape {
+                    table,
+                    min_ls: [0, 0, 0, 0],
+                    max_ls: [0, 0, 0, 0],
+                    father: Rc::new(RefCell::new(self)),
+                };
+                let min_ls = [13, 13, 13, 13];
+                let max_ls = [0, 0, 0, 0];
+                for nonflat in (0..14).permutations(4) {
+                    if shape.table[shape.flatten(nonflat)] {
+                        for (dim, coord) in nonflat.iter().enumerate() {
+                            shape.min_ls[dim] = u8::min(shape.min_ls[dim], *coord);
+                            shape.max_ls[dim] = u8::max(shape.min_ls[dim], *coord);
+                        }
+                    }
+                }
+                let stringa = format!(
+                    "{}{}{}{}{}{}{}{}",
+                    min_ls[0],
+                    min_ls[1],
+                    min_ls[2],
+                    min_ls[3],
+                    max_ls[0],
+                    max_ls[1],
+                    max_ls[2],
+                    max_ls[3],
+                )
+                .as_str();
+                self.cache_table.insert(stringa.clone(), shape);
+                self.cache_table.get(stringa.clone()).unwrap()
+            }
+        }
+    }
 }
+
+type Father<'a, 'b> = Rc<RefCell<&'a mut ShapeFactory<'a, 'b>>>;
 
 ///A shape, a set of shape really: uses a 4D table to keep track of the
 ///various distributions, so membership check is a matter of checking if a array
@@ -85,19 +206,19 @@ impl<'a> ShapeFactory<'a> {
 ///future.
 ///TODO:Implement a better cache instead of a HashMap.
 #[derive(Debug, Clone, Eq)]
-pub struct Shape {
+pub struct Shape<'a, 'b> {
     min_ls: [u8; 4],
     max_ls: [u8; 4],
     table: [bool; SHAPE_COMBINATIONS],
-    op_cache: HashMap<(&'static str, [bool; SHAPE_COMBINATIONS]), Shape>,
+    father: Father<'a, 'b>,
 }
-impl Hash for Shape {
+impl Hash for Shape<'_, '_> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.table.hash(hasher);
     }
 }
 
-impl PartialEq for Shape {
+impl PartialEq for Shape<'_> {
     fn ne(&self, other: &Self) -> bool {
         self.table != other.table
     }
@@ -107,7 +228,7 @@ impl PartialEq for Shape {
     }
 }
 
-impl Shape {
+impl Shape<'_> {
     pub fn new(_shape: Option<&str>) -> Self {
         todo!()
     }
@@ -210,23 +331,6 @@ impl Shape {
         let (s, h, d, c) = shape.iter().map(|&x| x as usize).next_tuple().unwrap();
         ((((s * (RANKS + 1) as usize + h) * (RANKS + 1) as usize) + d) * (RANKS + 1) as usize) + c
     }
-
-    pub fn from_table(table: [bool; SHAPE_COMBINATIONS], len_hints: LenHint) -> Self {
-        match len_hints {
-            LenHint::Lenghts { min_ls, max_ls } => Self {
-                table,
-                min_ls,
-                max_ls,
-                op_cache: HashMap::new(),
-            },
-            LenHint::None => Self {
-                table,
-                min_ls: [0, 0, 0, 0],
-                max_ls: [0, 0, 0, 0],
-                op_cache: HashMap::new(),
-            },
-        }
-    }
 }
 
 ///Enum used to pass hint for suit lenghts
@@ -242,66 +346,22 @@ pub trait Membership<Contenuto> {
     fn includes(&self, contenuto: &Contenuto) -> bool;
 }
 
-impl Membership<Hand> for Shape {
+impl Membership<Hand> for Shape<'_> {
     fn includes(&self, contenuto: &Hand) -> bool {
         self.table[self.flatten(contenuto.shape())] as bool
     }
 }
-impl std::ops::Add for Shape {
-    type Output = Shape;
-    fn add(mut self, rhs: Self) -> Self::Output {
-        if let Some(shape) = self.op_cache.get(&("+", rhs.table)) {
-            return shape.clone();
-        } else {
-            let mut min_ls = [0u8; 4];
-            let mut max_ls = [0u8; 4];
-            for index in 0..4 {
-                min_ls[index] = u8::min(self.min_ls[index], rhs.min_ls[index]);
-                max_ls[index] = u8::max(self.max_ls[index], rhs.max_ls[index]);
-            }
-            let mut table = [false; SHAPE_COMBINATIONS];
-            for (i, bit) in self
-                .table
-                .iter()
-                .zip(rhs.table.iter())
-                .map(|(&x, &y)| x | y)
-                .enumerate()
-            {
-                table[i] = bit;
-            }
-            let shape = Shape::from_table(table, LenHint::Lenghts { min_ls, max_ls });
-            self.op_cache.insert(("+", rhs.table.clone()), shape);
-            self.op_cache.get(&("+", rhs.table)).unwrap().clone()
-        }
+impl<'a> std::ops::Add for Shape<'a> {
+    type Output = &'a Shape<'a>;
+    fn add(self, rhs: Self) -> Self::Output {
+        self.father.borrow_mut().add(&self, &rhs, "+")
     }
 }
 
-impl std::ops::Sub for Shape {
-    type Output = Shape;
-    fn sub(mut self, rhs: Self) -> Self::Output {
-        if let Some(shape) = self.op_cache.get(&("-", rhs.table)) {
-            return shape.clone();
-        } else {
-            let mut min_ls = [0u8; 4];
-            let mut max_ls = [0u8; 4];
-            for index in 0..4 {
-                min_ls[index] = u8::min(self.min_ls[index], rhs.min_ls[index]);
-                max_ls[index] = u8::max(self.max_ls[index], rhs.max_ls[index]);
-            }
-            let mut table = [false; SHAPE_COMBINATIONS];
-            for (i, bit) in self
-                .table
-                .iter()
-                .zip(&mut rhs.table.iter())
-                .map(|(&x, &y)| x | y)
-                .enumerate()
-            {
-                table[i] = bit;
-            }
-            let shape = Shape::from_table(table, LenHint::Lenghts { min_ls, max_ls });
-            self.op_cache.insert(("-", rhs.table), shape);
-            self.op_cache.get(&("-", rhs.table)).unwrap().clone()
-        }
+impl<'a> std::ops::Sub for Shape<'a> {
+    type Output = &'a Shape<'a>;
+    fn sub(self, rhs: Self) -> Self::Output {
+        &*self.father.borrow_mut().sub(&self, &rhs, "+")
     }
 }
 

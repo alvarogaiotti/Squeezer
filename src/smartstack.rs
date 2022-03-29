@@ -1,14 +1,14 @@
 use crate::prelude::*;
 
-pub struct Smartstack {
-    shape: Shape,
+pub struct Smartstack<'a> {
+    shape: Shape<'a>,
     evaluator: Evaluator,
     values: usize,
     predealt: bool,
     prepared: bool,
 }
 
-impl Smartstack {
+impl<'a> Smartstack<'a> {
     pub fn new(shape: Shape) -> Self {
         todo!()
     }

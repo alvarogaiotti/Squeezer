@@ -91,9 +91,7 @@ impl Deal {
         let south = Hand {
             cards: deck.pick(13).unwrap(),
         };
-        let west = Hand {
-            cards: deck.pick(13).unwrap(),
-        };
+        let west = Hand { cards: deck };
         [north, east, south, west]
     }
     fn check(&self, f: impl FnOnce(&Deal) -> bool) -> bool {
