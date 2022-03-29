@@ -1,17 +1,11 @@
 use crate::prelude::*;
 
-pub struct Smartstack<'a> {
-    shape: Shape<'a>,
+pub struct Smartstack {
+    //shape: Shape<'a>,
     evaluator: Evaluator,
     values: usize,
     predealt: bool,
     prepared: bool,
-}
-
-impl<'a> Smartstack<'a> {
-    pub fn new(shape: Shape) -> Self {
-        todo!()
-    }
 }
 
 pub struct Evaluator {}

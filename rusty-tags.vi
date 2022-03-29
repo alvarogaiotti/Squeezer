@@ -77,7 +77,6 @@ EitherOrBoth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iterto
 Err	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Err = String;$/;"	T
 Evaluator	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^pub struct Evaluator {}$/;"	s
 ExactlyOneError	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^pub struct ExactlyOneError<I>$/;"	s
-Father	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^type Father<'a, 'b> = Rc<RefCell<&'a mut ShapeFactory<'a, 'b>>>;$/;"	T
 FilterMapOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct FilterMapOk<I, F> {$/;"	s
 FilterOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct FilterOk<I, F> {$/;"	s
 FlattenOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^pub struct FlattenOk<I, T, E>$/;"	s
@@ -203,7 +202,7 @@ MapSpecialCase	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iter
 MapSpecialCaseFn	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub trait MapSpecialCaseFn<T> {$/;"	t
 MapSpecialCaseFnInto	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub struct MapSpecialCaseFnInto<U>(PhantomData<U>);$/;"	s
 MapSpecialCaseFnOk	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^pub struct MapSpecialCaseFnOk<F>(F);$/;"	s
-Membership	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub trait Membership<Contenuto> {$/;"	t
+Membership	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub trait Membership<'a, Contenuto> {$/;"	t
 Merge	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub type Merge<I, J> = MergeBy<I, J, MergeLte>;$/;"	T
 MergeBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct MergeBy<I, J, F>$/;"	s
 MergeJoinBy	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/merge_join.rs	/^pub struct MergeJoinBy<I: Iterator, J: Iterator, F> {$/;"	s
@@ -225,7 +224,7 @@ Output	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/s
 Output	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    type Output = <Vec<I::Item> as Index<J>>::Output;$/;"	T
 Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    type Output = Hand;$/;"	T
 Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    type Output = Seat;$/;"	T
-Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    type Output = &'a Shape<'a>;$/;"	T
+Output	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    type Output = Self;$/;"	T
 PER_SUITS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^const PER_SUITS: PerSuit<Suit> = PerSuit {$/;"	c
 PadUsing	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/pad_tail.rs	/^pub struct PadUsing<I, F> {$/;"	s
 PeekNth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^pub struct PeekNth<I>$/;"	s
@@ -242,8 +241,8 @@ Product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0
 PutBack	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct PutBack<I>$/;"	s
 PutBackN	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/put_back_n_impl.rs	/^pub struct PutBackN<I: Iterator> {$/;"	s
 QUEENS	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const QUEENS: Cards = Cards::EMPTY$/;"	c
+RANKS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^    pub const RANKS: u8 = 13;$/;"	c
 RANKS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^    pub const RANKS: u8 = 13;$/;"	c
-RANKS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^    pub const RANKS: u8 = 13;$/;"	c
 RcIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^pub struct RcIter<I> {$/;"	s
 RepeatCall	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub struct RepeatCall<F> {$/;"	s
 RepeatN	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^pub struct RepeatN<A> {$/;"	s
@@ -257,19 +256,18 @@ S7	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/l
 S8	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S8: Card = Card::new(Suit::Spades, 8);$/;"	c
 S9	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const S9: Card = Card::new(Suit::Spades, 9);$/;"	c
 SA	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SA: Card = Card::new(Suit::Spades, 14);$/;"	c
+SHAPE_COMBINATIONS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^    pub const SHAPE_COMBINATIONS: usize = 14usize.pow(4);$/;"	c
 SHAPE_COMBINATIONS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^    pub const SHAPE_COMBINATIONS: usize = 14usize.pow(4);$/;"	c
-SHAPE_COMBINATIONS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^    pub const SHAPE_COMBINATIONS: usize = 14usize.pow(4);$/;"	c
 SJ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SJ: Card = Card::new(Suit::Spades, 11);$/;"	c
 SK	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SK: Card = Card::new(Suit::Spades, 13);$/;"	c
 SPADES	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SPADES: Cards = Cards { bits: 0x7ffc << 48 };$/;"	c
 SQ	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const SQ: Card = Card::new(Suit::Spades, 12);$/;"	c
+SUITS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^    pub const SUITS: usize = 4;$/;"	c
 SUITS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^    pub const SUITS: usize = 4;$/;"	c
-SUITS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^    pub const SUITS: usize = 4;$/;"	c
 Seat	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^pub enum Seat {$/;"	g
-Shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub struct Shape<'a, 'b> {$/;"	s
-ShapeFactory	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub struct ShapeFactory<'a, 'b> {$/;"	s
+ShapeFactory	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub struct ShapeFactory<'a> {$/;"	s
 SizeHint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub type SizeHint = (usize, Option<usize>);$/;"	T
-Smartstack	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^pub struct Smartstack<'a> {$/;"	s
+Smartstack	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^pub struct Smartstack {$/;"	s
 State	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        type State<T> = Result<T, Option<T>>;$/;"	T
 Step	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub struct Step<I> {$/;"	s
 Suit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^pub enum Suit {$/;"	g
@@ -299,8 +297,7 @@ ZipLongest	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertool
 add	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn add(self, rhs: Self) -> Self {$/;"	f
 add	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn add(a: SizeHint, b: SizeHint) -> SizeHint {$/;"	f
 add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn add(self, rhs: usize) -> Self::Output {$/;"	f
-add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn add(&'a self, lhs: &'a Shape<'a>, rhs: &'a Shape<'a>, op: &str) -> &Shape {$/;"	f
-add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn add(self, rhs: Self) -> Self::Output {$/;"	f
+add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn add(self, rhs: &'a str) -> Self::Output {$/;"	f
 add_assign	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn add_assign(&mut self, rhs: Self) {$/;"	f
 add_scalar	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn add_scalar(sh: SizeHint, x: usize) -> SizeHint {$/;"	f
 additional_len	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/exactly_one_err.rs	/^    fn additional_len(&self) -> usize {$/;"	f
@@ -404,12 +401,12 @@ duplicates_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itert
 duplicates_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn duplicates_by<V, F>(self, f: F) -> DuplicatesBy<Self, V, F>$/;"	f
 east	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn east(&self) -> Hand {$/;"	f
 enumerate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn enumerate<I>(iterable: I) -> iter::Enumerate<I::IntoIter>$/;"	f
-eq	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn eq(&self, other: &Self) -> bool {$/;"	f
 equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn equal<I, J>(a: I, b: J) -> bool$/;"	f
 evaluate_correctly_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^fn evaluate_correctly_test() {$/;"	f
 exactly_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn exactly_one(mut self) -> Result<Self::Item, ExactlyOneError<Self>>$/;"	f
 exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn exceeds(self, upper: Self) -> bool {$/;"	f
 exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn exceeds(self, upper: HandValuation) -> bool {$/;"	f
+factory_get_pattern_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^fn factory_get_pattern_test() {$/;"	f
 filter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn filter<I>(&mut self, item: I) -> Option<I>$/;"	f
 filter_map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn filter_map_ok<I, F, T, U, E>(iter: I, f: F) -> FilterMapOk<I, F>$/;"	f
 filter_map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn filter_map_ok<F, T, U, E>(self, f: F) -> FilterMapOk<Self, F>$/;"	f
@@ -418,7 +415,7 @@ filter_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools
 find_or_first	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn find_or_first<P>(mut self, mut predicate: P) -> Option<Self::Item>$/;"	f
 find_or_last	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn find_or_last<P>(mut self, mut predicate: P) -> Option<Self::Item>$/;"	f
 find_position	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn find_position<P>(&mut self, mut pred: P) -> Option<(usize, Self::Item)>$/;"	f
-flatten	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn flatten(&self, shape: Vec<u8>) -> usize {$/;"	f
+flatten	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn flatten(shape: Vec<u8>) -> usize {$/;"	f
 flatten_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/flatten_ok.rs	/^pub fn flatten_ok<I, T, E>(iter: I) -> FlattenOk<I, T, E>$/;"	f
 flatten_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn flatten_ok<T, E>(self) -> FlattenOk<Self, T, E>$/;"	f
 flip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn flip(self) -> EitherOrBoth<B, A> {$/;"	f
@@ -493,15 +490,14 @@ from	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn f
 from_complete	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^        fn from_complete(complete_state: CompleteState) -> usize {$/;"	f
 from_str	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn from_str(s: &str) -> Result<Self, Self::Err> {$/;"	f
 from_str	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn from_str(hand: &str) -> Result<Hand, String> {$/;"	f
-from_table	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn from_table($/;"	f
 generate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn generate(&mut self) -> Item {$/;"	f
 generate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/intersperse.rs	/^    fn generate(&mut self) -> Item;$/;"	f
 get_next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn get_next(&mut self) -> bool {$/;"	f
+get_pattern	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn get_pattern($/;"	f
 group_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn group_by<K, F>(self, key: F) -> GroupBy<K, Self, F>$/;"	f
 group_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn group_key(&mut self, client: usize) -> K {$/;"	f
 has_left	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn has_left(&self) -> bool {$/;"	f
 has_right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn has_right(&self) -> bool {$/;"	f
-hash	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn hash<H: Hasher>(&self, hasher: &mut H) {$/;"	f
 hcp	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn hcp(self) -> usize {$/;"	f
 heapify	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^fn heapify<T, S>(data: &mut [T], mut less_than: S)$/;"	f
 hearts	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn hearts(self) -> Cards {$/;"	f
@@ -525,7 +521,7 @@ index_mut	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b84
 index_mut	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn index_mut(&mut self, index: Suit) -> &mut T {$/;"	f
 inner	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        fn inner<T, II, FF>(stop: usize, it: &mut II, f: &mut FF) -> State<T>$/;"	f
 inner0	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^        fn inner0<T, II, FF>(it: &mut II, f: &mut FF) -> State<T>$/;"	f
-insert	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn insert($/;"	f
+insert	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn insert(&mut self, mut it: Vec<char>) -> Result<(), Box<dyn Error + 'static>> {$/;"	f
 insert1	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn insert1(&mut self, shape: Vec<u8>, safe: bool) -> Result<(), Box<dyn Error>> {$/;"	f
 interleave	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn interleave<I, J>(i: I, j: J) -> Interleave<<I as IntoIterator>::IntoIter, <J as IntoIterator>::IntoIter>$/;"	f
 interleave	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn interleave<J>(self, other: J) -> Interleave<Self, J::IntoIter>$/;"	f
@@ -557,6 +553,8 @@ iproduct	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-
 is_both	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn is_both(&self) -> bool {$/;"	f
 is_done	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    pub fn is_done(&self) -> bool {$/;"	f
 is_left	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn is_left(&self) -> bool {$/;"	f
+is_not_in	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn is_not_in(&mut self, non_contenuto: &Contenuto, pattern: &'a str) -> bool;$/;"	f
+is_not_in	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn is_not_in(&mut self, non_contenuto: &Hand, pattern: &'a str) -> bool {$/;"	f
 is_right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn is_right(&self) -> bool {$/;"	f
 iter	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn iter() -> impl Iterator<Item = Suit> {$/;"	f
 iter	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn iter(&self) -> std::slice::Iter<'_, T> {$/;"	f
@@ -591,8 +589,8 @@ left_shift_push	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/ite
 left_shift_push	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn left_shift_push(&mut self, item: Self::Item);$/;"	f
 len	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn len(&self) -> usize {$/;"	f
 lookup_buffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn lookup_buffer(&mut self, client: usize) -> Option<I::Item> {$/;"	f
+main	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^fn main() {$/;"	f
 main	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^fn main() {$/;"	f
-main	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^fn main() {$/;"	f
 make	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn make(&mut self, v: V) -> Self::Container {$/;"	f
 make	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn make(&mut self, value: V) -> Self::Container;$/;"	f
 map	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn map<U, F: Fn(T) -> U>(self, f: F) -> PerSuit<U> {$/;"	f
@@ -649,7 +647,6 @@ multiunzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertool
 multizip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^pub fn multizip<T, U>(t: U) -> Zip<T>$/;"	f
 n	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/combinations.rs	/^    pub fn n(&self) -> usize { self.pool.len() }$/;"	f
 name	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn name(self) -> &'static str {$/;"	f
-ne	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn ne(&self, other: &Self) -> bool {$/;"	f
 new	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn new() -> Self {$/;"	f
 new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn new(iter: I) -> Self {$/;"	f
 new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn new(size: usize) -> Self {$/;"	f
@@ -662,15 +659,13 @@ new	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn new(func: Constraints, factory: &mut ShapeFactory) -> Self {$/;"	f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn new() -> Self {$/;"	f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new() -> Self {$/;"	f
-new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new(_shape: Option<&str>) -> Self {$/;"	f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new(msg: &str) -> Self {$/;"	f
-new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^    pub fn new(shape: Shape) -> Self {$/;"	f
 new	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^    pub fn new(values: &[u8]) -> impl Fn(&Cards) -> u8 {$/;"	f
 new_chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^pub fn new_chunks<J>(iter: J, size: usize) -> IntoChunks<J::IntoIter>$/;"	f
 new_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format<I, F>(iter: I, separator: &str, f: F) -> FormatWith<'_, I, F>$/;"	f
 new_format_default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format_default<I>(iter: I, separator: &str) -> Format<'_, I>$/;"	f
 new_losing_trick_count	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn new_losing_trick_count(self) -> f64 {$/;"	f
-new_shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new_shape($/;"	f
+new_shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new_shape(&mut self, shape: Option<&'a str>) -> Result<(), Box<(dyn Error + 'static)>> {$/;"	f
 next	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
 next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
 next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
@@ -749,7 +744,7 @@ permutations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iterto
 permutations	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^pub fn permutations<I: Iterator>(iter: I, k: usize) -> Permutations<I> {$/;"	f
 pick	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn pick(&mut self, num: usize) -> Option<Cards> {$/;"	f
 pick_rng	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn pick_rng<R: Rng>(&mut self, rng: &mut R, mut num: usize) -> Option<Cards> {$/;"	f
-polish_club	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^fn polish_club(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {$/;"	f
+polish_club	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^fn polish_club(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {$/;"	f
 position_max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max(self) -> Option<usize>$/;"	f
 position_max_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max_by<F>(self, mut compare: F) -> Option<usize>$/;"	f
 position_max_by_key	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max_by_key<K, F>(self, mut key: F) -> Option<usize>$/;"	f
@@ -765,9 +760,9 @@ pow_scalar_base	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/ite
 powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn powerset(self) -> Powerset<Self>$/;"	f
 powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^pub fn powerset<I>(src: I) -> Powerset<I>$/;"	f
 prefill	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn prefill(&mut self, len: usize) {$/;"	f
+prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^mod prelude {$/;"	m
 prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^mod prelude {$/;"	m
-prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^mod prelude {$/;"	m
-print_type_of	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/realmain.rs	/^fn print_type_of<T>(_: &T) {$/;"	f
+print_type_of	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^fn print_type_of<T>(_: &T) {$/;"	f
 private	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^mod private {$/;"	m
 process_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^pub fn process_results<I, F, T, E, R>(iterable: I, processor: F) -> Result<R, E>$/;"	f
 product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn product(self) -> HashMap<K, V>$/;"	f
@@ -780,6 +775,7 @@ put_back_n	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertool
 rciter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^pub fn rciter<I>(iterable: I) -> RcIter<I::IntoIter>$/;"	f
 reduce	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn reduce<F>(self, f: F) -> T$/;"	f
 remaining	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/permutations.rs	/^    fn remaining(&self) -> CompleteStateRemaining {$/;"	f
+remove	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn remove(&mut self, rhs: &'a str) {$/;"	f
 repeat_call	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub fn repeat_call<F, A>(function: F) -> RepeatCall<F>$/;"	f
 repeat_n	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/repeatn.rs	/^pub fn repeat_n<A>(element: A, n: usize) -> RepeatN<A>$/;"	f
 replace_item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^                macro_rules! replace_item{($i:ident) => {$/;"	d
@@ -792,6 +788,7 @@ right_and_then	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iter
 set_from	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn set_from<'a, A: 'a, J>(&mut self, from: J) -> usize$/;"	f
 set_vuln	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn set_vuln(&mut self, vuln: Vulnerability) {$/;"	f
 shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn shape(self) -> Vec<u8> {$/;"	f
+shape_creation_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^fn shape_creation_test() {$/;"	f
 shape_error_unbal_parentheses_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^fn shape_error_unbal_parentheses_test() {$/;"	f
 shape_parens_interpretation_working_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^fn shape_parens_interpretation_working_test() {$/;"	f
 sift_down	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/kmerge_impl.rs	/^fn sift_down<T, S>(heap: &mut [T], index: usize, mut less_than: S)$/;"	f
@@ -844,14 +841,14 @@ step_buffering	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iter
 step_current	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn step_current(&mut self) -> Option<I::Item> {$/;"	f
 structs	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub mod structs {$/;"	m
 sub	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn sub(self, rhs: Self) -> Self {$/;"	f
-sub	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn sub(&'a self, lhs: &'a Shape<'a>, rhs: &'a Shape<'a>, op: &str) -> &Shape {$/;"	f
-sub	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn sub(self, rhs: Self) -> Self::Output {$/;"	f
+sub	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn sub(self, rhs: &'a str) -> Self::Output {$/;"	f
 sub_assign	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn sub_assign(&mut self, rhs: Self) {$/;"	f
 sub_scalar	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn sub_scalar(sh: SizeHint, x: usize) -> SizeHint {$/;"	f
 sum	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn sum(self) -> u8 {$/;"	f
 sum	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn sum(self) -> usize {$/;"	f
 sum	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn sum(self) -> HashMap<K, V>$/;"	f
 sum1	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn sum1<S>(mut self) -> Option<S>$/;"	f
+table_from_pattern	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn table_from_pattern($/;"	f
 take_while_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn take_while_ref<I, F>(iter: &mut I, f: F) -> TakeWhileRef<I, F>$/;"	f
 take_while_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn take_while_ref<F>(&mut self, accept: F) -> TakeWhileRef<Self, F>$/;"	f
 tee	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn tee(self) -> (Tee<Self>, Tee<Self>)$/;"	f
@@ -876,6 +873,7 @@ unique_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools
 unique_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unique_impl.rs	/^pub fn unique_by<I, V, F>(iter: I, f: F) -> UniqueBy<I, V, F>$/;"	f
 update	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn update<I, F>(iter: I, f: F) -> Update<I, F>$/;"	f
 update	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn update<F>(self, updater: F) -> Update<Self, F>$/;"	f
+update_lenghts	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn update_lenghts(&mut self) {}$/;"	f
 value	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn value(self) -> V {$/;"	f
 value	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^        fn value(self) -> V;$/;"	f
 values	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn values(self) -> HandValuation {$/;"	f
