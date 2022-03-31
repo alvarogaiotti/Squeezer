@@ -2,24 +2,24 @@ use crate::prelude::*;
 
 ///Error for wrong Shape pattern passed to ShapeFactory.
 #[derive(Debug)]
-struct WrongShapeError {
+pub struct DealerError {
     details: String,
 }
 
-impl WrongShapeError {
+impl DealerError {
     pub fn new(msg: &str) -> Self {
         Self {
             details: msg.to_string(),
         }
     }
 }
-impl fmt::Display for WrongShapeError {
+impl fmt::Display for DealerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.details)
     }
 }
 
-impl Error for WrongShapeError {
+impl Error for DealerError {
     fn description(&self) -> &str {
         &self.details
     }
@@ -163,13 +163,13 @@ impl<'a> ShapeFactory<'a> {
                 table[ShapeFactory::flatten(shape)] = true;
                 return Ok((table, min_ls, max_ls));
             } else if safe == true {
-                return Err(Box::new(WrongShapeError::new(
+                return Err(Box::new(DealerError::new(
                     "Wrong number of cards in shape.",
                 )));
             };
         } else {
             if pre_set > 13 {
-                return Err(Box::new(WrongShapeError::new("Invalid ambiguous shape.")));
+                return Err(Box::new(DealerError::new("Invalid ambiguous shape.")));
             }
             for (i, l) in shape.iter().enumerate() {
                 if l == &(RANKS + 1) {
@@ -212,7 +212,7 @@ impl<'a> ShapeFactory<'a> {
                 let closing = if let Some(index) = it.iter().position(|&x| x == ')') {
                     Ok(index)
                 } else {
-                    Err(WrongShapeError::new("Unbalanced parentheses."))
+                    Err(DealerError::new("Unbalanced parentheses."))
                 };
                 let closing: usize = closing?;
                 head = (it[1..closing])
@@ -223,9 +223,9 @@ impl<'a> ShapeFactory<'a> {
                         } else {
                             match x.to_digit(10) {
                                 Some(value) => Ok(value as u8),
-                                None => Err(WrongShapeError::new(
-                                    "Shape pattern contains unknown chars.",
-                                )),
+                                None => {
+                                    Err(DealerError::new("Shape pattern contains unknown chars."))
+                                }
                             }
                         }
                     })
@@ -241,9 +241,9 @@ impl<'a> ShapeFactory<'a> {
                         } else {
                             match x.to_digit(10) {
                                 Some(value) => Ok(value as u8),
-                                None => Err(WrongShapeError::new(
-                                    "Shape pattern contains unknown chars.",
-                                )),
+                                None => {
+                                    Err(DealerError::new("Shape pattern contains unknown chars."))
+                                }
                             }
                         }
                     })
@@ -368,7 +368,6 @@ fn factory_get_pattern_test() {
         &mut collected,
     )
     .unwrap();
-    println!("{:?}", infos);
     assert_eq!(collected.pop().unwrap(), vec![4u8, 3u8, 3u8, 3u8]);
 }
 #[test]
@@ -415,13 +414,5 @@ fn membership_shape_hand_test() {
 
     let hand = Hand { cards };
     //println!("{}", ShapeFactory::flatten(hand.shape()));
-    for (i, x) in factory.table.iter().enumerate() {
-        if *x {
-            println!("{}", i);
-        }
-    }
-    for key in factory.cache_table.iter() {
-        println!("keys: {}", key);
-    }
     assert!(factory.includes(&hand));
 }

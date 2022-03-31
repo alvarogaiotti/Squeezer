@@ -1,5 +1,6 @@
 mod deal;
 mod hand;
+mod payoff;
 mod shape;
 mod smartstack;
 
@@ -9,9 +10,11 @@ mod prelude {
     pub const RANKS: u8 = 13;
     pub use crate::deal::*;
     pub use crate::hand::*;
+    pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::smartstack::*;
     pub use bridge_deck::{Card, Cards, Suit};
+    pub use colored::Colorize;
     pub use itertools::{any, Itertools};
     pub use std::{
         collections::{HashMap, HashSet},
@@ -27,7 +30,7 @@ use prelude::*;
 
 fn main() {
     let mut found = 0;
-    let goal = 1_000_000;
+    let goal = 100000;
     let mut fiori_nat = 0;
     let suitquality = Evaluator::new(&[2, 2, 1, 1, 1]);
     let mut factory = ShapeFactory::new();
@@ -37,7 +40,6 @@ fn main() {
         }
         let deal = Deal::new(Constraints::Bounds(&polish_club), &mut factory);
         found += 1;
-        println!("{}", found);
         if deal.west().hcp() > 8
             && suitquality(&deal.west().clubs()) > 3
             && deal.west().clubs().len() > 5

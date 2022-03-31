@@ -10,9 +10,29 @@ pub enum Seat {
     West = 3,
 }
 
+impl fmt::Display for Seat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::North => write!(f, "N"),
+            Self::East => write!(f, "E"),
+            Self::West => write!(f, "W"),
+            Self::South => write!(f, "S"),
+        }
+    }
+}
+
 impl Seat {
     pub fn next(self) -> Seat {
         self + 1
+    }
+    pub fn from_char(c: char) -> Result<Self, Box<dyn Error>> {
+        match c {
+            'N' => Ok(Self::North),
+            'S' => Ok(Self::South),
+            'W' => Ok(Self::West),
+            'E' => Ok(Self::East),
+            _ => Err(Box::new(DealerError::new("Is not a seat!"))),
+        }
     }
 }
 
@@ -144,7 +164,6 @@ impl<'a> IntoIterator for &'a Deal {
 #[test]
 fn can_deal_test() {
     let deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
-    println!("{}", deal);
 }
 
 #[test]

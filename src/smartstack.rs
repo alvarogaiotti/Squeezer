@@ -34,6 +34,5 @@ fn evaluate_correctly_test() {
     let eval = Evaluator::new(&[6, 4, 2, 1]);
     let mut deck = Cards::ALL;
     let hand = deck.pick(13).unwrap();
-    println!("Hand:{}\nEvaluation:{}", hand, eval(&hand));
     assert_eq!(hcp(&hand), hand.high_card_points() as u8);
 }
