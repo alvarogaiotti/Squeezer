@@ -59,44 +59,74 @@ impl From<usize> for Seat {
 ///Models vulnerability as an enum.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Vulnerability {
-    NONE = 0,
+    None = 0,
     NS = 1,
     EW = 2,
-    ALL = 3,
+    All = 3,
 }
 
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands
 pub enum Constraints<'a> {
     None,
     Bounds(&'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
+    Predeal([(Seat, Option<Hand>); 4]),
+    BoundsAndPredeal(
+        &'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool,
+        [(Seat, Option<Hand>); 4],
+    ),
 }
 
 ///The principal struct of the module: represents a bridge deal, with
 ///cards, vulnerability, ecc.
 /// TODO: Should have a number, a dealer, a contract, ecc.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct Deal {
     vulnerability: Vulnerability,
     hands: [Hand; 4],
+    printer: Box<dyn DealPrinter>,
 }
-
 impl Deal {
-    pub fn new(func: Constraints, factory: &mut ShapeFactory) -> Self {
-        let mut hands: [Hand; 4];
-        match func {
+    pub fn new(constraints: Constraints, factory: &mut ShapeFactory) -> Self {
+        let mut hands = [Hand::new(); 4];
+        match constraints {
             Constraints::Bounds(f) => {
                 while {
                     hands = Deal::deal();
                     !f(&hands, factory)
                 } {}
             }
-            _ => {
-                hands = Deal::deal();
+            Constraints::Predeal(predeal) => {
+                Deal::predeal(predeal, &mut hands);
             }
+            Constraints::BoundsAndPredeal(f, predeal) => {
+                while {
+                    Deal::predeal(predeal, &mut hands);
+                    !f(&hands, factory)
+                } {}
+            }
+            _ => hands = Deal::deal(),
         };
         Self {
-            vulnerability: Vulnerability::NONE,
+            vulnerability: Vulnerability::None,
             hands,
+            printer: Box::new(ShortStrPrinter {}),
+        }
+    }
+    fn predeal(predealt: [(Seat, Option<Hand>); 4], hands: &mut [Hand; 4]) {
+        let mut deck = Cards::ALL;
+        for (_, hand_opt) in predealt.iter() {
+            if let Some(hand) = hand_opt {
+                deck = deck.difference(hand.cards);
+            }
+        }
+        for (seat, hand_opt) in predealt {
+            if let Some(hand) = hand_opt {
+                hands[seat as usize] = hand;
+            } else {
+                hands[seat as usize] = Hand {
+                    cards: deck.pick(13).unwrap(),
+                };
+            }
         }
     }
 
@@ -115,7 +145,7 @@ impl Deal {
         [north, east, south, west]
     }
     fn check(&self, f: impl FnOnce(&Deal) -> bool) -> bool {
-        f(&self)
+        f(self)
     }
     pub fn set_vuln(&mut self, vuln: Vulnerability) {
         self.vulnerability = vuln;
