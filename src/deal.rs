@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 ///Seat enum, still to be understood how to use it,
 ///but i know it will be used
-#[derive(Debug, PartialEq, Hash, Eq)]
+#[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
 pub enum Seat {
     North = 0,
     East = 1,
@@ -162,8 +162,79 @@ impl Deal {
     pub fn south(&self) -> Hand {
         self.hands[2]
     }
+    fn print(&self) {
+        println!("{}", self.printer.print(&self.hands));
+    }
 }
 
+trait DealPrinter: std::fmt::Debug {
+    fn print(&self, hands: &[Hand; 4]) -> String;
+}
+pub trait PrintFormat {
+    fn pbn(&mut self);
+    fn lin(&mut self);
+    fn long(&mut self);
+    fn short(&mut self);
+}
+impl PrintFormat for Deal {
+    fn pbn(&mut self) {
+        self.printer = Box::new(PbnPrinter {});
+    }
+    fn lin(&mut self) {
+        self.printer = Box::new(LinPrinter {});
+    }
+    fn long(&mut self) {
+        self.printer = Box::new(LongStrPrinter {});
+    }
+    fn short(&mut self) {
+        self.printer = Box::new(ShortStrPrinter {});
+    }
+}
+#[derive(Debug, Clone, Copy)]
+struct PbnPrinter {}
+impl DealPrinter for PbnPrinter {
+    fn print(&self, hands: &[Hand; 4]) -> String {
+        String::new()
+    }
+}
+#[derive(Debug, Clone, Copy)]
+struct LinPrinter {}
+impl DealPrinter for LinPrinter {
+    fn print(&self, hands: &[Hand; 4]) -> String {
+        todo!()
+    }
+}
+#[derive(Debug, Clone, Copy)]
+struct ShortStrPrinter {}
+impl DealPrinter for ShortStrPrinter {
+    fn print(&self, hands: &[Hand; 4]) -> String {
+        format!(
+            "\t\t{}\n{}\t\t\t{}\n\t\t{}",
+            hands[0], hands[3], hands[1], hands[2],
+        )
+    }
+}
+#[derive(Debug, Clone, Copy)]
+struct LongStrPrinter {}
+impl DealPrinter for LongStrPrinter {
+    fn print(&self, hands: &[Hand; 4]) -> String {
+        let mut stringa = String::new();
+        for line in hands[0].long_str().split('\n') {
+            stringa = format!("{stringa}\t   {}\n", line);
+        }
+        for (line_w, line_e) in hands[3]
+            .long_str()
+            .split('\n')
+            .zip(hands[1].long_str().split('\n'))
+        {
+            stringa = format!("{stringa}{:0<14}{line_e}\n", line_w)
+        }
+        for line in hands[2].long_str().split('\n') {
+            stringa = format!("{stringa}\t   {}\n", line);
+        }
+        stringa
+    }
+}
 impl std::ops::Index<usize> for Deal {
     type Output = Hand;
     fn index(&self, index: usize) -> &Self::Output {
@@ -175,8 +246,8 @@ impl fmt::Display for Deal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} {} {} {}",
-            self.hands[0], self.hands[1], self.hands[2], self.hands[3],
+            "\t\t{}\n{}\t\t\t{}\n\t\t{}",
+            self.hands[0], self.hands[3], self.hands[1], self.hands[2],
         )
     }
 }
