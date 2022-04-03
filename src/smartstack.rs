@@ -8,10 +8,12 @@ pub struct Smartstack {
     prepared: bool,
 }
 
-pub struct Evaluator {}
+pub struct Evaluator {
+    evaluator: Box<dyn Fn(&Cards) -> u8>,
+}
 
 impl Evaluator {
-    pub fn new(values: &[u8]) -> impl Fn(&Cards) -> u8 {
+    pub fn new(values: &[u8]) -> Self {
         let mut vals = [2u8; 13];
         for i in 0..13 {
             match 13 - i <= values.len() {
@@ -19,11 +21,16 @@ impl Evaluator {
                 false => vals[i] = 0u8,
             };
         }
-        move |x: &Cards| {
-            x.into_iter()
-                .map(|y| vals[y.rank() as usize - 2])
-                .sum::<u8>()
+        Self {
+            evaluator: Box::new(move |x: &Cards| {
+                x.into_iter()
+                    .map(|y| vals[y.rank() as usize - 2])
+                    .sum::<u8>()
+            }),
         }
+    }
+    pub fn evaluate(&self, hand: &Cards) -> u8 {
+        (self.evaluator)(hand)
     }
 }
 
@@ -31,8 +38,7 @@ impl Evaluator {
 #[test]
 fn evaluate_correctly_test() {
     let hcp = Evaluator::new(&[4u8, 3u8, 2u8, 1u8]);
-    let eval = Evaluator::new(&[6, 4, 2, 1]);
     let mut deck = Cards::ALL;
     let hand = deck.pick(13).unwrap();
-    assert_eq!(hcp(&hand), hand.high_card_points() as u8);
+    assert_eq!(hcp.evaluate(&hand), hand.high_card_points() as u8);
 }
