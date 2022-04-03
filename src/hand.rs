@@ -8,19 +8,26 @@ pub struct Hand {
     pub cards: Cards,
 }
 
+impl Default for Hand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Hand {
+    pub fn new() -> Self {
+        let mut deck = Cards::ALL;
+        Hand {
+            cards: deck.pick(13).unwrap(),
+        }
+    }
+
     pub fn shape(self) -> Vec<u8> {
         let spades = self.cards.spades().len() as u8;
         let hearts = self.cards.hearts().len() as u8;
         let diamonds = self.cards.diamonds().len() as u8;
         let clubs = self.cards.clubs().len() as u8;
         vec![spades, hearts, diamonds, clubs]
-    }
-    pub fn new() -> Self {
-        let mut deck = Cards::ALL;
-        Hand {
-            cards: deck.pick(13).unwrap(),
-        }
     }
 
     pub fn spades(self) -> Cards {
@@ -42,6 +49,18 @@ impl Hand {
         Ok(Hand {
             cards: Cards::from_str(hand)?,
         })
+    }
+    pub fn as_bits(&self) -> u64 {
+        self.cards
+            .into_iter()
+            .map(|x| 1 << x.rank() + 16 * x.suit() as u8)
+            .sum()
+    }
+    pub fn long_str(&self) -> String {
+        self.into_iter()
+            .zip(Suit::ALL.into_iter())
+            .map(|(holding, suit)| format!("{}{}", suit.unicode(), holding))
+            .join("\n")
     }
 }
 
