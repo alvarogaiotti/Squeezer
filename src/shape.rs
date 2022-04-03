@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+type TablesOrError<'a> =
+    Result<(&'a [bool; SHAPE_COMBINATIONS], [u8; 4], [u8; 4]), Box<dyn Error + 'static>>;
+
 ///Error for wrong Shape pattern passed to ShapeFactory.
 #[derive(Debug)]
 pub struct DealerError {
@@ -35,6 +38,11 @@ pub struct ShapeFactory<'a> {
     max_ls: [u8; 4],
     not_in_cache: HashMap<&'a str, [bool; SHAPE_COMBINATIONS]>,
 }
+impl<'a> Default for ShapeFactory<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<'a> ShapeFactory<'a> {
     pub const JOKER: char = 'x';
@@ -52,7 +60,7 @@ impl<'a> ShapeFactory<'a> {
     pub fn new_shape(&mut self, shape: Option<&'a str>) -> Result<(), Box<(dyn Error + 'static)>> {
         if let Some(pattern) = shape {
             //if a pattern is provided
-            if let Some(_) = self.cache_table.get(pattern)
+            if self.cache_table.get(pattern).is_some()
             //search it in the cache table
             {
                 Ok(())
@@ -148,7 +156,7 @@ impl<'a> ShapeFactory<'a> {
         shape: Vec<u8>,
         table: &mut [bool; SHAPE_COMBINATIONS],
         safe: bool,
-    ) -> Result<(&[bool; SHAPE_COMBINATIONS], [u8; 4], [u8; 4]), Box<dyn Error + 'static>> {
+    ) -> TablesOrError {
         let jokers = any(shape.iter(), |&x| x == RANKS + 1);
         let pre_set: u8 = shape.iter().filter(|&&x| x != RANKS + 1).sum();
         let mut min_ls = [0u8; 4];
@@ -162,7 +170,7 @@ impl<'a> ShapeFactory<'a> {
                 }
                 table[ShapeFactory::flatten(shape)] = true;
                 return Ok((table, min_ls, max_ls));
-            } else if safe == true {
+            } else if safe {
                 return Err(Box::new(DealerError::new(
                     "Wrong number of cards in shape.",
                 )));
@@ -196,14 +204,14 @@ impl<'a> ShapeFactory<'a> {
         for (i, bit) in table.iter().enumerate() {
             self.table[i] |= bit;
         }
-        return Ok(());
+        Ok(())
     }
     fn get_pattern(
         it: &mut Vec<char>,
         parsed: &mut Vec<u8>,
         collected: &'a mut Vec<Vec<u8>>,
     ) -> Result<&'a Vec<Vec<u8>>, Box<dyn Error + 'static>> {
-        if it.len() == 0 {
+        if it.is_empty() {
             collected.push(parsed.clone());
             Ok(collected)
         } else {
@@ -216,7 +224,7 @@ impl<'a> ShapeFactory<'a> {
                 };
                 let closing: usize = closing?;
                 head = (it[1..closing])
-                    .into_iter()
+                    .iter()
                     .map(|&x| {
                         if x == ShapeFactory::JOKER {
                             Ok(RANKS + 1)
@@ -234,7 +242,7 @@ impl<'a> ShapeFactory<'a> {
                 *it = (it[closing + 1..]).to_vec();
             } else {
                 head = (it[0..1])
-                    .into_iter()
+                    .iter()
                     .map(|&x| {
                         if x == ShapeFactory::JOKER {
                             Ok(RANKS + 1)
@@ -274,9 +282,7 @@ impl<'a> ShapeFactory<'a> {
                 ShapeFactory::table_from_pattern(pattern, &mut table, false)
             {
                 for (i, &bit) in table.iter().enumerate() {
-                    if self.table[i] == true && bit == true {
-                        self.table[i] = false
-                    }
+                    self.table[i] = !(self.table[i] & bit) & self.table[i];
                 }
             }
             self.op_cache.insert((rhs, "-"));
@@ -309,7 +315,7 @@ impl<'a> Membership<'a, Hand> for ShapeFactory<'a> {
             table[ShapeFactory::flatten(non_contenuto.shape())]
         } else {
             let mut collected: Vec<Vec<u8>> = Vec::new();
-            let mut patterns = ShapeFactory::get_pattern(
+            ShapeFactory::get_pattern(
                 &mut pattern.chars().collect(),
                 &mut Vec::new(),
                 &mut collected,
@@ -326,7 +332,7 @@ impl<'a> Membership<'a, Hand> for ShapeFactory<'a> {
                 }
             }
             let res = shape_table[ShapeFactory::flatten(non_contenuto.shape())];
-            self.not_in_cache.insert(pattern.clone(), shape_table);
+            self.not_in_cache.insert(pattern, shape_table);
             res
         }
     }
@@ -334,12 +340,12 @@ impl<'a> Membership<'a, Hand> for ShapeFactory<'a> {
 impl<'a> std::ops::Add<&'a str> for &mut ShapeFactory<'a> {
     type Output = Self;
     fn add(self, rhs: &'a str) -> Self::Output {
-        if let Some(_) = self.op_cache.get(&(rhs, "+")) {
+        if self.op_cache.get(&(rhs, "+")).is_some() {
             self
         } else {
             let pattern: Vec<char> = rhs.chars().collect();
             self.insert(pattern).unwrap();
-            self.op_cache.insert((rhs.clone(), "+"));
+            self.op_cache.insert((rhs, "+"));
             self
         }
     }
@@ -348,7 +354,7 @@ impl<'a> std::ops::Add<&'a str> for &mut ShapeFactory<'a> {
 impl<'a> std::ops::Sub<&'a str> for &mut ShapeFactory<'a> {
     type Output = Self;
     fn sub(self, rhs: &'a str) -> Self::Output {
-        if let Some(_) = self.op_cache.get(&(rhs, "-")) {
+        if self.op_cache.get(&(rhs, "-")).is_some() {
             self
         } else {
             self.remove(rhs);
@@ -362,7 +368,7 @@ impl<'a> std::ops::Sub<&'a str> for &mut ShapeFactory<'a> {
 fn factory_get_pattern_test() {
     let mut collected: Vec<Vec<u8>> = Vec::new();
 
-    let mut infos = ShapeFactory::get_pattern(
+    ShapeFactory::get_pattern(
         &mut "4333".chars().collect(),
         &mut Vec::new(),
         &mut collected,

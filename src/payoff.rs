@@ -1,26 +1,26 @@
-use std::fmt::format;
-
 use crate::prelude::*;
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
 ///on scoring.
-pub struct Payoff<T>
+pub struct Payoff<T, D>
 where
     T: Fn(i32, i32) -> i32,
+    D: fmt::Display,
 {
-    entries: Vec<Contract>,
+    entries: Vec<D>,
     table: Vec<Vec<Vec<i32>>>,
     diff: T,
 }
 
-impl<T> Payoff<T>
+impl<T, D> Payoff<T, D>
 where
     T: Fn(i32, i32) -> i32,
+    D: fmt::Display,
 {
-    pub fn new(entries: Vec<Contract>, diff: T) -> Self {
+    pub fn new(entries: Vec<D>, diff: T) -> Self {
         let mut table = Vec::new();
         for i in 0..entries.len() {
             table.push(Vec::new());
-            for j in 0..entries.len() {
+            for _ in 0..entries.len() {
                 table[i].push(Vec::new());
             }
         }
@@ -40,8 +40,8 @@ where
                 //);
                 //println!("i:{i}, j:{j}",);
                 self.table[i][j].push(diff(
-                    *raw_scores.get(&ei.not_unicode_str()).unwrap(),
-                    *raw_scores.get(&ej.not_unicode_str()).unwrap(),
+                    *raw_scores.get(&ei.to_string()).unwrap(),
+                    *raw_scores.get(&ej.to_string()).unwrap(),
                 ));
             }
         }
@@ -85,7 +85,7 @@ where
                     }
                 })
             }
-            print!("\n")
+            println!()
         }
     }
 }
@@ -135,10 +135,10 @@ pub enum Strain {
 
 impl Contract {
     pub fn from_str(s: &str, vuln: bool) -> Result<Self, Box<dyn Error>> {
-        let doubled = (s.len() - s.trim_end_matches("X").len()) as u8;
+        let doubled = (s.len() - s.trim_end_matches('X').len()) as u8;
         let mut chars = s.chars();
         let level = chars.next().unwrap().to_digit(10).unwrap() as usize;
-        if level > 7 || level < 1 {
+        if !(1..=7).contains(&level) {
             return Err(Box::new(DealerError::new("Wrong contract level")));
         };
         Ok(Self {
@@ -238,7 +238,7 @@ impl Contract {
             } else {
                 let mut stringa = "".to_string();
                 for _ in 0..self.doubled {
-                    stringa.push_str("X")
+                    stringa.push('X')
                 }
                 stringa
             }
@@ -258,7 +258,7 @@ impl fmt::Display for Contract {
             } else {
                 let mut stringa = "".to_string();
                 for _ in 0..self.doubled {
-                    stringa.push_str("X")
+                    stringa.push('X')
                 }
                 stringa
             }
