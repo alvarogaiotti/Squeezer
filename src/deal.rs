@@ -34,6 +34,9 @@ impl Seat {
             _ => Err(Box::new(DealerError::new("Is not a seat!"))),
         }
     }
+    pub fn iter() -> IntoIter<Seat, 4> {
+        [Seat::North, Seat::East, Seat::South, Seat::West].into_iter()
+    }
 }
 
 impl std::ops::Add<usize> for Seat {
@@ -74,6 +77,26 @@ pub enum Constraints<'a> {
         &'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool,
         [(Seat, Option<Hand>); 4],
     ),
+}
+impl<'a> Constraints<'a> {
+    pub fn predeal(hands: Vec<(char, &str)>) -> Self {
+        let mut predealt_hands: [(Seat, Option<Hand>); 4] = [
+            (Seat::North, Some(Hand::new())),
+            (Seat::East, Some(Hand::new())),
+            (Seat::South, Some(Hand::new())),
+            (Seat::West, Some(Hand::new())),
+        ];
+        for (seat, hand) in hands {
+            match seat {
+                'N' => predealt_hands[0] = (Seat::North, Some(Hand::from_str(hand).unwrap())),
+                'E' => predealt_hands[1] = (Seat::East, Some(Hand::from_str(hand).unwrap())),
+                'S' => predealt_hands[2] = (Seat::South, Some(Hand::from_str(hand).unwrap())),
+                'W' => predealt_hands[3] = (Seat::West, Some(Hand::from_str(hand).unwrap())),
+                _ => (),
+            }
+        }
+        Self::Predeal(predealt_hands)
+    }
 }
 
 ///The principal struct of the module: represents a bridge deal, with
@@ -162,8 +185,44 @@ impl Deal {
     pub fn south(&self) -> Hand {
         self.hands[2]
     }
-    fn print(&self) {
+    pub fn print(&self) {
         println!("{}", self.printer.print(&self.hands));
+    }
+    pub fn as_lin(&self, board_n: u8) -> String {
+        let board_n = if board_n % 33 == 0 { 1 } else { board_n % 33 };
+        let mut stringa = format!("st||md|{}", (((board_n % 4) + 1) % 4) + 1);
+        for (position, hand) in self.into_iter().enumerate() {
+            if position != 0 {
+                stringa.push(',')
+            }
+            for (index, holding) in hand.into_iter().enumerate() {
+                stringa.push(match index {
+                    0 => 'S',
+                    1 => 'H',
+                    2 => 'D',
+                    3 => 'C',
+                    _ => unreachable!(),
+                });
+                stringa = format!(
+                    "{}{}",
+                    stringa,
+                    format!(
+                        "{}",
+                        holding.into_iter().map(|card| card.rankchar()).format("")
+                    )
+                );
+            }
+        }
+        let data1 = (board_n - 1) / 4;
+        let data2 = (board_n - 1) % 4;
+        let data3 = match (data1 + data2) % 4 {
+            0 => "o",
+            1 => "n",
+            2 => "e",
+            3 => "b",
+            _ => unreachable!(),
+        };
+        format!("{}|sv|{}|rh||ah|Board {}", stringa, data3, board_n)
     }
 }
 
@@ -172,16 +231,12 @@ trait DealPrinter: std::fmt::Debug {
 }
 pub trait PrintFormat {
     fn pbn(&mut self);
-    fn lin(&mut self);
     fn long(&mut self);
     fn short(&mut self);
 }
 impl PrintFormat for Deal {
     fn pbn(&mut self) {
         self.printer = Box::new(PbnPrinter {});
-    }
-    fn lin(&mut self) {
-        self.printer = Box::new(LinPrinter {});
     }
     fn long(&mut self) {
         self.printer = Box::new(LongStrPrinter {});
@@ -194,14 +249,25 @@ impl PrintFormat for Deal {
 struct PbnPrinter {}
 impl DealPrinter for PbnPrinter {
     fn print(&self, hands: &[Hand; 4]) -> String {
-        String::new()
-    }
-}
-#[derive(Debug, Clone, Copy)]
-struct LinPrinter {}
-impl DealPrinter for LinPrinter {
-    fn print(&self, hands: &[Hand; 4]) -> String {
-        todo!()
+        format!(
+            "[Deal:\"N:{}\"]",
+            hands
+                .into_iter()
+                .map(|hand| format!(
+                    "{}",
+                    hand.into_iter()
+                        .map(|cards| format!(
+                            "{}",
+                            cards
+                                .into_iter()
+                                .map(|card| card.rankchar())
+                                .rev()
+                                .format("")
+                        ))
+                        .format(".")
+                ))
+                .format(" ")
+        )
     }
 }
 #[derive(Debug, Clone, Copy)]
@@ -227,7 +293,7 @@ impl DealPrinter for LongStrPrinter {
             .split('\n')
             .zip(hands[1].long_str().split('\n'))
         {
-            stringa = format!("{stringa}{:0<14}{line_e}\n", line_w)
+            stringa = format!("{stringa}{:<20}{line_e}\n", line_w)
         }
         for line in hands[2].long_str().split('\n') {
             stringa = format!("{stringa}\t   {}\n", line);
@@ -278,4 +344,33 @@ fn deal_with_constraints_test() {
         );
         assert!(deal[1].diamonds().high_card_points() > 5);
     }
+}
+
+#[test]
+fn deal_with_predeal_test() {
+    let predeal = Constraints::predeal(vec![
+        ('N', "SKSQSTS9HAHJHQD9D8D7D3CAC2"),
+        ('S', "CKCQCJCTC9C8C7C6S3S4S2D2D4D5"),
+    ]);
+    let mut deal = Deal::new(predeal, &mut ShapeFactory::new());
+    deal.long();
+    deal.print();
+    assert_eq!(
+        (
+            Cards::from_str("SKSQSTS9HAHJHQD9D8D7D3CAC2").unwrap(),
+            Cards::from_str("CKCQCJCTC9C8C7C6S3S4S2D2D4D5").unwrap()
+        ),
+        (deal.north().cards, deal.south().cards)
+    );
+}
+#[test]
+fn lin_test() {
+    let deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
+    println!("{}", deal.as_lin(1));
+}
+#[test]
+fn pbn_test() {
+    let mut deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
+    deal.pbn();
+    deal.print();
 }

@@ -57,10 +57,10 @@ impl Hand {
             .sum()
     }
     pub fn long_str(&self) -> String {
-        self.into_iter()
-            .zip(Suit::ALL.into_iter())
-            .map(|(holding, suit)| format!("{}{}", suit.unicode(), holding))
-            .join("\n")
+        format!("{}", self.into_iter().format("\n"))
+        //.zip(Suit::ALL.into_iter())
+        //.map(|(holding, suit)| format!("{}{}", suit.unicode(), holding))
+        //.join("\n")
     }
 }
 
@@ -83,6 +83,7 @@ impl<'a> IntoIterator for &'a Hand {
 }
 
 ///Iterator for the Hand struct. I couldn't do better ;(
+#[derive(Debug)]
 pub struct HandIterator<'a> {
     hand: &'a Cards,
     index: usize,
