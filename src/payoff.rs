@@ -324,21 +324,22 @@ fn matchpoints(my: i32, other: i32) -> i32 {
 fn payoff_report_test() {
     let contratto1 = Contract::from_str("3CN", false).unwrap();
     let contratto2 = Contract::from_str("3DN", false).unwrap();
-    let contratto3 = Contract::from_str("3SN", false).unwrap();
+    let contratto3 = Contract::from_str("3NN", false).unwrap();
     let contracts = vec![
         Contract::from_str("3CN", false).unwrap(),
         Contract::from_str("3DN", false).unwrap(),
-        Contract::from_str("3SN", false).unwrap(),
+        Contract::from_str("3NN", false).unwrap(),
     ];
     let mut matrix = Payoff::new(contracts, imps);
     let mut data: HashMap<String, i32> = HashMap::new();
     for i in 0..14 {
-        data.insert(contratto1.not_unicode_str(), contratto1.score(i));
-        data.insert(contratto2.not_unicode_str(), contratto2.score(i));
-        data.insert(contratto3.not_unicode_str(), contratto3.score(i));
+        data.insert(contratto1.to_string(), contratto1.score(i));
+        data.insert(contratto2.to_string(), contratto2.score(i));
+        data.insert(contratto3.to_string(), contratto3.score(i));
         matrix.add_data(&data)
     }
     matrix.report();
+    assert_eq!(7, matrix.table[2][0][9]);
 }
 #[test]
 fn can_create_contract_from_str_test() {
