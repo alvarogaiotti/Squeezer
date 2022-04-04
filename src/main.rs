@@ -19,6 +19,7 @@ mod prelude {
     pub use colored::Colorize;
     pub use itertools::{any, Itertools};
     pub use std::{
+        array::IntoIter,
         collections::{HashMap, HashSet},
         error::Error,
         fmt,
@@ -31,52 +32,47 @@ use prelude::*;
 
 fn main() {
     let mut found = 0;
-    let goal = 100;
-    let mut fiori_nat = 0;
+    let goal = 1000000;
+    let mut d33orks = 0;
+    let mut squeeze = 0;
     let suitquality = Evaluator::new(&[2, 2, 1, 1, 1]);
     let mut factory = ShapeFactory::new();
     for _ in 0..10usize.pow(10) {
         if found > goal {
             break;
         }
-        let deal = Deal::new(Constraints::Bounds(&polish_club), &mut factory);
-        if deal.west().hcp() > 8
-            && suitquality.evaluate(&deal.west().clubs()) > 3
-            && deal.west().clubs().len() > 5
-        {
+        let mut deal = Deal::new(
+            Constraints::Predeal([
+                (
+                    Seat::North,
+                    Some(Hand::from_str("SASQS4HKH4DKD9D6D5CKCQCJC7").unwrap()),
+                ),
+                (
+                    Seat::South,
+                    Some(Hand::from_str("S7S5H2DAD7D2CACTC9C8C6C4C3").unwrap()),
+                ),
+                (Seat::East, None),
+                (Seat::West, None),
+            ]),
+            &mut factory,
+        );
+        if deal.west().hearts().len() > 6 && suitquality.evaluate(&deal.west().hearts()) >= 3 {
+            deal.long();
             found += 1;
-            println!("Fiori naturale:");
-            println!("{}", deal);
-            fiori_nat += 1;
-            let mut remain_cards = [[0u32; 4]; 4];
-            for (i, hand) in deal.into_iter().enumerate() {
-                for (j, suit) in hand.into_iter().enumerate() {
-                    let sum = suit.map(|card| 1 << card.rank() as u32).sum();
-                    remain_cards[i][j] = sum;
-                }
+            if deal.west().diamonds().len() == 3 || deal.west().cards.contains(Card::SK) {
+                d33orks += 1;
+                //deal.print()
+            } else if deal.east().diamonds().len() > 3 && deal.east().cards.contains(Card::SK) {
+                squeeze += 1;
+                //deal.print()
             }
-            let c_deal = crate::lib::deal {
-                trump: 3,
-                first: 0,
-                currentTrickSuit: [0; 3],
-                currentTrickRank: [0; 3],
-                remainCards: remain_cards,
-            };
-            let mut futp: crate::lib::futureTricks = futureTricks {
-                nodes: 0,
-                cards: 0,
-                suit: [0; 13],
-                rank: [0; 13],
-                equals: [0; 13],
-                score: [0; 13],
-            };
-            let ptr: *mut futureTricks = &mut futp;
-            unsafe { crate::lib::SolveBoard(c_deal, -1, 1, 1, ptr, 0) };
-            println!("{}", 13 - futp.score[0]);
         }
     }
-    //println!("Found:{}", found);
-    println!("Fiori naturale:{}", fiori_nat);
+    println!("Found:{}", found);
+    println!(
+        "Squeeze:{}\nQuadri 3-3 o K♠ in impasse:{}",
+        squeeze, d33orks
+    );
 }
 
 fn polish_club(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {

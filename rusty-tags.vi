@@ -238,7 +238,6 @@ L_SET	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub cons
 L_XTND	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub const L_XTND: u32 = 2;$/;"	c
 LazyBuffer	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^pub struct LazyBuffer<I: Iterator> {$/;"	s
 LenHint	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^pub enum LenHint {$/;"	g
-LinPrinter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^struct LinPrinter {}$/;"	s
 LongStrPrinter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^struct LongStrPrinter {}$/;"	s
 MAX	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const MAX: HandValuation = HandValuation {$/;"	c
 MAXNODE	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub const MAXNODE: u32 = 1;$/;"	c
@@ -983,6 +982,7 @@ all_equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools
 all_unique	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn all_unique(&mut self) -> bool$/;"	f
 any	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn any<I, F>(iterable: I, f: F) -> bool$/;"	f
 as_bits	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn as_bits(&self) -> u64 {$/;"	f
+as_lin	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn as_lin(&self, board_n: u8) -> String {$/;"	f
 as_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_mut(&mut self) -> EitherOrBoth<&mut A, &mut B> {$/;"	f
 as_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_ref(&self) -> EitherOrBoth<&A, &B> {$/;"	f
 assert_equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn assert_equal<I, J>(a: I, b: J)$/;"	f
@@ -1149,6 +1149,7 @@ deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub 
 deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct deal {$/;"	s
 dealPBN	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct dealPBN {$/;"	s
 deal_with_constraints_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn deal_with_constraints_test() {$/;"	f
+deal_with_predeal_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn deal_with_predeal_test() {$/;"	f
 debug	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn debug() {$/;"	f
 debug_fmt_fields	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^macro_rules! debug_fmt_fields {$/;"	d
 dedup	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^pub fn dedup<I>(iter: I) -> Dedup<I>$/;"	f
@@ -1439,6 +1440,7 @@ italic	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.
 italic	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn italic(self) -> ColoredString;$/;"	f
 iter	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn iter() -> impl Iterator<Item = Suit> {$/;"	f
 iter	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn iter(&self) -> std::slice::Iter<'_, T> {$/;"	f
+iter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn iter() -> IntoIter<Seat, 4> {$/;"	f
 iterate	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn iterate() {$/;"	f
 iterate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn iterate(&mut self) {$/;"	f
 iterate	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/sources.rs	/^pub fn iterate<St, F>(initial_value: St, f: F) -> Iterate<St, F>$/;"	f
@@ -1470,8 +1472,7 @@ left_and_then	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itert
 left_shift_push	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^            fn left_shift_push(&mut self, mut item: A) {$/;"	f
 left_shift_push	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^    fn left_shift_push(&mut self, item: Self::Item);$/;"	f
 len	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn len(&self) -> usize {$/;"	f
-lin	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn lin(&mut self) {$/;"	f
-lin	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn lin(&mut self);$/;"	f
+lin_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn lin_test() {$/;"	f
 link	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn link($/;"	f
 linkat	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn linkat($/;"	f
 lockf	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn lockf($/;"	f
@@ -1691,6 +1692,7 @@ pause	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub 
 payoff_report_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/payoff.rs	/^fn payoff_report_test() {$/;"	f
 pbn	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn pbn(&mut self) {$/;"	f
 pbn	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn pbn(&mut self);$/;"	f
+pbn_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn pbn_test() {$/;"	f
 peek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/multipeek_impl.rs	/^    pub fn peek(&mut self) -> Option<&I::Item> {$/;"	f
 peek	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    pub fn peek(&mut self) -> Option<&I::Item> {$/;"	f
 peek_nth	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/peek_nth.rs	/^    pub fn peek_nth(&mut self, n: usize) -> Option<&I::Item> {$/;"	f
@@ -1732,12 +1734,13 @@ powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-
 pread	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn pread($/;"	f
 pread64	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn pread64($/;"	f
 predeal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn predeal(predealt: [(Seat, Option<Hand>); 4], hands: &mut [Hand; 4]) {$/;"	f
+predeal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn predeal(hands: Vec<(char, &str)>) -> Self {$/;"	f
 prefill	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn prefill(&mut self, len: usize) {$/;"	f
 prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^mod prelude {$/;"	m
 prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^mod prelude {$/;"	m
-print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self) {$/;"	f
 print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self, hands: &[Hand; 4]) -> String {$/;"	f
 print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self, hands: &[Hand; 4]) -> String;$/;"	f
+print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn print(&self) {$/;"	f
 private	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^mod private {$/;"	m
 process_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^pub fn process_results<I, F, T, E, R>(iterable: I, processor: F) -> Result<R, E>$/;"	f
 product	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^    pub fn product(self) -> HashMap<K, V>$/;"	f
