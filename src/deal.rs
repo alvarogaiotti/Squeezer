@@ -49,7 +49,7 @@ impl std::ops::Add<usize> for Seat {
 
 impl From<usize> for Seat {
     fn from(n: usize) -> Self {
-        match n % 4 {
+        match n % NUMBER_OF_HANDS {
             x if x == Seat::North as usize => Seat::North,
             x if x == Seat::East as usize => Seat::East,
             x if x == Seat::South as usize => Seat::South,
@@ -72,15 +72,15 @@ pub enum Vulnerability {
 pub enum Constraints<'a> {
     None,
     Bounds(&'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
-    Predeal([(Seat, Option<Hand>); 4]),
+    Predeal([(Seat, Option<Hand>); NUMBER_OF_HANDS]),
     BoundsAndPredeal(
         &'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool,
-        [(Seat, Option<Hand>); 4],
+        [(Seat, Option<Hand>); NUMBER_OF_HANDS],
     ),
 }
 impl<'a> Constraints<'a> {
     pub fn predeal(hands: Vec<(char, &str)>) -> Self {
-        let mut predealt_hands: [(Seat, Option<Hand>); 4] = [
+        let mut predealt_hands: [(Seat, Option<Hand>); NUMBER_OF_HANDS] = [
             (Seat::North, Some(Hand::new())),
             (Seat::East, Some(Hand::new())),
             (Seat::South, Some(Hand::new())),
@@ -105,12 +105,12 @@ impl<'a> Constraints<'a> {
 #[derive(Debug)]
 pub struct Deal {
     vulnerability: Vulnerability,
-    hands: [Hand; 4],
+    hands: [Hand; NUMBER_OF_HANDS],
     printer: Box<dyn DealPrinter>,
 }
 impl Deal {
     pub fn new(constraints: Constraints, factory: &mut ShapeFactory) -> Self {
-        let mut hands = [Hand::new(); 4];
+        let mut hands = [Hand::new(); NUMBER_OF_HANDS];
         match constraints {
             Constraints::Bounds(f) => {
                 while {
@@ -135,7 +135,10 @@ impl Deal {
             printer: Box::new(ShortStrPrinter {}),
         }
     }
-    fn predeal(predealt: [(Seat, Option<Hand>); 4], hands: &mut [Hand; 4]) {
+    fn predeal(
+        predealt: [(Seat, Option<Hand>); NUMBER_OF_HANDS],
+        hands: &mut [Hand; NUMBER_OF_HANDS],
+    ) {
         let mut deck = Cards::ALL;
         for (_, hand_opt) in predealt.iter() {
             if let Some(hand) = hand_opt {
@@ -153,7 +156,7 @@ impl Deal {
         }
     }
 
-    pub fn deal() -> [Hand; 4] {
+    pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
         let mut deck = Cards::ALL;
         let north = Hand {
             cards: deck.pick(13).unwrap(),
@@ -189,11 +192,18 @@ impl Deal {
         println!("{}", self.printer.print(&self.hands));
     }
     pub fn as_lin(&self, board_n: u8) -> String {
-        let board_n = if board_n % 33 == 0 { 1 } else { board_n % 33 };
-        let mut stringa = format!("st||md|{}", (((board_n % 4) + 1) % 4) + 1);
+        let board_n = if board_n % (MAX_N_OF_BOARDS + 1) == 0 {
+            1
+        } else {
+            board_n % (MAX_N_OF_BOARDS + 1)
+        };
+        let mut stringa = format!(
+            "st||md|{}",
+            (((board_n % NUMBER_OF_HANDS as u8) + 1) % NUMBER_OF_HANDS as u8) + 1
+        ); // Dealer for the deal. LIN is a weird format.
         for (position, hand) in self.into_iter().enumerate() {
             if position != 0 {
-                stringa.push(',')
+                stringa.push(',') // TODO: Wirte this and next block with iterators
             }
             for (index, holding) in hand.into_iter().enumerate() {
                 stringa.push(match index {
@@ -204,18 +214,22 @@ impl Deal {
                     _ => unreachable!(),
                 });
                 stringa = format!(
-                    "{}{}",
-                    stringa,
-                    format!(
-                        "{}",
-                        holding.into_iter().map(|card| card.rankchar()).format("")
+                    "{}",
+                    format_args!(
+                        "{}{}",
+                        stringa,
+                        holding
+                            .into_iter()
+                            .map(|card| card.rankchar())
+                            .rev()
+                            .format("")
                     )
                 );
             }
         }
-        let data1 = (board_n - 1) / 4;
-        let data2 = (board_n - 1) % 4;
-        let data3 = match (data1 + data2) % 4 {
+        let data1 = (board_n - 1) / NUMBER_OF_HANDS as u8; // Round of board
+        let data2 = (board_n - 1) % NUMBER_OF_HANDS as u8; // Dealer
+        let data3 = match (data1 + data2) % NUMBER_OF_HANDS as u8 {
             0 => "o",
             1 => "n",
             2 => "e",
@@ -227,7 +241,7 @@ impl Deal {
 }
 
 trait DealPrinter: std::fmt::Debug {
-    fn print(&self, hands: &[Hand; 4]) -> String;
+    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String;
 }
 pub trait PrintFormat {
     fn pbn(&mut self);
@@ -248,11 +262,11 @@ impl PrintFormat for Deal {
 #[derive(Debug, Clone, Copy)]
 struct PbnPrinter {}
 impl DealPrinter for PbnPrinter {
-    fn print(&self, hands: &[Hand; 4]) -> String {
+    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
         format!(
             "[Deal:\"N:{}\"]",
             hands
-                .into_iter()
+                .iter()
                 .map(|hand| format!(
                     "{}",
                     hand.into_iter()
@@ -273,7 +287,7 @@ impl DealPrinter for PbnPrinter {
 #[derive(Debug, Clone, Copy)]
 struct ShortStrPrinter {}
 impl DealPrinter for ShortStrPrinter {
-    fn print(&self, hands: &[Hand; 4]) -> String {
+    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
         format!(
             "\t\t{}\n{}\t\t\t{}\n\t\t{}",
             hands[0], hands[3], hands[1], hands[2],
@@ -283,7 +297,7 @@ impl DealPrinter for ShortStrPrinter {
 #[derive(Debug, Clone, Copy)]
 struct LongStrPrinter {}
 impl DealPrinter for LongStrPrinter {
-    fn print(&self, hands: &[Hand; 4]) -> String {
+    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
         let mut stringa = String::new();
         for line in hands[0].long_str().split('\n') {
             stringa = format!("{stringa}\t   {}\n", line);
@@ -320,7 +334,7 @@ impl fmt::Display for Deal {
 
 impl<'a> IntoIterator for &'a Deal {
     type Item = Hand;
-    type IntoIter = std::array::IntoIter<Hand, 4>;
+    type IntoIter = std::array::IntoIter<Hand, NUMBER_OF_HANDS>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIterator::into_iter(self.hands)
@@ -337,7 +351,7 @@ fn can_deal_test() {
 fn deal_with_constraints_test() {
     for _ in 0..10 {
         let deal = Deal::new(
-            Constraints::Bounds(&|x: &[Hand; 4], y: &mut ShapeFactory| {
+            Constraints::Bounds(&|x: &[Hand; NUMBER_OF_HANDS], _y: &mut ShapeFactory| {
                 x[1].diamonds().high_card_points() > 5
             }),
             &mut ShapeFactory::new(),

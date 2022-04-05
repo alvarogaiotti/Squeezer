@@ -162,7 +162,7 @@ IntoChunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertool
 IntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type IntoIter = Chunks<'a, I>;$/;"	T
 IntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    type IntoIter = Groups<'a, K, I, F>;$/;"	T
 IntoIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/rciter_impl.rs	/^    type IntoIter = RcIter<I>;$/;"	T
-IntoIter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    type IntoIter = std::array::IntoIter<Hand, 4>;$/;"	T
+IntoIter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    type IntoIter = std::array::IntoIter<Hand, NUMBER_OF_HANDS>;$/;"	T
 IntoIter	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    type IntoIter = HandIterator<'a>;$/;"	T
 Item	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    type Item = Card;$/;"	T
 Item	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    type Item = T;$/;"	T
@@ -243,6 +243,7 @@ MAX	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/
 MAXNODE	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub const MAXNODE: u32 = 1;$/;"	c
 MAXNOOFBOARDS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub const MAXNOOFBOARDS: u32 = 200;$/;"	c
 MAXNOOFTABLES	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub const MAXNOOFTABLES: u32 = 40;$/;"	c
+MAX_N_OF_BOARDS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^    pub const MAX_N_OF_BOARDS: u8 = 32;$/;"	c
 MIN	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub const MIN: HandValuation = HandValuation {$/;"	c
 MINNODE	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub const MINNODE: u32 = 0;$/;"	c
 MapForGrouping	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/grouping_map.rs	/^pub struct MapForGrouping<I, F>(I, F);$/;"	s
@@ -266,6 +267,7 @@ MultiProduct	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/iterto
 MultiProductIter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^struct MultiProductIter<I>$/;"	s
 MultiProductIterState	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^enum MultiProductIterState {$/;"	g
 MultiUnzip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^pub trait MultiUnzip<FromI>: Iterator {$/;"	t
+NUMBER_OF_HANDS	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^    pub const NUMBER_OF_HANDS: usize = 4;$/;"	c
 NoColor	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/formatters.rs	/^pub struct NoColor;$/;"	s
 Out	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    type Out = Result<U, E>;$/;"	T
 Out	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    type Out = U;$/;"	T
@@ -1145,7 +1147,7 @@ ddTableDeals	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^p
 ddTableDealsPBN	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct ddTableDealsPBN {$/;"	s
 ddTableResults	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct ddTableResults {$/;"	s
 ddTablesRes	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct ddTablesRes {$/;"	s
-deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn deal() -> [Hand; 4] {$/;"	f
+deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn deal() -> [Hand; NUMBER_OF_HANDS] {$/;"	f
 deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct deal {$/;"	s
 dealPBN	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct dealPBN {$/;"	s
 deal_with_constraints_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn deal_with_constraints_test() {$/;"	f
@@ -1733,13 +1735,13 @@ powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-
 powerset	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/powerset.rs	/^pub fn powerset<I>(src: I) -> Powerset<I>$/;"	f
 pread	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn pread($/;"	f
 pread64	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn pread64($/;"	f
-predeal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn predeal(predealt: [(Seat, Option<Hand>); 4], hands: &mut [Hand; 4]) {$/;"	f
+predeal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn predeal($/;"	f
 predeal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn predeal(hands: Vec<(char, &str)>) -> Self {$/;"	f
 prefill	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lazy_buffer.rs	/^    pub fn prefill(&mut self, len: usize) {$/;"	f
 prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/falsemain.rs	/^mod prelude {$/;"	m
 prelude	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/main.rs	/^mod prelude {$/;"	m
-print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self, hands: &[Hand; 4]) -> String {$/;"	f
-print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self, hands: &[Hand; 4]) -> String;$/;"	f
+print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {$/;"	f
+print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String;$/;"	f
 print	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn print(&self) {$/;"	f
 private	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/duplicates_impl.rs	/^mod private {$/;"	m
 process_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/process_results_impl.rs	/^pub fn process_results<I, F, T, E, R>(iterable: I, processor: F) -> Result<R, E>$/;"	f

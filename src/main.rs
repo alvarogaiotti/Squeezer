@@ -8,7 +8,9 @@ mod smartstack;
 mod prelude {
     pub const SUITS: usize = 4;
     pub const SHAPE_COMBINATIONS: usize = 14usize.pow(4);
+    pub const MAX_N_OF_BOARDS: u8 = 32;
     pub const RANKS: u8 = 13;
+    pub const NUMBER_OF_HANDS: usize = 4;
     pub use crate::deal::*;
     pub use crate::hand::*;
     pub use crate::lib::*;
@@ -32,7 +34,7 @@ use prelude::*;
 
 fn main() {
     let mut found = 0;
-    let goal = 1000000;
+    let goal = 100;
     let mut d33orks = 0;
     let mut squeeze = 0;
     let suitquality = Evaluator::new(&[2, 2, 1, 1, 1]);

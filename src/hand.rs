@@ -53,14 +53,11 @@ impl Hand {
     pub fn as_bits(&self) -> u64 {
         self.cards
             .into_iter()
-            .map(|x| 1 << x.rank() + 16 * x.suit() as u8)
+            .map(|x| 1 << (x.rank() + 16 * x.suit() as u8))
             .sum()
     }
     pub fn long_str(&self) -> String {
         format!("{}", self.into_iter().format("\n"))
-        //.zip(Suit::ALL.into_iter())
-        //.map(|(holding, suit)| format!("{}{}", suit.unicode(), holding))
-        //.join("\n")
     }
 }
 
