@@ -290,8 +290,8 @@ impl fmt::Display for Strain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::S => write!(f, "♠"),
-            Self::H => write!(f, "♡"),
-            Self::D => write!(f, "♢"),
+            Self::H => write!(f, "♥"),
+            Self::D => write!(f, "♦"),
             Self::N => write!(f, "NT"),
             Self::C => write!(f, "♣"),
         }

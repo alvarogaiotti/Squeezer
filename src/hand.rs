@@ -22,7 +22,10 @@ impl Hand {
         }
     }
 
-    pub fn shape(self) -> Vec<u8> {
+    pub fn contains(&self, card: Card) -> bool {
+        self.cards.contains(card)
+    }
+    pub fn shape(&self) -> Vec<u8> {
         let spades = self.cards.spades().len() as u8;
         let hearts = self.cards.hearts().len() as u8;
         let diamonds = self.cards.diamonds().len() as u8;
@@ -30,19 +33,19 @@ impl Hand {
         vec![spades, hearts, diamonds, clubs]
     }
 
-    pub fn spades(self) -> Cards {
+    pub fn spades(&self) -> Cards {
         self.cards.spades()
     }
-    pub fn hearts(self) -> Cards {
+    pub fn hearts(&self) -> Cards {
         self.cards.hearts()
     }
-    pub fn diamonds(self) -> Cards {
+    pub fn diamonds(&self) -> Cards {
         self.cards.diamonds()
     }
-    pub fn clubs(self) -> Cards {
+    pub fn clubs(&self) -> Cards {
         self.cards.clubs()
     }
-    pub fn hcp(self) -> usize {
+    pub fn hcp(&self) -> usize {
         self.cards.high_card_points()
     }
     pub fn from_str(hand: &str) -> Result<Hand, String> {

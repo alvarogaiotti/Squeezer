@@ -4,6 +4,7 @@ mod lib;
 mod payoff;
 mod shape;
 mod smartstack;
+mod utils;
 
 mod prelude {
     pub const SUITS: usize = 4;
@@ -17,6 +18,7 @@ mod prelude {
     pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::smartstack::*;
+    pub use crate::utils::*;
     pub use bridge_deck::{Card, Cards, Suit};
     pub use colored::Colorize;
     pub use itertools::{any, Itertools};
@@ -43,28 +45,25 @@ fn main() {
         if found > goal {
             break;
         }
-        let mut deal = Deal::new(
-            Constraints::Predeal([
-                (
-                    Seat::North,
-                    Some(Hand::from_str("SASQS4HKH4DKD9D6D5CKCQCJC7").unwrap()),
-                ),
-                (
-                    Seat::South,
-                    Some(Hand::from_str("S7S5H2DAD7D2CACTC9C8C6C4C3").unwrap()),
-                ),
-                (Seat::East, None),
-                (Seat::West, None),
-            ]),
-            &mut factory,
-        );
+        let mut deal = Deal::new_with_conditions(Constraints::Predeal([
+            (
+                Seat::North,
+                Some(Hand::from_str("SASQS4HKH4DKD9D6D5CKCQCJC7").unwrap()),
+            ),
+            (
+                Seat::South,
+                Some(Hand::from_str("S7S5H2DAD7D2CACTC9C8C6C4C3").unwrap()),
+            ),
+            (Seat::East, None),
+            (Seat::West, None),
+        ]));
         if deal.west().hearts().len() > 6 && suitquality.evaluate(&deal.west().hearts()) >= 3 {
             deal.long();
             found += 1;
-            if deal.west().diamonds().len() == 3 || deal.west().cards.contains(Card::SK) {
+            if deal.west().diamonds().len() == 3 || deal.west().contains(Card::SK) {
                 d33orks += 1;
                 //deal.print()
-            } else if deal.east().diamonds().len() > 3 && deal.east().cards.contains(Card::SK) {
+            } else if deal.east().diamonds().len() > 3 && deal.east().contains(Card::SK) {
                 squeeze += 1;
                 //deal.print()
             }
@@ -75,18 +74,4 @@ fn main() {
         "Squeeze:{}\nQuadri 3-3 o K♠ in impasse:{}",
         squeeze, d33orks
     );
-}
-
-fn polish_club(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
-    factory.new_shape(Some("(4432)")).unwrap();
-    factory.new_shape(Some("(4333)")).unwrap();
-    factory.new_shape(Some("4414")).unwrap();
-    factory.new_shape(Some("(5332)")).unwrap();
-    let factory = factory - "(5xx)x";
-    let hand = hands[0];
-    factory.includes(&hand) && 10 < hand.hcp() && hand.hcp() < 15
-        || hand.clubs().len() == hand.into_iter().map(|x| x.len()).max().unwrap()
-            && !factory.is_not_in(&hand, "(5xx)5")
-        || factory.is_not_in(&hand, "(144)4") && 14 < hand.hcp()
-        || hand.hcp() > 17
 }

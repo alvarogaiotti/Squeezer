@@ -71,10 +71,14 @@ pub enum Vulnerability {
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands
 pub enum Constraints<'a> {
     None,
-    Bounds(&'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
+    Bounds(
+        &'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool,
+        &'a mut ShapeFactory<'a>,
+    ), // Pointer to type implementing Fn trait
     Predeal([(Seat, Option<Hand>); NUMBER_OF_HANDS]),
     BoundsAndPredeal(
         &'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool,
+        &'a mut ShapeFactory<'a>,
         [(Seat, Option<Hand>); NUMBER_OF_HANDS],
     ),
 }
@@ -109,10 +113,17 @@ pub struct Deal {
     printer: Box<dyn DealPrinter>,
 }
 impl Deal {
-    pub fn new(constraints: Constraints, factory: &mut ShapeFactory) -> Self {
+    pub fn new() -> Self {
+        Self {
+            vulnerability: Vulnerability::None,
+            hands: Self::deal(),
+            printer: Box::new(ShortStrPrinter {}),
+        }
+    }
+    pub fn new_with_conditions(constraints: Constraints) -> Self {
         let mut hands = [Hand::new(); NUMBER_OF_HANDS];
         match constraints {
-            Constraints::Bounds(f) => {
+            Constraints::Bounds(f, factory) => {
                 while {
                     hands = Deal::deal();
                     !f(&hands, factory)
@@ -121,7 +132,7 @@ impl Deal {
             Constraints::Predeal(predeal) => {
                 Deal::predeal(predeal, &mut hands);
             }
-            Constraints::BoundsAndPredeal(f, predeal) => {
+            Constraints::BoundsAndPredeal(f, factory, predeal) => {
                 while {
                     Deal::predeal(predeal, &mut hands);
                     !f(&hands, factory)
@@ -240,7 +251,7 @@ impl Deal {
     }
 }
 
-trait DealPrinter: std::fmt::Debug {
+pub trait DealPrinter: std::fmt::Debug {
     fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String;
 }
 pub trait PrintFormat {
@@ -344,18 +355,18 @@ impl<'a> IntoIterator for &'a Deal {
 #[cfg(test)]
 #[test]
 fn can_deal_test() {
-    let deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
+    let deal = Deal::new();
 }
 
 #[test]
 fn deal_with_constraints_test() {
     for _ in 0..10 {
-        let deal = Deal::new(
-            Constraints::Bounds(&|x: &[Hand; NUMBER_OF_HANDS], _y: &mut ShapeFactory| {
+        let deal = Deal::new_with_conditions(Constraints::Bounds(
+            &|x: &[Hand; NUMBER_OF_HANDS], _y: &mut ShapeFactory| {
                 x[1].diamonds().high_card_points() > 5
-            }),
+            },
             &mut ShapeFactory::new(),
-        );
+        ));
         assert!(deal[1].diamonds().high_card_points() > 5);
     }
 }
@@ -366,7 +377,7 @@ fn deal_with_predeal_test() {
         ('N', "SKSQSTS9HAHJHQD9D8D7D3CAC2"),
         ('S', "CKCQCJCTC9C8C7C6S3S4S2D2D4D5"),
     ]);
-    let mut deal = Deal::new(predeal, &mut ShapeFactory::new());
+    let mut deal = Deal::new_with_conditions(predeal);
     deal.long();
     deal.print();
     assert_eq!(
@@ -379,12 +390,12 @@ fn deal_with_predeal_test() {
 }
 #[test]
 fn lin_test() {
-    let deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
+    let deal = Deal::new();
     println!("{}", deal.as_lin(1));
 }
 #[test]
 fn pbn_test() {
-    let mut deal = Deal::new(Constraints::None, &mut ShapeFactory::new());
+    let mut deal = Deal::new();
     deal.pbn();
     deal.print();
 }
