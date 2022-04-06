@@ -57,25 +57,17 @@ impl<'a> ShapeFactory<'a> {
             not_in_cache: HashMap::new(),
         }
     }
-    pub fn new_shape(&mut self, shape: Option<&'a str>) -> Result<(), Box<(dyn Error + 'static)>> {
-        if let Some(pattern) = shape {
-            //if a pattern is provided
-            if self.cache_table.get(pattern).is_some()
-            //search it in the cache table
-            {
-                Ok(())
-            } else {
-                //if not found, produce it
-                let shape_pattern: Vec<char> = pattern.chars().into_iter().collect();
-                self.insert(shape_pattern)?;
-                self.cache_table.insert(pattern);
-                Ok(())
-            }
+    pub fn new_shape(&mut self, shape: &'a str) -> Result<(), Box<(dyn Error + 'static)>> {
+        //if a pattern is provided
+        if self.cache_table.get(shape).is_some()
+        //search it in the cache table
+        {
+            Ok(())
         } else {
-            //if not a pattern, return a void Shape
-            let pattern: Vec<char> = vec!['4', '3', '3', '3'];
-            self.insert(pattern)?;
-            self.cache_table.insert("4333");
+            //if not found, produce it
+            let shape_pattern: Vec<char> = shape.chars().into_iter().collect();
+            self.insert(shape_pattern)?;
+            self.cache_table.insert(shape);
             Ok(())
         }
     }
@@ -393,7 +385,7 @@ fn shape_error_unbal_parentheses_test() {
 #[test]
 fn shape_parens_interpretation_working_test() {
     let mut factory = ShapeFactory::new();
-    factory.new_shape(Some("4(34)2")).unwrap();
+    factory.new_shape("4(34)2").unwrap();
     let mut true_arr = Vec::<usize>::new();
     for (i, data) in factory.table.iter().enumerate() {
         if *data {
@@ -406,7 +398,7 @@ fn shape_parens_interpretation_working_test() {
 #[test]
 fn membership_shape_hand_test() {
     let mut factory = ShapeFactory::new();
-    factory.new_shape(Some("4(34)2")).unwrap();
+    factory.new_shape("4(34)2").unwrap();
     let deck = Cards::ALL;
     let clubs = deck.clubs().pick(2).unwrap();
     let diamonds = deck.diamonds().pick(4).unwrap();
