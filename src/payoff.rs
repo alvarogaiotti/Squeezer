@@ -349,8 +349,8 @@ fn can_create_contract_from_str_test() {
     let contract_h = Contract::from_str("3HN", false).unwrap();
     let contract_n = Contract::from_str("3NNXX", false).unwrap();
     assert_eq!(contract_c.to_string(), "3♣N");
-    assert_eq!(contract_d.to_string(), "3♢N");
-    assert_eq!(contract_h.to_string(), "3♡N");
+    assert_eq!(contract_d.to_string(), "3♦N");
+    assert_eq!(contract_h.to_string(), "3♥N");
     assert_eq!(contract_s.to_string(), "3♠N");
     assert_eq!(contract_n.to_string(), "3NTNXX");
 }

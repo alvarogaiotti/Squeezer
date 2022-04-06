@@ -143,6 +143,36 @@ impl<'a> ShapeFactory<'a> {
         }
         Ok(())
     }
+    pub fn balanced() -> Self {
+        let mut factory = Self {
+            op_cache: HashSet::new(),
+            cache_table: HashSet::new(),
+            table: [false; SHAPE_COMBINATIONS],
+            min_ls: [13; 4],
+            max_ls: [0; 4],
+            not_in_cache: HashMap::new(),
+        };
+        factory.new_shape("(4333)").unwrap();
+        factory.new_shape("(4432)").unwrap();
+        factory.new_shape("(5332)").unwrap();
+        factory
+    }
+    pub fn balanced_no_5M() -> Self {
+        let mut factory = Self {
+            op_cache: HashSet::new(),
+            cache_table: HashSet::new(),
+            table: [false; SHAPE_COMBINATIONS],
+            min_ls: [13; 4],
+            max_ls: [0; 4],
+            not_in_cache: HashMap::new(),
+        };
+        factory.new_shape("(4333)").unwrap();
+        factory.new_shape("(4432)").unwrap();
+        factory.new_shape("(5332)").unwrap();
+        factory = factory - "(53)(32)";
+        factory = factory - "(52)(33)";
+        factory
+    }
 
     fn table_from_pattern(
         shape: Vec<u8>,
@@ -355,6 +385,31 @@ impl<'a> std::ops::Sub<&'a str> for &mut ShapeFactory<'a> {
     }
 }
 
+impl<'a> std::ops::Add<&'a str> for ShapeFactory<'a> {
+    type Output = Self;
+    fn add(mut self, rhs: &'a str) -> Self::Output {
+        if self.op_cache.get(&(rhs, "+")).is_some() {
+            self
+        } else {
+            let pattern: Vec<char> = rhs.chars().collect();
+            self.insert(pattern).unwrap();
+            self.op_cache.insert((rhs, "+"));
+            self
+        }
+    }
+}
+
+impl<'a> std::ops::Sub<&'a str> for ShapeFactory<'a> {
+    type Output = Self;
+    fn sub(mut self, rhs: &'a str) -> Self::Output {
+        if self.op_cache.get(&(rhs, "-")).is_some() {
+            self
+        } else {
+            self.remove(rhs);
+            self
+        }
+    }
+}
 #[cfg(test)]
 #[test]
 fn factory_get_pattern_test() {

@@ -964,6 +964,7 @@ acct	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub f
 add	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn add(self, rhs: Self) -> Self {$/;"	f
 add	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn add(a: SizeHint, b: SizeHint) -> SizeHint {$/;"	f
 add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn add(self, rhs: usize) -> Self::Output {$/;"	f
+add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn add(mut self, rhs: &'a str) -> Self::Output {$/;"	f
 add	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn add(self, rhs: &'a str) -> Self::Output {$/;"	f
 add_assign	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn add_assign(&mut self, rhs: Self) {$/;"	f
 add_data	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/payoff.rs	/^    pub fn add_data(&mut self, raw_scores: &HashMap<String, i32>) {$/;"	f
@@ -989,6 +990,8 @@ as_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.
 as_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_ref(&self) -> EitherOrBoth<&A, &B> {$/;"	f
 assert_equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn assert_equal<I, J>(a: I, b: J)$/;"	f
 at_most_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn at_most_one(mut self) -> Result<Option<Self::Item>, ExactlyOneError<Self>>$/;"	f
+balanced	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn balanced() -> Self {$/;"	f
+balanced_no_5M	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn balanced_no_5M() -> Self {$/;"	f
 batching	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn batching<I, F>(iter: I, f: F) -> Batching<I, F> {$/;"	f
 batching	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn batching<B, F>(self, f: F) -> Batching<Self, F>$/;"	f
 bgcolor	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    pub fn bgcolor(&self) -> Option<Color> {$/;"	f
@@ -1594,7 +1597,7 @@ new_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertool
 new_format_default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format_default<I>(iter: I, separator: &str) -> Format<'_, I>$/;"	f
 new_losing_trick_count	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn new_losing_trick_count(self) -> f64 {$/;"	f
 new_shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new_shape(&mut self, shape: &'a str) -> Result<(), Box<(dyn Error + 'static)>> {$/;"	f
-new_with_conditions	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn new_with_conditions(constraints: Constraints) -> Self {$/;"	f
+new_with_conditions	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn new_with_conditions(constraints: &Constraints, factory: &mut ShapeFactory) -> Self {$/;"	f
 next	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
 next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
 next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/map.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
@@ -1886,6 +1889,7 @@ style	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0
 style_from_multiples	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/style.rs	/^        fn style_from_multiples(styles: &[Styles]) -> Style {$/;"	f
 styles_combine_complex	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/style.rs	/^    mod styles_combine_complex {$/;"	m
 sub	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn sub(self, rhs: Self) -> Self {$/;"	f
+sub	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn sub(mut self, rhs: &'a str) -> Self::Output {$/;"	f
 sub	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn sub(self, rhs: &'a str) -> Self::Output {$/;"	f
 sub_assign	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn sub_assign(&mut self, rhs: Self) {$/;"	f
 sub_scalar	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/size_hint.rs	/^pub fn sub_scalar(sh: SizeHint, x: usize) -> SizeHint {$/;"	f
