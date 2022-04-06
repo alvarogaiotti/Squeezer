@@ -1151,6 +1151,8 @@ ddTablesRes	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pu
 deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn deal() -> [Hand; NUMBER_OF_HANDS] {$/;"	f
 deal	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct deal {$/;"	s
 dealPBN	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct dealPBN {$/;"	s
+deal_1nt_3nt	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^pub fn deal_1nt_3nt(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {$/;"	f
+deal_3nt_opening	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^pub fn deal_3nt_opening(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {$/;"	f
 deal_with_constraints_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn deal_with_constraints_test() {$/;"	f
 deal_with_predeal_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^fn deal_with_predeal_test() {$/;"	f
 debug	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^fn debug() {$/;"	f
@@ -1206,6 +1208,8 @@ euidaccess	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^   
 evalType	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct evalType {$/;"	s
 evaluate	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^    pub fn evaluate(&self, hand: &Cards) -> u8 {$/;"	f
 evaluate_correctly_test	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/smartstack.rs	/^fn evaluate_correctly_test() {$/;"	f
+evaluate_lenght_and_concentration	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^fn evaluate_lenght_and_concentration(hand: &Hand) -> u8 {$/;"	f
+evaluate_short_honors	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^fn evaluate_short_honors(hand: &Hand) -> u8 {$/;"	f
 exactly_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn exactly_one(mut self) -> Result<Self::Item, ExactlyOneError<Self>>$/;"	f
 exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn exceeds(self, upper: Self) -> bool {$/;"	f
 exceeds	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn exceeds(self, upper: HandValuation) -> bool {$/;"	f
@@ -1589,7 +1593,7 @@ new_chunks	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertool
 new_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format<I, F>(iter: I, separator: &str, f: F) -> FormatWith<'_, I, F>$/;"	f
 new_format_default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^pub fn new_format_default<I>(iter: I, separator: &str) -> Format<'_, I>$/;"	f
 new_losing_trick_count	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn new_losing_trick_count(self) -> f64 {$/;"	f
-new_shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new_shape(&mut self, shape: Option<&'a str>) -> Result<(), Box<(dyn Error + 'static)>> {$/;"	f
+new_shape	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    pub fn new_shape(&mut self, shape: &'a str) -> Result<(), Box<(dyn Error + 'static)>> {$/;"	f
 new_with_conditions	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn new_with_conditions(constraints: Constraints) -> Self {$/;"	f
 next	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
 next	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/coalesce.rs	/^    fn next(&mut self) -> Option<Self::Item> {$/;"	f
@@ -1964,6 +1968,7 @@ value_isomorph	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colo
 values	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn values(self) -> HandValuation {$/;"	f
 vfork	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn vfork() -> __pid_t;$/;"	f
 vhangup	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn vhangup() -> ::std::os::raw::c_int;$/;"	f
+weak2	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^pub fn weak2(hand: &Hand) -> bool {$/;"	f
 west	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn west(&self) -> Hand {$/;"	f
 while_some	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^pub fn while_some<I>(iter: I) -> WhileSome<I> {$/;"	f
 while_some	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn while_some<A>(self) -> WhileSome<Self>$/;"	f
@@ -1976,6 +1981,7 @@ with_shcp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b84
 with_value	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^    pub fn with_value(mut self, value: I::Item) -> Self {$/;"	f
 write	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn write($/;"	f
 yellow	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn yellow(self) -> ColoredString$/;"	f
+zar_points	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^pub fn zar_points(hand: &Hand) -> u8 {$/;"	f
 zip	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn zip<I, J>(i: I, j: J) -> Zip<I::IntoIter, J::IntoIter>$/;"	f
 zip_eq	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn zip_eq<J>(self, other: J) -> ZipEq<Self, J::IntoIter>$/;"	f
 zip_eq	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/zip_eq_impl.rs	/^pub fn zip_eq<I, J>(i: I, j: J) -> ZipEq<I::IntoIter, J::IntoIter>$/;"	f
