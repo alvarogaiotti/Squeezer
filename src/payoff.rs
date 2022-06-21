@@ -68,8 +68,10 @@ where
                         let output = format!("{:.2}", mean);
                         if mean > stderr {
                             output.green()
-                        } else {
+                        } else if mean < &-stderr {
                             output.red()
+                        } else {
+                            output.white()
                         }
                     }
                 });
@@ -308,14 +310,14 @@ fn bisect_right(value: i32, lista: &[i32]) -> i32 {
     }
     lista.len() as i32
 }
-fn imps(my: i32, other: i32) -> i32 {
+pub fn imps(my: i32, other: i32) -> i32 {
     let imp_table: [i32; 24] = [
         15, 45, 85, 125, 165, 215, 265, 315, 365, 425, 495, 595, 745, 895, 1095, 1295, 1495, 1745,
         1995, 2245, 2495, 2995, 3495, 3995,
     ];
     bisect_right((my - other).abs(), &imp_table) * (if my > other { 1 } else { -1 })
 }
-fn matchpoints(my: i32, other: i32) -> i32 {
+pub fn matchpoints(my: i32, other: i32) -> i32 {
     (my > other) as i32 - (my < other) as i32
 }
 
