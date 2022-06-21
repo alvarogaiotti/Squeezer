@@ -198,6 +198,33 @@ impl Deal {
     pub fn print(&self) {
         println!("{}", self.printer.print(&self.hands));
     }
+    pub fn as_pbn(&self) -> String {
+        let mut pbn = "[Deal \"N:".to_owned();
+        pbn = format!(
+            "{}",
+            format_args!(
+                "{}{}",
+                pbn,
+                self.into_iter()
+                    .map(|hand| {
+                        hand.into_iter()
+                            .map(|holding| {
+                                holding
+                                    .into_iter()
+                                    .map(|card| card.rankchar())
+                                    .rev()
+                                    .format("")
+                            })
+                            .format(".")
+                            .to_string()
+                    })
+                    .format(" ")
+            )
+        );
+        pbn.push_str("\"]");
+        pbn
+    }
+
     pub fn as_lin(&self, board_n: u8) -> String {
         let board_n = if board_n % (MAX_N_OF_BOARDS + 1) == 0 {
             1
@@ -271,7 +298,7 @@ struct PbnPrinter {}
 impl DealPrinter for PbnPrinter {
     fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
         format!(
-            "[Deal:\"N:{}\"]",
+            "[Deal \"N:{}\"]",
             hands
                 .iter()
                 .map(|hand| format!(
@@ -394,5 +421,5 @@ fn lin_test() {
 fn pbn_test() {
     let mut deal = Deal::new();
     deal.pbn();
-    deal.print();
+    assert_eq!(deal.printer.print(&deal.hands), deal.as_pbn())
 }
