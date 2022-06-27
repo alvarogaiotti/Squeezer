@@ -45,6 +45,18 @@ impl Hand {
     pub fn clubs(&self) -> Cards {
         self.cards.clubs()
     }
+    pub fn slen(&self) -> usize {
+        self.cards.spades().len()
+    }
+    pub fn hlen(&self) -> usize {
+        self.cards.hearts().len()
+    }
+    pub fn dlen(&self) -> usize {
+        self.cards.diamonds().len()
+    }
+    pub fn clen(&self) -> usize {
+        self.cards.clubs().len()
+    }
     pub fn hcp(&self) -> usize {
         self.cards.high_card_points()
     }
