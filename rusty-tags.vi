@@ -987,6 +987,7 @@ any	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.
 as_bits	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn as_bits(&self) -> u64 {$/;"	f
 as_lin	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn as_lin(&self, board_n: u8) -> String {$/;"	f
 as_mut	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_mut(&mut self) -> EitherOrBoth<&mut A, &mut B> {$/;"	f
+as_pbn	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    pub fn as_pbn(&self) -> String {$/;"	f
 as_ref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn as_ref(&self) -> EitherOrBoth<&A, &B> {$/;"	f
 assert_equal	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^pub fn assert_equal<I, J>(a: I, b: J)$/;"	f
 at_most_one	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn at_most_one(mut self) -> Result<Option<Self::Item>, ExactlyOneError<Self>>$/;"	f
@@ -1079,6 +1080,7 @@ circular_tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec
 circular_tuple_windows	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/tuple_impl.rs	/^pub fn circular_tuple_windows<I, T>(iter: I) -> CircularTupleWindows<I, T>$/;"	f
 clear	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn clear(self) -> ColoredString {$/;"	f
 clear	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn clear(self) -> ColoredString;$/;"	f
+clen	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn clen(&self) -> usize {$/;"	f
 clicolor_behavior	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/control.rs	/^    fn clicolor_behavior() {$/;"	f
 clone	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^        fn clone(&self) -> Self {$/;"	f
 clone_fields	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^macro_rules! clone_fields {$/;"	d
@@ -1182,6 +1184,7 @@ dimmed	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.
 dimmed	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn dimmed(self) -> ColoredString {$/;"	f
 dimmed	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn dimmed(self) -> ColoredString;$/;"	f
 disp	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/display.rs	/^fn disp() {$/;"	f
+dlen	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn dlen(&self) -> usize {$/;"	f
 drop	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn drop(&mut self) {$/;"	f
 drop_group	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn drop_group(&mut self, client: usize) {$/;"	f
 drop_group	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/groupbylazy.rs	/^    fn drop_group(&self, client: usize) {$/;"	f
@@ -1386,6 +1389,7 @@ hidden	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.
 hidden	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn hidden(self) -> ColoredString {$/;"	f
 hidden	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn hidden(self) -> ColoredString;$/;"	f
 highCardType	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct highCardType {$/;"	s
+hlen	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn hlen(&self) -> usize {$/;"	f
 ignore_ident	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/impl_macros.rs	/^macro_rules! ignore_ident{$/;"	d
 impl_cons_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/cons_tuples_impl.rs	/^macro_rules! impl_cons_iter($/;"	d
 impl_format	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/format.rs	/^macro_rules! impl_format {$/;"	d
@@ -1393,7 +1397,7 @@ impl_tuple_collect	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/
 impl_tuple_combination	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/mod.rs	/^macro_rules! impl_tuple_combination {$/;"	d
 impl_unzip_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/unziptuple.rs	/^macro_rules! impl_unzip_iter {$/;"	d
 impl_zip_iter	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^macro_rules! impl_zip_iter {$/;"	d
-imps	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/payoff.rs	/^fn imps(my: i32, other: i32) -> i32 {$/;"	f
+imps	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/payoff.rs	/^pub fn imps(my: i32, other: i32) -> i32 {$/;"	f
 in_progress	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/adaptors/multi_product.rs	/^    fn in_progress(&self) -> bool {$/;"	f
 in_suit	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn in_suit(self, suit: Suit) -> Cards {$/;"	f
 in_suits	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn in_suits(self) -> PerSuit<Cards> {$/;"	f
@@ -1508,7 +1512,7 @@ map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.
 map_ok	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn map_ok<F, T, U, E>(self, f: F) -> MapOk<Self, F>$/;"	f
 map_results	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn map_results<F, T, U, E>(self, f: F) -> MapOk<Self, F>$/;"	f
 map_right	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/either_or_both.rs	/^    pub fn map_right<F, M>(self, f: F) -> EitherOrBoth<A, M>$/;"	f
-matchpoints	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/payoff.rs	/^fn matchpoints(my: i32, other: i32) -> i32 {$/;"	f
+matchpoints	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/payoff.rs	/^pub fn matchpoints(my: i32, other: i32) -> i32 {$/;"	f
 max	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    fn max(self) -> Option<Card> {$/;"	f
 max	/home/alvaro/.cargo/git/checkouts/bridge-cards-373a83c194736ad0/744b846/src/lib.rs	/^    pub fn max(self, other: HandValuation) -> HandValuation {$/;"	f
 max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/free.rs	/^pub fn max<I>(iterable: I) -> Option<I::Item>$/;"	f
@@ -1727,6 +1731,7 @@ playTracePBN	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^p
 playTracesBin	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct playTracesBin {$/;"	s
 playTracesPBN	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct playTracesPBN {$/;"	s
 polish_club	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/utils.rs	/^pub fn polish_club(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {$/;"	f
+populate	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/dds.rs	/^pub fn populate(deal: &Deal) -> [[u32; 4]; 4] {$/;"	f
 pos	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct pos {$/;"	s
 position_max	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max(self) -> Option<usize>$/;"	f
 position_max_by	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn position_max_by<F>(self, mut compare: F) -> Option<usize>$/;"	f
@@ -1857,6 +1862,7 @@ size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools
 size_hint	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/ziptuple.rs	/^            fn size_hint(&self) -> (usize, Option<usize>)$/;"	f
 size_t	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub type size_t = ::std::os::raw::c_ulong;$/;"	T
 sleep	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^    pub fn sleep(__seconds: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;$/;"	f
+slen	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    pub fn slen(&self) -> usize {$/;"	f
 socklen_t	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub type socklen_t = __socklen_t;$/;"	T
 solvedBoards	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct solvedBoards {$/;"	s
 solvedPlay	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/lib.rs	/^pub struct solvedPlay {$/;"	s
