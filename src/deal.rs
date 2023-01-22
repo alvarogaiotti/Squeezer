@@ -108,6 +108,12 @@ pub struct Deal {
     hands: [Hand; NUMBER_OF_HANDS],
     printer: Box<dyn DealPrinter>,
 }
+
+impl Default for Deal {
+    fn default() -> Self {
+        Deal::new()
+    }
+}
 impl Deal {
     pub fn new() -> Self {
         Self {

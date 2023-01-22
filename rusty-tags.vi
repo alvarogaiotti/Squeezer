@@ -1174,6 +1174,7 @@ dedup_with_count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/it
 dedup_with_count	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/itertools-0.10.3/src/lib.rs	/^    fn dedup_with_count(self) -> DedupWithCount<Self>$/;"	f
 default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/control.rs	/^    fn default() -> ShouldColorize {$/;"	f
 default	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn default() -> Self {$/;"	f
+default	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/deal.rs	/^    fn default() -> Self {$/;"	f
 default	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/hand.rs	/^    fn default() -> Self {$/;"	f
 default	/home/alvaro/Programming/workspace-rust/rusty-dealer/src/shape.rs	/^    fn default() -> Self {$/;"	f
 deref	/home/alvaro/.cargo/registry/src/github.com-1ecc6299db9ec823/colored-2.0.0/src/lib.rs	/^    fn deref(&self) -> &str {$/;"	f

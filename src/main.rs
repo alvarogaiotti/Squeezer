@@ -1,7 +1,6 @@
 mod dds;
 mod deal;
 mod hand;
-mod lib;
 mod payoff;
 mod shape;
 mod smartstack;
@@ -16,7 +15,6 @@ mod prelude {
     pub use crate::dds::*;
     pub use crate::deal::*;
     pub use crate::hand::*;
-    pub use crate::lib::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::smartstack::*;
@@ -24,6 +22,7 @@ mod prelude {
     pub use bridge_deck::{Card, Cards, Suit};
     pub use colored::Colorize;
     pub use itertools::{any, Itertools};
+    pub use rusty_dealer::*;
     pub use std::{
         array::IntoIter,
         collections::{HashMap, HashSet},

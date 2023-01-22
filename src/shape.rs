@@ -330,7 +330,7 @@ pub trait Membership<'a, Contenuto> {
 
 impl<'a> Membership<'a, Hand> for ShapeFactory<'a> {
     fn includes(&self, contenuto: &Hand) -> bool {
-        self.table[ShapeFactory::flatten(contenuto.shape())] as bool
+        self.table[ShapeFactory::flatten(contenuto.shape())]
     }
     fn is_not_in(&mut self, non_contenuto: &Hand, pattern: &'a str) -> bool {
         if let Some(table) = self.not_in_cache.get(pattern) {

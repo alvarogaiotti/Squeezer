@@ -32,15 +32,16 @@ pub fn weak2(hand: &Hand) -> bool {
 }
 
 fn evaluate_short_honors(hand: &Hand) -> u8 {
-    let mut malus = 0;
-    for suit in hand {
-        if suit.len() < 2 {
-            malus += suit.kings().len() + suit.queens().len() + suit.jacks().len();
-        } else if suit.len() == 2 {
-            malus += suit.queens().len() + suit.jacks().len();
-        }
-    }
-    malus as u8
+    let mut malus: u8 = 0;
+    malus += hand
+        .into_iter()
+        .map(|suit| match suit.len() {
+            0..=1 => (suit.kings().len() + suit.queens().len() + suit.jacks().len()) as u8,
+            2 => (suit.queens().len() + suit.jacks().len()) as u8,
+            _ => 0u8,
+        })
+        .sum::<u8>();
+    malus
 }
 
 fn evaluate_lenght_and_concentration(hand: &Hand) -> u8 {
@@ -55,13 +56,11 @@ fn evaluate_lenght_and_concentration(hand: &Hand) -> u8 {
     if 10 < hand.hcp()
         && hand.hcp() < 15
         && longest.high_card_points() + longest2nd.high_card_points() >= hand.hcp() - 1
-    {
-        points += 1;
-    } else if 14 < hand.hcp()
-        && longest.high_card_points()
-            + longest2nd.high_card_points()
-            + longest3rd.high_card_points()
-            >= hand.hcp() - 1
+        || (14 < hand.hcp()
+            && longest.high_card_points()
+                + longest2nd.high_card_points()
+                + longest3rd.high_card_points()
+                >= hand.hcp() - 1)
     {
         points += 1;
     }
@@ -90,7 +89,7 @@ pub fn deal_3nt_opening(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
 }
 
 pub fn deal_1nt_3nt(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
-    for (seat, hand) in hands.into_iter().enumerate() {
+    for (_seat, hand) in hands.iter().enumerate() {
         if hand.hcp() < 18 && hand.hcp() > 14 {}
     }
     todo!()

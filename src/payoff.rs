@@ -153,7 +153,7 @@ impl Contract {
     }
     pub fn score(&self, tricks: usize) -> i32 {
         let target: i32 = self.level as i32 + 6i32;
-        let overtricks: i32 = tricks as i32 - target as i32;
+        let overtricks: i32 = tricks as i32 - target;
         if overtricks >= 0 {
             let per_trick: i32 = if self.strain == Strain::C || self.strain == Strain::D {
                 20
