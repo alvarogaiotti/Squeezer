@@ -1,6 +1,6 @@
 use crate::prelude::*;
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
-///on scoring.
+///on scoring. Some sort of expected value of the contracts.
 pub struct Payoff<T, D>
 where
     T: Fn(i32, i32) -> i32,
@@ -17,9 +17,9 @@ where
     D: fmt::Display,
 {
     pub fn new(entries: Vec<D>, diff: T) -> Self {
-        let mut table = Vec::new();
+        let mut table = Vec::with_capacity(entries.len());
         for i in 0..entries.len() {
-            table.push(Vec::new());
+            table.push(Vec::with_capacity(entries.len()));
             for _ in 0..entries.len() {
                 table[i].push(Vec::new());
             }
