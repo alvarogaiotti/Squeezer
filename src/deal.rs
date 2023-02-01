@@ -1,13 +1,19 @@
+use std::fmt::Debug;
+
 use crate::prelude::*;
 
-///Seat enum, still to be understood how to use it,
-///but i know it will be used
 #[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
 pub enum Seat {
     North = 0,
     East = 1,
     South = 2,
     West = 3,
+}
+
+impl Default for Seat {
+    fn default() -> Self {
+        Seat::North
+    }
 }
 
 impl fmt::Display for Seat {
@@ -23,7 +29,7 @@ impl fmt::Display for Seat {
 
 impl Seat {
     pub fn next(self) -> Seat {
-        self + 1
+        (self + 1).into()
     }
     pub fn from_char(c: char) -> Result<Self, Box<dyn Error>> {
         match c {
@@ -36,6 +42,14 @@ impl Seat {
     }
     pub fn iter() -> IntoIter<Seat, 4> {
         [Seat::North, Seat::East, Seat::South, Seat::West].into_iter()
+    }
+    pub fn long_str(&self) -> &str {
+        match self {
+            Self::North => "North",
+            Self::East => "East",
+            Self::West => "West",
+            Self::South => "South",
+        }
     }
 }
 
@@ -66,6 +80,12 @@ pub enum Vulnerability {
     NS = 1,
     EW = 2,
     All = 3,
+}
+
+impl Default for Vulnerability {
+    fn default() -> Self {
+        Vulnerability::None
+    }
 }
 
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands
@@ -99,7 +119,161 @@ impl<'a> Constraints<'a> {
     }
 }
 
-///The principal struct of the module: represents a bridge deal, with
+type AcceptFunction = Box<dyn Fn(&[Hand]) -> bool>;
+
+pub struct DealerBuilder {
+    // Function that decides if the deal is to be accepted
+    // normally used to set things like at least a 9 card
+    // fit in a major, but can still be used to do things like this
+    // if hands.north.spades.len() < 6 && hands.north.hcp() > 13 {
+    // do something...
+    // }
+    // even with a HandDescriptor:
+    // if some_hand_descriptor.match(hands.north) {
+    // do stuff ...
+    // }
+    accept: AcceptFunction,
+
+    // Descriptor of the hands we would like, e.g.
+    hand_descriptors: HashMap<Seat, HandDescriptor>,
+    // Hands to predeal.
+    predealt_hands: HashMap<Seat, Hand>,
+    vulnerability: Vulnerability,
+}
+
+impl DealerBuilder {
+    pub fn new() -> Self {
+        Self {
+            accept: Box::new(|_: &[Hand]| true),
+            hand_descriptors: HashMap::new(),
+            predealt_hands: HashMap::new(),
+            vulnerability: Vulnerability::default(),
+        }
+    }
+
+    pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
+        self.predealt_hands.insert(seat, hand);
+        self
+    }
+
+    pub fn with_function(&mut self, accept_function: AcceptFunction) -> &mut Self {
+        self.accept = accept_function;
+        self
+    }
+
+    pub fn with_hand_specification(
+        &mut self,
+        seat: Seat,
+        hand_description: HandDescriptor,
+    ) -> &mut Self {
+        self.hand_descriptors.insert(seat, hand_description);
+        self
+    }
+
+    pub fn with_vulnerability(&mut self, vulnerability: Vulnerability) -> &mut Self {
+        self.vulnerability = vulnerability;
+        self
+    }
+
+    pub fn build(self) -> impl Dealer {
+        let deck = Cards::ALL;
+        for (_, hand) in self.predealt_hands.iter() {
+            deck.difference(hand.cards);
+        }
+        CompleteDealer {
+            predeal: self.predealt_hands,
+            vulnerability: self.vulnerability,
+            deck_actual_state: deck,
+            deck_starting_state: deck,
+            accept_function: self.accept,
+            hand_constraints: self.hand_descriptors,
+            ..Default::default()
+        }
+    }
+}
+
+pub trait Dealer {
+    fn deal(&self) -> Result<Deal, DealerError>;
+}
+
+#[derive(Debug)]
+enum Subsequent {
+    OutputConsequentially(usize),
+    OutputAlwaysOne,
+}
+// Struct that takes care of the dealing.
+pub struct CompleteDealer {
+    predeal: HashMap<Seat, Hand>,
+    vulnerability: Vulnerability,
+    deck_starting_state: Cards,
+    deck_actual_state: Cards,
+    hand_constraints: HashMap<Seat, HandDescriptor>,
+    accept_function: AcceptFunction,
+    output_as_subsequent: Subsequent,
+}
+
+impl Debug for CompleteDealer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Dealer")
+            .field("Predeal", &self.predeal)
+            .field("Vulnerability", &self.vulnerability)
+            .field("Hand Constraints", &self.hand_constraints)
+            .finish()
+    }
+}
+
+impl Default for CompleteDealer {
+    fn default() -> Self {
+        Self {
+            predeal: HashMap::new(),
+            vulnerability: Vulnerability::default(),
+            deck_actual_state: Cards::ALL,
+            deck_starting_state: Cards::ALL,
+            hand_constraints: HashMap::new(),
+            accept_function: Box::new(|_: &[Hand]| true),
+            output_as_subsequent: Subsequent::OutputAlwaysOne,
+        }
+    }
+}
+
+impl Dealer for CompleteDealer {
+    fn deal(&self) -> Result<Deal, DealerError> {
+        let mut hands: [Hand; 4] = [Hand::default(); 4];
+        // This way to write the while loop ensures that we deal at least once
+        // before evaluating the accept_function and the constraints.
+        while {
+            let mut deck = self.deck_starting_state;
+            for seat in Seat::iter() {
+                if let Some(hand) = self.predeal.get(&seat) {
+                    hands[seat as usize].set_cards(&hand.cards);
+                } else {
+                    hands[seat as usize] = if let Some(cards) = deck.pick(13) {
+                        Hand { cards }
+                    } else {
+                        return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
+                    };
+                }
+            }
+            !((self.accept_function)(&hands) && self.check_if_hand_constraint_are_respected(&hands))
+        } {}
+        Ok(Deal {
+            hands,
+            ..Default::default()
+        })
+    }
+}
+impl CompleteDealer {
+    fn check_if_hand_constraint_are_respected(&self, hands: &[Hand]) -> bool {
+        if self.hand_constraints.is_empty() {
+            true
+        } else {
+            self.hand_constraints
+                .iter()
+                .all(|(seat, hand_constraint)| hand_constraint.check(&hands[*seat as usize]))
+        }
+    }
+}
+///The central struct of the module: represents a bridge deal, with
 ///cards, vulnerability, ecc.
 /// TODO: Should have a number, a dealer, a contract, ecc.
 #[derive(Debug)]
@@ -204,6 +378,10 @@ impl Deal {
     pub fn print(&self) {
         println!("{}", self.printer.print(&self.hands));
     }
+    pub fn as_string(&self) -> String {
+        self.printer.print(&self.hands)
+    }
+
     pub fn as_pbn(&self) -> String {
         let mut pbn = "[Deal \"N:".to_owned();
         pbn = format!(
@@ -403,17 +581,14 @@ fn deal_with_constraints_test() {
 #[test]
 fn deal_with_predeal_test() {
     let mut factory = ShapeFactory::new();
-    let predeal = Constraints::predeal(vec![
-        ('N', "SKSQSTS9HAHJHQD9D8D7D3CAC2"),
-        ('S', "CKCQCJCTC9C8C7C6S3S4S2D2D4D5"),
-    ]);
+    let predeal = Constraints::predeal(vec![('N', "SKQT9HAQJD9873CA2"), ('S', "CKQJT9876S342D25")]);
     let mut deal = Deal::new_with_conditions(&predeal, &mut factory);
     deal.long();
     deal.print();
     assert_eq!(
         (
             Cards::from_str("SKSQSTS9HAHJHQD9D8D7D3CAC2").unwrap(),
-            Cards::from_str("CKCQCJCTC9C8C7C6S3S4S2D2D4D5").unwrap()
+            Cards::from_str("CKCQCJCTC9C8C7C6S3S4S2D2D5").unwrap()
         ),
         (deal.north().cards, deal.south().cards)
     );
@@ -428,4 +603,42 @@ fn pbn_test() {
     let mut deal = Deal::new();
     deal.pbn();
     assert_eq!(deal.printer.print(&deal.hands), deal.as_pbn())
+}
+
+#[test]
+fn dealer_builder_test() {
+    let dealer_builder = DealerBuilder::new();
+    let dealer = dealer_builder.build();
+}
+
+#[test]
+fn dealer_deals_test() {
+    let db = DealerBuilder::new();
+    let mut dealer = db.build();
+    let deal = dealer.deal().unwrap();
+}
+
+#[test]
+fn dealer_deals_with_predeal_test() {
+    let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+    let mut builder = DealerBuilder::new();
+    builder.predeal(Seat::North, hand);
+    let mut dealer = builder.build();
+    let deal = dealer.deal().unwrap();
+    assert_eq!(deal.north(), hand);
+}
+
+#[test]
+fn dealer_deals_with_predeal_and_accept_function_test() {
+    let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+    let mut builder = DealerBuilder::new();
+    builder
+        .predeal(Seat::North, hand)
+        .with_function(Box::new(|hands: &[Hand]| {
+            hands[Seat::North as usize].slen() + hands[Seat::South as usize].slen() > 8
+        }));
+    let mut dealer = builder.build();
+    let deal = dealer.deal().unwrap();
+    println!("{}", &deal);
+    assert!(deal.north().slen() + deal.south().slen() > 8);
 }

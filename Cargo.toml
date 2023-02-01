@@ -1,5 +1,5 @@
 [package]
-name = "rusty-dealer"
+name = "rusty_dealer"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
@@ -8,8 +8,4 @@ build = "build.rs"
 [dependencies]
 bridge-deck = {git = "https://github.com/droundy/bridge-cards"}
 colored = "2.0.0"
-# druid = "0.7.0"
 itertools = "0.10.3"
-
-[profile.dev]
-rpath = true
