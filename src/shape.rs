@@ -190,7 +190,7 @@ impl<'a> ShapeFactory<'a> {
                     min_ls[suit] = u8::min(min_ls[suit], shape[suit]);
                     max_ls[suit] = u8::max(max_ls[suit], shape[suit]);
                 }
-                table[ShapeFactory::flatten(shape)] = true;
+                table[ShapeFactory::flatten(&shape)] = true;
                 return Ok((table, min_ls, max_ls));
             } else if safe {
                 return Err(Box::new(DealerError::new(
@@ -229,23 +229,25 @@ impl<'a> ShapeFactory<'a> {
         Ok(())
     }
     fn get_pattern(
-        it: &mut Vec<char>,
+        shape_pattern: &mut Vec<char>,
         parsed: &mut Vec<u8>,
         collected: &'a mut Vec<Vec<u8>>,
     ) -> Result<&'a Vec<Vec<u8>>, Box<dyn Error + 'static>> {
-        if it.is_empty() {
-            collected.push(parsed.clone());
+        if shape_pattern.is_empty() {
+            collected.push(parsed.to_owned());
             Ok(collected)
         } else {
             let head: Vec<u8>;
-            if let Some('(') = it.first() {
-                let closing = if let Some(index) = it.iter().position(|&x| x == ')') {
-                    Ok(index)
-                } else {
-                    Err(DealerError::new("Unbalanced parentheses."))
-                };
-                let closing: usize = closing?;
-                head = (it[1..closing])
+            if let Some('(') = shape_pattern.first() {
+                let closing_bracket_index =
+                    if let Some(index) = shape_pattern.iter().position(|&x| x == ')') {
+                        Ok(index)
+                    } else {
+                        Err(DealerError::new("Unbalanced parentheses."))
+                    };
+                let closing_bracket_index: usize = closing_bracket_index?;
+                let mut errors = vec![];
+                head = (shape_pattern[1..closing_bracket_index])
                     .iter()
                     .map(|&x| {
                         if x == ShapeFactory::JOKER {
@@ -253,17 +255,20 @@ impl<'a> ShapeFactory<'a> {
                         } else {
                             match x.to_digit(10) {
                                 Some(value) => Ok(value as u8),
-                                None => {
-                                    Err(DealerError::new("Shape pattern contains unknown chars."))
-                                }
+                                None => Err(Box::new(DealerError::new(
+                                    "Shape pattern contains unknown chars.",
+                                ))),
                             }
                         }
                     })
-                    .map(|x| x.unwrap())
+                    .filter_map(|x| x.map_err(|e| errors.push(e)).ok())
                     .collect();
-                *it = (it[closing + 1..]).to_vec();
+                if !errors.is_empty() {
+                    return Err(errors.remove(0));
+                }
+                *shape_pattern = (shape_pattern[closing_bracket_index + 1..]).to_vec();
             } else {
-                head = (it[0..1])
+                head = (shape_pattern[0..1])
                     .iter()
                     .map(|&x| {
                         if x == ShapeFactory::JOKER {
@@ -279,18 +284,18 @@ impl<'a> ShapeFactory<'a> {
                     })
                     .map(|x| x.unwrap())
                     .collect();
-                *it = (it[1..]).to_vec();
+                *shape_pattern = (shape_pattern[1..]).to_vec();
             }
             for perm in head.iter().permutations(head.len()) {
                 parsed.extend(perm.clone());
-                ShapeFactory::get_pattern(&mut it.clone(), parsed, collected)?;
+                ShapeFactory::get_pattern(&mut shape_pattern.clone(), parsed, collected)?;
                 parsed.drain(parsed.len() - perm.len()..);
             }
             Ok(collected)
         }
     }
 
-    fn flatten(shape: Vec<u8>) -> usize {
+    fn flatten(shape: &[u8]) -> usize {
         let (s, h, d, c) = shape.iter().map(|&x| x as usize).next_tuple().unwrap();
         ((((s * (RANKS + 1) as usize + h) * (RANKS + 1) as usize) + d) * (RANKS + 1) as usize) + c
     }
@@ -330,11 +335,11 @@ pub trait Membership<'a, Contenuto> {
 
 impl<'a> Membership<'a, Hand> for ShapeFactory<'a> {
     fn includes(&self, contenuto: &Hand) -> bool {
-        self.table[ShapeFactory::flatten(contenuto.shape())]
+        self.table[ShapeFactory::flatten(&contenuto.shape())]
     }
     fn is_not_in(&mut self, non_contenuto: &Hand, pattern: &'a str) -> bool {
         if let Some(table) = self.not_in_cache.get(pattern) {
-            table[ShapeFactory::flatten(non_contenuto.shape())]
+            table[ShapeFactory::flatten(&non_contenuto.shape())]
         } else {
             let mut collected: Vec<Vec<u8>> = Vec::new();
             ShapeFactory::get_pattern(
@@ -353,7 +358,7 @@ impl<'a> Membership<'a, Hand> for ShapeFactory<'a> {
                     shape_table[i] |= bit;
                 }
             }
-            let res = shape_table[ShapeFactory::flatten(non_contenuto.shape())];
+            let res = shape_table[ShapeFactory::flatten(&non_contenuto.shape())];
             self.not_in_cache.insert(pattern, shape_table);
             res
         }
@@ -410,6 +415,7 @@ impl<'a> std::ops::Sub<&'a str> for ShapeFactory<'a> {
         }
     }
 }
+
 #[cfg(test)]
 #[test]
 fn factory_get_pattern_test() {

@@ -155,10 +155,9 @@ impl Contract {
         let target: i32 = self.level as i32 + 6i32;
         let overtricks: i32 = tricks as i32 - target;
         if overtricks >= 0 {
-            let per_trick: i32 = if self.strain == Strain::C || self.strain == Strain::D {
-                20
-            } else {
-                30
+            let per_trick: i32 = match self.strain {
+                Strain::C | Strain::D => 20,
+                _ => 30,
             };
             let mut per_overtrick: i32 = per_trick;
             let mut base_score: i32 = per_trick * self.level as i32;
@@ -166,39 +165,40 @@ impl Contract {
             if self.strain == Strain::N {
                 base_score += 10
             };
-            if self.doubled == 1 {
-                base_score *= 2;
-                bonus += 50;
-                per_overtrick = 100;
+
+            match self.doubled {
+                1 => {
+                    base_score *= 2;
+                    bonus += 50;
+                    per_overtrick = 100;
+                }
+                2 => {
+                    base_score *= 4;
+                    bonus += 100;
+                    per_overtrick = 200;
+                }
+                _ => {}
             };
-            if self.doubled == 2 {
-                base_score *= 4;
-                bonus += 100;
-                per_overtrick = 200;
-            }
             bonus += if base_score >= 100 {
-                if self.vuln {
-                    500
-                } else {
-                    300
+                match self.vuln {
+                    true => 500,
+                    false => 300,
                 }
             } else {
                 50
             };
             bonus += if self.level == 6 {
-                if self.vuln {
-                    750
-                } else {
-                    500
+                match self.vuln {
+                    true => 750,
+                    false => 500,
                 }
             } else {
                 0
             };
             bonus += if self.level == 7 {
-                if self.vuln {
-                    1500
-                } else {
-                    1000
+                match self.vuln {
+                    true => 1500,
+                    false => 1000,
                 }
             } else {
                 0
