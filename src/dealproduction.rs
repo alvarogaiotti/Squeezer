@@ -10,7 +10,7 @@ pub struct ShapeHasher {
 
 impl std::hash::Hasher for ShapeHasher {
     fn write(&mut self, bytes: &[u8]) {
-        // We reset so we are guaranted to get always the same result.
+        // We reset so we are guaranteed to get always the same result.
         self.state = 0;
         for &byte in bytes {
             self.state = (R * self.state + u64::from(byte)) % M
@@ -163,16 +163,36 @@ impl<'a> Shapes {
         // In the Python implementation there is a `safe: bool`, but is always passed as true, so we
         // can avoid it.
     ) -> Result<([u8; SUITS], [u8; SUITS]), Box<DealerError>> {
-        // Jokers is a `x` in a shape pattern
-        // e.g. 4xx2.
-        let jokers = any(shape.iter(), |&x| x == RANKS + 1);
         // Get the sum of the total we are at whitout the xs.
         let pre_set: u8 = shape.iter().filter(|&&x| x != RANKS + 1).sum();
         // Min and max lengths, implemented in the Python library for smartstacking.
         // Here we do not have smartstacking but maybe it'll be implemented in the future.
         let mut min_ls = [ZERO_LENGTH; SUITS];
         let mut max_ls = [ZERO_LENGTH; SUITS];
-        if !jokers {
+        // Jokers is a `x` in a shape pattern
+        // e.g. 4xx2.
+        if let Some(joker_index) = shape.iter().position(|&x| x == RANKS + 1) {
+            if pre_set > MAX_LENGTH {
+                return Err(Box::new(DealerError::new("Invalid ambiguous shape.")));
+            }
+            // Every possible length of the x
+            for possible_lengths in ZERO_LENGTH..=(MAX_LENGTH - pre_set) {
+                let mut new_shape = Vec::with_capacity(4);
+                new_shape.extend_from_slice(&shape[..joker_index]);
+                new_shape.push(possible_lengths);
+                new_shape.extend_from_slice(&shape[joker_index + 1..]);
+                let is_len_correct =
+                    new_shape.iter().filter(|&&x| x != RANKS + 1).sum::<u8>() == 13u8;
+                let still_jokers = any(new_shape.iter(), |&x| x == RANKS + 1);
+
+                if !still_jokers && !is_len_correct {
+                    continue;
+                };
+                Shapes::table_from_pattern(new_shape, table)?;
+            }
+            Ok((min_ls, max_ls))
+        } else {
+            dbg!(&shape);
             match Shapes::add_shape_pattern_to_table(
                 pre_set,
                 &mut min_ls,
@@ -183,22 +203,6 @@ impl<'a> Shapes {
                 Ok(()) => Ok((min_ls, max_ls)),
                 Err(error) => Err(error),
             }
-        } else {
-            if pre_set > MAX_LENGTH {
-                return Err(Box::new(DealerError::new("Invalid ambiguous shape.")));
-            }
-            for (suit, &length) in shape.iter().enumerate() {
-                if length == RANKS + 1 {
-                    // Every possible length of the x
-                    for possible_lengths in ZERO_LENGTH..(MAX_LENGTH - pre_set + 1) {
-                        let mut new_shape: Vec<u8> = shape[..suit].to_vec();
-                        new_shape.push(possible_lengths);
-                        new_shape.extend(shape[suit + 1..].to_vec());
-                        Shapes::table_from_pattern(new_shape, table)?;
-                    }
-                };
-            }
-            Ok((min_ls, max_ls))
         }
     }
 
@@ -351,10 +355,10 @@ impl Suit {
     /// The name of the suit
     pub fn name(self) -> &'static str {
         match self {
-            Suit::Clubs => "clubs",
-            Suit::Diamonds => "diamonds",
-            Suit::Hearts => "hearts",
-            Suit::Spades => "spades",
+            Suit::Clubs => "Clubs",
+            Suit::Diamonds => "Diamonds",
+            Suit::Hearts => "Hearts",
+            Suit::Spades => "Spades",
         }
     }
     /// The unicode character for this suit
@@ -456,7 +460,7 @@ fn shape_parens_interpretation_working_test() {
     factory
         .add_shape(ShapeDescriptor::SingleShape {
             shape_pattern: StringShapePattern {
-                pattern: String::from("(63MAX_LENGTH)"),
+                pattern: String::from("(6331)"),
             },
         })
         .unwrap();
@@ -536,4 +540,29 @@ fn shapes_from_len_range_test() {
     ok_shapes.sort();
     dbg!(&true_arr);
     assert_eq!(ok_shapes, true_arr);
+}
+#[test]
+fn jokers_correct_behaviour_test() {
+    let mut factory = Shapes::new();
+    factory
+        .add_shape(ShapeDescriptor::SingleShape {
+            shape_pattern: StringShapePattern {
+                pattern: String::from("3xx2"),
+            },
+        })
+        .unwrap();
+    let deck = Cards::ALL;
+    let clubs = deck.clubs().pick(2).unwrap();
+    let diamonds = deck.diamonds().pick(4).unwrap();
+    let hearts = deck.hearts().pick(4).unwrap();
+    let spades = deck.spades().pick(3).unwrap();
+    let cards = Cards::EMPTY
+        .union(spades)
+        .union(clubs)
+        .union(diamonds)
+        .union(hearts);
+
+    let hand = Hand { cards };
+    //println!("{}", ShapeFactory::flatten(hand.shape()));
+    assert!(factory.is_member(&hand));
 }

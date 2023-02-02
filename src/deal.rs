@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::prelude::*;
 
-#[derive(Debug, PartialEq, Hash, Eq, Clone, Copy)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Seat {
     North = 0,
     East = 1,
