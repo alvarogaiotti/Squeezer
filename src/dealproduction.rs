@@ -289,24 +289,12 @@ impl<'a> Shapes {
 
 impl From<&[LenRange; SUITS]> for Shapes {
     fn from(len_range: &[LenRange; SUITS]) -> Self {
-        let spades_idx = Suit::Spades as usize;
-        let hearts_idx = Suit::Hearts as usize;
-        let diamonds_idx = Suit::Diamonds as usize;
-        let clubs_idx = Suit::Clubs as usize;
-        let spades = len_range[spades_idx];
-        let hearts = len_range[hearts_idx];
-        let diamonds = len_range[diamonds_idx];
-        let clubs = len_range[clubs_idx];
         let mut min_ls = [ZERO_LENGTH; SUITS];
         let mut max_ls = [MAX_LENGTH; SUITS];
-        min_ls[spades_idx] = spades.min;
-        min_ls[hearts_idx] = hearts.min;
-        min_ls[diamonds_idx] = diamonds.min;
-        min_ls[clubs_idx] = clubs.min;
-        max_ls[spades_idx] = spades.max;
-        max_ls[hearts_idx] = hearts.max;
-        max_ls[diamonds_idx] = diamonds.max;
-        max_ls[clubs_idx] = clubs.max;
+        for &suit in Suit::ALL {
+            min_ls[suit as usize] = len_range[suit as usize].min;
+            max_ls[suit as usize] = len_range[suit as usize].max;
+        }
         let mut shapes = Self {
             min_ls,
             max_ls,
