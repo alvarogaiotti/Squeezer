@@ -65,7 +65,7 @@ where
                     if i == j {
                         "-".blue()
                     } else {
-                        let output = format!("{:.2}", mean);
+                        let output = format!("{mean:.2}");
                         if mean > stderr {
                             output.green()
                         } else if mean < &-stderr {
@@ -79,7 +79,7 @@ where
             print!("\n       ");
             for (j, (_mean, stderr)) in line.iter().enumerate() {
                 print!("\t{}", {
-                    let output = format!("{:.2}", stderr);
+                    let output = format!("{stderr:.2}");
                     if i == j {
                         "".to_string()
                     } else {
