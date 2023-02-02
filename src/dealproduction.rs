@@ -192,7 +192,6 @@ impl<'a> Shapes {
             }
             Ok((min_ls, max_ls))
         } else {
-            dbg!(&shape);
             match Shapes::add_shape_pattern_to_table(
                 pre_set,
                 &mut min_ls,
@@ -476,7 +475,6 @@ fn shape_parens_interpretation_working_test() {
         Shapes::hash_flatten(&[4, 3, 4, 2]),
     ];
     ok_shapes.sort();
-    dbg!(&true_arr);
     assert_eq!(ok_shapes, true_arr);
 }
 
@@ -526,7 +524,6 @@ fn shapes_from_len_range_test() {
         Shapes::hash_flatten(&[5, 3, 3, 2]),
     ];
     ok_shapes.sort();
-    dbg!(&true_arr);
     assert_eq!(ok_shapes, true_arr);
 }
 #[test]

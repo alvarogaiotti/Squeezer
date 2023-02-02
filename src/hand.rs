@@ -77,7 +77,7 @@ impl Hand {
     }
 }
 
-impl std::str::FromStr for Hand {
+impl FromStr for Hand {
     type Err = String;
 
     fn from_str(hand: &str) -> Result<Hand, Self::Err> {
