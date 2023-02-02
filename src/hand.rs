@@ -10,7 +10,9 @@ pub struct Hand {
 
 impl Default for Hand {
     fn default() -> Self {
-        Self::new()
+        Hand {
+            cards: Cards::EMPTY,
+        }
     }
 }
 
@@ -22,15 +24,19 @@ impl Hand {
         }
     }
 
+    pub fn set_cards(&mut self, cards: &Cards) {
+        self.cards = *cards;
+    }
+
     pub fn contains(&self, card: Card) -> bool {
         self.cards.contains(card)
     }
-    pub fn shape(&self) -> Vec<u8> {
+    pub fn shape(&self) -> [u8; 4] {
         let spades = self.cards.spades().len() as u8;
         let hearts = self.cards.hearts().len() as u8;
         let diamonds = self.cards.diamonds().len() as u8;
         let clubs = self.cards.clubs().len() as u8;
-        vec![spades, hearts, diamonds, clubs]
+        [spades, hearts, diamonds, clubs]
     }
 
     pub fn spades(&self) -> Cards {
@@ -46,24 +52,26 @@ impl Hand {
         self.cards.clubs()
     }
     pub fn slen(&self) -> usize {
-        self.cards.spades().len()
+        self.spades().len()
     }
     pub fn hlen(&self) -> usize {
-        self.cards.hearts().len()
+        self.hearts().len()
     }
     pub fn dlen(&self) -> usize {
-        self.cards.diamonds().len()
+        self.diamonds().len()
     }
     pub fn clen(&self) -> usize {
-        self.cards.clubs().len()
+        self.clubs().len()
     }
     pub fn hcp(&self) -> usize {
         self.cards.high_card_points()
     }
     pub fn from_str(hand: &str) -> Result<Hand, String> {
-        Ok(Hand {
-            cards: Cards::from_str(hand)?,
-        })
+        let cards = Cards::from_str(hand)?;
+        if cards.len() != 13 {
+            return Err("Wrong number of cards for a Bridge hand!".to_string());
+        }
+        Ok(Hand { cards })
     }
     pub fn as_bits(&self) -> u64 {
         self.cards
@@ -94,7 +102,6 @@ impl<'a> IntoIterator for &'a Hand {
     }
 }
 
-///Iterator for the Hand struct. I couldn't do better ;(
 #[derive(Debug)]
 pub struct HandIterator<'a> {
     hand: &'a Cards,
@@ -113,5 +120,62 @@ impl<'a> Iterator for HandIterator<'a> {
         };
         self.index += 1;
         Some(result)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct HcpRange {
+    min_hcp: u8,
+    max_hcp: u8,
+}
+
+impl HcpRange {
+    pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
+        Self { min_hcp, max_hcp }
+    }
+
+    pub fn check(&self, hand: &Hand) -> bool {
+        let hcp = hand.hcp();
+        self.min_hcp <= hcp as u8 && self.max_hcp >= hcp as u8
+    }
+}
+
+impl Default for HcpRange {
+    fn default() -> Self {
+        HcpRange::new(0, 37)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct HandArchetype {
+    shape: Shapes,
+    hcp_range: HcpRange,
+}
+
+impl HandArchetype {
+    pub fn new(shape: Shapes, hcp_range: HcpRange) -> Self {
+        Self { shape, hcp_range }
+    }
+}
+
+impl HandArchetype {
+    pub fn check(&self, hand: &Hand) -> bool {
+        self.shape.is_member(hand) && self.hcp_range.check(hand)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct HandDescriptor {
+    possible_hands: Vec<HandArchetype>,
+}
+
+impl HandDescriptor {
+    pub fn check(&self, hand: &Hand) -> bool {
+        self.possible_hands
+            .iter()
+            .any(|hand_archetype| hand_archetype.check(hand))
+    }
+    pub fn new(possible_hands: Vec<HandArchetype>) -> Self {
+        Self { possible_hands }
     }
 }
