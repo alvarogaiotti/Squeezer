@@ -29,7 +29,7 @@ impl fmt::Display for Seat {
 
 impl Seat {
     pub fn next(self) -> Seat {
-        (self + 1).into()
+        self + 1
     }
     pub fn from_char(c: char) -> Result<Self, Box<dyn Error>> {
         match c {
@@ -139,6 +139,12 @@ pub struct DealerBuilder {
     // Hands to predeal.
     predealt_hands: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
+}
+
+impl Default for DealerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DealerBuilder {
@@ -454,7 +460,7 @@ impl Deal {
             3 => "b",
             _ => unreachable!(),
         };
-        format!("{}|sv|{}|rh||ah|Board {}|", stringa, data3, board_n)
+        format!("{stringa}|sv|{data3}|rh||ah|Board {board_n}|")
     }
 }
 
@@ -518,17 +524,17 @@ impl DealPrinter for LongStrPrinter {
     fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
         let mut stringa = String::new();
         for line in hands[0].long_str().split('\n') {
-            stringa = format!("{stringa}\t   {}\n", line);
+            stringa = format!("{stringa}\t   {line}\n");
         }
         for (line_w, line_e) in hands[3]
             .long_str()
             .split('\n')
             .zip(hands[1].long_str().split('\n'))
         {
-            stringa = format!("{stringa}{:<20}{line_e}\n", line_w)
+            stringa = format!("{stringa}{line_w:<20}{line_e}\n")
         }
         for line in hands[2].long_str().split('\n') {
-            stringa = format!("{stringa}\t   {}\n", line);
+            stringa = format!("{stringa}\t   {line}\n");
         }
         stringa
     }

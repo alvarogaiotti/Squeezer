@@ -326,7 +326,7 @@ impl LenRange {
             max: if max > MAX_LENGTH { MAX_LENGTH } else { max },
         }
     }
-    fn to_range(&self) -> RangeInclusive<u8> {
+    fn as_range(&self) -> RangeInclusive<u8> {
         self.min..=self.max
     }
 }
@@ -370,7 +370,7 @@ impl Suit {
     fn iter() -> impl Iterator<Item = Suit> {
         [Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs]
             .iter()
-            .map(|&x| x)
+            .copied()
     }
     /// All four suits from lowest to highest
     pub const ALL: &'static [Self] = &[Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs];
