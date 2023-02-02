@@ -66,13 +66,6 @@ impl Hand {
     pub fn hcp(&self) -> usize {
         self.cards.high_card_points()
     }
-    pub fn from_str(hand: &str) -> Result<Hand, String> {
-        let cards = Cards::from_str(hand)?;
-        if cards.len() != 13 {
-            return Err("Wrong number of cards for a Bridge hand!".to_string());
-        }
-        Ok(Hand { cards })
-    }
     pub fn as_bits(&self) -> u64 {
         self.cards
             .into_iter()
@@ -81,6 +74,18 @@ impl Hand {
     }
     pub fn long_str(&self) -> String {
         format!("{}", self.into_iter().format("\n"))
+    }
+}
+
+impl std::str::FromStr for Hand {
+    type Err = String;
+
+    fn from_str(hand: &str) -> Result<Hand, Self::Err> {
+        let cards = Cards::from_str(hand)?;
+        if cards.len() != 13 {
+            return Err("Wrong number of cards for a Bridge hand!".to_string());
+        }
+        Ok(Hand { cards })
     }
 }
 
