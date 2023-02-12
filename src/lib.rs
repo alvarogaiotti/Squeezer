@@ -25,7 +25,7 @@ mod prelude {
     pub use crate::shape::*;
     pub use crate::smartstack::*;
     pub use crate::utils::*;
-    pub(crate) use bridge_deck::{Card, Cards};
+    pub use bridge_deck::{Card, Cards};
     pub(crate) use colored::Colorize;
     pub(crate) use itertools::{any, Itertools};
     pub(crate) use std::{
