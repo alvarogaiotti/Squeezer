@@ -468,19 +468,22 @@ pub trait DealPrinter: std::fmt::Debug {
     fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String;
 }
 pub trait PrintFormat {
-    fn pbn(&mut self);
-    fn long(&mut self);
-    fn short(&mut self);
+    fn pbn(&mut self) -> &mut Self;
+    fn long(&mut self) -> &mut Self;
+    fn short(&mut self) -> &mut Self;
 }
 impl PrintFormat for Deal {
-    fn pbn(&mut self) {
+    fn pbn(&mut self) -> &mut Self {
         self.printer = Box::new(PbnPrinter {});
+        self
     }
-    fn long(&mut self) {
+    fn long(&mut self) -> &mut Self {
         self.printer = Box::new(LongStrPrinter {});
+        self
     }
-    fn short(&mut self) {
+    fn short(&mut self) -> &mut Self {
         self.printer = Box::new(ShortStrPrinter {});
+        self
     }
 }
 #[derive(Debug, Clone, Copy)]
