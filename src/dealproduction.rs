@@ -3,6 +3,7 @@ use crate::prelude::*;
 const R: u64 = 61;
 const M: u64 = 2039;
 const SHAPE_TABLE_BUCKETS: usize = 2048;
+
 #[derive(Default)]
 pub struct ShapeHasher {
     state: u64,
@@ -284,6 +285,11 @@ impl<'a> Shapes {
             self.insert_shape(&[s, h, d, c]).unwrap();
         }
     }
+    pub const ALL: Shapes = Shapes {
+        shape_table: [true; SHAPE_TABLE_BUCKETS],
+        min_ls: [ZERO_LENGTH; 4],
+        max_ls: [MAX_LENGTH; 4],
+    };
 }
 
 impl From<&[LenRange; SUITS]> for Shapes {
@@ -338,6 +344,12 @@ pub enum Suit {
     Clubs = 3,
 }
 
+impl std::convert::From<Suit> for usize {
+    fn from(suit: Suit) -> usize {
+        suit as usize
+    }
+}
+
 impl Suit {
     /// The name of the suit
     pub fn name(self) -> &'static str {
@@ -366,7 +378,7 @@ impl Suit {
             Suit::Spades => 'S',
         }
     }
-    fn iter() -> impl Iterator<Item = Suit> {
+    pub fn iter() -> impl Iterator<Item = Suit> {
         [Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs]
             .iter()
             .copied()
@@ -379,9 +391,35 @@ pub struct StringShapePattern {
     pattern: String,
 }
 
+impl StringShapePattern {
+    pub fn new(pattern: &str) -> Self {
+        Self {
+            pattern: pattern.to_string(),
+        }
+    }
+}
+
 pub enum ShapeDescriptor {
     SingleShape { shape_pattern: StringShapePattern }, // TODO: Make this a Vec<u8> already
     ClassOfShapes { shape_pattern: StringShapePattern },
+}
+
+impl ShapeDescriptor {
+    pub fn from_string(pattern: &str) -> Self {
+        if pattern.contains('(') {
+            Self::ClassOfShapes {
+                shape_pattern: StringShapePattern {
+                    pattern: pattern.to_string(),
+                },
+            }
+        } else {
+            Self::SingleShape {
+                shape_pattern: StringShapePattern {
+                    pattern: pattern.to_string(),
+                },
+            }
+        }
+    }
 }
 
 impl ShapeDescriptor {
