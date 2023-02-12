@@ -152,18 +152,16 @@ impl Default for HcpRange {
 }
 
 #[derive(Debug, Default)]
-pub struct HandArchetype {
+pub struct HandType {
     shape: Shapes,
     hcp_range: HcpRange,
 }
 
-impl HandArchetype {
+impl HandType {
     pub fn new(shape: Shapes, hcp_range: HcpRange) -> Self {
         Self { shape, hcp_range }
     }
-}
 
-impl HandArchetype {
     pub fn check(&self, hand: &Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.check(hand)
     }
@@ -171,7 +169,7 @@ impl HandArchetype {
 
 #[derive(Debug, Default)]
 pub struct HandDescriptor {
-    possible_hands: Vec<HandArchetype>,
+    possible_hands: Vec<HandType>,
 }
 
 impl HandDescriptor {
@@ -180,7 +178,62 @@ impl HandDescriptor {
             .iter()
             .any(|hand_archetype| hand_archetype.check(hand))
     }
-    pub fn new(possible_hands: Vec<HandArchetype>) -> Self {
+    pub fn new(possible_hands: Vec<HandType>) -> Self {
         Self { possible_hands }
     }
+}
+
+#[derive(Default, Debug)]
+pub struct HandTypeBuilder {
+    shapes: Option<Shapes>,
+    hcp_range: Option<HcpRange>,
+}
+
+impl HandTypeBuilder {
+    pub fn new() -> Self {
+        Self {
+            shapes: None,
+            hcp_range: None,
+        }
+    }
+
+    pub fn add_shape(&mut self, pattern: &str) -> &mut Self {
+        if let Some(shapes) = &mut self.shapes {
+            shapes.add_shape(ShapeDescriptor::from_string(pattern));
+        } else {
+            let mut shape = Shapes::new();
+            shape.add_shape(ShapeDescriptor::from_string(pattern));
+            self.shapes = Some(shape);
+        }
+        self
+    }
+
+    pub fn with_range(&mut self, min_hcp: u8, max_hcp: u8) -> &mut Self {
+        self.hcp_range = Some(HcpRange::new(min_hcp, max_hcp));
+        self
+    }
+
+    pub fn build(&mut self) -> HandType {
+        let shape = if let Some(shapes) = self.shapes.take() {
+            shapes
+        } else {
+            Shapes::ALL
+        };
+        let hcp_range = if let Some(hcp_range) = self.hcp_range {
+            hcp_range
+        } else {
+            HcpRange::default()
+        };
+        self.shapes = None;
+        self.hcp_range = None;
+        HandType { shape, hcp_range }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_builder_pattern() {
+    let mut builder = HandTypeBuilder::new();
+    let hand_type_1 = builder.with_range(8, 15).build();
+    let hand_type_2 = builder.add_shape("4333").build();
 }
