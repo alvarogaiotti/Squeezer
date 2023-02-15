@@ -33,7 +33,7 @@ impl std::hash::BuildHasher for BuildShapeHasher {
 }
 
 // Struct that represents multiple shapes.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Shapes {
     shape_table: [bool; SHAPE_TABLE_BUCKETS],
     min_ls: [u8; SUITS],
@@ -282,7 +282,7 @@ impl<'a> Shapes {
         for (s, h, d, c) in itertools::iproduct!(ranges, rangeh, ranged, rangec)
             .filter(|(s, h, d, c)| s + h + d + c == MAX_LENGTH)
         {
-            self.insert_shape(&[s, h, d, c]).unwrap();
+            self.shape_table[Shapes::hash_flatten(&[s, h, d, c])] = true;
         }
     }
     pub const ALL: Shapes = Shapes {
@@ -290,6 +290,13 @@ impl<'a> Shapes {
         min_ls: [ZERO_LENGTH; 4],
         max_ls: [MAX_LENGTH; 4],
     };
+    pub fn len_ranges(&self) -> [LenRange; 4] {
+        let mut len_range = [LenRange::default(); 4];
+        for (index, (min, max)) in self.min_ls.iter().zip(self.max_ls.iter()).enumerate() {
+            len_range[index] = LenRange::new(*min, *max);
+        }
+        len_range
+    }
 }
 
 impl From<&[LenRange; SUITS]> for Shapes {
@@ -342,6 +349,17 @@ pub enum Suit {
     Hearts = 1,
     Diamonds = 2,
     Clubs = 3,
+}
+
+impl std::fmt::Debug for Suit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Suit::Clubs => write!(f, "C"),
+            Suit::Diamonds => write!(f, "D"),
+            Suit::Hearts => write!(f, "H"),
+            Suit::Spades => write!(f, "S"),
+        }
+    }
 }
 
 impl std::convert::From<Suit> for usize {

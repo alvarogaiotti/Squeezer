@@ -119,7 +119,7 @@ impl<'a> Constraints<'a> {
     }
 }
 
-type AcceptFunction = Box<dyn Fn(&[Hand]) -> bool>;
+type AcceptFunction = Box<(dyn Fn(&[Hand]) -> bool + Send + Sync)>;
 
 pub struct DealerBuilder {
     // Function that decides if the deal is to be accepted

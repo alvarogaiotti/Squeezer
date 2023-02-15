@@ -151,7 +151,7 @@ impl Default for HcpRange {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct HandType {
     shape: Shapes,
     hcp_range: HcpRange,
@@ -164,6 +164,9 @@ impl HandType {
 
     pub fn check(&self, hand: &Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.check(hand)
+    }
+    pub fn len_ranges(&self) -> [LenRange; 4] {
+        self.shape.len_ranges()
     }
 }
 
