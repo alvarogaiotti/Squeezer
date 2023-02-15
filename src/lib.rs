@@ -1,3 +1,4 @@
+mod card;
 mod dds;
 mod ddsffi;
 mod deal;
@@ -16,6 +17,7 @@ mod prelude {
     pub const MAX_N_OF_BOARDS: u8 = 32;
     pub const RANKS: u8 = 13;
     pub const NUMBER_OF_HANDS: usize = 4;
+    pub use crate::card::*;
     pub use crate::dds::*;
     pub use crate::ddsffi::*;
     pub use crate::deal::*;
@@ -25,7 +27,6 @@ mod prelude {
     pub use crate::shape::*;
     pub use crate::smartstack::*;
     pub use crate::utils::*;
-    pub use bridge_deck::{Card, Cards};
     pub(crate) use colored::Colorize;
     pub(crate) use itertools::{any, Itertools};
     pub(crate) use std::{
