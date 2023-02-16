@@ -33,11 +33,20 @@ impl std::hash::BuildHasher for BuildShapeHasher {
 }
 
 // Struct that represents multiple shapes.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct Shapes {
     shape_table: [bool; SHAPE_TABLE_BUCKETS],
     min_ls: [u8; SUITS],
     max_ls: [u8; SUITS],
+}
+
+impl std::fmt::Debug for Shapes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Shapes")
+            .field("min_ls", &self.min_ls)
+            .field("max_ls", &self.max_ls)
+            .finish()
+    }
 }
 
 impl std::ops::Index<usize> for Shapes {
@@ -61,6 +70,27 @@ impl<'a> Shapes {
             max_ls: [MAX_LENGTH; SUITS],
         }
     }
+    pub fn remove_shape(&mut self, shape: ShapeDescriptor) -> Result<(), Box<dyn Error>> {
+        // Take shape pattern. Right now we match on equal enums, but I'll probably change
+        // implementation in the future so I'll keep it here for future use.
+        let shape_pattern = match shape {
+            ShapeDescriptor::SingleShape { shape_pattern } => shape_pattern,
+            ShapeDescriptor::ClassOfShapes { shape_pattern } => shape_pattern,
+        };
+
+        let mut shape_string: Vec<char> = shape_pattern.pattern.chars().collect();
+        // Pattern parsed
+        let mut parsed: Vec<u8> = Vec::new();
+
+        // Pattern collected
+        let mut collected: Vec<Vec<u8>> = Vec::new();
+        Shapes::get_patterns(&mut shape_string, &mut parsed, &mut collected)?;
+        for pattern in collected.iter() {
+            self.delete_shape(pattern)?;
+        }
+        Ok(())
+    }
+
     pub fn add_shape(&mut self, shape: ShapeDescriptor) -> Result<(), Box<(dyn Error + 'static)>> {
         // Take shape pattern. Right now we match on equal enums, but I'll probably change
         // implementation in the future so I'll keep it here for future use.
@@ -136,6 +166,15 @@ impl<'a> Shapes {
         }
         for (i, bit) in table.iter().enumerate() {
             self.shape_table[i] |= bit;
+        }
+        Ok(())
+    }
+
+    fn delete_shape(&mut self, shape: &[u8]) -> Result<(), Box<(dyn Error)>> {
+        let mut table = [false; SHAPE_TABLE_BUCKETS];
+        let (_min_ls, _max_ls) = Shapes::table_from_pattern(Vec::from(shape), &mut table)?;
+        for (i, bit) in table.iter().enumerate() {
+            self.shape_table[i] = self.shape_table[i] & !bit;
         }
         Ok(())
     }
@@ -606,4 +645,35 @@ fn jokers_correct_behaviour_test() {
     let hand = Hand { cards };
     //println!("{}", ShapeFactory::flatten(hand.shape()));
     assert!(factory.is_member(&hand));
+}
+#[test]
+fn can_remove_correct_shapes() {
+    let deck = Cards::ALL;
+    let clubs = deck.clubs().pick(2).unwrap();
+    let diamonds = deck.diamonds().pick(5).unwrap();
+    let hearts = deck.hearts().pick(3).unwrap();
+    let spades = deck.spades().pick(3).unwrap();
+    let cards = Cards::EMPTY
+        .union(spades)
+        .union(clubs)
+        .union(diamonds)
+        .union(hearts);
+
+    let hand = Hand { cards };
+    let mut factory = Shapes::new();
+    factory
+        .add_shape(ShapeDescriptor::SingleShape {
+            shape_pattern: StringShapePattern {
+                pattern: String::from("3xx2"),
+            },
+        })
+        .unwrap();
+    assert!(factory.is_member(&hand));
+    factory.remove_shape(ShapeDescriptor::SingleShape {
+        shape_pattern: StringShapePattern {
+            pattern: String::from("3352"),
+        },
+    });
+    //println!("{}", ShapeFactory::flatten(hand.shape()));
+    assert!(!factory.is_member(&hand));
 }
