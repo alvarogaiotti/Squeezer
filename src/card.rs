@@ -29,10 +29,10 @@ impl Card {
     }
     pub const fn suit(self) -> Suit {
         match self.offset >> 4 {
-            0 => Suit::Clubs,
-            1 => Suit::Diamonds,
-            2 => Suit::Hearts,
-            _ => Suit::Spades,
+            0 => Suit::Spades,
+            1 => Suit::Hearts,
+            2 => Suit::Diamonds,
+            _ => Suit::Clubs,
         }
     }
     /// What is my rank?
