@@ -139,6 +139,13 @@ impl HcpRange {
         Self { min_hcp, max_hcp }
     }
 
+    pub fn min(&self) -> u8 {
+        self.min_hcp
+    }
+    pub fn max(&self) -> u8 {
+        self.max_hcp
+    }
+
     pub fn check(&self, hand: &Hand) -> bool {
         let hcp = hand.hcp();
         self.min_hcp <= hcp as u8 && self.max_hcp >= hcp as u8
@@ -167,6 +174,9 @@ impl HandType {
     }
     pub fn len_ranges(&self) -> [LenRange; 4] {
         self.shape.len_ranges()
+    }
+    pub fn hcp_range(&self) -> HcpRange {
+        self.hcp_range
     }
 }
 
@@ -206,6 +216,16 @@ impl HandTypeBuilder {
         } else {
             let mut shape = Shapes::new();
             shape.add_shape(ShapeDescriptor::from_string(pattern));
+            self.shapes = Some(shape);
+        }
+        self
+    }
+    pub fn remove_shape(&mut self, pattern: &str) -> &mut Self {
+        if let Some(shapes) = &mut self.shapes {
+            shapes.remove_shape(ShapeDescriptor::from_string(pattern));
+        } else {
+            let mut shape = Shapes::new();
+            shape.remove_shape(ShapeDescriptor::from_string(pattern));
             self.shapes = Some(shape);
         }
         self
