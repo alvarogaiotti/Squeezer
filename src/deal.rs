@@ -182,11 +182,11 @@ impl DealerBuilder {
     }
 
     pub fn build(self) -> impl Dealer {
-        let deck = Cards::ALL;
+        let mut deck = Cards::ALL;
         for (_, hand) in self.predealt_hands.iter() {
-            deck.difference(hand.cards);
+            deck = deck.difference(hand.cards);
         }
-        CompleteDealer {
+        StandardDealer {
             predeal: self.predealt_hands,
             vulnerability: self.vulnerability,
             deck_actual_state: deck,
@@ -198,7 +198,7 @@ impl DealerBuilder {
     }
 }
 
-pub trait Dealer {
+pub trait Dealer: Debug {
     fn deal(&self) -> Result<Deal, DealerError>;
 }
 
@@ -208,7 +208,7 @@ enum Subsequent {
     OutputAlwaysOne,
 }
 // Struct that takes care of the dealing.
-pub struct CompleteDealer {
+pub struct StandardDealer {
     predeal: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
     deck_starting_state: Cards,
@@ -218,7 +218,7 @@ pub struct CompleteDealer {
     output_as_subsequent: Subsequent,
 }
 
-impl Debug for CompleteDealer {
+impl Debug for StandardDealer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Dealer")
             .field("Predeal", &self.predeal)
@@ -228,7 +228,7 @@ impl Debug for CompleteDealer {
     }
 }
 
-impl Default for CompleteDealer {
+impl Default for StandardDealer {
     fn default() -> Self {
         Self {
             predeal: HashMap::new(),
@@ -242,7 +242,7 @@ impl Default for CompleteDealer {
     }
 }
 
-impl Dealer for CompleteDealer {
+impl Dealer for StandardDealer {
     fn deal(&self) -> Result<Deal, DealerError> {
         let mut hands: [Hand; 4] = [Hand::default(); 4];
         // This way to write the while loop ensures that we deal at least once
@@ -251,7 +251,17 @@ impl Dealer for CompleteDealer {
             let mut deck = self.deck_starting_state;
             for seat in Seat::iter() {
                 if let Some(hand) = self.predeal.get(&seat) {
-                    hands[seat as usize].set_cards(&hand.cards);
+                    let predeal_len = hand.cards.len();
+                    if predeal_len < 13 {
+                        let cards_to_add = if let Some(cards) = deck.pick(13 - predeal_len) {
+                            cards
+                        } else {
+                            return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
+                        };
+                        hands[seat as usize].set_cards(&(hand.cards + cards_to_add));
+                    } else {
+                        hands[seat as usize].set_cards(&hand.cards);
+                    }
                 } else {
                     hands[seat as usize] = if let Some(cards) = deck.pick(13) {
                         Hand { cards }
@@ -268,7 +278,7 @@ impl Dealer for CompleteDealer {
         })
     }
 }
-impl CompleteDealer {
+impl StandardDealer {
     fn check_if_hand_constraint_are_respected(&self, hands: &[Hand]) -> bool {
         if self.hand_constraints.is_empty() {
             true
@@ -279,14 +289,22 @@ impl CompleteDealer {
         }
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+pub enum Printer {
+    Pbn,
+    Lin,
+    Short,
+    Long,
+}
 ///The central struct of the module: represents a bridge deal, with
 ///cards, vulnerability, ecc.
 /// TODO: Should have a number, a dealer, a contract, ecc.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Deal {
     vulnerability: Vulnerability,
     hands: [Hand; NUMBER_OF_HANDS],
-    printer: Box<dyn DealPrinter>,
+    printer: Printer,
 }
 
 impl Default for Deal {
@@ -299,7 +317,7 @@ impl Deal {
         Self {
             vulnerability: Vulnerability::None,
             hands: Self::deal(),
-            printer: Box::new(ShortStrPrinter {}),
+            printer: Printer::Short,
         }
     }
     pub fn new_with_conditions(constraints: &Constraints, factory: &mut ShapeFactory) -> Self {
@@ -325,7 +343,7 @@ impl Deal {
         Self {
             vulnerability: Vulnerability::None,
             hands,
-            printer: Box::new(ShortStrPrinter {}),
+            printer: Printer::Short,
         }
     }
     fn predeal(
@@ -381,11 +399,29 @@ impl Deal {
     pub fn south(&self) -> Hand {
         self.hands[2]
     }
-    pub fn print(&self) {
-        println!("{}", self.printer.print(&self.hands));
+    fn set_print_style(&mut self, style: Printer) {
+        self.printer = style;
+    }
+    pub fn long(&mut self) {
+        self.set_print_style(Printer::Long);
+    }
+    pub fn pbn(&mut self) {
+        self.set_print_style(Printer::Pbn);
+    }
+    pub fn short(&mut self) {
+        self.set_print_style(Printer::Short);
+    }
+    pub fn lin(&mut self) {
+        self.set_print_style(Printer::Lin);
     }
     pub fn as_string(&self) -> String {
-        self.printer.print(&self.hands)
+        match self.printer {
+            Printer::Pbn => self.as_pbn(),
+            // 1 placeholder for future implementation
+            Printer::Lin => self.as_lin(1),
+            Printer::Short => self.as_short(),
+            Printer::Long => self.as_long(),
+        }
     }
 
     pub fn as_pbn(&self) -> String {
@@ -462,86 +498,84 @@ impl Deal {
         };
         format!("{stringa}|sv|{data3}|rh||ah|Board {board_n}|")
     }
-}
 
-pub trait DealPrinter: std::fmt::Debug {
-    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String;
-}
-pub trait PrintFormat {
-    fn pbn(&mut self) -> &mut Self;
-    fn long(&mut self) -> &mut Self;
-    fn short(&mut self) -> &mut Self;
-}
-impl PrintFormat for Deal {
-    fn pbn(&mut self) -> &mut Self {
-        self.printer = Box::new(PbnPrinter {});
-        self
-    }
-    fn long(&mut self) -> &mut Self {
-        self.printer = Box::new(LongStrPrinter {});
-        self
-    }
-    fn short(&mut self) -> &mut Self {
-        self.printer = Box::new(ShortStrPrinter {});
-        self
-    }
-}
-#[derive(Debug, Clone, Copy)]
-struct PbnPrinter {}
-impl DealPrinter for PbnPrinter {
-    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
+    fn as_short(&self) -> String {
+        let west = self.hands[Seat::West as usize].to_string();
+        let east = self.hands[Seat::East as usize].to_string();
+        let north = self.hands[Seat::North as usize].to_string();
+        let south = self.hands[Seat::South as usize].to_string();
+        let width = west.chars().count() + east.chars().count() + north.chars().count() / 2;
         format!(
-            "[Deal \"N:{}\"]",
-            hands
-                .iter()
-                .map(|hand| format!(
-                    "{}",
-                    hand.into_iter()
-                        .map(|cards| format!(
-                            "{}",
-                            cards
-                                .into_iter()
-                                .map(|card| card.rankchar())
-                                .rev()
-                                .format("")
-                        ))
-                        .format(".")
-                ))
-                .format(" ")
+            "{north:^0$}\n{west:<1$}{east:>1$}\n{south:^0$}",
+            width + 1,
+            width / 2,
         )
     }
-}
-#[derive(Debug, Clone, Copy)]
-struct ShortStrPrinter {}
-impl DealPrinter for ShortStrPrinter {
-    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
-        format!(
-            "\t\t{}\n{}\t\t\t{}\n\t\t{}",
-            hands[0], hands[3], hands[1], hands[2],
-        )
-    }
-}
-#[derive(Debug, Clone, Copy)]
-struct LongStrPrinter {}
-impl DealPrinter for LongStrPrinter {
-    fn print(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> String {
-        let mut stringa = String::new();
-        for line in hands[0].long_str().split('\n') {
-            stringa = format!("{stringa}\t   {line}\n");
-        }
-        for (line_w, line_e) in hands[3]
+
+    fn as_long(&self) -> String {
+        let west_len = self.hands[Seat::West as usize]
             .long_str()
             .split('\n')
-            .zip(hands[1].long_str().split('\n'))
+            .map(|x| x.len())
+            .max()
+            .unwrap();
+        let east_len = self.hands[Seat::East as usize]
+            .long_str()
+            .split('\n')
+            .map(|x| x.len())
+            .max()
+            .unwrap();
+        let north_len = self.hands[Seat::North as usize]
+            .long_str()
+            .split('\n')
+            .map(|x| x.len())
+            .max()
+            .unwrap();
+        let south_len = self.hands[Seat::South as usize]
+            .long_str()
+            .split('\n')
+            .map(|x| x.len())
+            .max()
+            .unwrap();
+        let ns_len = if south_len < north_len {
+            north_len
+        } else {
+            south_len
+        };
+        let width = west_len + east_len + ns_len;
+        let mut stringa = String::with_capacity(204);
+        for line in self.hands[Seat::North as usize].long_str().split('\n') {
+            stringa = format!("{stringa}{line:^0$}\n", width - ns_len + line.len());
+        }
+        //stringa.push_str("\n");
+        for (line_w, line_e) in self.hands[Seat::West as usize]
+            .long_str()
+            .split('\n')
+            .zip(self.hands[Seat::East as usize].long_str().split('\n'))
         {
-            stringa = format!("{stringa}{line_w:<20}{line_e}\n")
+            stringa = format!(
+                "{stringa}{line_w:<0$}{line_e:<1$}\n",
+                if line_w.len() != 0 {
+                    width - east_len
+                } else {
+                    width - east_len - 1
+                },
+                east_len
+            )
         }
-        for line in hands[2].long_str().split('\n') {
-            stringa = format!("{stringa}\t   {line}\n");
-        }
+        stringa = format!(
+            "{stringa}{}",
+            self.hands[Seat::South as usize]
+                .long_str()
+                .split('\n')
+                .into_iter()
+                .map(|string| format!("{string:^0$}", width - ns_len + string.len()))
+                .format("\n"),
+        );
         stringa
     }
 }
+
 impl std::ops::Index<usize> for Deal {
     type Output = Hand;
     fn index(&self, index: usize) -> &Self::Output {
@@ -554,7 +588,10 @@ impl fmt::Display for Deal {
         write!(
             f,
             "\t\t{}\n{}\t\t\t{}\n\t\t{}",
-            self.hands[0], self.hands[3], self.hands[1], self.hands[2],
+            self.hands[Seat::North as usize],
+            self.hands[Seat::West as usize],
+            self.hands[Seat::East as usize],
+            self.hands[Seat::South as usize],
         )
     }
 }
@@ -592,8 +629,6 @@ fn deal_with_predeal_test() {
     let mut factory = ShapeFactory::new();
     let predeal = Constraints::predeal(vec![('N', "SKQT9HAQJD9873CA2"), ('S', "CKQJT9876S342D25")]);
     let mut deal = Deal::new_with_conditions(&predeal, &mut factory);
-    deal.long();
-    deal.print();
     assert_eq!(
         (
             Cards::from_str("SKSQSTS9HAHJHQD9D8D7D3CAC2").unwrap(),
@@ -601,17 +636,6 @@ fn deal_with_predeal_test() {
         ),
         (deal.north().cards, deal.south().cards)
     );
-}
-#[test]
-fn lin_test() {
-    let deal = Deal::new();
-    println!("{}", deal.as_lin(1));
-}
-#[test]
-fn pbn_test() {
-    let mut deal = Deal::new();
-    deal.pbn();
-    assert_eq!(deal.printer.print(&deal.hands), deal.as_pbn())
 }
 
 #[test]
