@@ -417,7 +417,7 @@ impl Iterator for Cards {
             None
         } else {
             let next = self.bits.trailing_zeros();
-            self.bits = self.bits & !(1 << next);
+            self.bits &= !(1 << next);
             Some(Card { offset: next as u8 })
         }
     }
@@ -453,7 +453,7 @@ impl std::fmt::Display for Cards {
             .cloned()
         {
             let cards = self.in_suit(suit);
-            if cards.len() > 0 {
+            if !cards.is_empty() {
                 write!(f, "{}", suit.unicode())?;
                 for c in cards.rev() {
                     write!(f, "{}", c.rankchar())?;
@@ -529,13 +529,19 @@ impl std::str::FromStr for Cards {
         Ok(cards)
     }
 }
+impl From<u64> for Cards {
+    fn from(value: u64) -> Self {
+        let bits = value & Cards::ALL.bits;
+        Cards { bits }
+    }
+}
 impl DoubleEndedIterator for Cards {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.bits == 0 {
             None
         } else {
             let next = 63 - self.bits.leading_zeros();
-            self.bits = self.bits & !(1 << next);
+            self.bits &= !(1 << next);
             Some(Card { offset: next as u8 })
         }
     }
