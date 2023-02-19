@@ -1,17 +1,27 @@
 use crate::prelude::*;
 
-pub fn polish_club(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
-    factory.new_shape("(4432)").unwrap();
-    factory.new_shape("(4333)").unwrap();
-    factory.new_shape("4414").unwrap();
-    factory.new_shape("(5332)").unwrap();
-    let factory = factory - "(5xx)x";
-    let hand = hands[0];
-    factory.includes(&hand) && 10 < hand.hcp() && hand.hcp() < 15
+pub fn polish_club(hands: &[Hand; 4], seat: Seat) -> bool {
+    let weak1n = HandTypeBuilder::new()
+        .add_shape("(4432)")
+        .add_shape("(4333)")
+        .add_shape("4414")
+        .add_shape("(5332)")
+        .remove_shape("(5xx)x")
+        .add_shape("(5xxx)")
+        .with_range(11, 14)
+        .build();
+    let strong_any = HandTypeBuilder::new()
+        .add_shape("xxxx")
+        .with_range(18, 37)
+        .build();
+    let possible_hands = HandDescriptor::new(vec![weak1n, strong_any]);
+    /* let hand = hands[seat as usize];
+    hand_type.check(&hand) && 10 < hand.hcp() && hand.hcp() < 15
         || hand.clubs().len() == hand.into_iter().map(|x| x.len()).max().unwrap()
-            && !factory.is_not_in(&hand, "(5xx)5")
+            && !Shapes::new().add_shape("(5xx)5").(&hand, "(5xx)5")
         || factory.is_not_in(&hand, "(144)4") && 14 < hand.hcp()
-        || hand.hcp() > 17
+        || hand.hcp() > 17 */
+    possible_hands.check(&hands[seat as usize])
 }
 
 pub fn weak2(hand: &Hand) -> bool {
