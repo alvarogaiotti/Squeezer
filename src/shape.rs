@@ -157,7 +157,7 @@ impl<'a> ShapeFactory<'a> {
         factory.new_shape("(5332)").unwrap();
         factory
     }
-    pub fn balanced_no_5M() -> Self {
+    pub fn balanced_no_5major() -> Self {
         let mut factory = Self {
             op_cache: HashSet::new(),
             cache_table: HashSet::new(),
@@ -433,7 +433,7 @@ fn factory_get_pattern_test() {
 fn shape_creation_test() {
     let mut factory = ShapeFactory::new();
     factory.insert("4333".chars().collect()).unwrap();
-    assert!(factory.table[11609] == true);
+    assert!(factory.table[11609]);
 }
 #[test]
 #[should_panic]
@@ -453,7 +453,7 @@ fn shape_parens_interpretation_working_test() {
             true_arr.push(i)
         }
     }
-    assert_eq!(vec![11622 as usize, 11804 as usize], true_arr);
+    assert_eq!(vec![11622_usize, 11804_usize], true_arr);
 }
 
 #[test]
