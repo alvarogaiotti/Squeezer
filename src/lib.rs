@@ -3,10 +3,10 @@ mod dds;
 mod ddsffi;
 mod deal;
 mod dealproduction;
+mod evaluator;
 mod hand;
 mod payoff;
 mod shape;
-mod smartstack;
 mod utils;
 
 mod prelude {
@@ -22,10 +22,10 @@ mod prelude {
     pub use crate::ddsffi::*;
     pub use crate::deal::*;
     pub use crate::dealproduction::*;
+    pub use crate::evaluator::*;
     pub use crate::hand::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
-    pub use crate::smartstack::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;
     pub(crate) use itertools::{any, Itertools};
