@@ -174,7 +174,7 @@ impl<'a> Shapes {
         let mut table = [false; SHAPE_TABLE_BUCKETS];
         let (_min_ls, _max_ls) = Shapes::table_from_pattern(Vec::from(shape), &mut table)?;
         for (i, bit) in table.iter().enumerate() {
-            self.shape_table[i] = self.shape_table[i] & !bit;
+            self.shape_table[i] &= !bit;
         }
         Ok(())
     }
@@ -519,7 +519,7 @@ fn shape_creation_test() {
             },
         })
         .unwrap();
-    assert!(shapes.shape_table[Shapes::hash_flatten(&[4, 3, 3, 3])] == true);
+    assert!(shapes.shape_table[Shapes::hash_flatten(&[4, 3, 3, 3])]);
 }
 #[test]
 #[should_panic]
