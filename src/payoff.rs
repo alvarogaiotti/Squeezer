@@ -359,7 +359,7 @@ fn can_create_contract_from_str_test() {
 #[test]
 #[should_panic(expected = "Wrong contract level")]
 fn create_contract_wrong_level_test() {
-    let contract = Contract::from_str("8CS", false).unwrap();
+    let _contract = Contract::from_str("8CS", false).unwrap();
 }
 #[test]
 fn contract_computes_correct_scores_test() {
@@ -368,10 +368,10 @@ fn contract_computes_correct_scores_test() {
     let contract_s = Contract::from_str("4SN", false).unwrap();
     let contract_h = Contract::from_str("3HN", false).unwrap();
     let contract_n = Contract::from_str("3NN", false).unwrap();
-    assert_eq!(400 as i32, contract_n.score(9));
-    assert_eq!(140 as i32, contract_h.score(9));
-    assert_eq!(420 as i32, contract_s.score(10));
-    assert_eq!(750 as i32, contract_d.score(11));
-    assert_eq!(920 as i32, contract_c.score(12));
+    assert_eq!(400_i32, contract_n.score(9));
+    assert_eq!(140_i32, contract_h.score(9));
+    assert_eq!(420_i32, contract_s.score(10));
+    assert_eq!(750_i32, contract_d.score(11));
+    assert_eq!(920_i32, contract_c.score(12));
     assert_eq!(-200, contract_d.score(10));
 }
