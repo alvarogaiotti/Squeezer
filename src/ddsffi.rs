@@ -2,6 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(deref_nullptr)]
 
 pub const _UNISTD_H: u32 = 1;
 pub const _FEATURES_H: u32 = 1;
