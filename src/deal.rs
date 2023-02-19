@@ -91,10 +91,10 @@ impl Default for Vulnerability {
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands
 pub enum Constraints<'a> {
     None,
-    Bounds(&'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
+    Bounds(&'a dyn Fn(&[Hand; NUMBER_OF_HANDS], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
     Predeal([(Seat, Option<Hand>); NUMBER_OF_HANDS]),
     BoundsAndPredeal(
-        &'a dyn Fn(&[Hand; 4], &mut ShapeFactory) -> bool,
+        &'a dyn Fn(&[Hand; NUMBER_OF_HANDS], &mut ShapeFactory) -> bool,
         [(Seat, Option<Hand>); NUMBER_OF_HANDS],
     ),
 }
@@ -119,7 +119,7 @@ impl<'a> Constraints<'a> {
     }
 }
 
-type AcceptFunction = Box<(dyn Fn(&[Hand]) -> bool + Send + Sync)>;
+type AcceptFunction = Box<(dyn Fn(&[Hand; NUMBER_OF_HANDS]) -> bool + Send + Sync)>;
 
 pub struct DealerBuilder {
     // Function that decides if the deal is to be accepted
@@ -150,7 +150,7 @@ impl Default for DealerBuilder {
 impl DealerBuilder {
     pub fn new() -> Self {
         Self {
-            accept: Box::new(|_: &[Hand]| true),
+            accept: Box::new(|_: &[Hand; NUMBER_OF_HANDS]| true),
             hand_descriptors: HashMap::new(),
             predealt_hands: HashMap::new(),
             vulnerability: Vulnerability::default(),
@@ -189,7 +189,6 @@ impl DealerBuilder {
         StandardDealer {
             predeal: self.predealt_hands,
             vulnerability: self.vulnerability,
-            deck_actual_state: deck,
             deck_starting_state: deck,
             accept_function: self.accept,
             hand_constraints: self.hand_descriptors,
@@ -212,9 +211,9 @@ pub struct StandardDealer {
     predeal: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
     deck_starting_state: Cards,
-    deck_actual_state: Cards,
     hand_constraints: HashMap<Seat, HandDescriptor>,
     accept_function: AcceptFunction,
+    // needed to print sequentially
     output_as_subsequent: Subsequent,
 }
 
@@ -233,10 +232,9 @@ impl Default for StandardDealer {
         Self {
             predeal: HashMap::new(),
             vulnerability: Vulnerability::default(),
-            deck_actual_state: Cards::ALL,
             deck_starting_state: Cards::ALL,
             hand_constraints: HashMap::new(),
-            accept_function: Box::new(|_: &[Hand]| true),
+            accept_function: Box::new(|_: &[Hand; NUMBER_OF_HANDS]| true),
             output_as_subsequent: Subsequent::OutputAlwaysOne,
         }
     }
@@ -279,7 +277,7 @@ impl Dealer for StandardDealer {
     }
 }
 impl StandardDealer {
-    fn check_if_hand_constraint_are_respected(&self, hands: &[Hand]) -> bool {
+    fn check_if_hand_constraint_are_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
         if self.hand_constraints.is_empty() {
             true
         } else {
@@ -555,7 +553,7 @@ impl Deal {
         {
             stringa = format!(
                 "{stringa}{line_w:<0$}{line_e:<1$}\n",
-                if line_w.len() != 0 {
+                if !line_w.is_empty() {
                     width - east_len
                 } else {
                     width - east_len - 1
@@ -608,7 +606,7 @@ impl<'a> IntoIterator for &'a Deal {
 #[cfg(test)]
 #[test]
 fn can_deal_test() {
-    let deal = Deal::new();
+    _ = Deal::new();
 }
 
 #[test]
@@ -628,7 +626,7 @@ fn deal_with_constraints_test() {
 fn deal_with_predeal_test() {
     let mut factory = ShapeFactory::new();
     let predeal = Constraints::predeal(vec![('N', "SKQT9HAQJD9873CA2"), ('S', "CKQJT9876S342D25")]);
-    let mut deal = Deal::new_with_conditions(&predeal, &mut factory);
+    let deal = Deal::new_with_conditions(&predeal, &mut factory);
     assert_eq!(
         (
             Cards::from_str("SKSQSTS9HAHJHQD9D8D7D3CAC2").unwrap(),
@@ -641,14 +639,14 @@ fn deal_with_predeal_test() {
 #[test]
 fn dealer_builder_test() {
     let dealer_builder = DealerBuilder::new();
-    let dealer = dealer_builder.build();
+    _ = dealer_builder.build();
 }
 
 #[test]
 fn dealer_deals_test() {
     let db = DealerBuilder::new();
-    let mut dealer = db.build();
-    let deal = dealer.deal().unwrap();
+    let dealer = db.build();
+    _ = dealer.deal().unwrap();
 }
 
 #[test]
@@ -656,7 +654,7 @@ fn dealer_deals_with_predeal_test() {
     let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
     let mut builder = DealerBuilder::new();
     builder.predeal(Seat::North, hand);
-    let mut dealer = builder.build();
+    let dealer = builder.build();
     let deal = dealer.deal().unwrap();
     assert_eq!(deal.north(), hand);
 }
@@ -665,12 +663,12 @@ fn dealer_deals_with_predeal_test() {
 fn dealer_deals_with_predeal_and_accept_function_test() {
     let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
     let mut builder = DealerBuilder::new();
-    builder
-        .predeal(Seat::North, hand)
-        .with_function(Box::new(|hands: &[Hand]| {
+    builder.predeal(Seat::North, hand).with_function(Box::new(
+        |hands: &[Hand; NUMBER_OF_HANDS]| {
             hands[Seat::North as usize].slen() + hands[Seat::South as usize].slen() > 8
-        }));
-    let mut dealer = builder.build();
+        },
+    ));
+    let dealer = builder.build();
     let deal = dealer.deal().unwrap();
     println!("{}", &deal);
     assert!(deal.north().slen() + deal.south().slen() > 8);
