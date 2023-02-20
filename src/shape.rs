@@ -1,7 +1,6 @@
 use crate::prelude::*;
 
-type TablesOrError<'a> =
-    Result<(&'a [bool; SHAPE_COMBINATIONS], [u8; 4], [u8; 4]), Box<dyn Error + 'static>>;
+type TablesOrError<'a> = Result<(&'a [bool; SHAPE_COMBINATIONS], [u8; 4], [u8; 4]), DealerError>;
 
 ///Error for wrong Shape pattern passed to ShapeFactory.
 #[derive(Debug)]
@@ -57,7 +56,7 @@ impl<'a> ShapeFactory<'a> {
             not_in_cache: HashMap::new(),
         }
     }
-    pub fn new_shape(&mut self, shape: &'a str) -> Result<(), Box<(dyn Error + 'static)>> {
+    pub fn new_shape(&mut self, shape: &'a str) -> Result<(), DealerError> {
         //if a pattern is provided
         if self.cache_table.get(shape).is_some()
         //search it in the cache table
@@ -134,7 +133,7 @@ impl<'a> ShapeFactory<'a> {
     //        }
     //    }
     //}
-    pub fn insert(&mut self, mut it: Vec<char>) -> Result<(), Box<dyn Error + 'static>> {
+    pub fn insert(&mut self, mut it: Vec<char>) -> Result<(), DealerError> {
         let mut parsed: Vec<u8> = Vec::new();
         let mut collected: Vec<Vec<u8>> = Vec::new();
         let patterns = ShapeFactory::get_pattern(&mut it, &mut parsed, &mut collected)?;
@@ -193,13 +192,11 @@ impl<'a> ShapeFactory<'a> {
                 table[ShapeFactory::flatten(&shape)] = true;
                 return Ok((table, min_ls, max_ls));
             } else if safe {
-                return Err(Box::new(DealerError::new(
-                    "Wrong number of cards in shape.",
-                )));
+                return Err(DealerError::new("Wrong number of cards in shape."));
             };
         } else {
             if pre_set > 13 {
-                return Err(Box::new(DealerError::new("Invalid ambiguous shape.")));
+                return Err(DealerError::new("Invalid ambiguous shape."));
             }
             for (i, l) in shape.iter().enumerate() {
                 if l == &(RANKS + 1) {
@@ -215,7 +212,7 @@ impl<'a> ShapeFactory<'a> {
         Ok((table, min_ls, max_ls))
     }
 
-    fn insert1(&mut self, shape: Vec<u8>, safe: bool) -> Result<(), Box<dyn Error>> {
+    fn insert1(&mut self, shape: Vec<u8>, safe: bool) -> Result<(), DealerError> {
         let mut table = [false; SHAPE_COMBINATIONS];
         let (table, min_ls, max_ls) = ShapeFactory::table_from_pattern(shape, &mut table, safe)?;
         for suit in Suit::ALL {
@@ -232,7 +229,7 @@ impl<'a> ShapeFactory<'a> {
         shape_pattern: &mut Vec<char>,
         parsed: &mut Vec<u8>,
         collected: &'a mut Vec<Vec<u8>>,
-    ) -> Result<&'a Vec<Vec<u8>>, Box<dyn Error + 'static>> {
+    ) -> Result<&'a Vec<Vec<u8>>, DealerError> {
         if shape_pattern.is_empty() {
             collected.push(parsed.to_owned());
             Ok(collected)
@@ -255,9 +252,9 @@ impl<'a> ShapeFactory<'a> {
                         } else {
                             match x.to_digit(10) {
                                 Some(value) => Ok(value as u8),
-                                None => Err(Box::new(DealerError::new(
-                                    "Shape pattern contains unknown chars.",
-                                ))),
+                                None => {
+                                    Err(DealerError::new("Shape pattern contains unknown chars."))
+                                }
                             }
                         }
                     })

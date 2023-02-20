@@ -31,13 +31,13 @@ impl Seat {
     pub fn next(self) -> Seat {
         self + 1
     }
-    pub fn from_char(c: char) -> Result<Self, Box<dyn Error>> {
+    pub fn from_char(c: char) -> Result<Self, DealerError> {
         match c {
             'N' => Ok(Self::North),
             'S' => Ok(Self::South),
             'W' => Ok(Self::West),
             'E' => Ok(Self::East),
-            _ => Err(Box::new(DealerError::new("Is not a seat!"))),
+            _ => Err(DealerError::new("Is not a seat!")),
         }
     }
     pub fn iter() -> IntoIter<Seat, 4> {

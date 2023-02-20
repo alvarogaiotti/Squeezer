@@ -70,7 +70,7 @@ impl<'a> Shapes {
             max_ls: [MAX_LENGTH; SUITS],
         }
     }
-    pub fn remove_shape(&mut self, shape: ShapeDescriptor) -> Result<(), Box<dyn Error>> {
+    pub fn remove_shape(&mut self, shape: ShapeDescriptor) -> Result<(), DealerError> {
         // Take shape pattern. Right now we match on equal enums, but I'll probably change
         // implementation in the future so I'll keep it here for future use.
         let shape_pattern = match shape {
@@ -91,7 +91,7 @@ impl<'a> Shapes {
         Ok(())
     }
 
-    pub fn add_shape(&mut self, shape: ShapeDescriptor) -> Result<(), Box<(dyn Error + 'static)>> {
+    pub fn add_shape(&mut self, shape: ShapeDescriptor) -> Result<(), DealerError> {
         // Take shape pattern. Right now we match on equal enums, but I'll probably change
         // implementation in the future so I'll keep it here for future use.
         let shape_pattern = match shape {
@@ -116,7 +116,7 @@ impl<'a> Shapes {
         shape_pattern: &mut Vec<char>,
         parsed: &mut Vec<u8>,
         collected: &'a mut Vec<Vec<u8>>,
-    ) -> Result<&'a Vec<Vec<u8>>, Box<dyn Error + 'static>> {
+    ) -> Result<&'a Vec<Vec<u8>>, DealerError> {
         // If empty, we return
         if shape_pattern.is_empty() {
             collected.push(parsed.to_owned());
@@ -132,7 +132,7 @@ impl<'a> Shapes {
                 if let Some(index) = shape_pattern.iter().position(|&x| x == ')') {
                     index
                 } else {
-                    return Err(Box::new(DealerError::new("Unbalanced parentheses.")));
+                    return Err(DealerError::new("Unbalanced parentheses."));
                 };
             // Parse until the closing bracket.
             head = Shapes::parse_chars_to_nums(shape_pattern, closing_bracket_index)?;
@@ -155,7 +155,7 @@ impl<'a> Shapes {
         Ok(collected)
     }
 
-    fn insert_shape(&mut self, shape: &[u8]) -> Result<(), Box<(dyn Error + 'static)>> {
+    fn insert_shape(&mut self, shape: &[u8]) -> Result<(), DealerError> {
         // let safe = true; // used by redeal, don't know exactly what its purpose is.
         let mut table = [false; SHAPE_TABLE_BUCKETS];
         let (min_ls, max_ls) = Shapes::table_from_pattern(Vec::from(shape), &mut table)?;
@@ -170,7 +170,7 @@ impl<'a> Shapes {
         Ok(())
     }
 
-    fn delete_shape(&mut self, shape: &[u8]) -> Result<(), Box<(dyn Error)>> {
+    fn delete_shape(&mut self, shape: &[u8]) -> Result<(), DealerError> {
         let mut table = [false; SHAPE_TABLE_BUCKETS];
         let (_min_ls, _max_ls) = Shapes::table_from_pattern(Vec::from(shape), &mut table)?;
         for (i, bit) in table.iter().enumerate() {
@@ -202,7 +202,7 @@ impl<'a> Shapes {
         table: &mut [bool; SHAPE_TABLE_BUCKETS],
         // In the Python implementation there is a `safe: bool`, but is always passed as true, so we
         // can avoid it.
-    ) -> Result<([u8; SUITS], [u8; SUITS]), Box<DealerError>> {
+    ) -> Result<([u8; SUITS], [u8; SUITS]), DealerError> {
         // Get the sum of the total we are at whitout the xs.
         let pre_set: u8 = shape.iter().filter(|&&x| x != RANKS + 1).sum();
         // Min and max lengths, implemented in the Python library for smartstacking.
@@ -213,7 +213,7 @@ impl<'a> Shapes {
         // e.g. 4xx2.
         if let Some(joker_index) = shape.iter().position(|&x| x == RANKS + 1) {
             if pre_set > MAX_LENGTH {
-                return Err(Box::new(DealerError::new("Invalid ambiguous shape.")));
+                return Err(DealerError::new("Invalid ambiguous shape."));
             }
             // Every possible length of the x
             for possible_lengths in ZERO_LENGTH..=(MAX_LENGTH - pre_set) {
@@ -254,11 +254,9 @@ impl<'a> Shapes {
         shape: &[u8],
         max_ls: &mut [u8; SUITS],
         table: &'a mut [bool; SHAPE_TABLE_BUCKETS],
-    ) -> Result<(), Box<DealerError>> {
+    ) -> Result<(), DealerError> {
         if pre_set != MAX_LENGTH {
-            return Err(Box::new(DealerError::new(
-                "Wrong number of cards in shape.",
-            )));
+            return Err(DealerError::new("Wrong number of cards in shape."));
         }
         for suit in Suit::ALL {
             let suit = *suit as usize;
@@ -284,10 +282,7 @@ impl<'a> Shapes {
         Ok(head)
     }*/
 
-    fn parse_chars_to_nums(
-        shape_pattern: &mut [char],
-        end: usize,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn parse_chars_to_nums(shape_pattern: &mut [char], end: usize) -> Result<Vec<u8>, DealerError> {
         let mut errors = vec![];
         let head: Vec<u8> = (shape_pattern[0..end])
             .iter()
@@ -297,9 +292,7 @@ impl<'a> Shapes {
                 } else {
                     match x.to_digit(10) {
                         Some(value) => Ok(value as u8),
-                        None => Err(Box::new(DealerError::new(
-                            "Shape pattern contains unknown chars.",
-                        ))),
+                        None => Err(DealerError::new("Shape pattern contains unknown chars.")),
                     }
                 }
             })

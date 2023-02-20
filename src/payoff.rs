@@ -136,12 +136,12 @@ pub enum Strain {
 }
 
 impl Contract {
-    pub fn from_str(s: &str, vuln: bool) -> Result<Self, Box<dyn Error>> {
+    pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
         let doubled = (s.len() - s.trim_end_matches('X').len()) as u8;
         let mut chars = s.chars();
         let level = chars.next().unwrap().to_digit(10).unwrap() as usize;
         if !(1..=7).contains(&level) {
-            return Err(Box::new(DealerError::new("Wrong contract level")));
+            return Err(DealerError::new("Wrong contract level"));
         };
         Ok(Self {
             vuln,
@@ -268,14 +268,14 @@ impl fmt::Display for Contract {
     }
 }
 impl Strain {
-    fn from_char(c: char) -> Result<Self, Box<(dyn Error + 'static)>> {
+    fn from_char(c: char) -> Result<Self, DealerError> {
         match c {
             'S' => Ok(Self::S),
             'H' => Ok(Self::H),
             'D' => Ok(Self::D),
             'C' => Ok(Self::C),
             'N' => Ok(Self::N),
-            _ => Err(Box::new(DealerError::new("Not a strain."))),
+            _ => Err(DealerError::new("Not a strain.")),
         }
     }
     fn not_unicode_str(&self) -> String {
