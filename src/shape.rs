@@ -312,8 +312,6 @@ impl<'a> ShapeFactory<'a> {
             self.op_cache.insert((rhs, "-"));
         }
     }
-
-    fn update_lenghts(&mut self) {}
 }
 
 ///Enum used to pass hint for suit lenghts

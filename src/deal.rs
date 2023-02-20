@@ -184,7 +184,7 @@ impl DealerBuilder {
     pub fn build(self) -> impl Dealer {
         let mut deck = Cards::ALL;
         for (_, hand) in self.predealt_hands.iter() {
-            deck = deck.difference(hand.cards);
+            deck = deck.difference(hand.as_cards());
         }
         StandardDealer {
             predeal: self.predealt_hands,
@@ -249,16 +249,17 @@ impl Dealer for StandardDealer {
             let mut deck = self.deck_starting_state;
             for seat in Seat::iter() {
                 if let Some(hand) = self.predeal.get(&seat) {
-                    let predeal_len = hand.cards.len();
+                    let predeal_len = hand.as_cards().len();
                     if predeal_len < 13 {
-                        let cards_to_add = if let Some(cards) = deck.pick(13 - predeal_len) {
+                        let cards_to_add = if let Some(cards) = deck.pick(13 - predeal_len as usize)
+                        {
                             cards
                         } else {
                             return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
                         };
-                        hands[seat as usize].set_cards(&(hand.cards + cards_to_add));
+                        hands[seat as usize].set_cards(hand.as_cards() + cards_to_add);
                     } else {
-                        hands[seat as usize].set_cards(&hand.cards);
+                        hands[seat as usize].set_cards(hand.as_cards());
                     }
                 } else {
                     hands[seat as usize] = if let Some(cards) = deck.pick(13) {
@@ -287,7 +288,7 @@ impl StandardDealer {
         } else {
             self.hand_constraints
                 .iter()
-                .all(|(seat, hand_constraint)| hand_constraint.check(&hands[*seat as usize]))
+                .all(|(seat, hand_constraint)| hand_constraint.check(hands[*seat as usize]))
         }
     }
 }
@@ -358,7 +359,7 @@ impl Deal {
         let mut deck = Cards::ALL;
         for (_, hand_opt) in predealt.iter() {
             if let Some(hand) = hand_opt {
-                deck = deck.difference(hand.cards);
+                deck = deck.difference(hand.as_cards());
             }
         }
         for (seat, hand_opt) in predealt {
@@ -638,7 +639,7 @@ fn deal_with_predeal_test() {
             Cards::from_str("SKSQSTS9HAHJHQD9D8D7D3CAC2").unwrap(),
             Cards::from_str("CKCQCJCTC9C8C7C6S3S4S2D2D5").unwrap()
         ),
-        (deal.north().cards, deal.south().cards)
+        (deal.north().as_cards(), deal.south().as_cards())
     );
 }
 

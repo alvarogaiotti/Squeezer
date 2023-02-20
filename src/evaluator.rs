@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 pub struct Evaluator {
-    evaluator: Box<dyn Fn(&Cards) -> u8>,
+    evaluator: Box<dyn Fn(Cards) -> u8>,
 }
 
 impl Evaluator {
@@ -18,16 +18,15 @@ impl Evaluator {
             vals[rank_equivalent_for_vals] = values[position_in_values]
         }
         Self {
-            evaluator: Box::new(move |x: &Cards| {
+            evaluator: Box::new(move |x: Cards| {
                 x.into_iter()
                     .map(|y| vals[y.rank() as usize - 2])
                     .sum::<u8>()
             }),
         }
     }
-    pub fn some(self) {}
-    pub fn evaluate(&self, hand: &Cards) -> u8 {
-        (self.evaluator)(hand)
+    pub fn evaluate(&self, cards: Cards) -> u8 {
+        (self.evaluator)(cards)
     }
 }
 
@@ -37,5 +36,5 @@ fn evaluate_correctly_test() {
     let hcp = Evaluator::new(&[4u8, 3u8, 2u8, 1u8]);
     let mut deck = Cards::ALL;
     let hand = deck.pick(13).unwrap();
-    assert_eq!(hcp.evaluate(&hand), hand.high_card_points() as u8);
+    assert_eq!(hcp.evaluate(hand), { hand.high_card_points() });
 }

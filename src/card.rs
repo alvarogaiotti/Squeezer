@@ -192,8 +192,8 @@ pub struct Cards {
 }
 
 impl Cards {
-    pub const fn len(&self) -> usize {
-        self.bits.count_ones() as usize
+    pub const fn len(&self) -> u8 {
+        self.bits.count_ones() as u8
     }
     pub const fn is_empty(&self) -> bool {
         self.bits == 0
@@ -241,7 +241,7 @@ impl Cards {
     /// Returns `None` only if there aren't enough cards.
     pub fn pick_rng<R: Rng>(&mut self, rng: &mut R, mut num: usize) -> Option<Cards> {
         let mut bits = self.bits;
-        let mut n_left = self.len();
+        let mut n_left = self.len() as usize;
         if num > n_left {
             return None;
         }
@@ -359,7 +359,7 @@ impl Cards {
     }
 
     /// High card points
-    pub const fn high_card_points(self) -> usize {
+    pub const fn high_card_points(self) -> u8 {
         self.aces().len()
             + self.intersection(Cards::ACES.union(Cards::KINGS)).len()
             + self
@@ -423,11 +423,11 @@ impl Iterator for Cards {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len(), Some(self.len()))
+        (self.len() as usize, Some(self.len() as usize))
     }
 
     fn count(self) -> usize {
-        self.len()
+        self.len() as usize
     }
 
     fn max(self) -> Option<Card> {

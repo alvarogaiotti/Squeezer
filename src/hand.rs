@@ -24,22 +24,22 @@ impl Hand {
         }
     }
 
-    pub fn set_cards(&mut self, cards: &Cards) {
-        self.cards = *cards;
+    pub fn set_cards(&mut self, cards: Cards) {
+        self.cards = cards;
     }
 
     pub fn contains(&self, card: Card) -> bool {
         self.cards.contains(card)
     }
     pub fn shape(&self) -> [u8; 4] {
-        let spades = self.cards.spades().len() as u8;
-        let hearts = self.cards.hearts().len() as u8;
-        let diamonds = self.cards.diamonds().len() as u8;
-        let clubs = self.cards.clubs().len() as u8;
+        let spades = self.slen();
+        let hearts = self.hlen();
+        let diamonds = self.dlen();
+        let clubs = self.clen();
         [spades, hearts, diamonds, clubs]
     }
 
-    pub fn len_of_suit(&self, suit: Suit) -> usize {
+    pub fn len_of_suit(&self, suit: Suit) -> u8 {
         match suit {
             Suit::Spades => self.slen(),
             Suit::Hearts => self.hlen(),
@@ -59,20 +59,23 @@ impl Hand {
     pub fn clubs(&self) -> Cards {
         self.cards.clubs()
     }
-    pub fn slen(&self) -> usize {
+    pub fn slen(&self) -> u8 {
         self.spades().len()
     }
-    pub fn hlen(&self) -> usize {
+    pub fn hlen(&self) -> u8 {
         self.hearts().len()
     }
-    pub fn dlen(&self) -> usize {
+    pub fn dlen(&self) -> u8 {
         self.diamonds().len()
     }
-    pub fn clen(&self) -> usize {
+    pub fn clen(&self) -> u8 {
         self.clubs().len()
     }
-    pub fn hcp(&self) -> usize {
+    pub fn hcp(&self) -> u8 {
         self.cards.high_card_points()
+    }
+    pub fn as_cards(&self) -> Cards {
+        self.cards
     }
     pub fn as_bits(&self) -> u64 {
         self.cards
@@ -144,6 +147,8 @@ pub struct HcpRange {
 
 impl HcpRange {
     pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
+        let max_hcp = max_hcp.clamp(ZERO_HCP, MAX_HCP_IN_HAND);
+        let min_hcp = min_hcp.clamp(ZERO_HCP, max_hcp);
         Self { min_hcp, max_hcp }
     }
 
@@ -154,9 +159,11 @@ impl HcpRange {
         self.max_hcp
     }
 
-    pub fn check(&self, hand: &Hand) -> bool {
-        let hcp = hand.hcp();
-        self.min_hcp <= hcp as u8 && self.max_hcp >= hcp as u8
+    pub fn contains(&self, hcp: u8) -> bool {
+        self.as_range().contains(&hcp)
+    }
+    pub fn as_range(&self) -> RangeInclusive<u8> {
+        self.min()..=self.max()
     }
 }
 
@@ -177,8 +184,8 @@ impl HandType {
         Self { shape, hcp_range }
     }
 
-    pub fn check(&self, hand: &Hand) -> bool {
-        self.shape.is_member(hand) && self.hcp_range.check(hand)
+    pub fn check(&self, hand: Hand) -> bool {
+        self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
     }
     pub fn len_ranges(&self) -> [LenRange; 4] {
         self.shape.len_ranges()
@@ -194,7 +201,7 @@ pub struct HandDescriptor {
 }
 
 impl HandDescriptor {
-    pub fn check(&self, hand: &Hand) -> bool {
+    pub fn check(&self, hand: Hand) -> bool {
         self.possible_hands
             .iter()
             .any(|hand_archetype| hand_archetype.check(hand))
@@ -216,6 +223,16 @@ impl HandTypeBuilder {
             shapes: None,
             hcp_range: None,
         }
+    }
+    pub fn balanced(min_hcp: u8, max_hcp: u8) -> Self {
+        let mut new = Self {
+            shapes: Some(Shapes::new()),
+            hcp_range: Some(HcpRange::new(min_hcp, max_hcp)),
+        };
+        new.add_shape("(5332)");
+        new.add_shape("(3334)");
+        new.add_shape("(4234)");
+        new
     }
 
     pub fn add_shape(&mut self, pattern: &str) -> &mut Self {
@@ -338,7 +355,7 @@ impl HandTypeBuilder {
     }
 
     pub fn build(&mut self) -> HandType {
-        let shape = if let Some(shapes) = self.shapes.take() {
+        let shape = if let Some(shapes) = self.shapes {
             shapes
         } else {
             Shapes::ALL
@@ -348,8 +365,6 @@ impl HandTypeBuilder {
         } else {
             HcpRange::default()
         };
-        self.shapes = None;
-        self.hcp_range = None;
         HandType { shape, hcp_range }
     }
 }

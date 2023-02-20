@@ -179,7 +179,7 @@ impl<'a> Shapes {
         Ok(())
     }
 
-    pub fn is_member(&self, hand_to_match: &Hand) -> bool {
+    pub fn is_member(&self, hand_to_match: Hand) -> bool {
         self.shape_table[Shapes::hash_flatten(&hand_to_match.shape())]
     }
 
@@ -363,15 +363,21 @@ impl Default for LenRange {
 
 impl LenRange {
     pub fn new(min: u8, max: u8) -> Self {
-        let min = if min < max { min } else { max };
-        let max = if min > max { min } else { max };
-        Self {
-            min: if min >= MAX_LENGTH { ZERO_LENGTH } else { min },
-            max: if max > MAX_LENGTH { MAX_LENGTH } else { max },
-        }
+        let max = max.clamp(ZERO_LENGTH, MAX_LENGTH);
+        let min = min.clamp(ZERO_LENGTH, max);
+        Self { min, max }
     }
-    fn as_range(&self) -> RangeInclusive<u8> {
-        self.min..=self.max
+    pub fn as_range(&self) -> RangeInclusive<u8> {
+        self.min()..=self.max()
+    }
+    pub fn min(&self) -> u8 {
+        self.min
+    }
+    pub fn max(&self) -> u8 {
+        self.max
+    }
+    pub fn contains(&self, length: u8) -> bool {
+        self.as_range().contains(&length)
     }
 }
 
@@ -589,7 +595,7 @@ fn membership_shape_hand_test() {
 
     let hand = Hand { cards };
     //println!("{}", ShapeFactory::flatten(hand.shape()));
-    assert!(factory.is_member(&hand));
+    assert!(factory.is_member(hand));
 }
 #[test]
 fn shapes_from_len_range_test() {
@@ -637,7 +643,7 @@ fn jokers_correct_behaviour_test() {
 
     let hand = Hand { cards };
     //println!("{}", ShapeFactory::flatten(hand.shape()));
-    assert!(factory.is_member(&hand));
+    assert!(factory.is_member(hand));
 }
 #[test]
 fn can_remove_correct_shapes() {
@@ -661,12 +667,14 @@ fn can_remove_correct_shapes() {
             },
         })
         .unwrap();
-    assert!(factory.is_member(&hand));
-    factory.remove_shape(ShapeDescriptor::SingleShape {
-        shape_pattern: StringShapePattern {
-            pattern: String::from("3352"),
-        },
-    });
+    assert!(factory.is_member(hand));
+    factory
+        .remove_shape(ShapeDescriptor::SingleShape {
+            shape_pattern: StringShapePattern {
+                pattern: String::from("3352"),
+            },
+        })
+        .unwrap();
     //println!("{}", ShapeFactory::flatten(hand.shape()));
-    assert!(!factory.is_member(&hand));
+    assert!(!factory.is_member(hand));
 }
