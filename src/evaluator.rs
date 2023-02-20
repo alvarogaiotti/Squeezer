@@ -12,8 +12,7 @@ impl Evaluator {
         // new is calle with the standard parameters like values: &[4,3,2,1]
         //                                                          A,K,Q,J,...
 
-        let target = 13 - values.len();
-        let iter_range = (target..13).rev();
+        let iter_range = (13 - values.len()..13).rev();
 
         for (position_in_values, rank_equivalent_for_vals) in iter_range.enumerate() {
             vals[rank_equivalent_for_vals] = values[position_in_values]
@@ -26,6 +25,7 @@ impl Evaluator {
             }),
         }
     }
+    pub fn some(self) {}
     pub fn evaluate(&self, hand: &Cards) -> u8 {
         (self.evaluator)(hand)
     }
