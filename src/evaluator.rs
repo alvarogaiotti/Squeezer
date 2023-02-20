@@ -11,11 +11,13 @@ impl Evaluator {
         // using enumerate to take the values that comes in when
         // new is calle with the standard parameters like values: &[4,3,2,1]
         //                                                          A,K,Q,J,...
-        (13..13 - values.len()).enumerate().for_each(
-            |(position_in_values, rank_equivalent_for_vals)| {
-                vals[rank_equivalent_for_vals] = values[position_in_values]
-            },
-        );
+
+        let target = 13 - values.len();
+        let iter_range = (target..13).rev();
+
+        for (position_in_values, rank_equivalent_for_vals) in iter_range.enumerate() {
+            vals[rank_equivalent_for_vals] = values[position_in_values]
+        }
         Self {
             evaluator: Box::new(move |x: &Cards| {
                 x.into_iter()
