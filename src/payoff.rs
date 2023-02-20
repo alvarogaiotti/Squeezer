@@ -229,7 +229,7 @@ impl Contract {
             score
         }
     }
-    fn not_unicode_str(&self) -> String {
+    pub fn not_unicode_str(&self) -> String {
         format!(
             "{}{}{}{}",
             self.level,
