@@ -14,7 +14,7 @@ mod prelude {
     pub const MAX_LENGTH: u8 = 13;
     pub const SUITS: usize = 4;
     pub const SHAPE_COMBINATIONS: usize = 14usize.pow(4);
-    pub const MAX_N_OF_BOARDS: u8 = 32;
+    pub const MAX_N_OF_BOARDS: u8 = 128;
     pub const RANKS: u8 = 13;
     pub const NUMBER_OF_HANDS: usize = 4;
     pub use crate::card::*;
