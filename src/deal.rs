@@ -202,8 +202,8 @@ pub trait Dealer: Debug {
 }
 
 #[derive(Debug)]
-enum Subsequent {
-    OutputConsequentially(usize),
+pub enum Subsequent {
+    OutputConsequentially(u8),
     OutputAlwaysOne,
 }
 // Struct that takes care of the dealing.
@@ -272,6 +272,10 @@ impl Dealer for StandardDealer {
         } {}
         Ok(Deal {
             hands,
+            number: match self.output_as_subsequent {
+                Subsequent::OutputConsequentially(num) => num,
+                _ => 1,
+            },
             ..Default::default()
         })
     }
@@ -303,6 +307,7 @@ pub struct Deal {
     vulnerability: Vulnerability,
     hands: [Hand; NUMBER_OF_HANDS],
     printer: Printer,
+    number: u8,
 }
 
 impl Default for Deal {
@@ -316,6 +321,7 @@ impl Deal {
             vulnerability: Vulnerability::None,
             hands: Self::deal(),
             printer: Printer::Short,
+            number: 1,
         }
     }
     pub fn new_with_conditions(constraints: &Constraints, factory: &mut ShapeFactory) -> Self {
@@ -342,6 +348,7 @@ impl Deal {
             vulnerability: Vulnerability::None,
             hands,
             printer: Printer::Short,
+            number: 1,
         }
     }
     fn predeal(
@@ -379,7 +386,7 @@ impl Deal {
         let west = Hand { cards: deck };
         [north, east, south, west]
     }
-    fn check(&self, f: impl FnOnce(&Deal) -> bool) -> bool {
+    pub fn check(&self, f: impl Fn(&Deal) -> bool) -> bool {
         f(self)
     }
     pub fn set_vuln(&mut self, vuln: Vulnerability) {
@@ -416,18 +423,18 @@ impl Deal {
         match self.printer {
             Printer::Pbn => self.as_pbn(),
             // 1 placeholder for future implementation
-            Printer::Lin => self.as_lin(1),
+            Printer::Lin => self.as_lin(self.number),
             Printer::Short => self.as_short(),
             Printer::Long => self.as_long(),
         }
     }
 
     pub fn as_pbn(&self) -> String {
-        let mut pbn = "[Deal \"N:".to_owned();
+        let mut pbn = format!("[Board \"{}\"]\n[Deal \"N:", self.number);
         pbn = format!(
             "{}",
             format_args!(
-                "{}{}",
+                "{}{}\"]",
                 pbn,
                 self.into_iter()
                     .map(|hand| {
@@ -445,7 +452,6 @@ impl Deal {
                     .format(" ")
             )
         );
-        pbn.push_str("\"]");
         pbn
     }
 
