@@ -1,2 +1,4 @@
 /target
 *.pbn
+*.so
+.idea
