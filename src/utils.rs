@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-pub fn polish_club(hands: &[Hand; 4], seat: Seat) -> bool {
+pub fn polish_club(hand: Hand) -> bool {
     let weak1n = HandTypeBuilder::new()
         .add_shape("(4432)")
         .add_shape("(4333)")
@@ -21,24 +21,24 @@ pub fn polish_club(hands: &[Hand; 4], seat: Seat) -> bool {
             && !Shapes::new().add_shape("(5xx)5").(&hand, "(5xx)5")
         || factory.is_not_in(&hand, "(144)4") && 14 < hand.hcp()
         || hand.hcp() > 17 */
-    possible_hands.check(&hands[seat as usize])
+    possible_hands.check(hand)
 }
 
-pub fn weak2(hand: &Hand) -> bool {
+pub fn weak2(hand: Hand) -> bool {
     let w2 = Evaluator::new(&[2, 2, 1, 1, 1]);
     let controls = Evaluator::new(&[2, 1]);
-    5 <= hand.hcp()
-        && hand.hcp() <= 10
-        && hand.clubs().len() <= 4
-        && hand.diamonds().len() <= 4
-        && (hand.spades().len() == 6
-            && hand.hearts().len() <= 3
-            && w2.evaluate(&hand.spades()) > 3
-            && controls.evaluate(&hand.cards) < 4
-            || hand.hearts().len() == 6
-                && hand.spades().len() <= 3
-                && w2.evaluate(&hand.hearts()) > 3
-                && controls.evaluate(&hand.cards) < 4)
+    let hcp = hand.hcp();
+    (5..=10).contains(&hcp)
+        && hand.clen() <= 4
+        && hand.dlen() <= 4
+        && (hand.slen() == 6
+            && hand.hlen() <= 3
+            && w2.evaluate(hand.as_cards()) > 3
+            && controls.evaluate(hand.as_cards()) < 4
+            || hand.hlen() == 6
+                && hand.slen() <= 3
+                && w2.evaluate(hand.hearts()) > 3
+                && controls.evaluate(hand.as_cards()) < 4)
 }
 
 fn evaluate_short_honors(hand: &Hand) -> u8 {
@@ -46,8 +46,8 @@ fn evaluate_short_honors(hand: &Hand) -> u8 {
     malus += hand
         .into_iter()
         .map(|suit| match suit.len() {
-            0..=1 => (suit.kings().len() + suit.queens().len() + suit.jacks().len()) as u8,
-            2 => (suit.queens().len() + suit.jacks().len()) as u8,
+            0..=1 => suit.kings().len() + suit.queens().len() + suit.jacks().len(),
+            2 => suit.queens().len() + suit.jacks().len(),
             _ => 0u8,
         })
         .sum::<u8>();
@@ -78,24 +78,32 @@ fn evaluate_lenght_and_concentration(hand: &Hand) -> u8 {
     if points == 25 && hand.spades().len() > 3 {
         points += 1
     }
-    points as u8
+    points
 }
 pub fn zar_points(hand: &Hand) -> u8 {
     let zar_evaluator = Evaluator::new(&[6, 4, 2, 1]);
-    zar_evaluator.evaluate(&hand.cards) + evaluate_lenght_and_concentration(hand)
+    zar_evaluator.evaluate(hand.as_cards()) + evaluate_lenght_and_concentration(hand)
         - evaluate_short_honors(hand)
 }
 
-pub fn deal_3nt_opening(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
-    factory.new_shape("(8x)xx");
-    factory.new_shape("(7x)xx");
-    factory.new_shape("(9x)xx");
-    for hand in hands {
-        if factory.includes(hand) && 26 < zar_points(hand) && zar_points(hand) < 33 {
-            return true;
+pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
+    let mut builder = DealerBuilder::new();
+    builder.with_function(Box::new(move |hands: &[Hand; 4]| {
+        let hand_type = HandTypeBuilder::new()
+            .add_shape("(8x)xx")
+            .add_shape("(7x)xx")
+            .add_shape("(9x)xx")
+            .build();
+        if let Some(seat) = seat {
+            hand_type.check(hands[seat as usize])
+                && (26..33).contains(&zar_points(&hands[seat as usize]))
+        } else {
+            hands
+                .iter()
+                .any(|hand| hand_type.check(*hand) && (26..33).contains(&zar_points(hand)))
         }
-    }
-    false
+    }));
+    builder.build()
 }
 
 pub fn deal_1nt_3nt(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
