@@ -2,6 +2,10 @@ use std::fmt::Debug;
 
 use crate::prelude::*;
 
+/// Type of the function that checks if a Deal is to be accepted or not
+type AcceptFunction = Box<(dyn Fn(&[Hand; NUMBER_OF_HANDS]) -> bool + Send + Sync)>;
+
+/// Represents a seat in a Bridge game
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Seat {
     North = 0,
@@ -28,9 +32,11 @@ impl fmt::Display for Seat {
 }
 
 impl Seat {
+    ///Returns the next seat in a cyclic manner
     pub fn next(self) -> Seat {
         self + 1
     }
+
     pub fn from_char(c: char) -> Result<Self, DealerError> {
         match c {
             'N' => Ok(Self::North),
@@ -40,9 +46,12 @@ impl Seat {
             _ => Err(DealerError::new("Is not a seat!")),
         }
     }
+
+    ///Iteration over seats starting from North
     pub fn iter() -> IntoIter<Seat, 4> {
         [Seat::North, Seat::East, Seat::South, Seat::West].into_iter()
     }
+
     pub fn long_str(&self) -> &str {
         match self {
             Self::North => "North",
@@ -88,7 +97,8 @@ impl Default for Vulnerability {
     }
 }
 
-///Enum which passes constraint to the Deal struct for dealing specific types of hands
+///Enum which passes constraint to the Deal struct for dealing specific types of hands. Right
+///now is dismissed and will be dropped in a while.
 pub enum Constraints<'a> {
     None,
     Bounds(&'a dyn Fn(&[Hand; NUMBER_OF_HANDS], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
@@ -119,8 +129,17 @@ impl<'a> Constraints<'a> {
     }
 }
 
-type AcceptFunction = Box<(dyn Fn(&[Hand; NUMBER_OF_HANDS]) -> bool + Send + Sync)>;
-
+/// A builder for a dealer object. It's the standard way to create
+/// a [Dealer] that deals a specific type of deal.
+///
+/// # Usage
+/// ```
+/// let mut builder = DealerBuilder::new();
+/// builder.predeal(Seat::North, Hand::from_str("SAKQHAKQDAKQCAKQJ"));
+/// let dealer = builder.build();
+/// //North will have AKQ AKQ AKQ AKQJ.
+/// println!(dealer.deal());
+/// ```
 pub struct DealerBuilder {
     // Function that decides if the deal is to be accepted
     // normally used to set things like at least a 9 card
@@ -157,16 +176,34 @@ impl DealerBuilder {
         }
     }
 
+    /// Set the cards that a particular [Seat] will be dealt. Will not fail right away if same card
+    /// is dealt twice, but will fail in the building phase.
     pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
         self.predealt_hands.insert(seat, hand);
         self
     }
 
+    /// Sets a functions that will be used by the [Dealer] to check if the [Deal] is to be accepted.
+    /// Do not set your hand types with this method (use the [DealerBuilder::with_hand_specification] method istead); but use it to set cross hand constraints.
+    ///
+    /// # Example
+    /// ```
+    /// let mut builder = DealerBuilder::new();
+    /// builder.with_function(Box::new(|hands: &[Hand; NUMBER_OF_HANDS]| {
+    ///          hands[Seat::North as usize].hearts() + hands[Seat::South as usize].hearts() >= 8
+    ///          }
+    ///      )
+    /// );
+    /// //This Dealer will only deal Deals in which North and South have a Heart fit.
+    /// let dealer = builder.build().unwrap()
+    /// ```
     pub fn with_function(&mut self, accept_function: AcceptFunction) -> &mut Self {
         self.accept = accept_function;
         self
     }
 
+    /// Method used to set hand specification for a [Seat]. See [HandDescriptor] for
+    /// details.
     pub fn with_hand_specification(
         &mut self,
         seat: Seat,
@@ -181,19 +218,27 @@ impl DealerBuilder {
         self
     }
 
-    pub fn build(self) -> impl Dealer {
+    /// Builds the Dealer.
+    /// **NOTE**: this will fail if you try to predeal the same card twice.
+    pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
         for (_, hand) in self.predealt_hands.iter() {
+            if !hand.cards.difference(deck).is_empty() {
+                return Err(DealerError::new(
+                    format!("card dealt twice: {}", hand.cards.difference(deck)).as_str(),
+                ));
+            }
+
             deck = deck.difference(hand.as_cards());
         }
-        StandardDealer {
+        Ok(StandardDealer {
             predeal: self.predealt_hands,
             vulnerability: self.vulnerability,
             deck_starting_state: deck,
             accept_function: self.accept,
             hand_constraints: self.hand_descriptors,
             ..Default::default()
-        }
+        })
     }
 }
 
@@ -206,7 +251,9 @@ pub enum Subsequent {
     OutputConsequentially(u8),
     OutputAlwaysOne,
 }
-// Struct that takes care of the dealing.
+/// Struct that takes care of the dealing.
+/// You won't interact much with this struct other that call the [StandardDealer::deal] method. Use the [DealerBuilder] instead to create a [Dealer] that
+/// fits your needs.
 pub struct StandardDealer {
     predeal: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
@@ -241,6 +288,7 @@ impl Default for StandardDealer {
 }
 
 impl Dealer for StandardDealer {
+    /// Deals a deal based on the parameters set via the constructor.
     fn deal(&self) -> Result<Deal, DealerError> {
         let mut hands: [Hand; 4] = [Hand::default(); 4];
         // This way to write the while loop ensures that we deal at least once
@@ -293,6 +341,7 @@ impl StandardDealer {
     }
 }
 
+/// State tracker for the deal print output.
 #[derive(Debug, Copy, Clone)]
 pub enum Printer {
     Pbn,
@@ -300,6 +349,7 @@ pub enum Printer {
     Short,
     Long,
 }
+
 ///The central struct of the module: represents a bridge deal, with
 ///cards, vulnerability, ecc.
 /// TODO: Should have a number, a dealer, a contract, ecc.
@@ -387,43 +437,54 @@ impl Deal {
         let west = Hand { cards: deck };
         [north, east, south, west]
     }
+
     pub fn check(&self, f: impl Fn(&Deal) -> bool) -> bool {
         f(self)
     }
+
     pub fn set_vuln(&mut self, vuln: Vulnerability) {
         self.vulnerability = vuln;
     }
+
     pub fn west(&self) -> Hand {
         self.hands[3]
     }
+
     pub fn north(&self) -> Hand {
         self.hands[0]
     }
+
     pub fn east(&self) -> Hand {
         self.hands[1]
     }
+
     pub fn south(&self) -> Hand {
         self.hands[2]
     }
+
     fn set_print_style(&mut self, style: Printer) {
         self.printer = style;
     }
+
     pub fn long(&mut self) {
         self.set_print_style(Printer::Long);
     }
+
     pub fn pbn(&mut self) {
         self.set_print_style(Printer::Pbn);
     }
+
     pub fn short(&mut self) {
         self.set_print_style(Printer::Short);
     }
+
     pub fn lin(&mut self) {
         self.set_print_style(Printer::Lin);
     }
+
     pub fn as_string(&self) -> String {
         match self.printer {
             Printer::Pbn => self.as_pbn(),
-            // 1 placeholder for future implementation
             Printer::Lin => self.as_lin(self.number),
             Printer::Short => self.as_short(),
             Printer::Long => self.as_long(),
@@ -652,7 +713,7 @@ fn dealer_builder_test() {
 #[test]
 fn dealer_deals_test() {
     let db = DealerBuilder::new();
-    let dealer = db.build();
+    let dealer = db.build().unwrap();
     _ = dealer.deal().unwrap();
 }
 
@@ -661,7 +722,7 @@ fn dealer_deals_with_predeal_test() {
     let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
     let mut builder = DealerBuilder::new();
     builder.predeal(Seat::North, hand);
-    let dealer = builder.build();
+    let dealer = builder.build().unwrap();
     let deal = dealer.deal().unwrap();
     assert_eq!(deal.north(), hand);
 }
@@ -675,7 +736,7 @@ fn dealer_deals_with_predeal_and_accept_function_test() {
             hands[Seat::North as usize].slen() + hands[Seat::South as usize].slen() > 8
         },
     ));
-    let dealer = builder.build();
+    let dealer = builder.build().unwrap();
     let deal = dealer.deal().unwrap();
     println!("{}", &deal);
     assert!(deal.north().slen() + deal.south().slen() > 8);
