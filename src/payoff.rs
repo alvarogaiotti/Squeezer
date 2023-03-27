@@ -117,7 +117,7 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
     }
 }
 ///A struct rapresenting a contract
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Contract {
     vuln: bool,
     level: usize,
@@ -126,16 +126,25 @@ pub struct Contract {
     declarer: Seat,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Strain {
-    S = 0,
-    H = 1,
-    D = 2,
-    C = 3,
-    N = 4,
+    Spades = 0,
+    Hearts = 1,
+    Diamonds = 2,
+    Clubs = 3,
+    NoTrumps = 4,
 }
 
 impl Contract {
+    pub fn strain(&self) -> Strain {
+        self.strain
+    }
+    pub fn leader(&self) -> Seat {
+        self.declarer().next()
+    }
+    pub fn declarer(&self) -> Seat {
+        self.declarer
+    }
     pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
         let doubled = (s.len() - s.trim_end_matches('X').len()) as u8;
         let mut chars = s.chars();
@@ -151,18 +160,18 @@ impl Contract {
             declarer: Seat::from_char(chars.next().unwrap())?,
         })
     }
-    pub fn score(&self, tricks: usize) -> i32 {
+    pub fn score(&self, tricks: u8) -> i32 {
         let target: i32 = self.level as i32 + 6i32;
         let overtricks: i32 = tricks as i32 - target;
         if overtricks >= 0 {
             let per_trick: i32 = match self.strain {
-                Strain::C | Strain::D => 20,
+                Strain::Clubs | Strain::Diamonds => 20,
                 _ => 30,
             };
             let mut per_overtrick: i32 = per_trick;
             let mut base_score: i32 = per_trick * self.level as i32;
             let mut bonus: i32 = 0;
-            if self.strain == Strain::N {
+            if self.strain == Strain::NoTrumps {
                 base_score += 10
             };
 
@@ -270,32 +279,32 @@ impl fmt::Display for Contract {
 impl Strain {
     fn from_char(c: char) -> Result<Self, DealerError> {
         match c {
-            'S' => Ok(Self::S),
-            'H' => Ok(Self::H),
-            'D' => Ok(Self::D),
-            'C' => Ok(Self::C),
-            'N' => Ok(Self::N),
+            'S' => Ok(Self::Spades),
+            'H' => Ok(Self::Hearts),
+            'D' => Ok(Self::Diamonds),
+            'C' => Ok(Self::Clubs),
+            'N' => Ok(Self::NoTrumps),
             _ => Err(DealerError::new("Not a strain.")),
         }
     }
     fn not_unicode_str(&self) -> String {
         match self {
-            Self::S => String::from("S"),
-            Self::H => String::from("H"),
-            Self::D => String::from("D"),
-            Self::N => String::from("NT"),
-            Self::C => String::from("C"),
+            Self::Spades => String::from("S"),
+            Self::Hearts => String::from("H"),
+            Self::Diamonds => String::from("D"),
+            Self::NoTrumps => String::from("NT"),
+            Self::Clubs => String::from("C"),
         }
     }
 }
 impl fmt::Display for Strain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::S => write!(f, "♠"),
-            Self::H => write!(f, "♥"),
-            Self::D => write!(f, "♦"),
-            Self::N => write!(f, "NT"),
-            Self::C => write!(f, "♣"),
+            Self::Spades => write!(f, "♠"),
+            Self::Hearts => write!(f, "♥"),
+            Self::Diamonds => write!(f, "♦"),
+            Self::NoTrumps => write!(f, "NT"),
+            Self::Clubs => write!(f, "♣"),
         }
     }
 }
