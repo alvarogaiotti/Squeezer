@@ -47,3 +47,34 @@ pub fn dd_score(deal: &Deal, contract: Contract) -> i32 {
     contract.score(tricks)
 }
 
+impl ddsffi::solvedPlay {
+    pub fn new() -> Self {
+        Self {
+            number: 0,
+            tricks: [0; 53],
+        }
+    }
+}
+
+impl ddsffi::playTraceBin {
+    /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
+    /// cards played and their's rank.
+    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
+        Self { number, suit, rank }
+    }
+}
+
+fn analyze_play(deal: &Deal, contract: Contract, play: playTraceBin) -> ddsffi::solvedPlay {
+    let (trump, first) = (contract.strain(), contract.leader());
+    let c_deal = ddsffi::deal {
+        trump: trump as c_int,
+        first: first as c_int,
+        currentTrickSuit: [0; 3],
+        currentTrickRank: [0; 3],
+        remainCards: populate(deal),
+    };
+    let mut solved_play = ddsffi::solvedPlay::new();
+    let solved: *mut solvedPlay = &mut solved_play;
+    unsafe { ddsffi::AnalysePlayBin(c_deal, play, solved, 0) };
+    solved_play
+}
