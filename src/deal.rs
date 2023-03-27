@@ -651,14 +651,7 @@ impl std::ops::Index<usize> for Deal {
 
 impl fmt::Display for Deal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "\t\t{}\n{}\t\t\t{}\n\t\t{}",
-            self.hands[Seat::North as usize],
-            self.hands[Seat::West as usize],
-            self.hands[Seat::East as usize],
-            self.hands[Seat::South as usize],
-        )
+        write!(f, "{}", self.as_string())
     }
 }
 
