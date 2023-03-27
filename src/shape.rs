@@ -15,6 +15,14 @@ impl DealerError {
         }
     }
 }
+
+impl From<ShapeParsingError> for DealerError {
+    fn from(value: ShapeParsingError) -> Self {
+        DealerError {
+            details: value.as_string(),
+        }
+    }
+}
 impl fmt::Display for DealerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.details)
