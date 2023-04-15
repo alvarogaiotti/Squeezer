@@ -5,6 +5,7 @@ mod deal;
 mod dealproduction;
 mod evaluator;
 mod hand;
+mod parse;
 mod payoff;
 mod shape;
 mod utils;
@@ -27,11 +28,14 @@ mod prelude {
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
+    pub use crate::parse::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;
     pub(crate) use itertools::{any, Itertools};
+    pub use std::str::FromStr;
+
     pub(crate) use std::{
         array::IntoIter,
         collections::{HashMap, HashSet},
@@ -39,8 +43,11 @@ mod prelude {
         fmt,
         hash::{Hash, Hasher},
         ops::RangeInclusive,
-        str::FromStr,
     };
 }
 
 pub use prelude::*;
+#[cfg(feature = "bbo")]
+pub mod bbo;
+#[cfg(feature = "bbo_async")]
+pub mod bbo_async;
