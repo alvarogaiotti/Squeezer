@@ -40,10 +40,10 @@ pub fn dd_tricks(deal: &Deal, contract: &Contract) -> u8 {
     let mut future_tricks = empty_fut();
     let futp: *mut futureTricks = &mut future_tricks;
     unsafe { ddsffi::SolveBoard(c_deal, -1, 1, 1, futp, 0) };
-    future_tricks.score[0] as u8
+    13 - future_tricks.score[0] as u8
 }
-pub fn dd_score(deal: &Deal, contract: Contract) -> i32 {
-    let tricks = dd_tricks(deal, &contract);
+pub fn dd_score(deal: &Deal, contract: &Contract) -> i32 {
+    let tricks = dd_tricks(deal, contract);
     contract.score(tricks)
 }
 
@@ -77,4 +77,15 @@ fn analyze_play(deal: &Deal, contract: Contract, play: playTraceBin) -> ddsffi::
     let solved: *mut solvedPlay = &mut solved_play;
     unsafe { ddsffi::AnalysePlayBin(c_deal, play, solved, 0) };
     solved_play
+}
+
+#[cfg(test)]
+#[test]
+fn test_linkage() {
+    let deal = Deal::default();
+    println!("{deal}");
+    let contract = Contract::from_str("4HN", true).unwrap();
+    println!("{contract}");
+    println!("{}", dd_tricks(&deal, &contract));
+    println!("{}", dd_score(&deal, &contract));
 }
