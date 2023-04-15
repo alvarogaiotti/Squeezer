@@ -126,7 +126,7 @@ pub struct Contract {
     declarer: Seat,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub enum Strain {
     Spades = 0,
     Hearts = 1,
