@@ -7,6 +7,18 @@ build = "build.rs"
 
 [dependencies]
 # bridge-deck = {git = "https://github.com/droundy/bridge-cards"}
+anyhow= "1.0.70"
+log ={version= "0.4.17"}
 rand = "0.8.5"
 colored = "2.0.0"
 itertools = "0.10.3"
+reqwest = {version = "0.11.16", features = ["cookies", "blocking"], optional = true}
+time = {version= "0.3.20", optional = true}
+regex ={version= "1", optional = true}
+lazy_static = {version = "1.4.0", optional = true}
+ureq = {version = "2.6.2", features = ["cookies",], optional = true}
+
+[features]
+default = ["bbo_async", "bbo"]
+bbo_async = ["dep:time", "dep:reqwest", "dep:regex", "dep:lazy_static"]
+bbo = ["dep:time", "dep:ureq", "dep:regex", "dep:lazy_static"]
