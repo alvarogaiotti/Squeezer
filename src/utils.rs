@@ -88,7 +88,7 @@ pub fn zar_points(hand: &Hand) -> u8 {
 
 pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
     let mut builder = DealerBuilder::new();
-    builder.with_function(Box::new(move |hands: &[Hand; 4]| {
+    builder.with_function(Box::new(move |hands: &Hands| {
         let hand_type = HandTypeBuilder::new()
             .add_shape("(8x)xx")
             .add_shape("(7x)xx")
@@ -103,7 +103,7 @@ pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
                 .any(|hand| hand_type.check(*hand) && (26..33).contains(&zar_points(hand)))
         }
     }));
-    builder.build()
+    builder.build().unwrap()
 }
 
 pub fn deal_1nt_3nt(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
