@@ -1,4 +1,6 @@
 /target
+*.dll
+*.lin
 *.pbn
 libdds.so
 .idea/
