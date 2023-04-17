@@ -184,6 +184,7 @@ impl Card {
     pub const SK: Card = Card::new(Suit::Spades, 13);
     /// Ace of Spades
     pub const SA: Card = Card::new(Suit::Spades, 14);
+    pub const JOKER: Card = Card { offset: u8::MAX };
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -461,6 +462,72 @@ impl std::fmt::Display for Cards {
             }
         }
         Ok(())
+    }
+}
+
+impl std::str::FromStr for Card {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let suit = Suit::Spades;
+        let card = Card::new(suit, 2);
+        for c in s.chars() {
+            match c {
+                '♣' | 'C' | 'c' => {
+                    suit = Suit::Clubs;
+                }
+                '♦' | 'D' | 'd' => {
+                    suit = Suit::Diamonds;
+                }
+                '♥' | 'H' | 'h' => {
+                    suit = Suit::Hearts;
+                }
+                '♠' | 'S' | 's' => {
+                    suit = Suit::Spades;
+                }
+                '2' => {
+                    card = Card::new(suit, 2);
+                }
+                '3' => {
+                    card = Card::new(suit, 3);
+                }
+                '4' => {
+                    card = Card::new(suit, 4);
+                }
+                '5' => {
+                    card = Card::new(suit, 5);
+                }
+                '6' => {
+                    card = Card::new(suit, 6);
+                }
+                '7' => {
+                    card = Card::new(suit, 7);
+                }
+                '8' => {
+                    card = Card::new(suit, 8);
+                }
+                '9' => {
+                    card = Card::new(suit, 9);
+                }
+                'T' | '1' => {
+                    card = Card::new(suit, 10);
+                }
+                'J' => {
+                    card = Card::new(suit, 11);
+                }
+                'Q' => {
+                    card = Card::new(suit, 12);
+                }
+                'K' => {
+                    card = Card::new(suit, 13);
+                }
+                'A' => {
+                    card = Card::new(suit, 14);
+                }
+                _ => (),
+            }
+        }
+        Ok(card)
     }
 }
 
