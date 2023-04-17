@@ -23,6 +23,11 @@ impl Hand {
             cards: deck.pick(13).unwrap(),
         }
     }
+    pub const fn new_empty() -> Self {
+        Hand {
+            cards: Cards::EMPTY,
+        }
+    }
 
     pub fn set_cards(&mut self, cards: Cards) {
         self.cards = cards;
