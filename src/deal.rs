@@ -1,23 +1,64 @@
-use std::fmt::Debug;
-
 use crate::prelude::*;
 
 /// Type of the function that checks if a Deal is to be accepted or not
-type AcceptFunction = Box<(dyn Fn(&[Hand; NUMBER_OF_HANDS]) -> bool + Send + Sync)>;
+type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
+
+pub struct Hands {
+    hands: [Hand; 4],
+}
+impl IntoIterator for Hands {
+    type IntoIter = IntoIter<Hand, 4>;
+    type Item = Hand;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.hands.into_iter()
+    }
+}
+
+impl std::ops::Index<Suit> for Hands {
+    type Output = Hand;
+    fn index(&self, index: Suit) -> &Self::Output {
+        &self.hands[index as usize]
+    }
+}
+impl std::ops::Index<usize> for Hands {
+    type Output = Hand;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.hands[index]
+    }
+}
+impl Hands {
+    pub fn hands(&self) -> &[Hand; 4] {
+        &self.hands
+    }
+
+    //TODO: Write proc_macro for this boilerplate and suits boilerplate
+
+    pub fn north(&self) -> &Hand {
+        &self.hands[Seat::North as usize]
+    }
+    pub fn south(&self) -> &Hand {
+        &self.hands[Seat::South as usize]
+    }
+    pub fn east(&self) -> &Hand {
+        &self.hands[Seat::East as usize]
+    }
+    pub fn west(&self) -> &Hand {
+        &self.hands[Seat::West as usize]
+    }
+    pub fn iter(&self) -> std::slice::Iter<Hand> {
+        self.hands.iter()
+    }
+}
 
 /// Represents a seat in a Bridge game
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Seat {
+    #[default]
     North = 0,
     East = 1,
     South = 2,
     West = 3,
-}
-
-impl Default for Seat {
-    fn default() -> Self {
-        Seat::North
-    }
 }
 
 impl fmt::Display for Seat {
@@ -134,11 +175,12 @@ impl<'a> Constraints<'a> {
 ///
 /// # Usage
 /// ```
+/// # use rusty_dealer::*;
 /// let mut builder = DealerBuilder::new();
-/// builder.predeal(Seat::North, Hand::from_str("SAKQHAKQDAKQCAKQJ"));
-/// let dealer = builder.build();
+/// builder.predeal(Seat::North, Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap());
+/// let dealer = builder.build().unwrap();
 /// //North will have AKQ AKQ AKQ AKQJ.
-/// println!(dealer.deal());
+/// println!("{}",dealer.deal().unwrap());
 /// ```
 pub struct DealerBuilder {
     // Function that decides if the deal is to be accepted
@@ -169,7 +211,7 @@ impl Default for DealerBuilder {
 impl DealerBuilder {
     pub fn new() -> Self {
         Self {
-            accept: Box::new(|_: &[Hand; NUMBER_OF_HANDS]| true),
+            accept: Box::new(|_: &Hands| true),
             hand_descriptors: HashMap::new(),
             predealt_hands: HashMap::new(),
             vulnerability: Vulnerability::default(),
@@ -188,14 +230,15 @@ impl DealerBuilder {
     ///
     /// # Example
     /// ```
+    /// # use rusty_dealer::*;
     /// let mut builder = DealerBuilder::new();
-    /// builder.with_function(Box::new(|hands: &[Hand; NUMBER_OF_HANDS]| {
-    ///          hands[Seat::North as usize].hearts() + hands[Seat::South as usize].hearts() >= 8
+    /// builder.with_function(Box::new(|hands: &Hands| {
+    ///          (hands.north().hearts() + hands.south().hearts()).len() >= 8
     ///          }
     ///      )
     /// );
     /// //This Dealer will only deal Deals in which North and South have a Heart fit.
-    /// let dealer = builder.build().unwrap()
+    /// let dealer = builder.build().unwrap();
     /// ```
     pub fn with_function(&mut self, accept_function: AcceptFunction) -> &mut Self {
         self.accept = accept_function;
@@ -242,7 +285,7 @@ impl DealerBuilder {
     }
 }
 
-pub trait Dealer: Debug {
+pub trait Dealer: std::fmt::Debug {
     fn deal(&self) -> Result<Deal, DealerError>;
 }
 
@@ -264,7 +307,7 @@ pub struct StandardDealer {
     output_as_subsequent: Subsequent,
 }
 
-impl Debug for StandardDealer {
+impl std::fmt::Debug for StandardDealer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Dealer")
             .field("Predeal", &self.predeal)
@@ -281,7 +324,7 @@ impl Default for StandardDealer {
             vulnerability: Vulnerability::default(),
             deck_starting_state: Cards::ALL,
             hand_constraints: HashMap::new(),
-            accept_function: Box::new(|_: &[Hand; NUMBER_OF_HANDS]| true),
+            accept_function: Box::new(|_: &Hands| true),
             output_as_subsequent: Subsequent::OutputAlwaysOne,
         }
     }
@@ -317,7 +360,9 @@ impl Dealer for StandardDealer {
                     };
                 }
             }
-            !((self.accept_function)(&hands) && self.check_if_hand_constraint_are_respected(&hands))
+            let hands = Hands { hands };
+            !((self.accept_function)(&hands)
+                && self.check_if_hand_constraint_are_respected(hands.hands()))
         } {}
         Ok(Deal {
             hands,
@@ -642,6 +687,12 @@ impl Deal {
     }
 }
 
+impl std::ops::Index<Suit> for Deal {
+    type Output = Hand;
+    fn index(&self, index: Suit) -> &Self::Output {
+        &self.hands[index as usize]
+    }
+}
 impl std::ops::Index<usize> for Deal {
     type Output = Hand;
     fn index(&self, index: usize) -> &Self::Output {
@@ -724,11 +775,11 @@ fn dealer_deals_with_predeal_test() {
 fn dealer_deals_with_predeal_and_accept_function_test() {
     let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
     let mut builder = DealerBuilder::new();
-    builder.predeal(Seat::North, hand).with_function(Box::new(
-        |hands: &[Hand; NUMBER_OF_HANDS]| {
-            hands[Seat::North as usize].slen() + hands[Seat::South as usize].slen() > 8
-        },
-    ));
+    builder
+        .predeal(Seat::North, hand)
+        .with_function(Box::new(|hands: &Hands| {
+            hands.north().slen() + hands.south().slen() > 8
+        }));
     let dealer = builder.build().unwrap();
     let deal = dealer.deal().unwrap();
     println!("{}", &deal);
