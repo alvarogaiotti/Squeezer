@@ -129,7 +129,10 @@ impl BBOClient for BlockingBBOClient {
             info!("incorrect username or password");
             bail!("incorrect username or password")
         }
-        let _ = self.client.get("http://www.bridgebase.com/myhands/hands.php?offset=0").call()?;
+        let _ = self
+            .client
+            .get("http://www.bridgebase.com/myhands/hands.php?offset=0")
+            .call()?;
         Ok(())
     }
 

@@ -469,8 +469,8 @@ impl std::str::FromStr for Card {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let suit = Suit::Spades;
-        let card = Card::new(suit, 2);
+        let mut suit = Suit::Spades;
+        let mut card = Card::new(suit, 2);
         for c in s.chars() {
             match c {
                 '♣' | 'C' | 'c' => {

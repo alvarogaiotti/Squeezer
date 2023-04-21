@@ -28,6 +28,9 @@ impl std::ops::Index<usize> for Hands {
     }
 }
 impl Hands {
+    pub(crate) fn new_from(hands: [Hand; 4]) -> Self {
+        Self { hands }
+    }
     pub fn hands(&self) -> &[Hand; 4] {
         &self.hands
     }
@@ -99,6 +102,15 @@ impl Seat {
             Self::East => "East",
             Self::West => "West",
             Self::South => "South",
+        }
+    }
+    pub fn from_u8(value: u8) -> Self {
+        match value % 4 {
+            0 => Seat::North,
+            1 => Seat::East,
+            2 => Seat::South,
+            3 => Seat::West,
+            _ => unreachable!(),
         }
     }
 }
