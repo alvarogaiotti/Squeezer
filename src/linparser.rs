@@ -139,7 +139,6 @@ impl std::error::Error for BiddingError {
         Some(&self.kind)
     }
 }
-impl From<BidError> for BiddingError {}
 
 impl Bidding {
     pub fn new() -> Self {

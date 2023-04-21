@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod card;
 mod dds;
 mod ddsffi;
@@ -5,7 +6,7 @@ mod deal;
 mod dealproduction;
 mod evaluator;
 mod hand;
-mod parse;
+mod linparser;
 mod payoff;
 mod shape;
 mod utils;
