@@ -29,7 +29,7 @@ mod prelude {
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
-    pub use crate::parse::*;
+    pub use crate::linparser::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::utils::*;

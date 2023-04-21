@@ -3,6 +3,7 @@ use crate::prelude::*;
 use lazy_static::lazy_static;
 use log::{error, warn};
 use regex::Regex;
+use std::num::{NonZeroU8, ParseIntError};
 
 pub struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
@@ -100,6 +101,14 @@ impl FromStr for LinDeal {
 pub struct Bidding {
     bidding: Vec<Bid>,
 }
+
+impl IntoIterator for Bidding {
+    type Item = Bid;
+    type IntoIter = <Vec<Bid> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.bidding.into_iter()
+    }
+}
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BiddingErrorKind {
@@ -177,7 +186,7 @@ pub enum Bid {
     Pass,
     Double,
     Redouble,
-    Contract(u8, Strain),
+    Contract(NonZeroU8, Strain),
 }
 
 impl std::fmt::Display for Bid {
@@ -193,6 +202,30 @@ impl std::fmt::Display for Bid {
 #[derive(Debug)]
 pub struct BidError {
     pub bid: String,
+    pub kind: BidErrorKind,
+}
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum BidErrorKind {
+    Level(ParseIntError),
+    Strain,
+}
+impl std::fmt::Display for BidErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BidErrorKind::Level(e) => write!(f, "unable to parse level"),
+            BidErrorKind::Strain => write!(f, "unable to parse strain"),
+        }
+    }
+}
+
+impl std::error::Error for BidError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self.kind {
+            BidErrorKind::Level(ref e) => Some(e),
+            BidErrorKind::Strain => None,
+        }
+    }
 }
 
 impl std::fmt::Display for BidError {
@@ -305,28 +338,33 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
             "d" => Bid::Double,
             "r" => Bid::Redouble,
             "p" => Bid::Pass,
-            data => Bid::Contract(
-                data[0..1].parse::<u8>().unwrap_or_else(|_| {
-                    match bidding.iter().filter(|&bid| bid.is_contract()).last() {
-                        Some(&Bid::Contract(num, _)) => num,
-                        None => 1u8,
-                        Some(_) => {
-                            return BidError {
-                                bid: String::from(data),
-                            }
-                        }
+            contract_bid => Bid::Contract(
+                match contract_bid[0..1].parse::<std::num::NonZeroU8>() {
+                    Ok(num) => num,
+                    Err(e) => {
+                        return Err(BiddingError {
+                            bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
+                            kind: BiddingErrorKind::NonExistent(BidError {
+                                bid: String::from(contract_bid),
+                                kind: BidErrorKind::Level(e),
+                            }),
+                        });
                     }
-                }),
-                match &data[1..] {
+                },
+                match &contract_bid[1..] {
                     "c" => Strain::Clubs,
                     "d" => Strain::Diamonds,
                     "h" => Strain::Hearts,
                     "s" => Strain::Spades,
                     "n" => Strain::NoTrumps,
                     _ => {
-                        return BidError {
-                            bid: String::from(data),
-                        }
+                        return Err(BiddingError {
+                            bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
+                            kind: BiddingErrorKind::NonExistent(BidError {
+                                bid: String::from(contract_bid),
+                                kind: BidErrorKind::Strain,
+                            }),
+                        })
                     }
                 },
             ),
@@ -357,7 +395,7 @@ impl<'a> IntoIterator for &'a PlaySequence {
 }
 
 // This function does not return an error if it is unable to parse a card, but returns a JOKER, so
-// remember to check for it.
+// remember to check for it and maybe try to reconstruct the right card based on the hand.
 fn play_sequence(lin: &str) -> PlaySequence {
     lazy_static! {
         static ref PLAY_SEQUENCE: Regex = Regex::new(r"(?P<waste>pc\|(?P<card>\w+?)\|)+?").unwrap();
