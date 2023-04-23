@@ -213,7 +213,7 @@ pub enum BidErrorKind {
 impl std::fmt::Display for BidErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BidErrorKind::Level(e) => write!(f, "unable to parse level"),
+            BidErrorKind::Level(_e) => write!(f, "unable to parse level"),
             BidErrorKind::Strain => write!(f, "unable to parse strain"),
         }
     }

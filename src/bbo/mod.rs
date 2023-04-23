@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 #[cfg(not(test))]
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use regex::Regex;
 #[cfg(test)]
 use std::{println as info, println as warn, println as debug}; // Workaround to use println! for logs.
@@ -123,7 +123,7 @@ impl<E: NetworkError> std::fmt::Display for BboErrorKind<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BboErrorKind::LoginError => write!(f, "incorrect username or password"),
-            BboErrorKind::DownloadError(e) => {
+            BboErrorKind::DownloadError(_e) => {
                 write!(f, "unable to download hand")
             }
             BboErrorKind::UnknownConnectionError(_) => {

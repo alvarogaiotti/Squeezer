@@ -106,7 +106,7 @@ pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
     builder.build().unwrap()
 }
 
-pub fn deal_1nt_3nt(hands: &[Hand; 4], factory: &mut ShapeFactory) -> bool {
+pub fn deal_1nt_3nt(hands: &[Hand; 4], _factory: &mut ShapeFactory) -> bool {
     for (_seat, hand) in hands.iter().enumerate() {
         if hand.hcp() < 18 && hand.hcp() > 14 {}
     }

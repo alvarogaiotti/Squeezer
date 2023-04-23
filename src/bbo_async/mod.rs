@@ -99,7 +99,7 @@ impl AsyncBBOClient {
             .map_err(|e| ClientError::unknown_error(e))?
             .text()
             .await
-            .map_err(|e| ClientError::IoError {
+            .map_err(|_e| ClientError::IoError {
                 source: std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "unable to parse response as a String",
@@ -143,7 +143,7 @@ impl AsyncBBOClient {
             })?
             .text()
             .await
-            .map_err(|e| ClientError::IoError {
+            .map_err(|_e| ClientError::IoError {
                 source: std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "unable to parse response as String",
@@ -179,11 +179,11 @@ impl AsyncBBOClient {
                 break;
             }
             let next_start = start_time - Duration::days(28);
-            let text = self.get_hands_in_interval(start_time, next_start).await?;
+            let _text = self.get_hands_in_interval(start_time, next_start).await?;
             start_time = next_start;
             self.get_links(&String::new(), &mut vec);
         }
-        let text = self.get_hands_in_interval(start_time, end_time).await?;
+        let _text = self.get_hands_in_interval(start_time, end_time).await?;
         self.get_links(&String::new(), &mut vec);
 
         self.hands_links = vec;
@@ -219,7 +219,7 @@ impl AsyncBBOClient {
             hand.insert_str(0, BBOBASE);
 
             info!("downloading from {}", hand);
-            let lin = match self.client.get(&hand).send().await {
+            let _lin = match self.client.get(&hand).send().await {
                 Err(e) => {
                     warn!("unable to download from {}.\nSee: {}", &hand, e);
                     continue;
