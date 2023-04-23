@@ -189,9 +189,10 @@ impl Contract {
                 _ => {}
             };
             bonus += if base_score >= 100 {
-                match self.vuln {
-                    true => 500,
-                    false => 300,
+                if self.vuln {
+                    500
+                } else {
+                    300
                 }
             } else {
                 50

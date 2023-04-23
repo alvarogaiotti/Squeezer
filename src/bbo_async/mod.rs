@@ -1,16 +1,63 @@
-use crate::bbo::{LinkExtractor, BBOBASE, BBOHANDS, BBOLOGIN};
-use anyhow::{bail, Context, Result};
+use crate::{
+    bbo::{
+        BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
+        BBOLOGIN,
+    },
+    get_bboerrorkind_error,
+};
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
 use regex::Regex;
 use reqwest::Client;
 use time::{Duration, OffsetDateTime};
+type Result<T> = std::result::Result<T, ClientError<reqwest::Error>>;
 
 pub struct AsyncBBOClient {
     client: Client,
     username: String,
     password: String,
     hands_links: Vec<String>,
+}
+
+impl NetworkError for reqwest::Error {}
+
+impl ClientError<reqwest::Error> {
+    pub fn unknown_error(e: reqwest::Error) -> Self {
+        Self::ConnectionError {
+            source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+        }
+    }
+}
+
+impl From<BboError<reqwest::Error>> for ClientError<reqwest::Error> {
+    fn from(value: BboError<reqwest::Error>) -> Self {
+        Self::ConnectionError { source: value }
+    }
+}
+impl From<BboErrorKind<reqwest::Error>> for BboError<reqwest::Error> {
+    fn from(value: BboErrorKind<reqwest::Error>) -> Self {
+        Self { kind: value }
+    }
+}
+
+impl std::error::Error for BboError<reqwest::Error> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.kind)
+    }
+}
+impl std::fmt::Display for BboError<reqwest::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let url = if let Some(error) = get_bboerrorkind_error!(&self.kind) {
+            if let Some(url) = error.url() {
+                url.as_str()
+            } else {
+                BBOBASE
+            }
+        } else {
+            BBOBASE
+        };
+        write!(f, "unable to connect to {}", url)
+    }
 }
 
 impl LinkExtractor for AsyncBBOClient {
@@ -49,15 +96,21 @@ impl AsyncBBOClient {
             .get(BBOLOGIN)
             .send()
             .await
-            .with_context(|| format!("unable to send request, maybe {} not responding", BBOLOGIN))?
+            .map_err(|e| ClientError::unknown_error(e))?
             .text()
             .await
-            .context("unable to get text from response")?
+            .map_err(|e| ClientError::IoError {
+                source: std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "unable to parse response as a String",
+                ),
+            })?
             .contains("Please login")
         {
-            info!("logged in");
-            Ok(true)
+            info!("not logged in");
+            Ok(false)
         } else {
+            info!("logged in");
             Ok(false)
         }
     }
@@ -85,13 +138,22 @@ impl AsyncBBOClient {
             .form(&params)
             .send()
             .await
-            .with_context(|| format!("unable to send login request, maybe {} is down?", BBOLOGIN))?
+            .map_err(|e| ClientError::ConnectionError {
+                source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+            })?
             .text()
             .await
-            .context("unable to extract text")?;
+            .map_err(|e| ClientError::IoError {
+                source: std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "unable to parse response as String",
+                ),
+            })?;
         if response.contains("password incorrect") {
             info!("incorrect username or password");
-            bail!("incorrect username or password")
+            return Err(ClientError::ConnectionError {
+                source: BboError::from(BboErrorKind::LoginError),
+            });
         }
         info!("Succesfully logged in");
 
@@ -112,16 +174,19 @@ impl AsyncBBOClient {
         }
         let mut vec: Vec<String> = Vec::new();
 
-        while (start_time - end_time).whole_days() > 28 {
+        loop {
+            if (start_time - end_time).whole_days() < 28 {
+                break;
+            }
             let next_start = start_time - Duration::days(28);
             let text = self.get_hands_in_interval(start_time, next_start).await?;
             start_time = next_start;
-            self.get_links(&text, &mut vec);
+            self.get_links(&String::new(), &mut vec);
         }
         let text = self.get_hands_in_interval(start_time, end_time).await?;
-        self.get_links(&text, &mut vec);
-        self.hands_links = vec;
+        self.get_links(&String::new(), &mut vec);
 
+        self.hands_links = vec;
         Ok(())
     }
 
@@ -129,7 +194,7 @@ impl AsyncBBOClient {
         &self,
         start_time: OffsetDateTime,
         end_time: OffsetDateTime,
-    ) -> Result<String, anyhow::Error> {
+    ) -> Result<String> {
         let text = self
             .client
             .get(BBOHANDS)
@@ -138,10 +203,14 @@ impl AsyncBBOClient {
             .query(&[("end_time", (end_time).unix_timestamp())])
             .send()
             .await
-            .with_context(|| format!("unable to send request to {BBOBASE}, maybe BBO is down?"))?
+            .map_err(|e| ClientError::ConnectionError {
+                source: BboError::from(BboErrorKind::HandsRequestError(e)),
+            })?
             .text()
             .await
-            .context("unable to parse response text")?;
+            .map_err(|e| ClientError::ConnectionError {
+                source: BboError::from(BboErrorKind::HandsRequestError(e)),
+            })?;
         Ok(text)
     }
 
@@ -155,7 +224,14 @@ impl AsyncBBOClient {
                     warn!("unable to download from {}.\nSee: {}", &hand, e);
                     continue;
                 }
-                Ok(response) => response.text().await.context("unable to read response")?,
+                Ok(response) => {
+                    response
+                        .text()
+                        .await
+                        .map_err(|e| ClientError::ConnectionError {
+                            source: BboError::from(BboErrorKind::DownloadError(e)),
+                        })?
+                }
             };
         }
         Ok(())
