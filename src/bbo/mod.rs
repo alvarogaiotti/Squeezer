@@ -69,10 +69,10 @@ impl NetworkError for ureq::Error {}
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BboErrorKind<E: NetworkError> {
-    UnknownConnectionError(E),
+    UnknownConnectionError(Box<E>),
     LoginError,
-    DownloadError(E),
-    HandsRequestError(E),
+    DownloadError(Box<E>),
+    HandsRequestError(Box<E>),
 }
 
 impl<E: NetworkError + 'static> std::error::Error for BboErrorKind<E> {
@@ -90,7 +90,7 @@ impl std::fmt::Display for BboError<ureq::Error> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let error = get_bboerrorkind_error!(&self.kind);
         let url = if let Some(error) = error {
-            match error {
+            match **error {
                 ureq::Error::Transport(t) => {
                     if let Some(url) = t.url() {
                         url.as_str()
@@ -162,7 +162,7 @@ impl BlockingBBOClient {
         let text = request
             .call()
             .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
             })?
             .into_string()
             .map_err(|e| ClientError::IoError { source: e })?;
@@ -190,7 +190,7 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             .get(BBOLOGIN)
             .call()
             .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
             })?
             .into_string()
             .map_err(|e| ClientError::IoError { source: e })?
@@ -227,7 +227,7 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             .client
             .post(BBOLOGIN)
             .send_form(&params)
-            .map_err(|e| BboError::from(BboErrorKind::UnknownConnectionError(e)))?;
+            .map_err(|e| BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))))?;
         info!("response status code: {}", response.status());
         let text = response
             .into_string()
@@ -243,7 +243,7 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             .get("http://www.bridgebase.com/myhands/hands.php?offset=0")
             .call()
             .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
             })?;
         Ok(())
     }
@@ -303,9 +303,9 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             Ok(())
         } else {
             Err(ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::DownloadError(
+                source: BboError::from(BboErrorKind::DownloadError(Box::new(
                     queue.into_iter().last().unwrap(),
-                )),
+                ))),
             })
         }
     }
