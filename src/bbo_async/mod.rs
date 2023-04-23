@@ -24,7 +24,7 @@ impl NetworkError for reqwest::Error {}
 impl ClientError<reqwest::Error> {
     pub fn unknown_error(e: reqwest::Error) -> Self {
         Self::ConnectionError {
-            source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+            source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
         }
     }
 }
@@ -33,6 +33,15 @@ impl From<BboError<reqwest::Error>> for ClientError<reqwest::Error> {
     fn from(value: BboError<reqwest::Error>) -> Self {
         Self::ConnectionError { source: value }
     }
+}
+macro_rules! extract_url_reqwest {
+    ($e:expr) => {
+        if let Some(url) = $e.url() {
+            url.to_string()
+        } else {
+            BBOBASE.to_string()
+        }
+    };
 }
 impl From<BboErrorKind<reqwest::Error>> for BboError<reqwest::Error> {
     fn from(value: BboErrorKind<reqwest::Error>) -> Self {
@@ -139,7 +148,7 @@ impl AsyncBBOClient {
             .send()
             .await
             .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(e)),
+                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
             })?
             .text()
             .await
@@ -204,12 +213,12 @@ impl AsyncBBOClient {
             .send()
             .await
             .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::HandsRequestError(e)),
+                source: BboError::from(BboErrorKind::HandsRequestError(Box::new(e))),
             })?
             .text()
             .await
             .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::HandsRequestError(e)),
+                source: BboError::from(BboErrorKind::HandsRequestError(Box::new(e))),
             })?;
         Ok(text)
     }
@@ -229,7 +238,7 @@ impl AsyncBBOClient {
                         .text()
                         .await
                         .map_err(|e| ClientError::ConnectionError {
-                            source: BboError::from(BboErrorKind::DownloadError(e)),
+                            source: BboError::from(BboErrorKind::DownloadError(Box::new(e))),
                         })?
                 }
             };

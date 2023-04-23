@@ -81,30 +81,28 @@ impl<E: NetworkError + 'static> std::error::Error for BboErrorKind<E> {
             BboErrorKind::UnknownConnectionError(error) => Some(error),
             BboErrorKind::DownloadError(error) => Some(error),
             BboErrorKind::HandsRequestError(error) => Some(error),
-            _ => None,
+            BboErrorKind::LoginError => None,
         }
     }
+}
+macro_rules! extract_url_ureq {
+    ($e:expr) => {
+        match $e {
+            ureq::Error::Transport(t) => {
+                if let Some(url) = t.url() {
+                    url.as_str().to_owned()
+                } else {
+                    BBOBASE.to_owned()
+                }
+            }
+            ureq::Error::Status(_, response) => response.get_url().to_owned(),
+        }
+    };
 }
 
 impl std::fmt::Display for BboError<ureq::Error> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let error = get_bboerrorkind_error!(&self.kind);
-        let url = if let Some(error) = error {
-            match **error {
-                ureq::Error::Transport(t) => {
-                    if let Some(url) = t.url() {
-                        url.as_str()
-                    } else {
-                        BBOBASE
-                    }
-                }
-                ureq::Error::Status(_, response) => response.get_url(),
-            }
-        } else {
-            BBOBASE
-        };
-
-        write!(f, "unable to connect to: {}", url)
+        write!(f, "unable to connect")
     }
 }
 impl std::error::Error for BboError<ureq::Error> {
