@@ -19,7 +19,15 @@ pub struct AsyncBBOClient {
     hands_links: Vec<String>,
 }
 
-impl NetworkError for reqwest::Error {}
+impl NetworkError for reqwest::Error {
+    fn extract_url(&self) -> &str {
+        if let Some(url) = self.url() {
+            url.as_str()
+        } else {
+            "{no_url}"
+        }
+    }
+}
 
 impl ClientError<reqwest::Error> {
     pub fn unknown_error(e: reqwest::Error) -> Self {

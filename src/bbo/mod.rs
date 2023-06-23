@@ -63,8 +63,23 @@ pub struct BboError<E: NetworkError> {
     pub kind: BboErrorKind<E>,
 }
 
-pub trait NetworkError: std::error::Error {}
-impl NetworkError for ureq::Error {}
+pub trait NetworkError: std::error::Error {
+    fn extract_url(&self) -> &str;
+}
+impl NetworkError for ureq::Error {
+    fn extract_url(&self) -> &str {
+        match self {
+            ureq::Error::Status(_, r) => r.get_url(),
+            ureq::Error::Transport(t) => {
+                if let Some(url) = t.url() {
+                    url.as_str()
+                } else {
+                    "{no_url}"
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -121,16 +136,22 @@ impl<E: NetworkError> std::fmt::Display for BboErrorKind<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BboErrorKind::LoginError => write!(f, "incorrect username or password"),
-            BboErrorKind::DownloadError(_e) => {
-                write!(f, "unable to download hand")
+            BboErrorKind::DownloadError(e) => {
+                write!(f, "unable to download hand from {}", e.extract_url())
             }
-            BboErrorKind::UnknownConnectionError(_) => {
-                write!(f, "unable to connect, check internet connection")
+            BboErrorKind::UnknownConnectionError(e) => {
+                write!(
+                    f,
+                    "unable to connect to {}, check internet connection",
+                    e.extract_url()
+                )
             }
-            // This should be just internal as we check the time intervals to be ok. So if this
-            // happens we are in bad waters.
-            BboErrorKind::HandsRequestError(_) => {
-                write!(f, "incorrect time interval request parameters")
+            BboErrorKind::HandsRequestError(e) => {
+                write!(
+                    f,
+                    "incorrect time interval request parameters, tried to get from: {}",
+                    e.extract_url()
+                )
             }
         }
     }
