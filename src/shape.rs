@@ -9,6 +9,7 @@ pub struct DealerError {
 }
 
 impl DealerError {
+    #[must_use]
     pub fn new(msg: &str) -> Self {
         Self {
             details: msg.to_string(),
@@ -54,6 +55,7 @@ impl<'a> Default for ShapeFactory<'a> {
 impl<'a> ShapeFactory<'a> {
     pub const JOKER: char = 'x';
 
+    #[must_use]
     pub fn new() -> Self {
         ShapeFactory {
             table: [false; SHAPE_COMBINATIONS],
@@ -72,7 +74,7 @@ impl<'a> ShapeFactory<'a> {
             Ok(())
         } else {
             //if not found, produce it
-            let shape_pattern: Vec<char> = shape.chars().into_iter().collect();
+            let shape_pattern: Vec<char> = shape.chars().collect();
             self.insert(shape_pattern)?;
             self.cache_table.insert(shape);
             Ok(())
@@ -150,6 +152,7 @@ impl<'a> ShapeFactory<'a> {
         }
         Ok(())
     }
+    #[must_use]
     pub fn balanced() -> Self {
         let mut factory = Self {
             op_cache: HashSet::new(),
@@ -164,6 +167,7 @@ impl<'a> ShapeFactory<'a> {
         factory.new_shape("(5332)").unwrap();
         factory
     }
+    #[must_use]
     pub fn balanced_no_5major() -> Self {
         let mut factory = Self {
             op_cache: HashSet::new(),
@@ -208,7 +212,7 @@ impl<'a> ShapeFactory<'a> {
             }
             for (i, l) in shape.iter().enumerate() {
                 if l == &(RANKS + 1) {
-                    for ll in 0..13 - pre_set + 1 {
+                    for ll in 0..=(13 - pre_set) {
                         let mut new_shape: Vec<u8> = shape[..i].to_vec();
                         new_shape.push(ll);
                         new_shape.extend(shape[i + 1..].to_vec());
@@ -239,7 +243,7 @@ impl<'a> ShapeFactory<'a> {
         collected: &'a mut Vec<Vec<u8>>,
     ) -> Result<&'a Vec<Vec<u8>>, DealerError> {
         if shape_pattern.is_empty() {
-            collected.push(parsed.to_owned());
+            collected.push(parsed.clone());
             Ok(collected)
         } else {
             let head: Vec<u8>;
@@ -287,8 +291,7 @@ impl<'a> ShapeFactory<'a> {
                             }
                         }
                     })
-                    .map(|x| x.unwrap())
-                    .collect();
+                    .collect::<Result<Vec<_>, _>>()?;
                 *shape_pattern = (shape_pattern[1..]).to_vec();
             }
             for perm in head.iter().permutations(head.len()) {

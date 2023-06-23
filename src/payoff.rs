@@ -1,4 +1,5 @@
 use crate::prelude::*;
+
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
 ///on scoring. Some sort of expected value of the contracts.
 pub struct Payoff<T, D>
@@ -81,7 +82,7 @@ where
                 print!("\t{}", {
                     let output = format!("{stderr:.2}");
                     if i == j {
-                        "".to_string()
+                        String::new()
                     } else {
                         output
                     }
@@ -121,9 +122,16 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
 pub struct Contract {
     vuln: bool,
     level: usize,
-    doubled: u8,
+    doubled: Doubled,
     strain: Strain,
     declarer: Seat,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+pub enum Doubled {
+    NotDoubled = 0,
+    Doubled = 1,
+    Redoubled = 2,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
@@ -136,6 +144,7 @@ pub enum Strain {
 }
 
 impl Contract {
+    #[allow(clippy::cast_possible_truncation)]
     pub fn strain(&self) -> Strain {
         self.strain
     }
@@ -146,7 +155,12 @@ impl Contract {
         self.declarer
     }
     pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
-        let doubled = (s.len() - s.trim_end_matches('X').len()) as u8;
+        let doubled = match s.len() - s.trim_end_matches('X').len() {
+            0 => Doubled::NotDoubled,
+            1 => Doubled::Doubled,
+            2 => Doubled::Redoubled,
+            _ => unreachable!("too many `X`"),
+        };
         let mut chars = s.chars();
         let level = chars.next().unwrap().to_digit(10).unwrap() as usize;
         if !(1..=7).contains(&level) {
@@ -176,17 +190,17 @@ impl Contract {
             };
 
             match self.doubled {
-                1 => {
+                Doubled::Doubled => {
                     base_score *= 2;
                     bonus += 50;
                     per_overtrick = 100;
                 }
-                2 => {
+                Doubled::Redoubled => {
                     base_score *= 4;
                     bonus += 100;
                     per_overtrick = 200;
                 }
-                _ => {}
+                Doubled::NotDoubled => {}
             };
             bonus += if base_score >= 100 {
                 if self.vuln {
@@ -217,7 +231,7 @@ impl Contract {
             base_score + bonus
         } else {
             let mut score: i32;
-            if self.doubled == 0 {
+            if matches!(self.doubled, Doubled::NotDoubled) {
                 let per_undertrick = if self.vuln { 100 } else { 50 };
                 score = overtricks * per_undertrick;
             } else {
@@ -232,7 +246,7 @@ impl Contract {
                         }
                     }
                 }
-                if self.doubled == 2 {
+                if matches!(self.doubled, Doubled::Redoubled) {
                     score *= 2
                 }
             }
@@ -245,11 +259,11 @@ impl Contract {
             self.level,
             self.strain.not_unicode_str(),
             self.declarer,
-            if self.doubled == 0 {
-                "".to_string()
+            if matches!(self.doubled, Doubled::NotDoubled) {
+                String::new()
             } else {
-                let mut stringa = "".to_string();
-                for _ in 0..self.doubled {
+                let mut stringa = String::new();
+                for _ in 0..(self.doubled as usize) {
                     stringa.push('X')
                 }
                 stringa
@@ -265,11 +279,11 @@ impl fmt::Display for Contract {
             self.level,
             self.strain,
             self.declarer,
-            if self.doubled == 0 {
-                "".to_string()
+            if matches!(self.doubled, Doubled::NotDoubled) {
+                String::new()
             } else {
-                let mut stringa = "".to_string();
-                for _ in 0..self.doubled {
+                let mut stringa = String::new();
+                for _ in 0..(self.doubled as usize) {
                     stringa.push('X')
                 }
                 stringa
@@ -288,7 +302,7 @@ impl Strain {
             _ => Err(DealerError::new("Not a strain.")),
         }
     }
-    fn not_unicode_str(&self) -> String {
+    fn not_unicode_str(self) -> String {
         match self {
             Self::Spades => String::from("S"),
             Self::Hearts => String::from("H"),
@@ -314,9 +328,8 @@ fn bisect_right(value: i32, lista: &[i32]) -> i32 {
     for (i, &x) in lista.iter().enumerate() {
         if x < value {
             continue;
-        } else {
-            return i as i32;
         }
+        return i as i32;
     }
     lista.len() as i32
 }

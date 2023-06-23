@@ -136,18 +136,13 @@ impl From<usize> for Seat {
 }
 
 ///Models vulnerability as an enum.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum Vulnerability {
+    #[default]
     None = 0,
     NS = 1,
     EW = 2,
     All = 3,
-}
-
-impl Default for Vulnerability {
-    fn default() -> Self {
-        Vulnerability::None
-    }
 }
 
 ///Enum which passes constraint to the Deal struct for dealing specific types of hands. Right
@@ -277,7 +272,7 @@ impl DealerBuilder {
     /// **NOTE**: this will fail if you try to predeal the same card twice.
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
-        for (_, hand) in self.predealt_hands.iter() {
+        for hand in self.predealt_hands.values() {
             if !hand.cards.difference(deck).is_empty() {
                 return Err(DealerError::new(
                     format!("card dealt twice: {}", hand.cards.difference(deck)).as_str(),
@@ -354,10 +349,7 @@ impl Dealer for StandardDealer {
                 if let Some(hand) = self.predeal.get(&seat) {
                     let predeal_len = hand.as_cards().len();
                     if predeal_len < 13 {
-                        let cards_to_add = if let Some(cards) = deck.pick(13 - predeal_len as usize)
-                        {
-                            cards
-                        } else {
+                        let Some(cards_to_add) = deck.pick(13 - predeal_len as usize) else {
                             return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
                         };
                         hands[seat as usize].set_cards(hand.as_cards() + cards_to_add);
@@ -380,7 +372,7 @@ impl Dealer for StandardDealer {
             hands,
             number: match self.output_as_subsequent {
                 Subsequent::OutputConsequentially(num) => num,
-                _ => 1,
+                Subsequent::OutputAlwaysOne => 1,
             },
             ..Default::default()
         })
@@ -450,7 +442,7 @@ impl Deal {
                     !f(&hands, factory)
                 } {}
             }
-            _ => hands = Deal::deal(),
+            Constraints::None => hands = Deal::deal(),
         };
         Self {
             vulnerability: Vulnerability::None,
@@ -464,7 +456,7 @@ impl Deal {
         hands: &mut [Hand; NUMBER_OF_HANDS],
     ) {
         let mut deck = Cards::ALL;
-        for (_, hand_opt) in predealt.iter() {
+        for (_, hand_opt) in &predealt {
             if let Some(hand) = hand_opt {
                 deck = deck.difference(hand.as_cards());
             }
@@ -558,13 +550,7 @@ impl Deal {
                 self.into_iter()
                     .map(|hand| {
                         hand.into_iter()
-                            .map(|holding| {
-                                holding
-                                    .into_iter()
-                                    .map(|card| card.rankchar())
-                                    .rev()
-                                    .format("")
-                            })
+                            .map(|holding| holding.into_iter().map(Card::rankchar).rev().format(""))
                             .format(".")
                             .to_string()
                     })
@@ -601,11 +587,7 @@ impl Deal {
                     format_args!(
                         "{}{}",
                         stringa,
-                        holding
-                            .into_iter()
-                            .map(|card| card.rankchar())
-                            .rev()
-                            .format("")
+                        holding.into_iter().map(Card::rankchar).rev().format("")
                     )
                 );
             }
@@ -639,25 +621,25 @@ impl Deal {
         let west_len = self.hands[Seat::West as usize]
             .long_str()
             .split('\n')
-            .map(|x| x.len())
+            .map(str::len)
             .max()
             .unwrap();
         let east_len = self.hands[Seat::East as usize]
             .long_str()
             .split('\n')
-            .map(|x| x.len())
+            .map(str::len)
             .max()
             .unwrap();
         let north_len = self.hands[Seat::North as usize]
             .long_str()
             .split('\n')
-            .map(|x| x.len())
+            .map(str::len)
             .max()
             .unwrap();
         let south_len = self.hands[Seat::South as usize]
             .long_str()
             .split('\n')
-            .map(|x| x.len())
+            .map(str::len)
             .max()
             .unwrap();
         let ns_len = if south_len < north_len {
@@ -691,7 +673,6 @@ impl Deal {
             self.hands[Seat::South as usize]
                 .long_str()
                 .split('\n')
-                .into_iter()
                 .map(|string| format!("{string:^0$}", width - ns_len + string.len()))
                 .format("\n"),
         );

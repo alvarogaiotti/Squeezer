@@ -1,4 +1,8 @@
-#[allow(dead_code)]
+#![allow(dead_code)]
+#[cfg(feature = "bbo")]
+mod bbo;
+#[cfg(feature = "bbo_async")]
+mod bbo_async;
 mod card;
 mod dds;
 mod ddsffi;
@@ -6,7 +10,8 @@ mod deal;
 mod dealproduction;
 mod evaluator;
 mod hand;
-mod linparser;
+#[cfg(feature = "lin")]
+pub mod linparser;
 mod payoff;
 mod shape;
 mod utils;
@@ -22,6 +27,10 @@ mod prelude {
     pub const MAX_N_OF_BOARDS: u8 = 128;
     pub const RANKS: u8 = 13;
     pub const NUMBER_OF_HANDS: usize = 4;
+    #[cfg(feature = "bbo")]
+    pub use crate::bbo::*;
+    #[cfg(feature = "bbo_async")]
+    pub use crate::bbo_async::*;
     pub use crate::card::*;
     pub use crate::dds::*;
     pub use crate::ddsffi::*;
@@ -29,6 +38,8 @@ mod prelude {
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
+    pub use crate::linparser::*;
+    #[cfg(feature = "lin")]
     pub use crate::linparser::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
@@ -48,7 +59,3 @@ mod prelude {
 }
 
 pub use prelude::*;
-#[cfg(feature = "bbo")]
-pub mod bbo;
-#[cfg(feature = "bbo_async")]
-pub mod bbo_async;

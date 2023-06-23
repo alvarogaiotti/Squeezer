@@ -1,6 +1,13 @@
+use rusty_dealer_macros::*;
 use std::ffi::c_int;
 
 use crate::{ddsffi, prelude::*};
+
+pub trait RawDDS {
+    type Raw;
+
+    fn get_raw(&self) -> Self::Raw;
+}
 
 fn populate(deal: &Deal) -> [[u32; 4]; 4] {
     let mut remain_cards = [[0; 4]; 4];
@@ -28,6 +35,7 @@ fn empty_fut() -> ddsffi::futureTricks {
     }
 }
 
+#[must_use]
 pub fn dd_tricks(deal: &Deal, contract: &Contract) -> u8 {
     let (trump, first) = (contract.strain(), contract.leader());
     let c_deal = ddsffi::deal {
@@ -42,17 +50,31 @@ pub fn dd_tricks(deal: &Deal, contract: &Contract) -> u8 {
     unsafe { ddsffi::SolveBoard(c_deal, -1, 1, 1, futp, 0) };
     13 - future_tricks.score[0] as u8
 }
+#[must_use]
 pub fn dd_score(deal: &Deal, contract: &Contract) -> i32 {
     let tricks = dd_tricks(deal, contract);
     contract.score(tricks)
 }
 
-impl ddsffi::solvedPlay {
+#[derive(RawDDS)]
+pub struct SolvedPlay {
+    solved_play: ddsffi::solvedPlay,
+}
+
+impl SolvedPlay {
     pub fn new() -> Self {
         Self {
-            number: 0,
-            tricks: [0; 53],
+            solved_play: ddsffi::solvedPlay {
+                number: 0,
+                tricks: [0; 53],
+            },
         }
+    }
+}
+
+impl Default for SolvedPlay {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -64,7 +86,7 @@ impl ddsffi::playTraceBin {
     }
 }
 
-fn analyze_play(deal: &Deal, contract: Contract, play: playTraceBin) -> ddsffi::solvedPlay {
+fn analyze_play(deal: &Deal, contract: Contract, play: &playTraceBin) -> SolvedPlay {
     let (trump, first) = (contract.strain(), contract.leader());
     let c_deal = ddsffi::deal {
         trump: trump as c_int,
@@ -73,9 +95,11 @@ fn analyze_play(deal: &Deal, contract: Contract, play: playTraceBin) -> ddsffi::
         currentTrickRank: [0; 3],
         remainCards: populate(deal),
     };
-    let mut solved_play = ddsffi::solvedPlay::new();
-    let solved: *mut solvedPlay = &mut solved_play;
-    unsafe { ddsffi::AnalysePlayBin(c_deal, play, solved, 0) };
+    let solved_play = SolvedPlay::new();
+    {
+        let solved: *mut ddsffi::solvedPlay = &mut solved_play.get_raw();
+        unsafe { ddsffi::AnalysePlayBin(c_deal, *play, solved, 0) };
+    }
     solved_play
 }
 

@@ -124,7 +124,7 @@ impl std::fmt::Display for BiddingErrorKind {
             BiddingErrorKind::NonStarter => {
                 write!(f, "bidding cannot be started with a Double or a Redouble")
             }
-            BiddingErrorKind::NonExistent(bid) => write!(f, "{}", bid),
+            BiddingErrorKind::NonExistent(bid) => write!(f, "{bid}"),
         }
     }
 }
@@ -192,7 +192,7 @@ pub enum Bid {
 impl std::fmt::Display for Bid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Bid::Contract(level, strain) => write!(f, "{}{}", level, strain),
+            Bid::Contract(level, strain) => write!(f, "{level}{strain}"),
             Bid::Pass => write!(f, "Pass"),
             Bid::Redouble => write!(f, "Redouble"),
             Bid::Double => write!(f, "Double"),
@@ -241,8 +241,7 @@ impl Bid {
                 Bid::Contract(self_level, self_strain) => {
                     level < self_level || (level == self_level && strain < self_strain)
                 }
-                Bid::Pass => true,
-                Bid::Double => true,
+                Bid::Pass | Bid::Double => true,
                 Bid::Redouble => false,
             },
             Bid::Pass => self != &Bid::Redouble,
@@ -276,8 +275,8 @@ fn players(lin: &str) -> Vec<String> {
                 .get(0)
                 .unwrap() // Cannot fail
                 .as_str()
-                .split(",")
-                .map(|string| string.to_owned())
+                .split(',')
+                .map(std::borrow::ToOwned::to_owned)
                 .collect()
         },
     )
@@ -299,7 +298,7 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
             .name("hands")
             .unwrap()
             .as_str()
-            .split(",")
+            .split(',')
             .map(|hand| Hand::from_str(hand).unwrap_or_else(|_| Hand::new_empty()))
             .collect();
         let hands: [Hand; 4] = vec.try_into().unwrap_or_else(|_| [Hand::new_empty(); 4]);

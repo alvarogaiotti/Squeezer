@@ -85,7 +85,7 @@ impl<'a> Shapes {
         // Pattern collected
         let mut collected: Vec<Vec<u8>> = Vec::new();
         Shapes::get_patterns(&mut shape_string, &mut parsed, &mut collected)?;
-        for pattern in collected.iter() {
+        for pattern in &collected {
             self.delete_shape(pattern)?;
         }
         Ok(())
@@ -106,7 +106,7 @@ impl<'a> Shapes {
         // Pattern collected
         let mut collected: Vec<Vec<u8>> = Vec::new();
         Shapes::get_patterns(&mut shape_string, &mut parsed, &mut collected)?;
-        for pattern in collected.iter() {
+        for pattern in &collected {
             self.insert_shape(pattern)?;
         }
         Ok(())
@@ -119,7 +119,7 @@ impl<'a> Shapes {
     ) -> Result<&'a Vec<Vec<u8>>, DealerError> {
         // If empty, we return
         if shape_pattern.is_empty() {
-            collected.push(parsed.to_owned());
+            collected.push(parsed.clone());
             return Ok(collected);
         }
         let head: Vec<u8>;
@@ -128,15 +128,13 @@ impl<'a> Shapes {
         // E.g. (43)42 will output 4342 and 3442.
         if let Some('(') = shape_pattern.first() {
             shape_pattern.remove(0);
-            let closing_bracket_index =
-                if let Some(index) = shape_pattern.iter().position(|&x| x == ')') {
-                    index
-                } else {
+            let Some(closing_bracket_index) = shape_pattern.iter().position(|&x| x == ')')
+                else {
                     return Err(DealerError::new("Unbalanced parentheses."));
                 };
             // Parse until the closing bracket.
             head = Shapes::parse_chars_to_nums(shape_pattern, closing_bracket_index)?;
-            _ = shape_pattern.drain(..closing_bracket_index + 1);
+            _ = shape_pattern.drain(..=closing_bracket_index);
             let head_len = head.len();
             for perm in head.into_iter().permutations(head_len) {
                 parsed.extend(perm);
@@ -304,15 +302,16 @@ impl<'a> Shapes {
         Ok(head)
     }
     fn update_based_on_length(&mut self) {
-        let (ranges, rangeh, ranged, rangec) = self
+        let (rangespades, rangehearts, rangediamonds, rangeclubs) = self
             .min_ls
             .iter()
             .zip(self.max_ls.iter())
             .map(|(&min, &max)| RangeInclusive::new(min, max))
             .next_tuple()
             .unwrap();
-        for (s, h, d, c) in itertools::iproduct!(ranges, rangeh, ranged, rangec)
-            .filter(|(s, h, d, c)| s + h + d + c == MAX_LENGTH)
+        for (s, h, d, c) in
+            itertools::iproduct!(rangespades, rangehearts, rangediamonds, rangeclubs)
+                .filter(|(s, h, d, c)| s + h + d + c == MAX_LENGTH)
         {
             self.shape_table[Shapes::hash_flatten(&[s, h, d, c])] = true;
         }
@@ -480,17 +479,18 @@ impl ShapeDescriptor {
 
 impl ShapeDescriptor {
     pub fn new(pattern: &str) -> Self {
-        match pattern.contains('(') {
-            true => Self::ClassOfShapes {
+        if pattern.contains('(') {
+            Self::ClassOfShapes {
                 shape_pattern: StringShapePattern {
                     pattern: pattern.to_owned(),
                 },
-            },
-            false => Self::SingleShape {
+            }
+        } else {
+            Self::SingleShape {
                 shape_pattern: StringShapePattern {
                     pattern: pattern.to_owned(),
                 },
-            },
+            }
         }
     }
 }

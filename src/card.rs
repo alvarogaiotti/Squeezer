@@ -1,4 +1,4 @@
-/// All the code here come from David Roundy's library (https://github.com/droundy/bridge-cards),
+/// All the code here come from David Roundy's library (<https://github.com/droundy/bridge-cards>),
 /// whom I thank for his precious work. I basically copied the code to adapt it to my needs.
 use crate::prelude::*;
 use rand::Rng;
@@ -22,11 +22,13 @@ impl std::fmt::Debug for Card {
 }
 
 impl Card {
+    #[must_use]
     pub const fn new(suit: Suit, rank: u8) -> Self {
         Card {
             offset: rank + 16 * suit as u8,
         }
     }
+    #[must_use]
     pub const fn suit(self) -> Suit {
         match self.offset >> 4 {
             0 => Suit::Spades,
@@ -36,10 +38,12 @@ impl Card {
         }
     }
     /// What is my rank?
+    #[must_use]
     pub const fn rank(self) -> u8 {
         self.offset % 16
     }
     /// What is my rank called?
+    #[must_use]
     pub const fn rankname(self) -> &'static str {
         match self.rank() {
             2 => "2",
@@ -59,6 +63,7 @@ impl Card {
         }
     }
     /// What is my rank called?
+    #[must_use]
     pub const fn rankchar(self) -> char {
         match self.rank() {
             2 => '2',
@@ -193,40 +198,50 @@ pub struct Cards {
 }
 
 impl Cards {
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
+    pub fn new_deck() -> Self {
+        Cards::ALL
+    }
+    #[must_use]
     pub const fn len(&self) -> u8 {
         self.bits.count_ones() as u8
     }
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
-    pub const fn not_empty(&self) -> bool {
-        self.bits != 0
-    }
+    #[must_use]
     pub const fn insert(self, card: Card) -> Self {
         Self {
             bits: self.bits | (1 << card.offset),
         }
     }
+    #[must_use]
     pub const fn remove(self, card: Card) -> Self {
         Self {
             bits: self.bits & !(1 << card.offset),
         }
     }
+    #[must_use]
     pub const fn contains(self, card: Card) -> bool {
         self.bits & (1 << card.offset) != 0
     }
 
+    #[must_use]
     pub const fn union(&self, cards: Cards) -> Self {
         Self {
             bits: self.bits | cards.bits,
         }
     }
 
+    #[must_use]
     pub const fn difference(&self, cards: Cards) -> Self {
         Self {
             bits: self.bits & !cards.bits,
         }
     }
+    #[must_use]
     pub const fn in_suit(self, suit: Suit) -> Self {
         let offset = suit as i32 * 16;
         Cards {
@@ -234,6 +249,7 @@ impl Cards {
         }
     }
 
+    #[must_use]
     pub fn pick(&mut self, num: usize) -> Option<Cards> {
         self.pick_rng(&mut rand::thread_rng(), num)
     }
@@ -271,6 +287,7 @@ impl Cards {
         self.bits = kept;
         Some(Cards { bits: given })
     }
+    #[must_use]
     const fn intersection(self, cards: Cards) -> Self {
         Cards {
             bits: self.bits & cards.bits,
@@ -283,24 +300,28 @@ impl Cards {
     /// All club cards.
     pub const SPADES: Cards = Cards { bits: 0x7ffc };
     /// Just the spades from this hand
+    #[must_use]
     pub const fn spades(self) -> Cards {
         self.intersection(Cards::SPADES)
     }
     /// All diamond cards.
     pub const HEARTS: Cards = Cards { bits: 0x7ffc << 16 };
     /// Just the hearts from this hand
+    #[must_use]
     pub const fn hearts(self) -> Cards {
         self.intersection(Cards::HEARTS)
     }
     /// All diamonds cards.
     pub const DIAMONDS: Cards = Cards { bits: 0x7ffc << 32 };
     /// Just the diamonds from this hand
+    #[must_use]
     pub const fn diamonds(self) -> Cards {
         self.intersection(Cards::DIAMONDS)
     }
     /// All clubs cards.
     pub const CLUBS: Cards = Cards { bits: 0x7ffc << 48 };
     /// Just the clubs from this hand
+    #[must_use]
     pub const fn clubs(self) -> Cards {
         self.intersection(Cards::CLUBS)
     }
@@ -315,6 +336,7 @@ impl Cards {
         .insert(Card::HA)
         .insert(Card::SA);
     /// Just the aces from this hand
+    #[must_use]
     pub const fn aces(self) -> Cards {
         self.intersection(Cards::ACES)
     }
@@ -325,6 +347,7 @@ impl Cards {
         .insert(Card::HK)
         .insert(Card::SK);
     /// Just the kins from this hand
+    #[must_use]
     pub const fn kings(self) -> Cards {
         self.intersection(Cards::KINGS)
     }
@@ -335,6 +358,7 @@ impl Cards {
         .insert(Card::HQ)
         .insert(Card::SQ);
     /// Just the queens from this hand
+    #[must_use]
     pub const fn queens(self) -> Cards {
         self.intersection(Cards::QUEENS)
     }
@@ -345,6 +369,7 @@ impl Cards {
         .insert(Card::HJ)
         .insert(Card::SJ);
     /// Just the jacks from this hand
+    #[must_use]
     pub const fn jacks(self) -> Cards {
         self.intersection(Cards::JACKS)
     }
@@ -355,11 +380,13 @@ impl Cards {
         .insert(Card::H10)
         .insert(Card::S10);
     /// Just the tens from this hand
+    #[must_use]
     pub const fn tens(self) -> Cards {
         self.intersection(Cards::TENS)
     }
 
     /// High card points
+    #[must_use]
     pub const fn high_card_points(self) -> u8 {
         self.aces().len()
             + self.intersection(Cards::ACES.union(Cards::KINGS)).len()
@@ -386,7 +413,7 @@ impl std::ops::Add for Cards {
 
 impl std::ops::AddAssign for Cards {
     fn add_assign(&mut self, rhs: Self) {
-        *self = self.union(rhs)
+        *self = self.union(rhs);
     }
 }
 
@@ -399,7 +426,7 @@ impl std::ops::Sub for Cards {
 
 impl std::ops::SubAssign for Cards {
     fn sub_assign(&mut self, rhs: Self) {
-        *self = self.difference(rhs)
+        *self = self.difference(rhs);
     }
 }
 
@@ -410,7 +437,35 @@ impl std::ops::BitAnd for Cards {
     }
 }
 
-impl Iterator for Cards {
+impl IntoIterator for Cards {
+    type Item = Card;
+    type IntoIter = SuitIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SuitIterator { bits: self.bits }
+    }
+}
+
+#[derive(Clone)]
+pub struct SuitIterator {
+    bits: u64,
+}
+
+impl SuitIterator {
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
+    pub fn len(&self) -> u8 {
+        self.bits.count_ones() as u8
+    }
+
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.bits == 0
+    }
+}
+
+impl Iterator for SuitIterator {
+    #[allow(clippy::cast_possible_truncation)]
     type Item = Card;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -451,12 +506,12 @@ impl std::fmt::Display for Cards {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for suit in [Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs]
             .iter()
-            .cloned()
+            .copied()
         {
             let cards = self.in_suit(suit);
             if !cards.is_empty() {
                 write!(f, "{}", suit.unicode())?;
-                for c in cards.rev() {
+                for c in cards.into_iter().rev() {
                     write!(f, "{}", c.rankchar())?;
                 }
             }
@@ -602,7 +657,7 @@ impl From<u64> for Cards {
         Cards { bits }
     }
 }
-impl DoubleEndedIterator for Cards {
+impl DoubleEndedIterator for SuitIterator {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.bits == 0 {
             None

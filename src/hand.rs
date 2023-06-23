@@ -18,9 +18,8 @@ impl Default for Hand {
 
 impl Hand {
     pub fn new() -> Self {
-        let mut deck = Cards::ALL;
         Hand {
-            cards: deck.pick(13).unwrap(),
+            cards: Cards::new_deck().pick(13).unwrap(),
         }
     }
     pub const fn new_empty() -> Self {
