@@ -4,6 +4,9 @@ use lazy_static::lazy_static;
 use log::{error, warn};
 use regex::Regex;
 use std::num::{NonZeroU8, ParseIntError};
+/* Lin reference:
+ pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|
+*/
 
 pub struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
@@ -97,6 +100,7 @@ impl FromStr for LinDeal {
         })
     }
 }
+
 #[derive(Debug, Default)]
 pub struct Bidding {
     bidding: Vec<Bid>,
@@ -133,8 +137,8 @@ impl std::error::Error for BiddingErrorKind {}
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct BiddingError {
-    pub bid: Bid,
-    pub kind: BiddingErrorKind,
+    bid: Bid,
+    kind: BiddingErrorKind,
 }
 
 impl std::fmt::Display for BiddingError {
@@ -145,7 +149,11 @@ impl std::fmt::Display for BiddingError {
 
 impl std::error::Error for BiddingError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.kind)
+        match self.kind {
+            BiddingErrorKind::Insufficient => None,
+            BiddingErrorKind::NonStarter => None,
+            BiddingErrorKind::NonExistent(e) => e.source(),
+        }
     }
 }
 
@@ -288,10 +296,10 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
     }
     if let Some(captures) = HANDS.captures(lin) {
         let dealer = match captures.name("dealer").unwrap().as_str().parse::<u8>() {
-            Ok(dealer) => Seat::from_u8(dealer),
+            Ok(dealer) => Seat::from(dealer),
             Err(_e) => {
                 error!("unable to parse dealer");
-                Seat::from_u8(0)
+                Seat::from(0)
             }
         };
         let vec: Vec<_> = captures
@@ -305,7 +313,7 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
         (dealer, Hands::new_from(hands))
     } else {
         error!("unable to extract hands and dealer, returning empty!");
-        (Seat::from_u8(0), Hands::new_from([Hand::new_empty(); 4]))
+        (Seat::from(0), Hands::new_from([Hand::new_empty(); 4]))
     }
 }
 
@@ -420,4 +428,44 @@ fn claim(lin: &str) -> Option<u8> {
             Some(tricks) => tricks.as_str().parse::<u8>().unwrap_or(0),
             None => 0,
         })
+}
+pub struct Scanner {
+    cursor: usize,
+    characters: Vec<char>,
+}
+
+impl Scanner {
+    pub fn new(string: &str) -> Self {
+        Self {
+            cursor: 0,
+            characters: string.chars().collect(),
+        }
+    }
+
+    /// Returns the cursor position
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
+
+    /// Returns next char without advancing the cursor
+    pub fn peek(&self) -> Option<&char> {
+        self.characters.get(self.cursor)
+    }
+
+    /// Returns whether the string is exhausted or not
+    pub fn exhausted(&self) -> bool {
+        self.cursor == self.characters.len()
+    }
+
+    /// Returns next character, if available, advancing the cursor
+    pub fn pop(&mut self) -> Option<&char> {
+        match self.characters.get(self.cursor) {
+            Some(character) => {
+                self.cursor += 1;
+
+                Some(character)
+            }
+            None => None,
+        }
+    }
 }
