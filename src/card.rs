@@ -1,8 +1,9 @@
 /// All the code here come from David Roundy's library (<https://github.com/droundy/bridge-cards>),
-/// whom I thank for his precious work. I basically copied the code to adapt it to my needs.
+/// whom I thank for his precious work. I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;
 use rand::Rng;
 
+/// A card, represented as a `u8`.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Card {
     offset: u8,
@@ -28,6 +29,8 @@ impl Card {
             offset: rank + 16 * suit as u8,
         }
     }
+
+    ///Returns suit of the card.
     #[must_use]
     pub const fn suit(self) -> Suit {
         match self.offset >> 4 {
@@ -37,12 +40,14 @@ impl Card {
             _ => Suit::Clubs,
         }
     }
-    /// What is my rank?
+
+    /// Returns the rank of the card.
     #[must_use]
     pub const fn rank(self) -> u8 {
         self.offset % 16
     }
-    /// What is my rank called?
+
+    /// Returns the name of the rank of the card.
     #[must_use]
     pub const fn rankname(self) -> &'static str {
         match self.rank() {
@@ -62,7 +67,8 @@ impl Card {
             _ => "?",
         }
     }
-    /// What is my rank called?
+
+    /// Returns the name of the rank of the card.
     #[must_use]
     pub const fn rankchar(self) -> char {
         match self.rank() {
@@ -82,6 +88,7 @@ impl Card {
             _ => '?',
         }
     }
+
     /// 2 of Clubs
     pub const C2: Card = Card::new(Suit::Clubs, 2);
     /// 3 of Clubs
@@ -192,42 +199,52 @@ impl Card {
     pub const JOKER: Card = Card { offset: u8::MAX };
 }
 
+/// A bunch of `[Card]`s.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Cards {
     bits: u64,
 }
 
 impl Cards {
+    /// A new, full French deck without Jokers.
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     pub fn new_deck() -> Self {
         Cards::ALL
     }
+
+    /// Number of cards stored.
     #[must_use]
     pub const fn len(&self) -> u8 {
         self.bits.count_ones() as u8
     }
+
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
+
     #[must_use]
     pub const fn insert(self, card: Card) -> Self {
         Self {
             bits: self.bits | (1 << card.offset),
         }
     }
+
+    /// NOTE: Removes, does not `pop`.
     #[must_use]
     pub const fn remove(self, card: Card) -> Self {
         Self {
             bits: self.bits & !(1 << card.offset),
         }
     }
+
     #[must_use]
     pub const fn contains(self, card: Card) -> bool {
         self.bits & (1 << card.offset) != 0
     }
 
+    /// Sum of two `Cards` instances.
     #[must_use]
     pub const fn union(&self, cards: Cards) -> Self {
         Self {
@@ -235,12 +252,22 @@ impl Cards {
         }
     }
 
+    /// Difference of two `Cards` instances.
     #[must_use]
     pub const fn difference(&self, cards: Cards) -> Self {
         Self {
             bits: self.bits & !cards.bits,
         }
     }
+
+    /// Cards in common between two `Cards` instances.
+    #[must_use]
+    const fn intersection(self, cards: Cards) -> Self {
+        Cards {
+            bits: self.bits & cards.bits,
+        }
+    }
+    /// Returns all the cards of `suit` stored in this instance.
     #[must_use]
     pub const fn in_suit(self, suit: Suit) -> Self {
         let offset = suit as i32 * 16;
@@ -249,6 +276,8 @@ impl Cards {
         }
     }
 
+    /// Randomly pick `num` cards to remove from the deck.
+    /// Returns `None` only if there aren't enough cards.
     #[must_use]
     pub fn pick(&mut self, num: usize) -> Option<Cards> {
         self.pick_rng(&mut rand::thread_rng(), num)
@@ -256,7 +285,7 @@ impl Cards {
 
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
     /// Returns `None` only if there aren't enough cards.
-    pub fn pick_rng<R: Rng>(&mut self, rng: &mut R, mut num: usize) -> Option<Cards> {
+    fn pick_rng<R: Rng>(&mut self, rng: &mut R, mut num: usize) -> Option<Cards> {
         let mut bits = self.bits;
         let mut n_left = self.len() as usize;
         if num > n_left {
@@ -287,46 +316,50 @@ impl Cards {
         self.bits = kept;
         Some(Cards { bits: given })
     }
-    #[must_use]
-    const fn intersection(self, cards: Cards) -> Self {
-        Cards {
-            bits: self.bits & cards.bits,
-        }
-    }
+
+    /// A new, full French deck without Jokers.
     pub const ALL: Cards = Self::SPADES
         .union(Self::HEARTS)
         .union(Self::DIAMONDS)
         .union(Self::CLUBS);
-    /// All club cards.
+
+    /// All spades cards.
     pub const SPADES: Cards = Cards { bits: 0x7ffc };
-    /// Just the spades from this hand
+
+    /// Just the spades from this `Cards` instance.
     #[must_use]
     pub const fn spades(self) -> Cards {
         self.intersection(Cards::SPADES)
     }
-    /// All diamond cards.
+
+    /// All hearts cards.
     pub const HEARTS: Cards = Cards { bits: 0x7ffc << 16 };
-    /// Just the hearts from this hand
+
+    /// Just the hearts from this `Cards` instance.
     #[must_use]
     pub const fn hearts(self) -> Cards {
         self.intersection(Cards::HEARTS)
     }
+
     /// All diamonds cards.
     pub const DIAMONDS: Cards = Cards { bits: 0x7ffc << 32 };
-    /// Just the diamonds from this hand
+
+    /// Just the diamonds from this `Cards` instance.
     #[must_use]
     pub const fn diamonds(self) -> Cards {
         self.intersection(Cards::DIAMONDS)
     }
+
     /// All clubs cards.
     pub const CLUBS: Cards = Cards { bits: 0x7ffc << 48 };
-    /// Just the clubs from this hand
+
+    /// Just the clubs from this `Cards` instance.
     #[must_use]
     pub const fn clubs(self) -> Cards {
         self.intersection(Cards::CLUBS)
     }
 
-    /// A deck or hand with no cards in it.
+    /// A deck with no cards in it.
     pub const EMPTY: Cards = Cards { bits: 0 };
 
     /// The aces
@@ -335,7 +368,8 @@ impl Cards {
         .insert(Card::DA)
         .insert(Card::HA)
         .insert(Card::SA);
-    /// Just the aces from this hand
+
+    /// Just the aces from this `Cards` instance.
     #[must_use]
     pub const fn aces(self) -> Cards {
         self.intersection(Cards::ACES)
@@ -346,7 +380,7 @@ impl Cards {
         .insert(Card::DK)
         .insert(Card::HK)
         .insert(Card::SK);
-    /// Just the kins from this hand
+    /// Just the kins from this `Cards` instance.
     #[must_use]
     pub const fn kings(self) -> Cards {
         self.intersection(Cards::KINGS)
@@ -357,7 +391,7 @@ impl Cards {
         .insert(Card::DQ)
         .insert(Card::HQ)
         .insert(Card::SQ);
-    /// Just the queens from this hand
+    /// Just the queens from this `Cards` instance.
     #[must_use]
     pub const fn queens(self) -> Cards {
         self.intersection(Cards::QUEENS)
@@ -368,7 +402,7 @@ impl Cards {
         .insert(Card::DJ)
         .insert(Card::HJ)
         .insert(Card::SJ);
-    /// Just the jacks from this hand
+    /// Just the jacks from this `Cards` instance.
     #[must_use]
     pub const fn jacks(self) -> Cards {
         self.intersection(Cards::JACKS)
@@ -379,13 +413,13 @@ impl Cards {
         .insert(Card::D10)
         .insert(Card::H10)
         .insert(Card::S10);
-    /// Just the tens from this hand
+    /// Just the tens from this `Cards` instance.
     #[must_use]
     pub const fn tens(self) -> Cards {
         self.intersection(Cards::TENS)
     }
 
-    /// High card points
+    /// High card points.
     #[must_use]
     pub const fn high_card_points(self) -> u8 {
         self.aces().len()
@@ -401,6 +435,12 @@ impl Cards {
                         .union(Cards::JACKS),
                 )
                 .len()
+    }
+
+    /// Returns the inner u64 type representing this `Cards` instance.
+    #[must_use]
+    pub const fn as_bits(self) -> u64 {
+        self.bits
     }
 }
 
@@ -605,6 +645,9 @@ impl std::str::FromStr for Cards {
                 }
                 '♠' | 'S' | 's' => {
                     suit = Suit::Spades;
+                }
+                ' ' => {
+                    suit = suit.next()?;
                 }
                 '2' => {
                     cards = cards.insert(Card::new(suit, 2));
