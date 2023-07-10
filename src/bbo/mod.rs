@@ -36,6 +36,12 @@ impl From<BboError<ureq::Error>> for ClientError<ureq::Error> {
     }
 }
 
+impl From<std::io::Error> for ClientError<E: NetworkError> {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError { source: value }
+    }
+}
+
 pub trait BBOClient<E: NetworkError> {
     fn is_logged(&self) -> Result<bool, ClientError<E>>;
     fn login(&self) -> Result<(), ClientError<E>>;
