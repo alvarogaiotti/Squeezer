@@ -325,12 +325,14 @@ impl<'a> ShapeFactory<'a> {
     }
 }
 
+/*
 ///Enum used to pass hint for suit lenghts
-///to the Shape::from_table method
+///to the [`crate::dealproduction::Shapes::from_table`] method
 pub enum LenHint {
     None,
     Lenghts { min_ls: [u8; 4], max_ls: [u8; 4] },
 }
+*/
 
 ///Trait for checking membership, used in particular to check if a
 ///Hand shape is matched by a Shape instance

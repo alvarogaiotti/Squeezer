@@ -29,6 +29,8 @@ pub struct LinDeal {
     dealer: Seat,
 }
 
+/// Error kind that models possible errors
+/// that could occur while parsing a `.lin` file
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum LinParsingErrorKind {
@@ -101,6 +103,8 @@ impl FromStr for LinDeal {
     }
 }
 
+/// Structure that represents a bidding sequence
+/// made of [`Bid`]s
 #[derive(Debug, Default)]
 pub struct Bidding {
     bidding: Vec<Bid>,
@@ -113,6 +117,11 @@ impl IntoIterator for Bidding {
         self.bidding.into_iter()
     }
 }
+
+/// Enum modelling the possible kinds of errors we
+/// can encounter while parsing a bidding sequence:
+/// either the bid is not a starting bid (e.g. bidding starts with a double),
+/// insufficient, or simply we were unable to parse the last [`Bid`]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BiddingErrorKind {
@@ -152,7 +161,7 @@ impl std::error::Error for BiddingError {
         match self.kind {
             BiddingErrorKind::Insufficient => None,
             BiddingErrorKind::NonStarter => None,
-            BiddingErrorKind::NonExistent(e) => e.source(),
+            BiddingErrorKind::NonExistent(ref e) => e.source(),
         }
     }
 }
@@ -189,6 +198,8 @@ impl Bidding {
     }
 }
 
+/// We model bids as an Enum, with possible contracts as tuple
+/// variants containing [`NonZeroU8`] and a [`Strain`]
 #[derive(Debug, PartialEq)]
 pub enum Bid {
     Pass,
@@ -212,6 +223,11 @@ pub struct BidError {
     pub bid: String,
     pub kind: BidErrorKind,
 }
+
+/// Enum representing the various kind of errors
+/// we could encounter while parsing a single bid:
+/// either we are unable to parse the integer part of the bid
+/// or we are unable to parse the strain of the bid.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum BidErrorKind {

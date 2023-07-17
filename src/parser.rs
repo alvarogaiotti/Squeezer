@@ -11,6 +11,47 @@ macro_rules! token_as_int {
     };
 }
 
+pub struct Scanner {
+    cursor: usize,
+    characters: Vec<char>,
+}
+
+impl Scanner {
+    pub fn new(string: &str) -> Self {
+        Self {
+            cursor: 0,
+            characters: string.chars().collect(),
+        }
+    }
+
+    /// Returns the cursor position
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
+
+    /// Returns next char without advancing the cursor
+    pub fn peek(&self) -> Option<&char> {
+        self.characters.get(self.cursor)
+    }
+
+    /// Returns whether the string is exhausted or not
+    pub fn exhausted(&self) -> bool {
+        self.cursor == self.characters.len()
+    }
+
+    /// Returns next character, if available, advancing the cursor
+    pub fn pop(&mut self) -> Option<&char> {
+        match self.characters.get(self.cursor) {
+            Some(character) => {
+                self.cursor += 1;
+
+                Some(character)
+            }
+            None => None,
+        }
+    }
+}
+
 pub(crate) enum ShapeParsingError {
     UnmatchParenthesis,
     UnknownChar(char),
@@ -18,7 +59,6 @@ pub(crate) enum ShapeParsingError {
     ShapeTooLong,
     ShapeTooShort,
     NestedScope,
-    SuitTooLong,
 }
 
 impl ShapeParsingError {
@@ -30,7 +70,6 @@ impl ShapeParsingError {
             ShapeParsingError::ShapeTooLong => String::from("shape has more than 13 cards"),
             ShapeParsingError::ShapeTooShort => String::from("shape has less than 13 cards"),
             ShapeParsingError::NestedScope => String::from("nested grouping not supported"),
-            ShapeParsingError::SuitTooLong => String::from("suit cannot have more than 9 cards"),
         }
     }
 }

@@ -199,7 +199,7 @@ impl Card {
     pub const JOKER: Card = Card { offset: u8::MAX };
 }
 
-/// A bunch of `[Card]`s.
+/// A bunch of [`Card`]s.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Cards {
     bits: u64,

@@ -75,6 +75,7 @@ impl Hand {
     pub fn clen(&self) -> u8 {
         self.clubs().len()
     }
+
     pub fn hcp(&self) -> u8 {
         self.cards.high_card_points()
     }
@@ -82,10 +83,7 @@ impl Hand {
         self.cards
     }
     pub fn as_bits(&self) -> u64 {
-        self.cards
-            .into_iter()
-            .map(|x| 1 << (x.rank() + 16 * x.suit() as u8))
-            .sum()
+        self.cards.as_bits()
     }
     pub fn long_str(&self) -> String {
         format!("{}", self.into_iter().format("\n"))
@@ -110,25 +108,25 @@ impl fmt::Display for Hand {
     }
 }
 
-impl<'a> IntoIterator for &'a Hand {
+impl IntoIterator for Hand {
     type Item = Cards;
-    type IntoIter = HandIterator<'a>;
+    type IntoIter = HandIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         HandIterator {
-            hand: &self.cards,
+            hand: self.cards,
             index: 0,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct HandIterator<'a> {
-    hand: &'a Cards,
+pub struct HandIterator {
+    hand: Cards,
     index: usize,
 }
 
-impl<'a> Iterator for HandIterator<'a> {
+impl Iterator for HandIterator {
     type Item = Cards;
     fn next(&mut self) -> Option<Self::Item> {
         let result = match self.index {

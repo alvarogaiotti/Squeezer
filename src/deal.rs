@@ -1,11 +1,13 @@
 use crate::prelude::*;
-
+use dds;
 /// Type of the function that checks if a Deal is to be accepted or not
 type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
 
+/// Structure that holds 4 `Hand`s of 13 cards
 pub struct Hands {
     hands: [Hand; 4],
 }
+
 impl IntoIterator for Hands {
     type IntoIter = IntoIter<Hand, 4>;
     type Item = Hand;
@@ -21,31 +23,37 @@ impl std::ops::Index<Suit> for Hands {
         &self.hands[index as usize]
     }
 }
+
 impl std::ops::Index<usize> for Hands {
     type Output = Hand;
     fn index(&self, index: usize) -> &Self::Output {
         &self.hands[index]
     }
 }
+
 impl Hands {
     pub(crate) fn new_from(hands: [Hand; 4]) -> Self {
         Self { hands }
     }
+
+    /// Returns the array of `[Hand]`s
     pub fn hands(&self) -> &[Hand; 4] {
         &self.hands
     }
 
-    //TODO: Write proc_macro for this boilerplate and suits boilerplate
-
+    /// Returns North `[Hand]`
     pub fn north(&self) -> &Hand {
         &self.hands[Seat::North as usize]
     }
+    /// Returns South `[Hand]`
     pub fn south(&self) -> &Hand {
         &self.hands[Seat::South as usize]
     }
+    /// Returns East `[Hand]`
     pub fn east(&self) -> &Hand {
         &self.hands[Seat::East as usize]
     }
+    /// Returns West `[Hand]`
     pub fn west(&self) -> &Hand {
         &self.hands[Seat::West as usize]
     }
@@ -54,7 +62,7 @@ impl Hands {
     }
 }
 
-/// Represents a seat in a Bridge game
+/// Represents a seat in a Bridge game: North, South, East or West
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Seat {
     #[default]
@@ -75,20 +83,24 @@ impl fmt::Display for Seat {
     }
 }
 
-impl Seat {
-    ///Returns the next seat in a cyclic manner
-    pub fn next(self) -> Seat {
-        self + 1
-    }
+impl TryFrom<char> for Seat {
+    type Error = DealerError;
 
-    pub fn from_char(c: char) -> Result<Self, DealerError> {
-        match c {
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
             'N' => Ok(Self::North),
             'S' => Ok(Self::South),
             'W' => Ok(Self::West),
             'E' => Ok(Self::East),
             _ => Err(DealerError::new("Is not a seat!")),
         }
+    }
+}
+
+impl Seat {
+    ///Returns the next seat in a cyclic manner in this order: North, East, South, West
+    pub fn next(self) -> Seat {
+        self + 1
     }
 
     ///Iteration over seats starting from North
@@ -104,36 +116,39 @@ impl Seat {
             Self::South => "South",
         }
     }
-    pub fn from_u8(value: u8) -> Self {
-        match value % 4 {
-            0 => Seat::North,
-            1 => Seat::East,
-            2 => Seat::South,
-            3 => Seat::West,
-            _ => unreachable!(),
+}
+
+macro_rules! impl_add_and_from_ints_for_seat {
+    ($t:ty) => {
+        impl std::ops::Add<$t> for Seat {
+            type Output = Seat;
+
+            fn add(self, rhs: $t) -> Self::Output {
+                (self as $t + rhs).into()
+            }
         }
-    }
-}
-
-impl std::ops::Add<usize> for Seat {
-    type Output = Seat;
-
-    fn add(self, rhs: usize) -> Self::Output {
-        (self as usize + rhs).into()
-    }
-}
-
-impl From<usize> for Seat {
-    fn from(n: usize) -> Self {
-        match n % NUMBER_OF_HANDS {
-            x if x == Seat::North as usize => Seat::North,
-            x if x == Seat::East as usize => Seat::East,
-            x if x == Seat::South as usize => Seat::South,
-            x if x == Seat::West as usize => Seat::West,
-            _ => unreachable!(),
+        impl From<$t> for Seat {
+            fn from(n: $t) -> Self {
+                match n % NUMBER_OF_HANDS as $t {
+                    x if x == Seat::North as $t => Seat::North,
+                    x if x == Seat::East as $t => Seat::East,
+                    x if x == Seat::South as $t => Seat::South,
+                    x if x == Seat::West as $t => Seat::West,
+                    _ => unreachable!(),
+                }
+            }
         }
-    }
+    };
 }
+impl_add_and_from_ints_for_seat!(usize);
+impl_add_and_from_ints_for_seat!(u64);
+impl_add_and_from_ints_for_seat!(u32);
+impl_add_and_from_ints_for_seat!(u16);
+impl_add_and_from_ints_for_seat!(u8);
+impl_add_and_from_ints_for_seat!(i64);
+impl_add_and_from_ints_for_seat!(i32);
+impl_add_and_from_ints_for_seat!(i16);
+impl_add_and_from_ints_for_seat!(i8);
 
 ///Models vulnerability as an enum.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
@@ -178,7 +193,7 @@ impl<'a> Constraints<'a> {
 }
 
 /// A builder for a dealer object. It's the standard way to create
-/// a [Dealer] that deals a specific type of deal.
+/// a [`Dealer`] that deals a specific type of deal.
 ///
 /// # Usage
 /// ```
@@ -202,9 +217,9 @@ pub struct DealerBuilder {
     // }
     accept: AcceptFunction,
 
-    // Descriptor of the hands we would like, e.g.
+    /// Descriptor of the hands we would like, e.g.
     hand_descriptors: HashMap<Seat, HandDescriptor>,
-    // Hands to predeal.
+    /// Hands to predeal.
     predealt_hands: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
 }
@@ -225,14 +240,14 @@ impl DealerBuilder {
         }
     }
 
-    /// Set the cards that a particular [Seat] will be dealt. Will not fail right away if same card
+    /// Set the cards that a particular [`Seat`] will be dealt. Will not fail right away if same card
     /// is dealt twice, but will fail in the building phase.
     pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
         self.predealt_hands.insert(seat, hand);
         self
     }
 
-    /// Sets a functions that will be used by the [Dealer] to check if the [Deal] is to be accepted.
+    /// Sets a functions that will be used by the [`Dealer`] to check if the [`Deal`] is to be accepted.
     /// Do not set your hand types with this method (use the [DealerBuilder::with_hand_specification] method istead); but use it to set cross hand constraints.
     ///
     /// # Example
@@ -244,7 +259,7 @@ impl DealerBuilder {
     ///          }
     ///      )
     /// );
-    /// //This Dealer will only deal Deals in which North and South have a Heart fit.
+    /// //This Dealer will only deal Deals in which North and South have a heart fit.
     /// let dealer = builder.build().unwrap();
     /// ```
     pub fn with_function(&mut self, accept_function: AcceptFunction) -> &mut Self {
@@ -252,7 +267,7 @@ impl DealerBuilder {
         self
     }
 
-    /// Method used to set hand specification for a [Seat]. See [HandDescriptor] for
+    /// Method used to set hand specification for a [`Seat`]. See [`HandDescriptor`] for
     /// details.
     pub fn with_hand_specification(
         &mut self,
@@ -269,7 +284,7 @@ impl DealerBuilder {
     }
 
     /// Builds the Dealer.
-    /// **NOTE**: this will fail if you try to predeal the same card twice.
+    /// **NOTE**: this will method will return an error if you try to predeal the same card twice.
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
         for hand in self.predealt_hands.values() {
@@ -301,8 +316,9 @@ pub enum Subsequent {
     OutputConsequentially(u8),
     OutputAlwaysOne,
 }
+
 /// Struct that takes care of the dealing.
-/// You won't interact much with this struct other that call the [StandardDealer::deal] method. Use the [DealerBuilder] instead to create a [Dealer] that
+/// You won't interact much with this struct other that call the [`StandardDealer::deal`] method. Use the [`DealerBuilder`] instead to create a [`Dealer`] that
 /// fits your needs.
 pub struct StandardDealer {
     predeal: HashMap<Seat, Hand>,
@@ -365,8 +381,7 @@ impl Dealer for StandardDealer {
                 }
             }
             let hands = Hands { hands };
-            !((self.accept_function)(&hands)
-                && self.check_if_hand_constraint_are_respected(hands.hands()))
+            !((self.accept_function)(&hands) && self.constraints_respected(hands.hands()))
         } {}
         Ok(Deal {
             hands,
@@ -379,7 +394,7 @@ impl Dealer for StandardDealer {
     }
 }
 impl StandardDealer {
-    fn check_if_hand_constraint_are_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
+    fn constraints_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
         if self.hand_constraints.is_empty() {
             true
         } else {
@@ -410,12 +425,25 @@ pub struct Deal {
     number: u8,
 }
 
+impl dds::AsDDSDeal for Deal {
+    fn as_dds_deal(&self) -> dds::DDSDealRepr {
+        let mut remain_cards = [[0; 4]; 4];
+        for (seat, hand) in self.into_iter().enumerate() {
+            for (index, suit) in hand.into_iter().enumerate() {
+                remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
+            }
+        }
+        remain_cards
+    }
+}
+
 impl Default for Deal {
     fn default() -> Self {
         Deal::new()
     }
 }
 impl Deal {
+    /// A new `Deal` with cards dealt randomly
     pub fn new() -> Self {
         Self {
             vulnerability: Vulnerability::None,
@@ -424,6 +452,8 @@ impl Deal {
             number: 1,
         }
     }
+
+    /// Creates a new deal with conditions
     pub fn new_with_conditions(constraints: &Constraints, factory: &mut ShapeFactory) -> Self {
         let mut hands = [Hand::new(); NUMBER_OF_HANDS];
         match constraints {
@@ -678,6 +708,10 @@ impl Deal {
         );
         stringa
     }
+
+    pub fn iter(&self) -> std::slice::Iter<Hand> {
+        self.hands.iter()
+    }
 }
 
 impl std::ops::Index<Suit> for Deal {
@@ -699,7 +733,7 @@ impl fmt::Display for Deal {
     }
 }
 
-impl<'a> IntoIterator for &'a Deal {
+impl IntoIterator for Deal {
     type Item = Hand;
     type IntoIter = std::array::IntoIter<Hand, NUMBER_OF_HANDS>;
 

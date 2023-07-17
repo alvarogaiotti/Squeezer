@@ -5,7 +5,7 @@ const M: u64 = 2039;
 const SHAPE_TABLE_BUCKETS: usize = 2048;
 
 #[derive(Default)]
-pub struct ShapeHasher {
+struct ShapeHasher {
     state: u64,
 }
 
@@ -23,7 +23,7 @@ impl std::hash::Hasher for ShapeHasher {
     }
 }
 
-pub struct BuildShapeHasher;
+struct BuildShapeHasher;
 
 impl std::hash::BuildHasher for BuildShapeHasher {
     type Hasher = ShapeHasher;
@@ -440,6 +440,16 @@ impl Suit {
     }
     /// All four suits from lowest to highest
     pub const ALL: &'static [Self] = &[Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs];
+
+    /// Next suit.
+    pub fn next(self) -> Result<Self, String> {
+        match self {
+            Suit::Spades => Ok(Suit::Hearts),
+            Suit::Hearts => Ok(Suit::Diamonds),
+            Suit::Diamonds => Ok(Suit::Clubs),
+            Suit::Clubs => Err(String::from("Called Suit::Clubs.next() is not permitted.")),
+        }
+    }
 }
 
 pub struct StringShapePattern {

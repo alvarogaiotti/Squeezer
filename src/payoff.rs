@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use dds::ContractScorer;
 
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
 ///on scoring. Some sort of expected value of the contracts.
@@ -117,64 +118,25 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
         _ => None,
     }
 }
-///A struct rapresenting a contract
+
+/// A struct representing a contract
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Contract {
     vuln: bool,
-    level: usize,
+    level: u8,
     doubled: Doubled,
     strain: Strain,
     declarer: Seat,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
-pub enum Doubled {
-    NotDoubled = 0,
-    Doubled = 1,
-    Redoubled = 2,
+impl dds::AsDDSContract for Contract {
+    fn as_dds_contract(&self) -> (u8, u8) {
+        (self.level, self.strain as u8)
+    }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
-pub enum Strain {
-    Spades = 0,
-    Hearts = 1,
-    Diamonds = 2,
-    Clubs = 3,
-    NoTrumps = 4,
-}
-
-impl Contract {
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn strain(&self) -> Strain {
-        self.strain
-    }
-    pub fn leader(&self) -> Seat {
-        self.declarer().next()
-    }
-    pub fn declarer(&self) -> Seat {
-        self.declarer
-    }
-    pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
-        let doubled = match s.len() - s.trim_end_matches('X').len() {
-            0 => Doubled::NotDoubled,
-            1 => Doubled::Doubled,
-            2 => Doubled::Redoubled,
-            _ => unreachable!("too many `X`"),
-        };
-        let mut chars = s.chars();
-        let level = chars.next().unwrap().to_digit(10).unwrap() as usize;
-        if !(1..=7).contains(&level) {
-            return Err(DealerError::new("Wrong contract level"));
-        };
-        Ok(Self {
-            vuln,
-            doubled,
-            level,
-            strain: Strain::from_char(chars.next().unwrap())?,
-            declarer: Seat::from_char(chars.next().unwrap())?,
-        })
-    }
-    pub fn score(&self, tricks: u8) -> i32 {
+impl dds::ContractScorer for Contract {
+    fn score(&self, tricks: u8) -> i32 {
         let target: i32 = self.level as i32 + 6i32;
         let overtricks: i32 = tricks as i32 - target;
         if overtricks >= 0 {
@@ -253,6 +215,60 @@ impl Contract {
             score
         }
     }
+}
+
+/// Enum modelling whether a [`Contract`] is not doubled,
+/// doubled or redoubled
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+pub enum Doubled {
+    NotDoubled = 0,
+    Doubled = 1,
+    Redoubled = 2,
+}
+
+/// The strain of a bridge contract, either some trump or
+/// no trump
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+pub enum Strain {
+    Spades = 0,
+    Hearts = 1,
+    Diamonds = 2,
+    Clubs = 3,
+    NoTrumps = 4,
+}
+
+impl Contract {
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn strain(&self) -> Strain {
+        self.strain
+    }
+    pub fn leader(&self) -> Seat {
+        self.declarer().next()
+    }
+    pub fn declarer(&self) -> Seat {
+        self.declarer
+    }
+    pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
+        let doubled = match s.len() - s.trim_end_matches('X').len() {
+            0 => Doubled::NotDoubled,
+            1 => Doubled::Doubled,
+            2 => Doubled::Redoubled,
+            _ => unreachable!("too many `X`"),
+        };
+        let mut chars = s.chars();
+        let level = chars.next().unwrap().to_digit(10).unwrap();
+        if !(1..=7).contains(&level) {
+            return Err(DealerError::new("Wrong contract level"));
+        };
+        Ok(Self {
+            vuln,
+            doubled,
+            level: level as u8,
+            strain: chars.next().unwrap().try_into()?,
+            declarer: chars.next().unwrap().try_into()?,
+        })
+    }
+
     pub fn not_unicode_str(&self) -> String {
         format!(
             "{}{}{}{}",
@@ -291,9 +307,12 @@ impl fmt::Display for Contract {
         )
     }
 }
-impl Strain {
-    fn from_char(c: char) -> Result<Self, DealerError> {
-        match c {
+
+impl TryFrom<char> for Strain {
+    type Error = DealerError;
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
             'S' => Ok(Self::Spades),
             'H' => Ok(Self::Hearts),
             'D' => Ok(Self::Diamonds),
@@ -302,6 +321,9 @@ impl Strain {
             _ => Err(DealerError::new("Not a strain.")),
         }
     }
+}
+
+impl Strain {
     fn not_unicode_str(self) -> String {
         match self {
             Self::Spades => String::from("S"),

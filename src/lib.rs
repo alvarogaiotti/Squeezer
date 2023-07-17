@@ -4,17 +4,16 @@ mod bbo;
 #[cfg(feature = "bbo_async")]
 mod bbo_async;
 mod card;
-mod dds;
-mod ddsffi;
 mod deal;
 mod dealproduction;
 mod evaluator;
 mod hand;
 #[cfg(feature = "lin")]
-pub mod linparser;
+mod linparser;
 mod payoff;
 mod shape;
 mod utils;
+pub extern crate dds;
 
 mod prelude {
     pub const ZERO_LENGTH: u8 = 0;
@@ -32,8 +31,6 @@ mod prelude {
     #[cfg(feature = "bbo_async")]
     pub use crate::bbo_async::*;
     pub use crate::card::*;
-    pub use crate::dds::*;
-    pub use crate::ddsffi::*;
     pub use crate::deal::*;
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
