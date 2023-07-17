@@ -1,9 +1,12 @@
 use rusty_dealer_macros::*;
 use std::ffi::c_int;
 mod ddsffi;
-pub mod deal;
-pub mod solver;
+mod deal;
+mod future_tricks;
+mod solver;
 use ddsffi::*;
+use deal::*;
+use solver::*;
 
 pub struct DoubleDummySolver {}
 
@@ -21,6 +24,13 @@ pub trait BridgePlayAnalyzer {
 }
 struct DDSPlayAnalyzer {}
 impl BridgePlayAnalyzer for DDSPlayAnalyzer {
+    fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
+        deal: &D,
+        contract: C,
+        play: &PlayTraceBin,
+    ) -> SolvedPlay {
+        todo!()
+    }
     fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
         deal: &D,
         contract: C,
@@ -70,7 +80,7 @@ impl DoubleDummySolver {
 }
 #[must_use]
 fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(deal: &D, contract: &C) -> i32 {
-    let tricks = DoubleDummySolver::dd_tricks(deal, contract);
+    let tricks = DoubleDummySolver::solver().dd_tricks(deal, contract)?;
     contract.score(tricks)
 }
 
@@ -80,26 +90,10 @@ pub trait RawDDS {
     fn get_raw(&self) -> Self::Raw;
 }
 
-pub type DDSDealRepr = [[u32; 4]; 4];
-pub trait AsDDSDeal {
-    fn as_dds_deal(&self) -> DDSDealRepr;
-}
-
 /// Models a side: either North-South or East-West
 pub enum Side {
     NS = 0,
     EW = 1,
-}
-
-fn empty_fut() -> ddsffi::futureTricks {
-    ddsffi::futureTricks {
-        nodes: 0,
-        cards: 0,
-        suit: [0; 13],
-        rank: [0; 13],
-        equals: [0; 13],
-        score: [0; 13],
-    }
 }
 
 pub trait AsDDSContract {
@@ -200,8 +194,8 @@ mod test {
         }
     }
 
-    impl crate::AsDDSDeal for DealMock {
-        fn as_dds_deal(&self) -> crate::DDSDealRepr {
+    impl super::deal::AsDDSDeal for DealMock {
+        fn as_dds_deal(&self) -> super::deal::DDSDealRepr {
             let mut remain_cards = [[0; 4]; 4];
             for (seat, hand) in self.clone().into_iter().enumerate() {
                 for (index, suit) in hand.into_iter().enumerate() {

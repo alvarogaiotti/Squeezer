@@ -1,24 +1,39 @@
-use super::{AsDDSContract, AsDDSDeal, DDSDeal};
-use crate::bindings::ddsffi::SolveBoard;
+use crate::RawDDS;
+
+use super::{
+    ddsffi::SolveBoard,
+    deal::{AsDDSDeal, DDSDealBuilder, DDSDealConstructionError},
+    future_tricks::FutureTricks,
+    AsDDSContract,
+};
+
 pub trait BridgeSolver {
+    type Error;
     #[must_use]
-    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(&self, deal: &D, contract: &C) -> u8;
+    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+    ) -> Result<u8, Self::Error>;
 }
 pub(super) struct DDSSolver {}
 
 impl BridgeSolver for DDSSolver {
-    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(&self, deal: &D, contract: &C) -> u8 {
+    type Error = DDSDealConstructionError;
+    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+    ) -> Result<u8, Self::Error> {
         let (trump, first) = contract.as_dds_contract();
-        let c_deal = ::deal {
-            trump: trump as c_int,
-            first: first as c_int,
-            currentTrickSuit: [0; 3],
-            currentTrickRank: [0; 3],
-            remainCards: deal.as_dds_deal(),
-        };
-        let mut future_tricks = empty_fut();
-        let futp: *mut futureTricks = &mut future_tricks;
-        unsafe { SolveBoard(c_deal, -1, 1, 1, futp, 0) };
-        13 - future_tricks.score[0] as u8
+        let c_deal = DDSDealBuilder::new()
+            .trump(trump.try_into()?)
+            .first(first.try_into()?)
+            .remain_cards(deal.as_dds_deal())
+            .build()?;
+        let mut future_tricks = FutureTricks::new();
+        let futp = &mut future_tricks.get_raw();
+        unsafe { SolveBoard(c_deal.get_raw(), -1, 1, 1, futp, 0) };
+        Ok(13 - future_tricks.score()[0] as u8)
     }
 }

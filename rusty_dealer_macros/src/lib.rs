@@ -54,7 +54,6 @@ pub fn rawdds_macro_derive(input: TokenStream) -> TokenStream {
 
     impl_rawdds_macro(ast)
 }
-
 fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     let name = ast.ident;
     let data = match ast.data {
@@ -64,15 +63,29 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     let field: syn::Field = data.fields.into_iter().next().unwrap();
 
     let ty = field.ty;
-    let field_ident = field.ident.unwrap();
-    quote::quote! {
-        impl RawDDS for #name {
-            type Raw = #ty;
+    if let Some(field_ident) = field.ident {
+        quote::quote! {
+            impl RawDDS for #name {
+                type Raw = #ty;
 
-            fn get_raw(&self) -> Self::Raw {
-                self.#field_ident
+                #[inline(always)]
+                fn get_raw(&self) -> Self::Raw {
+                    self.#field_ident
+                }
             }
         }
+        .into()
+    } else {
+        quote::quote! {
+            impl RawDDS for #name {
+                type Raw = #ty;
+
+                #[inline(always)]
+                fn get_raw(&self) -> Self::Raw {
+                    self.0
+                }
+            }
+        }
+        .into()
     }
-    .into()
 }
