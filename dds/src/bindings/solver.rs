@@ -7,31 +7,24 @@ use super::{
     AsDDSContract,
 };
 
-pub trait BridgeSolver {
-    type Error;
-    #[must_use]
-    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deal: &D,
-        contract: &C,
-    ) -> Result<u8, Self::Error>;
+pub trait BridgeSolver<E: std::error::Error> {
+    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(&self, deal: &D, contract: &C) -> Result<u8, E>;
 }
-pub(super) struct DDSSolver {}
+pub struct DDSSolver {}
 
-impl BridgeSolver for DDSSolver {
-    type Error = DDSDealConstructionError;
+impl BridgeSolver<DDSDealConstructionError> for DDSSolver {
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<u8, Self::Error> {
+    ) -> Result<u8, DDSDealConstructionError> {
         let (trump, first) = contract.as_dds_contract();
         let c_deal = DDSDealBuilder::new()
             .trump(trump.try_into()?)
             .first(first.try_into()?)
             .remain_cards(deal.as_dds_deal())
             .build()?;
-        let mut future_tricks = FutureTricks::new();
+        let future_tricks = FutureTricks::new();
         let futp = &mut future_tricks.get_raw();
         unsafe { SolveBoard(c_deal.get_raw(), -1, 1, 1, futp, 0) };
         Ok(13 - future_tricks.score()[0] as u8)

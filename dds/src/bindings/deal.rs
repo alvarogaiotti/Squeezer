@@ -6,24 +6,13 @@ use std::{ffi::c_int, fmt::Display};
 
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 
-#[derive(Debug, RawDDS)]
-pub(crate) struct DDSCurrTrickSuit([c_int; 3]);
+#[derive(Debug, RawDDS, Default)]
+pub struct DDSCurrTrickSuit([c_int; 3]);
 
-impl Default for DDSCurrTrickRank {
-    fn default() -> Self {
-        Self([0; 3])
-    }
-}
+#[derive(Debug, RawDDS, Default)]
+pub struct DDSCurrTrickRank([c_int; 3]);
 
-#[derive(Debug, RawDDS)]
-pub(crate) struct DDSCurrTrickRank([c_int; 3]);
-
-impl Default for DDSCurrTrickSuit {
-    fn default() -> Self {
-        Self([0; 3])
-    }
-}
-pub(crate) enum DDSSuitEncoding {
+pub enum DDSSuitEncoding {
     Spades = 0,
     Hearts = 1,
     Diamonds = 2,
@@ -31,44 +20,81 @@ pub(crate) enum DDSSuitEncoding {
     NoTrump = 4,
 }
 
-impl std::convert::TryFrom<u8> for DDSSuitEncoding {
-    type Error = DDSDealConstructionError;
+macro_rules! impl_tryfrom_dds {
+    ($from:ty, $to:ty, $err:ty) => {
+        impl std::convert::TryFrom<$from> for $to {
+            type Error = $err;
 
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        match v {
-            0 => Ok(DDSSuitEncoding::Spades),
-            1 => Ok(DDSSuitEncoding::Hearts),
-            2 => Ok(DDSSuitEncoding::Diamonds),
-            3 => Ok(DDSSuitEncoding::Clubs),
-            4 => Ok(DDSSuitEncoding::NoTrump),
-            _ => Err(DDSDealConstructionError::TrumpUnconvertable),
+            fn try_from(v: $from) -> Result<Self, Self::Error> {
+                match v {
+                    0 => Ok(Self::Spades),
+                    1 => Ok(Self::Hearts),
+                    2 => Ok(Self::Diamonds),
+                    3 => Ok(Self::Clubs),
+                    4 => Ok(Self::NoTrump),
+                    _ => Err(Self::Error::TrumpUnconvertable),
+                }
+            }
         }
-    }
+    };
 }
+impl_tryfrom_dds!(u8, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(u16, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(u32, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(usize, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(i8, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(i16, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(i32, DDSSuitEncoding, DDSDealConstructionError);
+impl_tryfrom_dds!(isize, DDSSuitEncoding, DDSDealConstructionError);
 
-pub(crate) enum DDSHandEncoding {
+#[derive(Debug, Default)]
+pub enum DDSHandEncoding {
+    #[default]
     North = 0,
     East = 1,
     South = 2,
     West = 3,
 }
 
-impl std::convert::TryFrom<u8> for DDSHandEncoding {
-    type Error = DDSDealConstructionError;
+macro_rules! impl_tryfrom_dds_hand {
+    ($from:ty) => {
+        impl std::convert::TryFrom<$from> for DDSHandEncoding {
+            type Error = DDSDealConstructionError;
 
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        match v {
-            0 => Ok(DDSHandEncoding::North),
-            1 => Ok(DDSHandEncoding::East),
-            2 => Ok(DDSHandEncoding::South),
-            3 => Ok(DDSHandEncoding::West),
-            _ => Err(DDSDealConstructionError::FirstUnconvertable),
+            fn try_from(v: $from) -> Result<Self, Self::Error> {
+                match v {
+                    0 => Ok(Self::North),
+                    1 => Ok(Self::East),
+                    2 => Ok(Self::South),
+                    3 => Ok(Self::West),
+                    _ => Err(Self::Error::TrumpUnconvertable),
+                }
+            }
         }
-    }
+    };
 }
+
+impl_tryfrom_dds_hand!(u8);
+impl_tryfrom_dds_hand!(u16);
+impl_tryfrom_dds_hand!(u32);
+impl_tryfrom_dds_hand!(usize);
+impl_tryfrom_dds_hand!(i8);
+impl_tryfrom_dds_hand!(i16);
+impl_tryfrom_dds_hand!(i32);
+impl_tryfrom_dds_hand!(isize);
 
 #[derive(Debug, RawDDS)]
 pub struct DDSDealRepr([[u32; 4]; 4]);
+
+impl DDSDealRepr {
+    pub fn new(data: [[u32; 4]; 4]) -> Self {
+        Self(data)
+    }
+
+    pub fn as_slice(self) -> [[u32; 4]; 4] {
+        self.0
+    }
+}
 
 #[derive(Debug, RawDDS)]
 pub struct DDSDealPBNRepr([std::ffi::c_char; 80]);
@@ -183,12 +209,12 @@ impl DDSDealBuilder {
 }
 
 #[derive(RawDDS, Debug)]
-pub(super) struct DDSDeal {
+pub struct DDSDeal {
     raw: deal,
 }
 
 impl DDSDeal {
-    pub fn new(
+    pub(super) fn new(
         trump: DDSSuitEncoding,
         first: DDSHandEncoding,
         current_trick_rank: DDSCurrTrickRank,
@@ -247,12 +273,14 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
         0b_1000000000000 => "Q",
         0b_10000000000000 => "K",
         0b_100000000000000 => "A",
+        _ => unreachable!("sanity checks on rank not performed, i'm panicking"),
     };
     let suitstr = match suit {
         0 => "♠",
         1 => "♥",
         2 => "◆",
         3 => "♣",
+        _ => unreachable!("sanity checks on suit not performed, i'm panicking"),
     };
     let mut res = String::with_capacity(2);
     res.push_str(suitstr);

@@ -4,9 +4,9 @@ mod ddsffi;
 mod deal;
 mod future_tricks;
 mod solver;
-use ddsffi::*;
-use deal::*;
-use solver::*;
+pub use ddsffi::*;
+pub use deal::*;
+pub use solver::*;
 
 pub struct DoubleDummySolver {}
 
@@ -42,7 +42,7 @@ impl BridgePlayAnalyzer for DDSPlayAnalyzer {
             first: first as c_int,
             currentTrickSuit: [0; 3],
             currentTrickRank: [0; 3],
-            remainCards: deal.as_dds_deal(),
+            remainCards: deal.as_dds_deal().as_slice(),
         };
         let solved_play = SolvedPlay::new();
         {
@@ -58,7 +58,7 @@ struct DDSCalc {}
 impl BridgeTableCalculator for DDSCalc {}
 
 impl DoubleDummySolver {
-    pub fn solver() -> impl BridgeSolver {
+    pub fn solver() -> DDSSolver {
         DDSSolver {}
     }
 
@@ -79,9 +79,13 @@ impl DoubleDummySolver {
     }
 }
 #[must_use]
-fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(deal: &D, contract: &C) -> i32 {
-    let tricks = DoubleDummySolver::solver().dd_tricks(deal, contract)?;
-    contract.score(tricks)
+fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
+    deal: &D,
+    contract: &C,
+) -> Result<i32, DDSDealConstructionError> {
+    let solver = DoubleDummySolver::solver();
+    let tricks = solver.dd_tricks(deal, contract)?;
+    Ok(contract.score(tricks))
 }
 
 pub trait RawDDS {
@@ -141,12 +145,12 @@ impl Default for SolvedPlay {
 }
 
 #[derive(RawDDS)]
-struct PlayTraceBin {
+pub struct PlayTraceBin {
     play_trace_bin: playTraceBin,
 }
 
 impl PlayTraceBin {
-    fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
+    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
         Self {
             play_trace_bin: playTraceBin::new(number, suit, rank),
         }
@@ -202,7 +206,7 @@ mod test {
                     remain_cards[seat][index] = (suit >> (16 * index)) as u32;
                 }
             }
-            remain_cards
+            crate::DDSDealRepr::new(remain_cards)
         }
     }
 
@@ -237,7 +241,7 @@ mod test {
         let deal = initialize_test();
         let contract = ContractMock {};
         let solver = crate::bindings::DoubleDummySolver::solver();
-        println!("{}", solver.dd_tricks(&deal, &contract));
-        println!("{}", crate::bindings::dd_score(&deal, &contract));
+        println!("{}", solver.dd_tricks(&deal, &contract).unwrap());
+        println!("{}", crate::bindings::dd_score(&deal, &contract).unwrap());
     }
 }
