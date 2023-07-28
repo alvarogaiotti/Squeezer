@@ -1,126 +1,14 @@
 use rusty_dealer_macros::*;
 use std::{error::Error, ffi::c_int};
+mod ddserror;
 mod ddsffi;
 mod deal;
 mod future_tricks;
 mod solver;
+pub use ddserror::DDSError;
 pub use ddsffi::*;
 pub use deal::*;
 pub use solver::*;
-
-#[derive(Debug)]
-pub struct DDSError {
-    kind: DDSErrorKind,
-}
-
-impl DDSError {
-    pub fn new(value: i32) -> Self {
-        Self { kind: value.into() }
-    }
-}
-
-impl std::fmt::Display for DDSError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "something went wrong while solving boards:\n\t{}",
-            self.kind
-        )
-    }
-}
-impl std::error::Error for DDSError {}
-
-#[derive(Debug)]
-pub enum DDSErrorKind {
-    ReturnUnknownFault,
-    ReturnZeroCards,
-    ReturnTargetTooHigh,
-    ReturnDuplicateCards,
-    ReturnTargetWrongLo,
-    ReturnTargetWrongHi,
-    ReturnSolnsWrongLo,
-    ReturnSolnsWrongHi,
-    ReturnTooManyCards,
-    ReturnSuitOrRank,
-    ReturnPlayedCard,
-    ReturnCardCount,
-    ReturnThreadIndex,
-    ReturnModeWrongLo,
-    ReturnModeWrongHi,
-    ReturnTrumpWrong,
-    ReturnFirstWrong,
-    ReturnPlayFault,
-    ReturnPbnFault,
-    ReturnThreadCreate,
-    ReturnThreadWait,
-    ReturnNoSuit,
-    ReturnTooManyTables,
-    ReturnChunkSize,
-}
-
-impl From<std::ffi::c_int> for DDSErrorKind {
-    fn from(value: std::ffi::c_int) -> Self {
-        match value {
-            RETURN_UNKNOWN_FAULT => Self::ReturnUnknownFault,
-            RETURN_ZERO_CARDS => Self::ReturnZeroCards,
-            RETURN_TARGET_TOO_HIGH => Self::ReturnTargetTooHigh,
-            RETURN_DUPLICATE_CARDS => Self::ReturnDuplicateCards,
-            RETURN_TARGET_WRONG_LO => Self::ReturnTargetWrongLo,
-            RETURN_TARGET_WRONG_HI => Self::ReturnTargetWrongHi,
-            RETURN_SOLNS_WRONG_LO => Self::ReturnSolnsWrongLo,
-            RETURN_SOLNS_WRONG_HI => Self::ReturnSolnsWrongHi,
-            RETURN_TOO_MANY_CARDS => Self::ReturnTooManyCards,
-            RETURN_SUIT_OR_RANK => Self::ReturnSuitOrRank,
-            RETURN_PLAYED_CARD => Self::ReturnPlayedCard,
-            RETURN_CARD_COUNT => Self::ReturnCardCount,
-            RETURN_THREAD_INDEX => Self::ReturnThreadIndex,
-            RETURN_MODE_WRONG_LO => Self::ReturnModeWrongLo,
-            RETURN_MODE_WRONG_HI => Self::ReturnModeWrongHi,
-            RETURN_TRUMP_WRONG => Self::ReturnTrumpWrong,
-            RETURN_FIRST_WRONG => Self::ReturnFirstWrong,
-            RETURN_PLAY_FAULT => Self::ReturnPlayFault,
-            RETURN_PBN_FAULT => Self::ReturnPbnFault,
-            RETURN_THREAD_CREATE => Self::ReturnThreadCreate,
-            RETURN_THREAD_WAIT => Self::ReturnThreadWait,
-            RETURN_NO_SUIT => Self::ReturnNoSuit,
-            RETURN_TOO_MANY_TABLES => Self::ReturnTooManyTables,
-            RETURN_CHUNK_SIZE => Self::ReturnChunkSize,
-            // SAFETY: Return from DDS cannot be different from its defined constants
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl std::fmt::Display for DDSErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ReturnUnknownFault => write!(f, "fopen() failed or wrong number of boards"),
-            Self::ReturnZeroCards => write!(f, "zero cards"),
-            Self::ReturnTargetTooHigh => write!(f, "target higher than number of tricks remaining"),
-            Self::ReturnDuplicateCards => write!(f, "duplicated card"),
-            Self::ReturnTargetWrongLo => write!(f, "target is less than -1"),
-            Self::ReturnTargetWrongHi => write!(f, "target is higher than 13"),
-            Self::ReturnSolnsWrongLo => write!(f, "solutions is less than 1"),
-            Self::ReturnSolnsWrongHi => write!(f, "solutions is more than 3"),
-            Self::ReturnTooManyCards => write!(f, "too many cards"),
-            Self::ReturnSuitOrRank => write!(f, "currentTrickSuit or currentTrickRank have wrong data"),
-            Self::ReturnPlayedCard => write!(f, "card already played"),
-            Self::ReturnCardCount => write!(f, "wrong number of remining cards for a hand"),
-            Self::ReturnThreadIndex => write!(f, "thread number is less than 0 or higher than the maximum permitted"),
-            Self::ReturnModeWrongLo => write!(f, "mode is less than 0"),
-            Self::ReturnModeWrongHi => write!(f, "mode is greater than 2"),
-            Self::ReturnTrumpWrong => write!(f, "trump is not one of 0,1,2,3 or 4"),
-            Self::ReturnFirstWrong => write!(f, "first is not one of 0,1,2 or 3"),
-            Self::ReturnPlayFault => write!(f, "less than 0 or more than 52 cards supplied, invalid suit or rank supplied or played card is not held by the right player"),
-            Self::ReturnPbnFault => write!(f, "PBN string is malformed"),
-            Self::ReturnThreadCreate => write!(f, "thread created"),
-            Self::ReturnThreadWait => write!(f, "something went wrong while waiting for threads to complete"),
-            Self::ReturnNoSuit => write!(f, "denomination filter vector has no entries"),
-            Self::ReturnTooManyTables => write!(f, "too many tables requested"),
-            Self::ReturnChunkSize => write!(f, "chunk size is less than 1"),
-        }
-    }
-}
 
 pub struct DoubleDummySolver {}
 
