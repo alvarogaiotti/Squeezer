@@ -78,7 +78,7 @@ impl From<std::ffi::c_int> for DDSErrorKind {
             RETURN_NO_SUIT => Self::NoSuit,
             RETURN_TOO_MANY_TABLES => Self::TooManyTables,
             RETURN_CHUNK_SIZE => Self::ChunkSize,
-            // SAFETY:  from DDS cannot be different from its defined constants
+            // SAFETY:  return value from DDS cannot be different from its defined constants
             _ => unreachable!(),
         }
     }
