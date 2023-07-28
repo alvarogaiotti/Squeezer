@@ -25,9 +25,9 @@ pub trait BridgePlayAnalyzer {
 struct DDSPlayAnalyzer {}
 impl BridgePlayAnalyzer for DDSPlayAnalyzer {
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
-        deal: &D,
-        contract: C,
-        play: &PlayTraceBin,
+        _deal: &D,
+        _contract: C,
+        _play: &PlayTraceBin,
     ) -> SolvedPlay {
         todo!()
     }
