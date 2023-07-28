@@ -1,4 +1,4 @@
-use crate::{dds::*, AcceptFunction};
+use crate::{AcceptFunction};
 
 pub struct Simulation {
     pub n_deals: usize,
