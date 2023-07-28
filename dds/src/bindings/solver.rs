@@ -4,7 +4,7 @@ use super::{
     future_tricks::FutureTricks,
     AsDDSContract,
 };
-use crate::RawDDS;
+use crate::{DDSError, RawDDS};
 use std::num::NonZeroI32;
 
 enum ThreadIndex {
@@ -103,6 +103,9 @@ impl BridgeSolver for DDSSolver {
                 ThreadIndex::Auto.into(),
             )
         };
+        if result != 1 {
+            return Err(Box::new(DDSError::new(result)));
+        }
         Ok(13 - future_tricks.score()[0] as u8)
     }
 }
