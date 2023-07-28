@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use dds;
 /// Type of the function that checks if a Deal is to be accepted or not
-type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
+pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
 
 /// Structure that holds 4 `Hand`s of 13 cards
 pub struct Hands {
@@ -262,8 +262,11 @@ impl DealerBuilder {
     /// //This Dealer will only deal Deals in which North and South have a heart fit.
     /// let dealer = builder.build().unwrap();
     /// ```
-    pub fn with_function(&mut self, accept_function: AcceptFunction) -> &mut Self {
-        self.accept = accept_function;
+    pub fn with_function(
+        &mut self,
+        accept_function: impl Fn(&Hands) -> bool + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.accept = Box::new(accept_function);
         self
     }
 
@@ -433,7 +436,7 @@ impl dds::AsDDSDeal for Deal {
                 remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
             }
         }
-        remain_cards
+        dds::DDSDealRepr::new(remain_cards)
     }
 }
 

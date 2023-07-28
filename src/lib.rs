@@ -12,6 +12,7 @@ mod hand;
 mod linparser;
 mod payoff;
 mod shape;
+mod simulation;
 mod utils;
 pub extern crate dds;
 
@@ -40,6 +41,7 @@ mod prelude {
     pub use crate::linparser::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
+    pub use crate::simulation::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;
     pub(crate) use itertools::{any, Itertools};
