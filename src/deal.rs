@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use dds;
+
 /// Type of the function that checks if a Deal is to be accepted or not
 pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
 
