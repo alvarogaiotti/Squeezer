@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 type TablesOrError<'a> = Result<(&'a [bool; SHAPE_COMBINATIONS], [u8; 4], [u8; 4]), DealerError>;
 
-///Error for wrong Shape pattern passed to ShapeFactory.
+///Error for wrong Shape pattern passed to `ShapeFactory`.
 #[derive(Debug)]
 pub struct DealerError {
     details: String,

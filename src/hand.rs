@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 ///Represent a bridge hand: 13 cards, with different and various properties.
-///The majority of this properties were implemented in the bridge_deck crate,
+///The majority of this properties were implemented in the `bridge_deck` crate,
 ///github version.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Hand {
@@ -17,12 +17,12 @@ impl Default for Hand {
 }
 
 impl Hand {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Hand {
             cards: Cards::new_deck().pick(13).unwrap(),
         }
     }
-    pub const fn new_empty() -> Self {
+    #[must_use] pub const fn new_empty() -> Self {
         Hand {
             cards: Cards::EMPTY,
         }
@@ -32,10 +32,10 @@ impl Hand {
         self.cards = cards;
     }
 
-    pub fn contains(&self, card: Card) -> bool {
+    #[must_use] pub fn contains(&self, card: Card) -> bool {
         self.cards.contains(card)
     }
-    pub fn shape(&self) -> [u8; 4] {
+    #[must_use] pub fn shape(&self) -> [u8; 4] {
         let spades = self.slen();
         let hearts = self.hlen();
         let diamonds = self.dlen();
@@ -43,7 +43,7 @@ impl Hand {
         [spades, hearts, diamonds, clubs]
     }
 
-    pub fn len_of_suit(&self, suit: Suit) -> u8 {
+    #[must_use] pub fn len_of_suit(&self, suit: Suit) -> u8 {
         match suit {
             Suit::Spades => self.slen(),
             Suit::Hearts => self.hlen(),
@@ -51,41 +51,41 @@ impl Hand {
             Suit::Clubs => self.clen(),
         }
     }
-    pub fn spades(&self) -> Cards {
+    #[must_use] pub fn spades(&self) -> Cards {
         self.cards.spades()
     }
-    pub fn hearts(&self) -> Cards {
+    #[must_use] pub fn hearts(&self) -> Cards {
         self.cards.hearts()
     }
-    pub fn diamonds(&self) -> Cards {
+    #[must_use] pub fn diamonds(&self) -> Cards {
         self.cards.diamonds()
     }
-    pub fn clubs(&self) -> Cards {
+    #[must_use] pub fn clubs(&self) -> Cards {
         self.cards.clubs()
     }
-    pub fn slen(&self) -> u8 {
+    #[must_use] pub fn slen(&self) -> u8 {
         self.spades().len()
     }
-    pub fn hlen(&self) -> u8 {
+    #[must_use] pub fn hlen(&self) -> u8 {
         self.hearts().len()
     }
-    pub fn dlen(&self) -> u8 {
+    #[must_use] pub fn dlen(&self) -> u8 {
         self.diamonds().len()
     }
-    pub fn clen(&self) -> u8 {
+    #[must_use] pub fn clen(&self) -> u8 {
         self.clubs().len()
     }
 
-    pub fn hcp(&self) -> u8 {
+    #[must_use] pub fn hcp(&self) -> u8 {
         self.cards.high_card_points()
     }
-    pub fn as_cards(&self) -> Cards {
+    #[must_use] pub fn as_cards(&self) -> Cards {
         self.cards
     }
-    pub fn as_bits(&self) -> u64 {
+    #[must_use] pub fn as_bits(&self) -> u64 {
         self.cards.as_bits()
     }
-    pub fn long_str(&self) -> String {
+    #[must_use] pub fn long_str(&self) -> String {
         format!("{}", self.into_iter().format("\n"))
     }
 }
@@ -148,23 +148,23 @@ pub struct HcpRange {
 }
 
 impl HcpRange {
-    pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
+    #[must_use] pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
         let max_hcp = max_hcp.clamp(ZERO_HCP, MAX_HCP_IN_HAND);
         let min_hcp = min_hcp.clamp(ZERO_HCP, max_hcp);
         Self { min_hcp, max_hcp }
     }
 
-    pub fn min(&self) -> u8 {
+    #[must_use] pub fn min(&self) -> u8 {
         self.min_hcp
     }
-    pub fn max(&self) -> u8 {
+    #[must_use] pub fn max(&self) -> u8 {
         self.max_hcp
     }
 
-    pub fn contains(&self, hcp: u8) -> bool {
+    #[must_use] pub fn contains(&self, hcp: u8) -> bool {
         self.as_range().contains(&hcp)
     }
-    pub fn as_range(&self) -> RangeInclusive<u8> {
+    #[must_use] pub fn as_range(&self) -> RangeInclusive<u8> {
         self.min()..=self.max()
     }
 }
@@ -182,17 +182,17 @@ pub struct HandType {
 }
 
 impl HandType {
-    pub fn new(shape: Shapes, hcp_range: HcpRange) -> Self {
+    #[must_use] pub fn new(shape: Shapes, hcp_range: HcpRange) -> Self {
         Self { shape, hcp_range }
     }
 
-    pub fn check(&self, hand: Hand) -> bool {
+    #[must_use] pub fn check(&self, hand: Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
     }
-    pub fn len_ranges(&self) -> [LenRange; 4] {
+    #[must_use] pub fn len_ranges(&self) -> [LenRange; 4] {
         self.shape.len_ranges()
     }
-    pub fn hcp_range(&self) -> HcpRange {
+    #[must_use] pub fn hcp_range(&self) -> HcpRange {
         self.hcp_range
     }
 }
@@ -203,12 +203,12 @@ pub struct HandDescriptor {
 }
 
 impl HandDescriptor {
-    pub fn check(&self, hand: Hand) -> bool {
+    #[must_use] pub fn check(&self, hand: Hand) -> bool {
         self.possible_hands
             .iter()
             .any(|hand_archetype| hand_archetype.check(hand))
     }
-    pub fn new(possible_hands: Vec<HandType>) -> Self {
+    #[must_use] pub fn new(possible_hands: Vec<HandType>) -> Self {
         Self { possible_hands }
     }
 }
@@ -220,13 +220,13 @@ pub struct HandTypeBuilder {
 }
 
 impl HandTypeBuilder {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             shapes: None,
             hcp_range: None,
         }
     }
-    pub fn balanced(min_hcp: u8, max_hcp: u8) -> Self {
+    #[must_use] pub fn balanced(min_hcp: u8, max_hcp: u8) -> Self {
         let mut new = Self {
             shapes: Some(Shapes::new()),
             hcp_range: Some(HcpRange::new(min_hcp, max_hcp)),

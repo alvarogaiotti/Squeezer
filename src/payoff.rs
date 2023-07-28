@@ -137,15 +137,15 @@ impl dds::AsDDSContract for Contract {
 
 impl dds::ContractScorer for Contract {
     fn score(&self, tricks: u8) -> i32 {
-        let target: i32 = self.level as i32 + 6i32;
-        let overtricks: i32 = tricks as i32 - target;
+        let target: i32 = i32::from(self.level) + 6i32;
+        let overtricks: i32 = i32::from(tricks) - target;
         if overtricks >= 0 {
             let per_trick: i32 = match self.strain {
                 Strain::Clubs | Strain::Diamonds => 20,
                 _ => 30,
             };
             let mut per_overtrick: i32 = per_trick;
-            let mut base_score: i32 = per_trick * self.level as i32;
+            let mut base_score: i32 = per_trick * i32::from(self.level);
             let mut bonus: i32 = 0;
             if self.strain == Strain::NoTrumps {
                 base_score += 10
@@ -239,13 +239,13 @@ pub enum Strain {
 
 impl Contract {
     #[allow(clippy::cast_possible_truncation)]
-    pub fn strain(&self) -> Strain {
+    #[must_use] pub fn strain(&self) -> Strain {
         self.strain
     }
-    pub fn leader(&self) -> Seat {
+    #[must_use] pub fn leader(&self) -> Seat {
         self.declarer().next()
     }
-    pub fn declarer(&self) -> Seat {
+    #[must_use] pub fn declarer(&self) -> Seat {
         self.declarer
     }
     pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
@@ -269,7 +269,7 @@ impl Contract {
         })
     }
 
-    pub fn not_unicode_str(&self) -> String {
+    #[must_use] pub fn not_unicode_str(&self) -> String {
         format!(
             "{}{}{}{}",
             self.level,
@@ -355,15 +355,15 @@ fn bisect_right(value: i32, lista: &[i32]) -> i32 {
     }
     lista.len() as i32
 }
-pub fn imps(my: i32, other: i32) -> i32 {
+#[must_use] pub fn imps(my: i32, other: i32) -> i32 {
     let imp_table: [i32; 24] = [
         15, 45, 85, 125, 165, 215, 265, 315, 365, 425, 495, 595, 745, 895, 1095, 1295, 1495, 1745,
         1995, 2245, 2495, 2995, 3495, 3995,
     ];
     bisect_right((my - other).abs(), &imp_table) * (if my > other { 1 } else { -1 })
 }
-pub fn matchpoints(my: i32, other: i32) -> i32 {
-    (my > other) as i32 - (my < other) as i32
+#[must_use] pub fn matchpoints(my: i32, other: i32) -> i32 {
+    i32::from(my > other) - i32::from(my < other)
 }
 
 #[cfg(test)]

@@ -37,24 +37,24 @@ impl Hands {
     }
 
     /// Returns the array of `[Hand]`s
-    pub fn hands(&self) -> &[Hand; 4] {
+    #[must_use] pub fn hands(&self) -> &[Hand; 4] {
         &self.hands
     }
 
     /// Returns North `[Hand]`
-    pub fn north(&self) -> &Hand {
+    #[must_use] pub fn north(&self) -> &Hand {
         &self.hands[Seat::North as usize]
     }
     /// Returns South `[Hand]`
-    pub fn south(&self) -> &Hand {
+    #[must_use] pub fn south(&self) -> &Hand {
         &self.hands[Seat::South as usize]
     }
     /// Returns East `[Hand]`
-    pub fn east(&self) -> &Hand {
+    #[must_use] pub fn east(&self) -> &Hand {
         &self.hands[Seat::East as usize]
     }
     /// Returns West `[Hand]`
-    pub fn west(&self) -> &Hand {
+    #[must_use] pub fn west(&self) -> &Hand {
         &self.hands[Seat::West as usize]
     }
     pub fn iter(&self) -> std::slice::Iter<Hand> {
@@ -99,16 +99,16 @@ impl TryFrom<char> for Seat {
 
 impl Seat {
     ///Returns the next seat in a cyclic manner in this order: North, East, South, West
-    pub fn next(self) -> Seat {
+    #[must_use] pub fn next(self) -> Seat {
         self + 1
     }
 
     ///Iteration over seats starting from North
-    pub fn iter() -> IntoIter<Seat, 4> {
+    #[must_use] pub fn iter() -> IntoIter<Seat, 4> {
         [Seat::North, Seat::East, Seat::South, Seat::West].into_iter()
     }
 
-    pub fn long_str(&self) -> &str {
+    #[must_use] pub fn long_str(&self) -> &str {
         match self {
             Self::North => "North",
             Self::East => "East",
@@ -172,7 +172,7 @@ pub enum Constraints<'a> {
     ),
 }
 impl<'a> Constraints<'a> {
-    pub fn predeal(hands: Vec<(char, &str)>) -> Self {
+    #[must_use] pub fn predeal(hands: Vec<(char, &str)>) -> Self {
         let mut predealt_hands: [(Seat, Option<Hand>); NUMBER_OF_HANDS] = [
             (Seat::North, Some(Hand::new())),
             (Seat::East, Some(Hand::new())),
@@ -231,7 +231,7 @@ impl Default for DealerBuilder {
 }
 
 impl DealerBuilder {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             accept: Box::new(|_: &Hands| true),
             hand_descriptors: HashMap::new(),
@@ -248,7 +248,7 @@ impl DealerBuilder {
     }
 
     /// Sets a functions that will be used by the [`Dealer`] to check if the [`Deal`] is to be accepted.
-    /// Do not set your hand types with this method (use the [DealerBuilder::with_hand_specification] method istead); but use it to set cross hand constraints.
+    /// Do not set your hand types with this method (use the [`DealerBuilder::with_hand_specification`] method istead); but use it to set cross hand constraints.
     ///
     /// # Example
     /// ```
@@ -447,7 +447,7 @@ impl Default for Deal {
 }
 impl Deal {
     /// A new `Deal` with cards dealt randomly
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             vulnerability: Vulnerability::None,
             hands: Self::deal(),
@@ -505,7 +505,7 @@ impl Deal {
         }
     }
 
-    pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
+    #[must_use] pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
         let mut deck = Cards::ALL;
         let north = Hand {
             cards: deck.pick(13).unwrap(),
@@ -528,19 +528,19 @@ impl Deal {
         self.vulnerability = vuln;
     }
 
-    pub fn west(&self) -> Hand {
+    #[must_use] pub fn west(&self) -> Hand {
         self.hands[3]
     }
 
-    pub fn north(&self) -> Hand {
+    #[must_use] pub fn north(&self) -> Hand {
         self.hands[0]
     }
 
-    pub fn east(&self) -> Hand {
+    #[must_use] pub fn east(&self) -> Hand {
         self.hands[1]
     }
 
-    pub fn south(&self) -> Hand {
+    #[must_use] pub fn south(&self) -> Hand {
         self.hands[2]
     }
 
@@ -564,7 +564,7 @@ impl Deal {
         self.set_print_style(Printer::Lin);
     }
 
-    pub fn as_string(&self) -> String {
+    #[must_use] pub fn as_string(&self) -> String {
         match self.printer {
             Printer::Pbn => self.as_pbn(),
             Printer::Lin => self.as_lin(self.number),
@@ -573,7 +573,7 @@ impl Deal {
         }
     }
 
-    pub fn as_pbn(&self) -> String {
+    #[must_use] pub fn as_pbn(&self) -> String {
         let mut pbn = format!("[Board \"{}\"]\n[Deal \"N:", self.number);
         pbn = format!(
             "{}",
