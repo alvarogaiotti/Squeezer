@@ -7,6 +7,7 @@ pub struct DDSError {
 
 impl DDSError {
     pub fn new(value: i32) -> Self {
+        assert_ne!(1, value);
         Self { kind: value.into() }
     }
 }
