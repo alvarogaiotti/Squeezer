@@ -5,7 +5,8 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    #[must_use] pub fn new(values: &[u8]) -> Self {
+    #[must_use]
+    pub fn new(values: &[u8]) -> Self {
         let mut vals = [0u8; 13];
         // Starting from 13 so we populate vals with rank indexes
         // using enumerate to take the values that comes in when
@@ -25,7 +26,8 @@ impl Evaluator {
             }),
         }
     }
-    #[must_use] pub fn evaluate(&self, cards: Cards) -> u8 {
+    #[must_use]
+    pub fn evaluate(&self, cards: Cards) -> u8 {
         (self.evaluator)(cards)
     }
 }

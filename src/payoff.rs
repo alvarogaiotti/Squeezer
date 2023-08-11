@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
 ///on scoring. Some sort of expected value of the contracts.
 pub struct Payoff<T, D>
@@ -239,13 +238,16 @@ pub enum Strain {
 
 impl Contract {
     #[allow(clippy::cast_possible_truncation)]
-    #[must_use] pub fn strain(&self) -> Strain {
+    #[must_use]
+    pub fn strain(&self) -> Strain {
         self.strain
     }
-    #[must_use] pub fn leader(&self) -> Seat {
+    #[must_use]
+    pub fn leader(&self) -> Seat {
         self.declarer().next()
     }
-    #[must_use] pub fn declarer(&self) -> Seat {
+    #[must_use]
+    pub fn declarer(&self) -> Seat {
         self.declarer
     }
     pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
@@ -269,7 +271,8 @@ impl Contract {
         })
     }
 
-    #[must_use] pub fn not_unicode_str(&self) -> String {
+    #[must_use]
+    pub fn not_unicode_str(&self) -> String {
         format!(
             "{}{}{}{}",
             self.level,
@@ -355,14 +358,16 @@ fn bisect_right(value: i32, lista: &[i32]) -> i32 {
     }
     lista.len() as i32
 }
-#[must_use] pub fn imps(my: i32, other: i32) -> i32 {
+#[must_use]
+pub fn imps(my: i32, other: i32) -> i32 {
     let imp_table: [i32; 24] = [
         15, 45, 85, 125, 165, 215, 265, 315, 365, 425, 495, 595, 745, 895, 1095, 1295, 1495, 1745,
         1995, 2245, 2495, 2995, 3495, 3995,
     ];
     bisect_right((my - other).abs(), &imp_table) * (if my > other { 1 } else { -1 })
 }
-#[must_use] pub fn matchpoints(my: i32, other: i32) -> i32 {
+#[must_use]
+pub fn matchpoints(my: i32, other: i32) -> i32 {
     i32::from(my > other) - i32::from(my < other)
 }
 

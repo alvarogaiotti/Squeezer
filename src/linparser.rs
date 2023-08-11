@@ -167,7 +167,8 @@ impl std::error::Error for BiddingError {
 }
 
 impl Bidding {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             bidding: Vec::new(),
         }
@@ -259,7 +260,8 @@ impl std::fmt::Display for BidError {
 }
 
 impl Bid {
-    #[must_use] pub fn can_bid_over(&self, before: &Self) -> bool {
+    #[must_use]
+    pub fn can_bid_over(&self, before: &Self) -> bool {
         match before {
             Bid::Contract(level, strain) => match self {
                 Bid::Contract(self_level, self_strain) => {
@@ -274,7 +276,8 @@ impl Bid {
         }
     }
 
-    #[must_use] pub fn is_contract(&self) -> bool {
+    #[must_use]
+    pub fn is_contract(&self) -> bool {
         matches!(self, Bid::Contract(_, _))
     }
 }
@@ -451,7 +454,8 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    #[must_use] pub fn new(string: &str) -> Self {
+    #[must_use]
+    pub fn new(string: &str) -> Self {
         Self {
             cursor: 0,
             characters: string.chars().collect(),
@@ -459,17 +463,20 @@ impl Scanner {
     }
 
     /// Returns the cursor position
-    #[must_use] pub fn cursor(&self) -> usize {
+    #[must_use]
+    pub fn cursor(&self) -> usize {
         self.cursor
     }
 
     /// Returns next char without advancing the cursor
-    #[must_use] pub fn peek(&self) -> Option<&char> {
+    #[must_use]
+    pub fn peek(&self) -> Option<&char> {
         self.characters.get(self.cursor)
     }
 
     /// Returns whether the string is exhausted or not
-    #[must_use] pub fn exhausted(&self) -> bool {
+    #[must_use]
+    pub fn exhausted(&self) -> bool {
         self.cursor == self.characters.len()
     }
 

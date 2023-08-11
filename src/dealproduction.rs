@@ -63,7 +63,8 @@ impl Default for Shapes {
 }
 
 impl<'a> Shapes {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             shape_table: [false; SHAPE_TABLE_BUCKETS],
             min_ls: [ZERO_LENGTH; SUITS],
@@ -177,11 +178,13 @@ impl<'a> Shapes {
         Ok(())
     }
 
-    #[must_use] pub fn is_member(&self, hand_to_match: Hand) -> bool {
+    #[must_use]
+    pub fn is_member(&self, hand_to_match: Hand) -> bool {
         self.shape_table[Shapes::hash_flatten(&hand_to_match.shape())]
     }
 
-    #[must_use] pub fn flatten(pattern_descriptor: &[u8]) -> usize {
+    #[must_use]
+    pub fn flatten(pattern_descriptor: &[u8]) -> usize {
         let (s, h, d, c) = pattern_descriptor
             .iter()
             .map(|&x| x as usize)
@@ -189,7 +192,8 @@ impl<'a> Shapes {
             .unwrap();
         ((((s * (RANKS + 1) as usize + h) * (RANKS + 1) as usize) + d) * (RANKS + 1) as usize) + c
     }
-    #[must_use] pub fn hash_flatten(pattern_descriptor: &[u8]) -> usize {
+    #[must_use]
+    pub fn hash_flatten(pattern_descriptor: &[u8]) -> usize {
         let mut hasher = ShapeHasher::default();
         hasher.write(pattern_descriptor);
         hasher.finish() as usize
@@ -321,7 +325,8 @@ impl<'a> Shapes {
         min_ls: [ZERO_LENGTH; 4],
         max_ls: [MAX_LENGTH; 4],
     };
-    #[must_use] pub fn len_ranges(&self) -> [LenRange; 4] {
+    #[must_use]
+    pub fn len_ranges(&self) -> [LenRange; 4] {
         let mut len_range = [LenRange::default(); 4];
         for (index, (min, max)) in self.min_ls.iter().zip(self.max_ls.iter()).enumerate() {
             len_range[index] = LenRange::new(*min, *max);
@@ -361,21 +366,26 @@ impl Default for LenRange {
 }
 
 impl LenRange {
-    #[must_use] pub fn new(min: u8, max: u8) -> Self {
+    #[must_use]
+    pub fn new(min: u8, max: u8) -> Self {
         let max = max.clamp(ZERO_LENGTH, MAX_LENGTH);
         let min = min.clamp(ZERO_LENGTH, max);
         Self { min, max }
     }
-    #[must_use] pub fn as_range(&self) -> RangeInclusive<u8> {
+    #[must_use]
+    pub fn as_range(&self) -> RangeInclusive<u8> {
         self.min()..=self.max()
     }
-    #[must_use] pub fn min(&self) -> u8 {
+    #[must_use]
+    pub fn min(&self) -> u8 {
         self.min
     }
-    #[must_use] pub fn max(&self) -> u8 {
+    #[must_use]
+    pub fn max(&self) -> u8 {
         self.max
     }
-    #[must_use] pub fn contains(&self, length: u8) -> bool {
+    #[must_use]
+    pub fn contains(&self, length: u8) -> bool {
         self.as_range().contains(&length)
     }
 }
@@ -407,7 +417,8 @@ impl std::convert::From<Suit> for usize {
 
 impl Suit {
     /// The name of the suit
-    #[must_use] pub fn name(self) -> &'static str {
+    #[must_use]
+    pub fn name(self) -> &'static str {
         match self {
             Suit::Clubs => "Clubs",
             Suit::Diamonds => "Diamonds",
@@ -416,7 +427,8 @@ impl Suit {
         }
     }
     /// The unicode character for this suit
-    #[must_use] pub fn unicode(self) -> char {
+    #[must_use]
+    pub fn unicode(self) -> char {
         match self {
             Suit::Clubs => '♣',
             Suit::Diamonds => '♦',
@@ -425,7 +437,8 @@ impl Suit {
         }
     }
     /// The latin character for this suit
-    #[must_use] pub fn latin(self) -> char {
+    #[must_use]
+    pub fn latin(self) -> char {
         match self {
             Suit::Clubs => 'C',
             Suit::Diamonds => 'D',
@@ -457,7 +470,8 @@ pub struct StringShapePattern {
 }
 
 impl StringShapePattern {
-    #[must_use] pub fn new(pattern: &str) -> Self {
+    #[must_use]
+    pub fn new(pattern: &str) -> Self {
         Self {
             pattern: pattern.to_string(),
         }
@@ -470,7 +484,8 @@ pub enum ShapeDescriptor {
 }
 
 impl ShapeDescriptor {
-    #[must_use] pub fn from_string(pattern: &str) -> Self {
+    #[must_use]
+    pub fn from_string(pattern: &str) -> Self {
         if pattern.contains('(') {
             Self::ClassOfShapes {
                 shape_pattern: StringShapePattern {
@@ -488,7 +503,8 @@ impl ShapeDescriptor {
 }
 
 impl ShapeDescriptor {
-    #[must_use] pub fn new(pattern: &str) -> Self {
+    #[must_use]
+    pub fn new(pattern: &str) -> Self {
         if pattern.contains('(') {
             Self::ClassOfShapes {
                 shape_pattern: StringShapePattern {
