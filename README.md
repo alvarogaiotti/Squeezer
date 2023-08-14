@@ -4,8 +4,8 @@ Now... the project grew a bit and I'm now trying to turn this into a full fledge
 decent software.
 
 ### Goals&Ideas:
-- [] Create safe wrappers for all the DDS library (in progress)
-- [] Find a better way to store shapes for a hand:
+- [ ] Create safe wrappers for all the DDS library (in progress)
+- [ ] Find a better way to store shapes for a hand:
     - Evaluating using a `u16` to represent full shapes and a `BTreeSet` to represent possible shapes
     - Use 3 `u8` to store two full shapes, the first 12 bits for the first shape and the second 12 for the second shape
 
