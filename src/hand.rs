@@ -165,10 +165,11 @@ pub struct HcpRange {
 }
 
 impl HcpRange {
+    /// This function guarantees that the HcpRange created is possible.
     #[must_use]
     pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
-        let max_hcp = max_hcp.clamp(ZERO_HCP, MAX_HCP_IN_HAND);
         let min_hcp = min_hcp.clamp(ZERO_HCP, max_hcp);
+        let max_hcp = max_hcp.clamp(min_hcp, MAX_HCP_IN_HAND);
         Self { min_hcp, max_hcp }
     }
 
@@ -233,7 +234,7 @@ impl HandDescriptor {
     pub fn check(&self, hand: Hand) -> bool {
         self.possible_hands
             .iter()
-            .any(|hand_archetype| hand_archetype.check(hand))
+            .any(|hand_type| hand_type.check(hand))
     }
     #[must_use]
     pub fn new(possible_hands: Vec<HandType>) -> Self {
@@ -261,31 +262,34 @@ impl HandTypeBuilder {
             shapes: Some(Shapes::new()),
             hcp_range: Some(HcpRange::new(min_hcp, max_hcp)),
         };
-        new.add_shape("(5332)");
-        new.add_shape("(3334)");
-        new.add_shape("(4234)");
+
+        // SAFETY: KNOWN VALID SHAPES
+        new.add_shape("(5332)").unwrap();
+        new.add_shape("(3334)").unwrap();
+        new.add_shape("(4234)").unwrap();
+
         new
     }
 
-    pub fn add_shape(&mut self, pattern: &str) -> &mut Self {
+    pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(shapes) = &mut self.shapes {
-            shapes.add_shape(ShapeDescriptor::from_string(pattern));
+            shapes.add_shape(ShapeDescriptor::from_string(pattern))?;
         } else {
             let mut shape = Shapes::new();
-            shape.add_shape(ShapeDescriptor::from_string(pattern));
+            shape.add_shape(ShapeDescriptor::from_string(pattern))?;
             self.shapes = Some(shape);
         }
-        self
+        Ok(self)
     }
-    pub fn remove_shape(&mut self, pattern: &str) -> &mut Self {
+    pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(shapes) = &mut self.shapes {
-            shapes.remove_shape(ShapeDescriptor::from_string(pattern));
+            shapes.remove_shape(ShapeDescriptor::from_string(pattern))?;
         } else {
             let mut shape = Shapes::new();
-            shape.remove_shape(ShapeDescriptor::from_string(pattern));
+            shape.remove_shape(ShapeDescriptor::from_string(pattern))?;
             self.shapes = Some(shape);
         }
-        self
+        Ok(self)
     }
 
     pub fn with_range(&mut self, min_hcp: u8, max_hcp: u8) -> &mut Self {
@@ -295,92 +299,94 @@ impl HandTypeBuilder {
     pub fn with_longest(&mut self, suit: Suit) -> &mut Self {
         let shape = Shapes::new();
         self.shapes = Some(shape);
+
+        // SAFETY: ALL VALID SHAPES
         match suit {
             Suit::Spades => {
-                self.add_shape("5xxx");
-                self.add_shape("6xxx");
-                self.remove_shape("x(6xx)");
-                self.remove_shape("x(7xx)");
-                self.remove_shape("x(8xx)");
-                self.add_shape("7xxx");
-                self.add_shape("8xxx");
-                self.add_shape("9xxx");
-                self.add_shape("x(300)");
-                self.add_shape("x(111)");
-                self.add_shape("x(210)");
-                self.add_shape("x(110)");
-                self.add_shape("x(002)");
-                self.add_shape("x(100)");
-                self.add_shape("x000");
+                self.add_shape("5xxx").unwrap();
+                self.remove_shape("x(6xx)").unwrap();
+                self.remove_shape("x(8xx)").unwrap();
+                self.add_shape("6xxx").unwrap();
+                self.remove_shape("x(7xx)").unwrap();
+                self.add_shape("7xxx").unwrap();
+                self.add_shape("8xxx").unwrap();
+                self.add_shape("9xxx").unwrap();
+                self.add_shape("x(300)").unwrap();
+                self.add_shape("x(111)").unwrap();
+                self.add_shape("x(210)").unwrap();
+                self.add_shape("x(110)").unwrap();
+                self.add_shape("x(002)").unwrap();
+                self.add_shape("x(100)").unwrap();
+                self.add_shape("x000").unwrap();
             }
             Suit::Hearts => {
-                self.add_shape("x5xx");
-                self.add_shape("x6xx");
-                self.remove_shape("6x(xx)");
-                self.remove_shape("xx(6x)");
-                self.remove_shape("7x(xx)");
-                self.remove_shape("xx(7x)");
-                self.remove_shape("8x(xx)");
-                self.remove_shape("xx(8x)");
-                self.add_shape("x7xx");
-                self.add_shape("x8xx");
-                self.add_shape("x9xx");
-                self.add_shape("0x(30)");
-                self.add_shape("3x(00)");
-                self.add_shape("2x(01)");
-                self.add_shape("0x(21)");
-                self.add_shape("1x(20)");
-                self.add_shape("1x(11)");
-                self.add_shape("0x(02)");
-                self.add_shape("2x(00)");
-                self.add_shape("0x(11)");
-                self.add_shape("1x(10)");
-                self.add_shape("1x(00)");
-                self.add_shape("0x(01)");
-                self.add_shape("0x00");
+                self.add_shape("x5xx").unwrap();
+                self.add_shape("x6xx").unwrap();
+                self.remove_shape("6x(xx)").unwrap();
+                self.remove_shape("xx(6x)").unwrap();
+                self.remove_shape("7x(xx)").unwrap();
+                self.remove_shape("xx(7x)").unwrap();
+                self.remove_shape("8x(xx)").unwrap();
+                self.remove_shape("xx(8x)").unwrap();
+                self.add_shape("x7xx").unwrap();
+                self.add_shape("x8xx").unwrap();
+                self.add_shape("x9xx").unwrap();
+                self.add_shape("0x(30)").unwrap();
+                self.add_shape("3x(00)").unwrap();
+                self.add_shape("2x(01)").unwrap();
+                self.add_shape("0x(21)").unwrap();
+                self.add_shape("1x(20)").unwrap();
+                self.add_shape("1x(11)").unwrap();
+                self.add_shape("0x(02)").unwrap();
+                self.add_shape("2x(00)").unwrap();
+                self.add_shape("0x(11)").unwrap();
+                self.add_shape("1x(10)").unwrap();
+                self.add_shape("1x(00)").unwrap();
+                self.add_shape("0x(01)").unwrap();
+                self.add_shape("0x00").unwrap();
             }
             Suit::Diamonds => {
-                self.add_shape("xx5x");
-                self.add_shape("xx6x");
-                self.remove_shape("(xx)x6");
-                self.remove_shape("(6x)xx");
-                self.remove_shape("(7x)xx");
-                self.remove_shape("xxx7");
-                self.remove_shape("(8x)xx");
-                self.remove_shape("xxx8");
-                self.add_shape("xx7x");
-                self.add_shape("xx8x");
-                self.add_shape("xx9x");
-                self.add_shape("(30)x0");
-                self.add_shape("(0x)x3");
-                self.add_shape("(01)x2");
-                self.add_shape("(21)x0");
-                self.add_shape("(20)x1");
-                self.add_shape("11x1");
-                self.add_shape("(10)x1");
-                self.add_shape("11x0");
-                self.add_shape("(02)x0");
-                self.add_shape("(00)x2");
-                self.add_shape("(00)x1");
-                self.add_shape("(01)x0");
-                self.add_shape("00x0");
+                self.add_shape("xx5x").unwrap();
+                self.remove_shape("(xx)x6").unwrap();
+                self.add_shape("xx6x").unwrap();
+                self.remove_shape("(6x)xx").unwrap();
+                self.remove_shape("(7x)xx").unwrap();
+                self.remove_shape("xxx7").unwrap();
+                self.remove_shape("(8x)xx").unwrap();
+                self.remove_shape("xxx8").unwrap();
+                self.add_shape("xx7x").unwrap();
+                self.add_shape("xx8x").unwrap();
+                self.add_shape("xx9x").unwrap();
+                self.add_shape("(30)x0").unwrap();
+                self.add_shape("(0x)x3").unwrap();
+                self.add_shape("(01)x2").unwrap();
+                self.add_shape("(21)x0").unwrap();
+                self.add_shape("(20)x1").unwrap();
+                self.add_shape("11x1").unwrap();
+                self.add_shape("(10)x1").unwrap();
+                self.add_shape("11x0").unwrap();
+                self.add_shape("(02)x0").unwrap();
+                self.add_shape("(00)x2").unwrap();
+                self.add_shape("(00)x1").unwrap();
+                self.add_shape("(01)x0").unwrap();
+                self.add_shape("00x0").unwrap();
             }
             Suit::Clubs => {
-                self.add_shape("xxx5");
-                self.add_shape("xxx6");
-                self.remove_shape("(xx6)x");
-                self.remove_shape("(7xx)x");
-                self.remove_shape("(8xx)x");
-                self.add_shape("xxx7");
-                self.add_shape("xxx8");
-                self.add_shape("xxx9");
-                self.add_shape("(300)x");
-                self.add_shape("(012)x");
-                self.add_shape("111x");
-                self.add_shape("(101)x");
-                self.add_shape("(020)x");
-                self.add_shape("(001)x");
-                self.add_shape("000x");
+                self.add_shape("xxx5").unwrap();
+                self.add_shape("xxx6").unwrap();
+                self.remove_shape("(xx6)x").unwrap();
+                self.remove_shape("(7xx)x").unwrap();
+                self.remove_shape("(8xx)x").unwrap();
+                self.add_shape("xxx7").unwrap();
+                self.add_shape("xxx8").unwrap();
+                self.add_shape("xxx9").unwrap();
+                self.add_shape("(300)x").unwrap();
+                self.add_shape("(012)x").unwrap();
+                self.add_shape("111x").unwrap();
+                self.add_shape("(101)x").unwrap();
+                self.add_shape("(020)x").unwrap();
+                self.add_shape("(001)x").unwrap();
+                self.add_shape("000x").unwrap();
             }
         };
         self
@@ -406,5 +412,5 @@ impl HandTypeBuilder {
 fn test_builder_pattern() {
     let mut builder = HandTypeBuilder::new();
     _ = builder.with_range(8, 15).build();
-    _ = builder.add_shape("4333").build();
+    _ = builder.add_shape("4333").unwrap().build();
 }
