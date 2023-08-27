@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 use crate::prelude::*;
 
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
@@ -122,14 +124,14 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Contract {
     vuln: bool,
-    level: u8,
+    level: NonZeroU8,
     doubled: Doubled,
     strain: Strain,
     declarer: Seat,
 }
 
 impl dds::AsDDSContract for Contract {
-    fn as_dds_contract(&self) -> (u8, u8) {
+    fn as_dds_contract(&self) -> (NonZeroU8, u8) {
         (self.level, self.strain as u8)
     }
 }
@@ -372,6 +374,7 @@ pub fn matchpoints(my: i32, other: i32) -> i32 {
 }
 
 #[cfg(test)]
+use dds::ContractScorer;
 #[test]
 fn payoff_report_test() {
     let contratto1 = Contract::from_str("3CN", false).unwrap();
