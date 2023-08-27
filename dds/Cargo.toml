@@ -8,3 +8,4 @@ build = "build.rs"
 
 [dependencies]
 rusty_dealer_macros = {path="../rusty_dealer_macros"}
+itertools = "0.10.3"
