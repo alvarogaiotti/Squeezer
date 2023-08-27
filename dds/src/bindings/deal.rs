@@ -1,7 +1,8 @@
 use super::{
-    ddsffi::{deal, dealPBN},
-    RawDDS,
+    ddsffi::{boards, boardsPBN, deal, dealPBN},
+    AsDDSContract, Mode, RawDDS, Solutions, Target,
 };
+use itertools::izip;
 use std::{ffi::c_int, fmt::Display};
 
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
@@ -286,4 +287,57 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     res.push_str(suitstr);
     res.push_str(rankstr);
     res
+}
+
+#[derive(RawDDS, Debug)]
+pub struct Boards {
+    raw: boards,
+}
+
+impl boards {
+    pub fn new<D: AsDDSDeal, C: AsDDSContract, const N: usize>(
+        no_of_boards: c_int,
+        deals: &[&D; N],
+        contracts: &[C; N],
+        target: [Target; N],
+        solutions: [Solutions; N],
+        mode: [Mode; N],
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let length_check = i32::try_from(N)?;
+        let complete_deals = deals.iter().zip(contracts.iter());
+        let boards: Vec<deal> = complete_deals
+            .map(|(d, c)| {
+                let (trump, first) = c.as_dds_contract();
+                deal {
+                    trump,
+                    first,
+                    currentTrickSuit: [0; 3],
+                    currentTrickRank: [0; 3],
+                    remainCards: d.as_dds_deal().as_slice(),
+                }
+            })
+            .collect();
+        Ok(boards {
+            noOfBoards: length_check,
+            deals: boards.try_into().unwrap(),
+            target: target
+                .into_iter()
+                .map(|t| i32::from(t))
+                .collect::<Vec<i32>>()
+                .try_into()
+                .unwrap(),
+            solutions: solutions
+                .into_iter()
+                .map(|s| i32::from(s))
+                .collect::<Vec<i32>>()
+                .try_into()
+                .unwrap(),
+            mode: mode
+                .into_iter()
+                .map(|m| i32::from(m))
+                .collect::<Vec<i32>>()
+                .try_into()
+                .unwrap(),
+        })
+    }
 }
