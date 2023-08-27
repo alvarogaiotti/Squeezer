@@ -1,60 +1,81 @@
 use rusty_dealer_macros::*;
 use std::{error::Error, ffi::c_int};
+mod analyseplay;
 mod ddserror;
 mod ddsffi;
 mod deal;
 mod future_tricks;
 mod solver;
+pub use analyseplay::*;
 pub use ddserror::DDSError;
 pub use ddsffi::*;
 pub use deal::*;
 pub use solver::*;
 
+enum ThreadIndex {
+    Auto,
+    NumThreads(NonZeroI32),
+}
+
+impl From<ThreadIndex> for std::ffi::c_int {
+    fn from(value: ThreadIndex) -> Self {
+        match value {
+            ThreadIndex::Auto => 0,
+            ThreadIndex::NumThreads(value) => value.into(),
+        }
+    }
+}
+
+enum Target {
+    MaxTricks,
+    LegalNoScore,
+    Goal(NonZeroI32),
+}
+
+impl From<Target> for std::ffi::c_int {
+    fn from(value: Target) -> Self {
+        match value {
+            Target::MaxTricks => -1,
+            Target::LegalNoScore => 0,
+            Target::Goal(goal) => std::ffi::c_int::max(13, goal.into()),
+        }
+    }
+}
+
+enum Solutions {
+    Best,
+    AllOptimal,
+    AllLegal,
+}
+
+impl From<Solutions> for std::ffi::c_int {
+    fn from(value: Solutions) -> Self {
+        match value {
+            Solutions::Best => 1,
+            Solutions::AllOptimal => 2,
+            Solutions::AllLegal => 3,
+        }
+    }
+}
+
+enum Mode {
+    Auto,
+    AutoSearchAlways,
+    Always,
+}
+
+impl From<Mode> for std::ffi::c_int {
+    fn from(value: Mode) -> Self {
+        match value {
+            Mode::Auto => 0,
+            Mode::AutoSearchAlways => 1,
+            Mode::Always => 2,
+        }
+    }
+}
+
 pub struct DoubleDummySolver {}
 
-pub trait BridgePlayAnalyzer {
-    fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
-        deal: &D,
-        contract: C,
-        play: &PlayTraceBin,
-    ) -> SolvedPlay;
-    fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
-        deal: &D,
-        contract: C,
-        play: &PlayTraceBin,
-    ) -> SolvedPlay;
-}
-struct DDSPlayAnalyzer {}
-impl BridgePlayAnalyzer for DDSPlayAnalyzer {
-    fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
-        _deal: &D,
-        _contract: C,
-        _play: &PlayTraceBin,
-    ) -> SolvedPlay {
-        todo!()
-    }
-    fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
-        deal: &D,
-        contract: C,
-        play: &PlayTraceBin,
-    ) -> SolvedPlay {
-        let (trump, first) = contract.as_dds_contract();
-        let c_deal = ddsffi::deal {
-            trump: trump as c_int,
-            first: first as c_int,
-            currentTrickSuit: [0; 3],
-            currentTrickRank: [0; 3],
-            remainCards: deal.as_dds_deal().as_slice(),
-        };
-        let solved_play = SolvedPlay::new();
-        {
-            let solved: *mut ddsffi::solvedPlay = &mut solved_play.get_raw();
-            let play_trace: *const ddsffi::playTraceBin = &play.get_raw();
-            unsafe { ddsffi::AnalysePlayBin(c_deal, *play_trace, solved, 0) };
-        }
-        solved_play
-    }
-}
 pub trait BridgeTableCalculator {}
 struct DDSCalc {}
 impl BridgeTableCalculator for DDSCalc {}
@@ -64,7 +85,7 @@ impl DoubleDummySolver {
         DDSSolver {}
     }
 
-    pub fn play_analyzer() -> impl BridgePlayAnalyzer {
+    pub fn play_analyzer() -> impl PlayAnalyzer {
         DDSPlayAnalyzer {}
     }
 
@@ -80,6 +101,7 @@ impl DoubleDummySolver {
         unsafe { ddsffi::SetResources(max_memory_mb, max_threads) }
     }
 }
+
 #[must_use]
 fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
@@ -103,7 +125,7 @@ pub enum Side {
 }
 
 pub trait AsDDSContract {
-    fn as_dds_contract(&self) -> (u8, u8);
+    fn as_dds_contract(&self) -> (i32, i32);
 }
 
 pub trait ContractScorer {
@@ -221,7 +243,7 @@ mod test {
     }
 
     impl crate::AsDDSContract for ContractMock {
-        fn as_dds_contract(&self) -> (u8, u8) {
+        fn as_dds_contract(&self) -> (i32, i32) {
             (2, 2)
         }
     }
