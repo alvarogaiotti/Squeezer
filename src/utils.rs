@@ -4,15 +4,22 @@ use crate::prelude::*;
 pub fn polish_club(hand: Hand) -> bool {
     let weak1n = HandTypeBuilder::new()
         .add_shape("(4432)")
+        .unwrap()
         .add_shape("(4333)")
+        .unwrap()
         .add_shape("4414")
+        .unwrap()
         .add_shape("(5332)")
+        .unwrap()
         .remove_shape("(5xx)x")
+        .unwrap()
         .add_shape("(5xxx)")
+        .unwrap()
         .with_range(11, 14)
         .build();
     let strong_any = HandTypeBuilder::new()
         .add_shape("xxxx")
+        .unwrap()
         .with_range(18, 37)
         .build();
     let possible_hands = HandDescriptor::new(vec![weak1n, strong_any]);
@@ -97,8 +104,11 @@ pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
     builder.with_function(Box::new(move |hands: &Hands| {
         let hand_type = HandTypeBuilder::new()
             .add_shape("(8x)xx")
+            .unwrap()
             .add_shape("(7x)xx")
+            .unwrap()
             .add_shape("(9x)xx")
+            .unwrap()
             .build();
         if let Some(seat) = seat {
             hand_type.check(hands[seat as usize])
