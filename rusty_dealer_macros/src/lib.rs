@@ -48,7 +48,7 @@ fn field_to_index(field: &syn::Field) -> usize {
     panic!("unknown attr")
 }
 
-#[proc_macro_derive(RawDDS)]
+#[proc_macro_derive(RawDDS, attributes(raw))]
 pub fn rawdds_macro_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
 
@@ -60,7 +60,11 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
         syn::Data::Struct(data) => data,
         _ => unimplemented!(),
     };
-    let field: syn::Field = data.fields.into_iter().next().unwrap();
+    let field = data
+        .fields
+        .into_iter()
+        .find(|f| f.attrs.iter().any(|attr| attr.path().is_ident("raw")))
+        .unwrap();
 
     let ty = field.ty;
     if let Some(field_ident) = field.ident {

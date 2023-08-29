@@ -8,10 +8,10 @@ use std::{ffi::c_int, fmt::Display};
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 
 #[derive(Debug, RawDDS, Default)]
-pub struct DDSCurrTrickSuit([c_int; 3]);
+pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
 
 #[derive(Debug, RawDDS, Default)]
-pub struct DDSCurrTrickRank([c_int; 3]);
+pub struct DDSCurrTrickRank(#[raw] [c_int; 3]);
 
 pub enum DDSSuitEncoding {
     Spades = 0,
@@ -85,7 +85,7 @@ impl_tryfrom_dds_hand!(i32);
 impl_tryfrom_dds_hand!(isize);
 
 #[derive(Debug, RawDDS)]
-pub struct DDSDealRepr([[u32; 4]; 4]);
+pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
 impl DDSDealRepr {
     pub fn new(data: [[u32; 4]; 4]) -> Self {
@@ -98,7 +98,7 @@ impl DDSDealRepr {
 }
 
 #[derive(Debug, RawDDS)]
-pub struct DDSDealPBNRepr([std::ffi::c_char; 80]);
+pub struct DDSDealPBNRepr(#[raw] [std::ffi::c_char; 80]);
 
 pub trait AsDDSDeal {
     fn as_dds_deal(&self) -> DDSDealRepr;
@@ -211,6 +211,7 @@ impl DDSDealBuilder {
 
 #[derive(RawDDS, Debug)]
 pub struct DDSDeal {
+    #[raw]
     raw: deal,
 }
 
@@ -236,6 +237,7 @@ impl DDSDeal {
 
 #[derive(RawDDS, Debug)]
 pub(super) struct DDSDealPBN {
+    #[raw]
     raw: dealPBN,
 }
 
@@ -291,6 +293,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 
 #[derive(RawDDS, Debug)]
 pub struct Boards {
+    #[raw]
     raw: boards,
 }
 

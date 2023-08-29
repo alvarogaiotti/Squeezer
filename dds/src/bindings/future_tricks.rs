@@ -3,7 +3,7 @@ use std::ffi::c_int;
 use super::{ddsffi::futureTricks, RawDDS};
 
 #[derive(Debug, RawDDS)]
-pub struct FutureTricks(futureTricks);
+pub struct FutureTricks(#[raw] futureTricks);
 
 impl FutureTricks {
     pub fn new() -> Self {

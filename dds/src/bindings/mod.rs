@@ -133,7 +133,14 @@ pub trait ContractScorer {
 }
 
 #[derive(RawDDS)]
+pub struct SolvedPlays {
+    #[raw]
+    solved_play: ddsffi::solvedPlays,
+}
+
+#[derive(RawDDS)]
 pub struct SolvedPlay {
+    #[raw]
     solved_play: ddsffi::solvedPlay,
 }
 
@@ -170,6 +177,7 @@ impl Default for SolvedPlay {
 
 #[derive(RawDDS)]
 pub struct PlayTraceBin {
+    #[raw]
     play_trace_bin: playTraceBin,
 }
 

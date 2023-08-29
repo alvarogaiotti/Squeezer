@@ -1,4 +1,4 @@
-use crate::{bindings::ddserror::DDSErrorKind, DDSDealConstructionError, DDSError};
+use crate::{bindings::ddserror::DDSErrorKind, DDSDealConstructionError, DDSError, SolvedPlays};
 
 use super::{
     ddsffi::{deal, playTraceBin, solvedPlay, AnalysePlayBin},
@@ -16,7 +16,7 @@ pub trait PlayAnalyzer {
         deal: Vec<&D>,
         contract: Vec<C>,
         play: &PlayTraceBin,
-    ) -> SolvedPlay;
+    ) -> Result<SolvedPlays, DDSDealConstructionError>;
 }
 struct DDSPlayAnalyzer {}
 impl PlayAnalyzer for DDSPlayAnalyzer {
@@ -24,10 +24,10 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
         deals: Vec<&D>,
         contracts: Vec<C>,
         play: &PlayTraceBin,
-    ) -> Result<SolvedPlay, Box<DDSDealConstructionError>> {
+    ) -> Result<SolvedPlays, DDSDealConstructionError> {
         let no_of_boards = deals.len();
         if no_of_boards != contracts.len() {
-            return Err(Box::new(DDSDealConstructionError::DealNotLoaded));
+            return Err(DDSDealConstructionError::DealNotLoaded);
         }
         todo!()
     }
@@ -47,7 +47,7 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
         let solved_play = SolvedPlay::new();
         {
             let solved: *mut solvedPlay = &mut solved_play.get_raw();
-            let play_trace: *const playTraceBin = &play.get_raw();
+            let play_trace: *const playTraceBin = &(play.get_raw());
             unsafe { AnalysePlayBin(c_deal, *play_trace, solved, 0) };
         }
         solved_play
