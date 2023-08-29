@@ -1,5 +1,9 @@
 use rusty_dealer_macros::*;
-use std::{error::Error, ffi::c_int, num::{NonZeroU8, NonZeroI32}};
+use std::{
+    error::Error,
+    ffi::c_int,
+    num::{NonZeroI32, NonZeroU8},
+};
 mod analyseplay;
 mod ddserror;
 mod ddsffi;
