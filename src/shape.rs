@@ -1,4 +1,4 @@
-use crate::parser::ShapeParsingError;
+//use crate::parser::ShapeParsingError;
 use crate::prelude::*;
 type TablesOrError<'a> = Result<(&'a [bool; SHAPE_COMBINATIONS], [u8; 4], [u8; 4]), DealerError>;
 
@@ -17,13 +17,13 @@ impl DealerError {
     }
 }
 
-impl From<ShapeParsingError> for DealerError {
-    fn from(value: ShapeParsingError) -> Self {
-        DealerError {
-            details: value.to_string()
-        }
-    }
-}
+//impl From<ShapeParsingError> for DealerError {
+//    fn from(value: ShapeParsingError) -> Self {
+//        DealerError {
+//            details: value.to_string()
+//        }
+//    }
+//}
 impl fmt::Display for DealerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.details)

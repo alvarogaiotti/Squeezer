@@ -10,6 +10,7 @@ mod evaluator;
 mod hand;
 #[cfg(feature = "lin")]
 mod linparser;
+//mod parser;
 mod payoff;
 mod shape;
 mod simulation;

@@ -124,15 +124,15 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Contract {
     vuln: bool,
-    level: NonZeroU8,
+    level: u8,
     doubled: Doubled,
     strain: Strain,
     declarer: Seat,
 }
 
 impl dds::AsDDSContract for Contract {
-    fn as_dds_contract(&self) -> (NonZeroU8, u8) {
-        (self.level, self.strain as u8)
+    fn as_dds_contract(&self) -> (i32, i32) {
+        (self.level as i32, self.strain as i32)
     }
 }
 

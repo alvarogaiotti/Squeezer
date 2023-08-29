@@ -1,5 +1,5 @@
 use rusty_dealer_macros::*;
-use std::{error::Error, ffi::c_int};
+use std::{error::Error, ffi::c_int, num::{NonZeroU8, NonZeroI32}};
 mod analyseplay;
 mod ddserror;
 mod ddsffi;
@@ -12,7 +12,7 @@ pub use ddsffi::*;
 pub use deal::*;
 pub use solver::*;
 
-enum ThreadIndex {
+pub enum ThreadIndex {
     Auto,
     NumThreads(NonZeroI32),
 }
@@ -26,7 +26,7 @@ impl From<ThreadIndex> for std::ffi::c_int {
     }
 }
 
-enum Target {
+pub enum Target {
     MaxTricks,
     LegalNoScore,
     Goal(NonZeroI32),
@@ -42,7 +42,7 @@ impl From<Target> for std::ffi::c_int {
     }
 }
 
-enum Solutions {
+pub enum Solutions {
     Best,
     AllOptimal,
     AllLegal,
@@ -58,7 +58,7 @@ impl From<Solutions> for std::ffi::c_int {
     }
 }
 
-enum Mode {
+pub enum Mode {
     Auto,
     AutoSearchAlways,
     Always,

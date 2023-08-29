@@ -18,7 +18,7 @@ pub trait PlayAnalyzer {
         play: &PlayTraceBin,
     ) -> Result<SolvedPlays, DDSDealConstructionError>;
 }
-struct DDSPlayAnalyzer {}
+pub struct DDSPlayAnalyzer {}
 impl PlayAnalyzer for DDSPlayAnalyzer {
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
         deals: Vec<&D>,
