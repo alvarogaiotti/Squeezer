@@ -1,88 +1,25 @@
 use rusty_dealer_macros::*;
-use std::{
-    error::Error,
-    ffi::c_int,
-    num::{NonZeroI32, NonZeroU8},
-};
+use std::ffi::c_int;
+
 mod analyseplay;
 mod ddserror;
 mod ddsffi;
 mod deal;
 mod future_tricks;
 mod solver;
+mod traits;
+mod utils;
 pub use analyseplay::*;
 pub use ddserror::DDSError;
 pub use ddsffi::*;
 pub use deal::*;
 pub use solver::*;
-
-pub enum ThreadIndex {
-    Auto,
-    NumThreads(NonZeroI32),
-}
-
-impl From<ThreadIndex> for std::ffi::c_int {
-    fn from(value: ThreadIndex) -> Self {
-        match value {
-            ThreadIndex::Auto => 0,
-            ThreadIndex::NumThreads(value) => value.into(),
-        }
-    }
-}
-
-pub enum Target {
-    MaxTricks,
-    LegalNoScore,
-    Goal(NonZeroI32),
-}
-
-impl From<Target> for std::ffi::c_int {
-    fn from(value: Target) -> Self {
-        match value {
-            Target::MaxTricks => -1,
-            Target::LegalNoScore => 0,
-            Target::Goal(goal) => std::ffi::c_int::max(13, goal.into()),
-        }
-    }
-}
-
-pub enum Solutions {
-    Best,
-    AllOptimal,
-    AllLegal,
-}
-
-impl From<Solutions> for std::ffi::c_int {
-    fn from(value: Solutions) -> Self {
-        match value {
-            Solutions::Best => 1,
-            Solutions::AllOptimal => 2,
-            Solutions::AllLegal => 3,
-        }
-    }
-}
-
-pub enum Mode {
-    Auto,
-    AutoSearchAlways,
-    Always,
-}
-
-impl From<Mode> for std::ffi::c_int {
-    fn from(value: Mode) -> Self {
-        match value {
-            Mode::Auto => 0,
-            Mode::AutoSearchAlways => 1,
-            Mode::Always => 2,
-        }
-    }
-}
+pub use traits::*;
+pub use utils::*;
 
 pub struct DoubleDummySolver {}
 
-pub trait BridgeTableCalculator {}
-struct DDSCalc {}
-impl BridgeTableCalculator for DDSCalc {}
+pub struct DDSCalc {}
 
 impl DoubleDummySolver {
     pub fn solver() -> DDSSolver {
@@ -93,20 +30,19 @@ impl DoubleDummySolver {
         DDSPlayAnalyzer {}
     }
 
-    pub fn calculator() -> impl BridgeTableCalculator {
+    pub fn calculator() -> DDSCalc {
         DDSCalc {}
     }
 
-    fn set_max_threads(user_threads: i32) {
-        unsafe { ddsffi::SetMaxThreads(user_threads) }
+    fn set_max_threads(user_threads: ThreadIndex) {
+        unsafe { ddsffi::SetMaxThreads(user_threads.into()) }
     }
 
-    fn set_resources(max_memory_mb: i32, max_threads: i32) {
-        unsafe { ddsffi::SetResources(max_memory_mb, max_threads) }
+    fn set_resources(max_memory_mb: i32, max_threads: ThreadIndex) {
+        unsafe { ddsffi::SetResources(max_memory_mb, max_threads.into()) }
     }
 }
 
-#[must_use]
 fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
     contract: &C,
@@ -114,104 +50,6 @@ fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     let solver = DoubleDummySolver::solver();
     let tricks = solver.dd_tricks(deal, contract)?;
     Ok(contract.score(tricks))
-}
-
-pub trait RawDDS {
-    type Raw;
-
-    fn get_raw(&self) -> Self::Raw;
-}
-
-/// Models a side: either North-South or East-West
-pub enum Side {
-    NS = 0,
-    EW = 1,
-}
-
-pub trait AsDDSContract {
-    fn as_dds_contract(&self) -> (i32, i32);
-}
-
-pub trait ContractScorer {
-    fn score(&self, tricks: u8) -> i32;
-}
-
-#[derive(RawDDS)]
-pub struct SolvedPlays {
-    #[raw]
-    solved_play: ddsffi::solvedPlays,
-}
-
-#[derive(RawDDS)]
-pub struct SolvedPlay {
-    #[raw]
-    solved_play: ddsffi::solvedPlay,
-}
-
-impl SolvedPlay {
-    pub fn new() -> Self {
-        Self {
-            solved_play: ddsffi::solvedPlay {
-                number: 0,
-                tricks: [0; 53],
-            },
-        }
-    }
-    pub fn tricks(&self) -> &[i32; 53usize] {
-        self.get_tricks()
-    }
-
-    fn get_tricks(&self) -> &[i32; 53usize] {
-        &self.solved_play.tricks
-    }
-
-    pub fn number(&self) -> i32 {
-        self.get_number()
-    }
-    fn get_number(&self) -> i32 {
-        self.get_raw().number
-    }
-}
-
-impl Default for SolvedPlay {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(RawDDS)]
-pub struct PlayTraceBin {
-    #[raw]
-    play_trace_bin: playTraceBin,
-}
-
-impl PlayTraceBin {
-    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
-        Self {
-            play_trace_bin: playTraceBin::new(number, suit, rank),
-        }
-    }
-}
-
-pub trait AsDDSCard {
-    fn as_card(&self) -> (i32, i32);
-}
-
-pub trait AsDDSPlayTrace<I, C>
-where
-    I: IntoIterator,
-    I::Item: std::borrow::Borrow<C>,
-    C: AsDDSCard,
-{
-    fn as_play_trace(&self) -> I;
-}
-
-impl ddsffi::playTraceBin {
-    /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
-    /// cards played and their's rank.
-    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
-        Self { number, suit, rank }
-    }
 }
 
 #[cfg(test)]

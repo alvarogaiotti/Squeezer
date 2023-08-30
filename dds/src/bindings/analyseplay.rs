@@ -1,10 +1,31 @@
-use crate::{bindings::ddserror::DDSErrorKind, DDSDealConstructionError, DDSError, SolvedPlays};
-
 use super::{
     ddsffi::{deal, playTraceBin, solvedPlay, AnalysePlayBin},
-    AsDDSContract, AsDDSDeal, PlayTraceBin, RawDDS, SolvedPlay,
+    AsDDSContract, AsDDSDeal, RawDDS, SolvedPlay,
 };
+use crate::{bindings::ddserror::DDSErrorKind, DDSDealConstructionError, DDSError, SolvedPlays};
 use std::ffi::c_int;
+
+#[derive(RawDDS)]
+pub struct PlayTraceBin {
+    #[raw]
+    play_trace_bin: playTraceBin,
+}
+
+impl PlayTraceBin {
+    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
+        Self {
+            play_trace_bin: playTraceBin::new(number, suit, rank),
+        }
+    }
+}
+
+impl playTraceBin {
+    /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
+    /// cards played and their's rank.
+    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
+        Self { number, suit, rank }
+    }
+}
 
 pub trait PlayAnalyzer {
     fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
