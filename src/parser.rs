@@ -3,8 +3,8 @@ use std::{future, iter::Peekable};
 use crate::prelude::*;
 
 /// Rough grammar rules:
-/// shape       -> suit* group* suit* {4};
-/// pattern     -> suit | group[n];
+/// shape       -> ..group {4};
+/// group       -> suit+ 
 /// suit        -> length modifier?;
 /// length      -> "0".."C";
 /// modifier    -> "+" | "-";
