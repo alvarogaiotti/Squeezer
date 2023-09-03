@@ -1,55 +1,13 @@
-use rusty_dealer_macros::RawDDS;
+use squeezer_macros::RawDDS;
+use std::ffi::c_int;
 
 use super::{
-    ddsffi::{solvedPlay, solvedPlays, SolveBoard},
+    ddsffi::{deal, futureTricks, solvedPlay, solvedPlays, SolveBoard},
     deal::{AsDDSDeal, DDSDealBuilder},
     future_tricks::FutureTricks,
-    AsDDSContract, DDSError, Mode, Solutions, Target, ThreadIndex,
+    AsDDSContract, DDSDeal, DDSError, Mode, Solutions, Target, ThreadIndex, MAXNOOFBOARDSEXPORT,
 };
-use crate::RawDDS;
-
-#[derive(RawDDS)]
-pub struct SolvedPlays {
-    #[raw]
-    solved_play: solvedPlays,
-}
-
-#[derive(RawDDS)]
-pub struct SolvedPlay {
-    #[raw]
-    solved_play: solvedPlay,
-}
-
-impl SolvedPlay {
-    pub fn new() -> Self {
-        Self {
-            solved_play: solvedPlay {
-                number: 0,
-                tricks: [0; 53],
-            },
-        }
-    }
-    pub fn tricks(&self) -> &[i32; 53usize] {
-        self.get_tricks()
-    }
-
-    fn get_tricks(&self) -> &[i32; 53usize] {
-        &self.solved_play.tricks
-    }
-
-    pub fn number(&self) -> i32 {
-        self.get_number()
-    }
-    fn get_number(&self) -> i32 {
-        self.get_raw().number
-    }
-}
-
-impl Default for SolvedPlay {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+use crate::{RawDDS, MAXNOOFBOARDS};
 
 pub trait BridgeSolver {
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
@@ -66,14 +24,9 @@ impl BridgeSolver for DDSSolver {
         deal: &D,
         contract: &C,
     ) -> Result<u8, Box<dyn std::error::Error>> {
-        let (trump, first) = contract.as_dds_contract();
-        let c_deal = DDSDealBuilder::new()
-            .trump(trump.try_into()?)
-            .first(first.try_into()?)
-            .remain_cards(deal.as_dds_deal())
-            .build()?;
+        let c_deal = build_c_deal(contract, deal)?;
         let future_tricks = FutureTricks::new();
-        let futp = &mut future_tricks.get_raw();
+        let futp: *mut futureTricks = &mut future_tricks.get_raw();
         let result;
         unsafe {
             result = SolveBoard(
@@ -89,5 +42,41 @@ impl BridgeSolver for DDSSolver {
             return Err(Box::new(DDSError::new(result)));
         }
         Ok(13 - future_tricks.score()[0] as u8)
+    }
+}
+
+impl DDSSolver {
+    fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deals: Vec<&D>,
+        contract: Vec<&C>,
+    ) -> Result<u8, Box<dyn std::error::Error>> {
+        todo!()
+    }
+}
+
+fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
+    contract: &C,
+    deal: &D,
+) -> Result<DDSDeal, Box<dyn std::error::Error>> {
+    let (trump, first) = contract.as_dds_contract();
+    Ok(DDSDealBuilder::new()
+        .trump(trump.try_into()?)
+        .first(first.try_into()?)
+        .remain_cards(deal.as_dds_deal())
+        .build()?)
+}
+
+pub struct SolvedBoards {
+    no_of_boards: c_int,
+    solved_boards: [futureTricks; MAXNOOFBOARDSEXPORT],
+}
+
+impl SolvedBoards {
+    pub fn new(no_of_boards: c_int) -> Self {
+        Self {
+            no_of_boards,
+            solved_boards: [futureTricks::default(); MAXNOOFBOARDSEXPORT],
+        }
     }
 }

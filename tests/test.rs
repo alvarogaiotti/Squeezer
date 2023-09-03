@@ -1,4 +1,4 @@
-use rusty_dealer::*;
+use squeezer::*;
 
 #[test]
 fn main_to_be() {

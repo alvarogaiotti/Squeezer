@@ -7,5 +7,5 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rusty_dealer_macros = {path="../rusty_dealer_macros"}
+squeezer_macros = {path="../squeezer_macros"}
 itertools = "0.10.3"

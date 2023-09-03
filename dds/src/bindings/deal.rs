@@ -1,8 +1,8 @@
 use super::{
+    ddserror::{DDSError, DDSErrorKind},
     ddsffi::{boards, boardsPBN, deal, dealPBN},
-    AsDDSContract, Mode, RawDDS, Solutions, Target,
+    AsDDSContract, Mode, RawDDS, Solutions, Target, MAXNOOFBOARDSEXPORT,
 };
-use itertools::izip;
 use std::{ffi::c_int, fmt::Display};
 
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
@@ -299,48 +299,50 @@ pub struct Boards {
 
 impl boards {
     pub fn new<D: AsDDSDeal, C: AsDDSContract, const N: usize>(
-        no_of_boards: c_int,
         deals: &[&D; N],
         contracts: &[C; N],
         target: [Target; N],
-        solutions: [Solutions; N],
+        solution: [Solutions; N],
         mode: [Mode; N],
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let length_check = i32::try_from(N)?;
-        let complete_deals = deals.iter().zip(contracts.iter());
-        let boards: Vec<deal> = complete_deals
-            .map(|(d, c)| {
-                let (trump, first) = c.as_dds_contract();
-                deal {
-                    trump,
-                    first,
-                    currentTrickSuit: [0; 3],
-                    currentTrickRank: [0; 3],
-                    remainCards: d.as_dds_deal().as_slice(),
-                }
-            })
-            .collect();
+    ) -> Result<Self, DDSError> {
+        if N > 200 {
+            return Err(DDSError::from(DDSErrorKind::ChunkSize));
+        }
+        let length_check = N as i32;
         Ok(boards {
             noOfBoards: length_check,
-            deals: boards.try_into().unwrap(),
-            target: target
-                .into_iter()
-                .map(|t| i32::from(t))
-                .collect::<Vec<i32>>()
-                .try_into()
-                .unwrap(),
-            solutions: solutions
-                .into_iter()
-                .map(|s| i32::from(s))
-                .collect::<Vec<i32>>()
-                .try_into()
-                .unwrap(),
-            mode: mode
-                .into_iter()
-                .map(|m| i32::from(m))
-                .collect::<Vec<i32>>()
-                .try_into()
-                .unwrap(),
+            // SAFETY: Length if 200
+            deals: boards::setup_deals(deals, contracts).try_into().unwrap(),
+            target: boards::convert_sequence(target).try_into().unwrap(),
+            solutions: boards::convert_sequence(solution).try_into().unwrap(),
+            mode: boards::convert_sequence(mode).try_into().unwrap(),
         })
+    }
+
+    fn setup_deals<D: AsDDSDeal, C: AsDDSContract, const N: usize>(
+        deals: &[&D; N],
+        contracts: &[C; N],
+    ) -> Vec<deal> {
+        let complete_deals = deals.iter().zip(contracts.iter());
+        let mut deals: Vec<deal> = Vec::with_capacity(MAXNOOFBOARDSEXPORT);
+        deals.extend(complete_deals.map(|(d, c)| {
+            let (trump, first) = c.as_dds_contract();
+            deal {
+                trump,
+                first,
+                currentTrickSuit: [0; 3],
+                currentTrickRank: [0; 3],
+                remainCards: d.as_dds_deal().as_slice(),
+            }
+        }));
+        deals.resize_with(MAXNOOFBOARDSEXPORT, deal::default);
+        deals
+    }
+
+    fn convert_sequence<T: Into<i32>, const N: usize>(sequence: [T; N]) -> Vec<i32> {
+        let mut targets: Vec<i32> = Vec::with_capacity(MAXNOOFBOARDSEXPORT);
+        targets.extend(sequence.map(|t| t.into()));
+        targets.resize_with(MAXNOOFBOARDSEXPORT, Default::default);
+        targets
     }
 }

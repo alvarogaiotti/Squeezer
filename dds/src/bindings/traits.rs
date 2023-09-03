@@ -1,3 +1,5 @@
+use crate::{DDSHandEncoding, DDSSuitEncoding};
+
 pub trait RawDDS {
     type Raw;
 

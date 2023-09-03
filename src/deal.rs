@@ -206,7 +206,7 @@ impl<'a> Constraints<'a> {
 ///
 /// # Usage
 /// ```
-/// # use rusty_dealer::*;
+/// # use squeezer::*;
 /// let mut builder = DealerBuilder::new();
 /// builder.predeal(Seat::North, Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap());
 /// let dealer = builder.build().unwrap();
@@ -262,7 +262,7 @@ impl DealerBuilder {
     ///
     /// # Example
     /// ```
-    /// # use rusty_dealer::*;
+    /// # use squeezer::*;
     /// let mut builder = DealerBuilder::new();
     /// builder.with_function(Box::new(|hands: &Hands| {
     ///          (hands.north().hearts() + hands.south().hearts()).len() >= 8

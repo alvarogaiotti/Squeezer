@@ -171,7 +171,7 @@ fn bindgen_test_layout_futureTricks() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct deal {
     pub trump: ::std::os::raw::c_int,
     pub first: ::std::os::raw::c_int,

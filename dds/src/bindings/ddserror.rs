@@ -12,6 +12,12 @@ impl DDSError {
     }
 }
 
+impl From<DDSErrorKind> for DDSError {
+    fn from(value: DDSErrorKind) -> Self {
+        Self { kind: value }
+    }
+}
+
 impl std::fmt::Display for DDSError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
