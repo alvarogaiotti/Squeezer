@@ -4,6 +4,40 @@ const R: u64 = 61;
 const M: u64 = 2039;
 const SHAPE_TABLE_BUCKETS: usize = 2048;
 
+///Error for wrong Shape pattern passed to `ShapeFactory`.
+#[derive(Debug)]
+pub struct DealerError {
+    details: String,
+}
+
+impl DealerError {
+    #[must_use]
+    pub fn new(msg: &str) -> Self {
+        Self {
+            details: msg.to_string(),
+        }
+    }
+}
+
+//impl From<ShapeParsingError> for DealerError {
+//    fn from(value: ShapeParsingError) -> Self {
+//        DealerError {
+//            details: value.to_string()
+//        }
+//    }
+//}
+impl fmt::Display for DealerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for DealerError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
 #[derive(Default)]
 struct ShapeHasher {
     state: u64,
