@@ -1,13 +1,18 @@
 use squeezer_macros::RawDDS;
 use std::ffi::c_int;
 
-use super::{
-    ddsffi::{deal, futureTricks, solvedPlay, solvedPlays, SolveBoard},
+use crate::bindings::{
+    ddserror::DDSErrorKind,
+    ddsffi::{
+        boards, deal, futureTricks, solvedBoards, solvedPlay, solvedPlays, SolveAllBoards,
+        SolveAllChunksBin, SolveBoard,
+    },
     deal::{AsDDSDeal, DDSDealBuilder},
     future_tricks::FutureTricks,
-    AsDDSContract, DDSDeal, DDSError, Mode, Solutions, Target, ThreadIndex, MAXNOOFBOARDSEXPORT,
+    traits::RawDDS,
+    AsDDSContract, Boards, DDSDeal, DDSError, Mode, Solutions, Target, ThreadIndex,
+    MAXNOOFBOARDSEXPORT,
 };
-use crate::{RawDDS, MAXNOOFBOARDS};
 
 pub trait BridgeSolver {
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
@@ -48,10 +53,37 @@ impl BridgeSolver for DDSSolver {
 impl DDSSolver {
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
-        deals: Vec<&D>,
-        contract: Vec<&C>,
-    ) -> Result<u8, Box<dyn std::error::Error>> {
-        todo!()
+        number_of_deals: i32,
+        deals: &[D; MAXNOOFBOARDSEXPORT],
+        contract: &[C; MAXNOOFBOARDSEXPORT],
+    ) -> Result<Vec<u8>, DDSError> {
+        let boards = Boards::new(
+            number_of_deals,
+            deals,
+            contract,
+            [Target::MaxTricks; MAXNOOFBOARDSEXPORT],
+            [Solutions::Best; MAXNOOFBOARDSEXPORT],
+            [Mode::Auto; MAXNOOFBOARDSEXPORT],
+        )?;
+        let bop: *mut boards = &mut boards.get_raw();
+        let solved_boards = SolvedBoards::new(number_of_deals);
+        let result;
+        {
+            let solved_boards_ptr: *mut solvedBoards = &mut solved_boards.get_raw();
+            unsafe {
+                result = SolveAllChunksBin(bop, solved_boards_ptr, 1);
+            }
+        };
+        if result != 1 {
+            return Err(DDSError::new(result));
+        }
+        Ok(solved_boards
+            .get_raw()
+            .solvedBoard
+            .into_iter()
+            .map(|ft| ft.score[0] as u8)
+            .take(number_of_deals as usize)
+            .collect())
     }
 }
 
@@ -67,16 +99,25 @@ fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
         .build()?)
 }
 
+#[derive(Debug, RawDDS)]
 pub struct SolvedBoards {
-    no_of_boards: c_int,
-    solved_boards: [futureTricks; MAXNOOFBOARDSEXPORT],
+    #[raw]
+    solved_boards: solvedBoards,
+}
+
+impl solvedBoards {
+    fn new(no_of_boards: c_int) -> Self {
+        Self {
+            noOfBoards: no_of_boards,
+            solvedBoard: [futureTricks::default(); MAXNOOFBOARDSEXPORT],
+        }
+    }
 }
 
 impl SolvedBoards {
     pub fn new(no_of_boards: c_int) -> Self {
         Self {
-            no_of_boards,
-            solved_boards: [futureTricks::default(); MAXNOOFBOARDSEXPORT],
+            solved_boards: solvedBoards::new(no_of_boards),
         }
     }
 }
