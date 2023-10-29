@@ -184,39 +184,6 @@ pub enum Vulnerability {
     All = 3,
 }
 
-///Enum which passes constraint to the Deal struct for dealing specific types of hands. Right
-///now is dismissed and will be dropped in a while.
-pub enum Constraints<'a> {
-    None,
-    Bounds(&'a dyn Fn(&[Hand; NUMBER_OF_HANDS], &mut ShapeFactory) -> bool), // Pointer to type implementing Fn trait
-    Predeal([(Seat, Option<Hand>); NUMBER_OF_HANDS]),
-    BoundsAndPredeal(
-        &'a dyn Fn(&[Hand; NUMBER_OF_HANDS], &mut ShapeFactory) -> bool,
-        [(Seat, Option<Hand>); NUMBER_OF_HANDS],
-    ),
-}
-impl<'a> Constraints<'a> {
-    #[must_use]
-    pub fn predeal(hands: Vec<(char, &str)>) -> Self {
-        let mut predealt_hands: [(Seat, Option<Hand>); NUMBER_OF_HANDS] = [
-            (Seat::North, Some(Hand::new())),
-            (Seat::East, Some(Hand::new())),
-            (Seat::South, Some(Hand::new())),
-            (Seat::West, Some(Hand::new())),
-        ];
-        for (seat, hand) in hands {
-            match seat {
-                'N' => predealt_hands[0] = (Seat::North, Some(Hand::from_str(hand).unwrap())),
-                'E' => predealt_hands[1] = (Seat::East, Some(Hand::from_str(hand).unwrap())),
-                'S' => predealt_hands[2] = (Seat::South, Some(Hand::from_str(hand).unwrap())),
-                'W' => predealt_hands[3] = (Seat::West, Some(Hand::from_str(hand).unwrap())),
-                _ => (),
-            }
-        }
-        Self::Predeal(predealt_hands)
-    }
-}
-
 /// A builder for a dealer object. It's the standard way to create
 /// a [`Dealer`] that deals a specific type of deal.
 ///
@@ -484,53 +451,6 @@ impl Deal {
     }
 
     /// Creates a new deal with conditions
-    pub fn new_with_conditions(constraints: &Constraints, factory: &mut ShapeFactory) -> Self {
-        let mut hands = [Hand::new(); NUMBER_OF_HANDS];
-        match constraints {
-            Constraints::Bounds(f) => {
-                while {
-                    hands = Deal::deal();
-                    !f(&hands, factory)
-                } {}
-            }
-            Constraints::Predeal(predeal) => {
-                Deal::predeal(*predeal, &mut hands);
-            }
-            Constraints::BoundsAndPredeal(f, predeal) => {
-                while {
-                    Deal::predeal(*predeal, &mut hands);
-                    !f(&hands, factory)
-                } {}
-            }
-            Constraints::None => hands = Deal::deal(),
-        };
-        Self {
-            vulnerability: Vulnerability::None,
-            hands,
-            printer: Printer::Short,
-            number: 1,
-        }
-    }
-    fn predeal(
-        predealt: [(Seat, Option<Hand>); NUMBER_OF_HANDS],
-        hands: &mut [Hand; NUMBER_OF_HANDS],
-    ) {
-        let mut deck = Cards::ALL;
-        for (_, hand_opt) in &predealt {
-            if let Some(hand) = hand_opt {
-                deck = deck.difference(hand.as_cards());
-            }
-        }
-        for (seat, hand_opt) in predealt {
-            if let Some(hand) = hand_opt {
-                hands[seat as usize] = hand;
-            } else {
-                hands[seat as usize] = Hand {
-                    cards: deck.pick(13).unwrap(),
-                };
-            }
-        }
-    }
 
     #[must_use]
     pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
@@ -783,33 +703,6 @@ impl IntoIterator for Deal {
 #[test]
 fn can_deal_test() {
     _ = Deal::new();
-}
-
-#[test]
-fn deal_with_constraints_test() {
-    for _ in 0..10 {
-        let deal = Deal::new_with_conditions(
-            &Constraints::Bounds(&|x: &[Hand; NUMBER_OF_HANDS], _y: &mut ShapeFactory| {
-                x[1].diamonds().high_card_points() > 5
-            }),
-            &mut ShapeFactory::new(),
-        );
-        assert!(deal[1].diamonds().high_card_points() > 5);
-    }
-}
-
-#[test]
-fn deal_with_predeal_test() {
-    let mut factory = ShapeFactory::new();
-    let predeal = Constraints::predeal(vec![('N', "SKQT9HAQJD9873CA2"), ('S', "CKQJT9876S342D25")]);
-    let deal = Deal::new_with_conditions(&predeal, &mut factory);
-    assert_eq!(
-        (
-            Cards::from_str("SKSQSTS9HAHJHQD9D8D7D3CAC2").unwrap(),
-            Cards::from_str("CKCQCJCTC9C8C7C6S3S4S2D2D5").unwrap()
-        ),
-        (deal.north().as_cards(), deal.south().as_cards())
-    );
 }
 
 #[test]

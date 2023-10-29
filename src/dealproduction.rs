@@ -1,8 +1,11 @@
 use crate::prelude::*;
+use bitvec::{array::BitArray, BitArr};
 
 const R: u64 = 61;
 const M: u64 = 2039;
 const SHAPE_TABLE_BUCKETS: usize = 2048;
+
+type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 
 ///Error for wrong Shape pattern passed to `ShapeFactory`.
 #[derive(Debug)]
@@ -105,15 +108,11 @@ impl<'a> Shapes {
             max_ls: [MAX_LENGTH; SUITS],
         }
     }
-    pub fn remove_shape(&mut self, shape: ShapeDescriptor) -> Result<(), DealerError> {
+    pub fn remove_shape(&mut self, shape: String) -> Result<(), DealerError> {
         // Take shape pattern. Right now we match on equal enums, but I'll probably change
         // implementation in the future so I'll keep it here for future use.
-        let shape_pattern = match shape {
-            ShapeDescriptor::SingleShape { shape_pattern } => shape_pattern,
-            ShapeDescriptor::ClassOfShapes { shape_pattern } => shape_pattern,
-        };
 
-        let mut shape_string: Vec<char> = shape_pattern.pattern.chars().collect();
+        let mut shape_string: Vec<char> = shape.chars().collect();
         // Pattern parsed
         let mut parsed: Vec<u8> = Vec::new();
 
@@ -126,15 +125,10 @@ impl<'a> Shapes {
         Ok(())
     }
 
-    pub fn add_shape(&mut self, shape: ShapeDescriptor) -> Result<(), DealerError> {
+    pub fn add_shape(&mut self, shape: String) -> Result<(), DealerError> {
         // Take shape pattern. Right now we match on equal enums, but I'll probably change
         // implementation in the future so I'll keep it here for future use.
-        let shape_pattern = match shape {
-            ShapeDescriptor::SingleShape { shape_pattern } => shape_pattern,
-            ShapeDescriptor::ClassOfShapes { shape_pattern } => shape_pattern,
-        };
-
-        let mut shape_string: Vec<char> = shape_pattern.pattern.chars().collect();
+        let mut shape_string: Vec<char> = shape.chars().collect();
         // Pattern parsed
         let mut parsed: Vec<u8> = Vec::new();
 
@@ -163,10 +157,9 @@ impl<'a> Shapes {
         // E.g. (43)42 will output 4342 and 3442.
         if let Some('(') = shape_pattern.first() {
             shape_pattern.remove(0);
-            let Some(closing_bracket_index) = shape_pattern.iter().position(|&x| x == ')')
-                else {
-                    return Err(DealerError::new("Unbalanced parentheses."));
-                };
+            let Some(closing_bracket_index) = shape_pattern.iter().position(|&x| x == ')') else {
+                return Err(DealerError::new("Unbalanced parentheses."));
+            };
             // Parse until the closing bracket.
             head = Shapes::parse_chars_to_nums(shape_pattern, closing_bracket_index)?;
             _ = shape_pattern.drain(..=closing_bracket_index);
@@ -302,28 +295,13 @@ impl<'a> Shapes {
         table[Shapes::hash_flatten(shape)] = true;
         Ok(())
     }
-    /* Old function used to parse bracket patterns.
-     * fn parse_with_bracket(shape_pattern: &mut Vec<char>) -> Result<Vec<u8>, Box<dyn Error>> {
-        let closing_bracket_index =
-            if let Some(index) = shape_pattern.iter().position(|&x| x == ')') {
-                index
-            } else {
-                return Err(Box::new(DealerError::new("Unbalanced parentheses.")));
-            };
-        let head = match Shapes::parse_chars_to_nums(shape_pattern, closing_bracket_index) {
-            Ok(value) => value,
-            Err(value) => return Err(value),
-        };
-        *shape_pattern = (shape_pattern[closing_bracket_index + 1..]).to_vec();
-        Ok(head)
-    }*/
 
     fn parse_chars_to_nums(shape_pattern: &mut [char], end: usize) -> Result<Vec<u8>, DealerError> {
         let mut errors = vec![];
         let head: Vec<u8> = (shape_pattern[0..end])
             .iter()
             .map(|&x| {
-                if x == ShapeFactory::JOKER {
+                if x == 'x' {
                     Ok(RANKS + 1)
                 } else {
                     match x.to_digit(10) {
@@ -571,40 +549,21 @@ fn factory_get_pattern_test() {
 #[test]
 fn shape_creation_test() {
     let mut shapes = Shapes::new();
-    shapes
-        .add_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("4333"),
-            },
-        })
-        .unwrap();
+    shapes.add_shape(String::from("4333")).unwrap();
     assert!(shapes.shape_table[Shapes::hash_flatten(&[4, 3, 3, 3])]);
 }
 #[test]
 #[should_panic]
 fn shape_error_unbal_parentheses_test() {
-    let mut factory = ShapeFactory::new();
-    let pattern: Vec<char> = "4(333".chars().collect();
-    factory.insert(pattern).unwrap();
+    let pattern = String::from("4(333");
+    Shapes::new().add_shape(pattern).unwrap();
 }
 
 #[test]
 fn shape_parens_interpretation_working_test() {
     let mut factory = Shapes::new();
-    factory
-        .add_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("4(34)2"),
-            },
-        })
-        .unwrap();
-    factory
-        .add_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("(6331)"),
-            },
-        })
-        .unwrap();
+    factory.add_shape(String::from("4(34)2")).unwrap();
+    factory.add_shape(String::from("(6331)")).unwrap();
 
     let mut true_arr = Vec::<usize>::new();
     for (i, data) in factory.shape_table.iter().enumerate() {
@@ -635,13 +594,7 @@ fn shape_parens_interpretation_working_test() {
 #[test]
 fn membership_shape_hand_test() {
     let mut factory = Shapes::new();
-    factory
-        .add_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("4(34)2"),
-            },
-        })
-        .unwrap();
+    factory.add_shape(String::from("4(34)2")).unwrap();
     let deck = Cards::ALL;
     let clubs = deck.clubs().pick(2).unwrap();
     let diamonds = deck.diamonds().pick(4).unwrap();
@@ -683,13 +636,7 @@ fn shapes_from_len_range_test() {
 #[test]
 fn jokers_correct_behaviour_test() {
     let mut factory = Shapes::new();
-    factory
-        .add_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("3xx2"),
-            },
-        })
-        .unwrap();
+    factory.add_shape(String::from("3xx2")).unwrap();
     let deck = Cards::ALL;
     let clubs = deck.clubs().pick(2).unwrap();
     let diamonds = deck.diamonds().pick(4).unwrap();
@@ -720,21 +667,9 @@ fn can_remove_correct_shapes() {
 
     let hand = Hand { cards };
     let mut factory = Shapes::new();
-    factory
-        .add_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("3xx2"),
-            },
-        })
-        .unwrap();
+    factory.add_shape(String::from("3xx2")).unwrap();
     assert!(factory.is_member(hand));
-    factory
-        .remove_shape(ShapeDescriptor::SingleShape {
-            shape_pattern: StringShapePattern {
-                pattern: String::from("3352"),
-            },
-        })
-        .unwrap();
+    factory.remove_shape(String::from("3352")).unwrap();
     //println!("{}", ShapeFactory::flatten(hand.shape()));
     assert!(!factory.is_member(hand));
 }
