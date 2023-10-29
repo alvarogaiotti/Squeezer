@@ -297,52 +297,67 @@ pub struct Boards {
     raw: boards,
 }
 
-impl boards {
-    pub fn new<D: AsDDSDeal, C: AsDDSContract, const N: usize>(
-        deals: &[&D; N],
-        contracts: &[C; N],
-        target: [Target; N],
-        solution: [Solutions; N],
-        mode: [Mode; N],
+impl Boards {
+    pub fn new<D: AsDDSDeal, C: AsDDSContract>(
+        no_of_boards: i32,
+        deals: &[D; MAXNOOFBOARDSEXPORT],
+        contracts: &[C; MAXNOOFBOARDSEXPORT],
+        target: [Target; MAXNOOFBOARDSEXPORT],
+        solution: [Solutions; MAXNOOFBOARDSEXPORT],
+        mode: [Mode; MAXNOOFBOARDSEXPORT],
     ) -> Result<Self, DDSError> {
-        if N > 200 {
-            return Err(DDSError::from(DDSErrorKind::ChunkSize));
-        }
-        let length_check = N as i32;
+        Ok(Self {
+            raw: boards::new(no_of_boards, deals, contracts, target, solution, mode)?,
+        })
+    }
+}
+
+impl boards {
+    fn new<D: AsDDSDeal, C: AsDDSContract>(
+        no_of_boards: i32,
+        deals: &[D; MAXNOOFBOARDSEXPORT],
+        contracts: &[C; MAXNOOFBOARDSEXPORT],
+        target: [Target; MAXNOOFBOARDSEXPORT],
+        solution: [Solutions; MAXNOOFBOARDSEXPORT],
+        mode: [Mode; MAXNOOFBOARDSEXPORT],
+    ) -> Result<Self, DDSError> {
         Ok(boards {
-            noOfBoards: length_check,
+            noOfBoards: no_of_boards,
             // SAFETY: Length if 200
-            deals: boards::setup_deals(deals, contracts).try_into().unwrap(),
-            target: boards::convert_sequence(target).try_into().unwrap(),
-            solutions: boards::convert_sequence(solution).try_into().unwrap(),
-            mode: boards::convert_sequence(mode).try_into().unwrap(),
+            deals: boards::setup_deals(deals, contracts),
+            target: target.map(|t| t.into()),
+            solutions: solution.map(|t| t.into()),
+            mode: mode.map(|t| t.into()),
         })
     }
 
-    fn setup_deals<D: AsDDSDeal, C: AsDDSContract, const N: usize>(
-        deals: &[&D; N],
-        contracts: &[C; N],
-    ) -> Vec<deal> {
-        let complete_deals = deals.iter().zip(contracts.iter());
-        let mut deals: Vec<deal> = Vec::with_capacity(MAXNOOFBOARDSEXPORT);
-        deals.extend(complete_deals.map(|(d, c)| {
-            let (trump, first) = c.as_dds_contract();
-            deal {
-                trump,
-                first,
-                currentTrickSuit: [0; 3],
-                currentTrickRank: [0; 3],
-                remainCards: d.as_dds_deal().as_slice(),
-            }
-        }));
-        deals.resize_with(MAXNOOFBOARDSEXPORT, deal::default);
+    fn setup_deals<D: AsDDSDeal, C: AsDDSContract>(
+        deals: &[D; MAXNOOFBOARDSEXPORT],
+        contracts: &[C; MAXNOOFBOARDSEXPORT],
+    ) -> [deal; MAXNOOFBOARDSEXPORT] {
         deals
+            .iter()
+            .zip(contracts.iter())
+            .map(|(d, c)| {
+                let (trump, first) = c.as_dds_contract();
+                deal {
+                    trump,
+                    first,
+                    currentTrickSuit: [0; 3],
+                    currentTrickRank: [0; 3],
+                    remainCards: d.as_dds_deal().as_slice(),
+                }
+            })
+            .collect::<Vec<deal>>()
+            .try_into()
+            .unwrap()
+        // SAFETY: already now we can fit them
+        //deals.try_into().unwrap()
     }
 
-    fn convert_sequence<T: Into<i32>, const N: usize>(sequence: [T; N]) -> Vec<i32> {
-        let mut targets: Vec<i32> = Vec::with_capacity(MAXNOOFBOARDSEXPORT);
-        targets.extend(sequence.map(|t| t.into()));
-        targets.resize_with(MAXNOOFBOARDSEXPORT, Default::default);
-        targets
+    fn convert_sequence<T: Into<i32>>(
+        sequence: [T; MAXNOOFBOARDSEXPORT],
+    ) -> [i32; MAXNOOFBOARDSEXPORT] {
+        sequence.map(|t| t.into())
     }
 }
