@@ -8,6 +8,22 @@ pub struct Hands {
     hands: [Hand; 4],
 }
 
+impl std::fmt::Display for Hands {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let west = self.hands[Seat::West as usize].to_string();
+        let east = self.hands[Seat::East as usize].to_string();
+        let north = self.hands[Seat::North as usize].to_string();
+        let south = self.hands[Seat::South as usize].to_string();
+        let width = west.chars().count() + east.chars().count() + north.chars().count() / 2;
+        write!(
+            f,
+            "{north:^0$}\n{west:<1$}{east:>1$}\n{south:^0$}",
+            width + 1,
+            width / 2,
+        )
+    }
+}
+
 impl IntoIterator for Hands {
     type IntoIter = IntoIter<Hand, 4>;
     type Item = Hand;
