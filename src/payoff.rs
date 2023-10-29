@@ -229,13 +229,39 @@ pub enum Doubled {
 
 /// The strain of a bridge contract, either some trump or
 /// no trump
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Strain {
     Spades = 0,
     Hearts = 1,
     Diamonds = 2,
     Clubs = 3,
     NoTrumps = 4,
+}
+
+impl PartialOrd for Strain {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Strain {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        match self {
+            Strain::NoTrumps => match other {
+                Strain::NoTrumps => Ordering::Equal,
+                _ => Ordering::Greater,
+            },
+            _ => {
+                let comp = (*self as usize).cmp(&(*other as usize));
+                match comp {
+                    Ordering::Less => Ordering::Greater,
+                    Ordering::Greater => Ordering::Less,
+                    _ => comp,
+                }
+            }
+        }
+    }
 }
 
 impl Contract {
