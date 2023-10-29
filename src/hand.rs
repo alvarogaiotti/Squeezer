@@ -273,20 +273,20 @@ impl HandTypeBuilder {
 
     pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(shapes) = &mut self.shapes {
-            shapes.add_shape(ShapeDescriptor::from_string(pattern))?;
+            shapes.add_shape(String::from(pattern))?;
         } else {
             let mut shape = Shapes::new();
-            shape.add_shape(ShapeDescriptor::from_string(pattern))?;
+            shape.add_shape(String::from(pattern))?;
             self.shapes = Some(shape);
         }
         Ok(self)
     }
     pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(shapes) = &mut self.shapes {
-            shapes.remove_shape(ShapeDescriptor::from_string(pattern))?;
+            shapes.remove_shape(String::from(pattern))?;
         } else {
             let mut shape = Shapes::new();
-            shape.remove_shape(ShapeDescriptor::from_string(pattern))?;
+            shape.remove_shape(String::from(pattern))?;
             self.shapes = Some(shape);
         }
         Ok(self)
