@@ -29,6 +29,16 @@ pub struct LinDeal {
     dealer: Seat,
 }
 
+impl std::fmt::Display for LinDeal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Board n.{}\nDealer: {}\n{}",
+            self.number, self.dealer, self.hands
+        )
+    }
+}
+
 /// Error kind that models possible errors
 /// that could occur while parsing a `.lin` file
 #[derive(Debug)]
@@ -69,16 +79,9 @@ impl From<BiddingError> for LinParsingErrorKind {
 impl FromStr for LinDeal {
     type Err = LinParsingError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut players = players(s).into_iter();
-        let players = {
-            let mut data = [String::new(), String::new(), String::new(), String::new()];
-            let mut counter = 0;
-            while counter < 4 {
-                data[counter] = players.next().unwrap();
-                counter += 1;
-            }
-            data
-        };
+        let players = players(s);
+        // Safety: Players always return a Vec of len 4;
+        let players: [String; 4] = players.try_into().unwrap();
         let (dealer, hands) = hands_and_dealer(s);
         let number = number(s);
         let bidding = Some(match bidding(s) {
@@ -285,7 +288,7 @@ impl Bid {
 fn players(lin: &str) -> Vec<String> {
     lazy_static! {
         static ref PLAYERS: Regex = Regex::new(
-            r"pn|(?P<south>[\w ]+,)(?P<west>[\w ]+,)(?P<north>[\w ]+,)(?P<east>[\w ]+)|st"
+            r"pn\|(?P<south>[\w ]+),(?P<west>[\w ]+),(?P<north>[\w ]+),(?P<east>[\w ]+)\|st"
         )
         .unwrap();
     }
@@ -298,13 +301,13 @@ fn players(lin: &str) -> Vec<String> {
             data
         },
         |captures| {
-            captures
-                .get(0)
-                .unwrap() // Cannot fail
-                .as_str()
-                .split(',')
-                .map(std::borrow::ToOwned::to_owned)
-                .collect()
+            let vec = captures
+                .iter()
+                .skip(1)
+                .map(|x| x.map_or(String::from("NN"), |m| m.as_str().to_string()))
+                .collect();
+            println!("In players: {:#?}", vec);
+            vec
         },
     )
 }
@@ -314,7 +317,12 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
         static ref HANDS: Regex = Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap();
     }
     if let Some(captures) = HANDS.captures(lin) {
-        let dealer = match captures.name("dealer").unwrap().as_str().parse::<u8>() {
+        let dealer = match captures
+            .name("dealer")
+            .expect("No dealer")
+            .as_str()
+            .parse::<u8>()
+        {
             Ok(dealer) => Seat::from(dealer),
             Err(_e) => {
                 error!("unable to parse dealer");
@@ -323,11 +331,12 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
         };
         let vec: Vec<_> = captures
             .name("hands")
-            .unwrap()
+            .expect("No hands")
             .as_str()
             .split(',')
             .map(|hand| Hand::from_str(hand).unwrap_or_else(|_| Hand::new_empty()))
             .collect();
+        println!("{:#?}", vec);
         let hands: [Hand; 4] = vec.try_into().unwrap_or_else(|_| [Hand::new_empty(); 4]);
         (dealer, Hands::new_from(hands))
     } else {
@@ -342,9 +351,9 @@ fn number(lin: &str) -> u8 {
     }
     NUMBER
         .captures(lin)
-        .unwrap()
+        .expect("No number capture")
         .name("number")
-        .unwrap()
+        .expect("No number named match")
         .as_str()
         .parse::<u8>()
         .unwrap_or_else(|_| {
@@ -378,11 +387,11 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
                     }
                 },
                 match &contract_bid[1..] {
-                    "c" => Strain::Clubs,
-                    "d" => Strain::Diamonds,
-                    "h" => Strain::Hearts,
-                    "s" => Strain::Spades,
-                    "n" => Strain::NoTrumps,
+                    "c" | "C" => Strain::Clubs,
+                    "d" | "D" => Strain::Diamonds,
+                    "h" | "H" => Strain::Hearts,
+                    "s" | "S" => Strain::Spades,
+                    "n" | "N" => Strain::NoTrumps,
                     _ => {
                         return Err(BiddingError {
                             bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
@@ -395,6 +404,7 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
                 },
             ),
         };
+        println!("{:#?}", &bid);
         bidding.push(bid)?;
     }
     Ok(bidding)
@@ -448,47 +458,10 @@ fn claim(lin: &str) -> Option<u8> {
             None => 0,
         })
 }
-pub struct Scanner {
-    cursor: usize,
-    characters: Vec<char>,
-}
 
-impl Scanner {
-    #[must_use]
-    pub fn new(string: &str) -> Self {
-        Self {
-            cursor: 0,
-            characters: string.chars().collect(),
-        }
-    }
-
-    /// Returns the cursor position
-    #[must_use]
-    pub fn cursor(&self) -> usize {
-        self.cursor
-    }
-
-    /// Returns next char without advancing the cursor
-    #[must_use]
-    pub fn peek(&self) -> Option<&char> {
-        self.characters.get(self.cursor)
-    }
-
-    /// Returns whether the string is exhausted or not
-    #[must_use]
-    pub fn exhausted(&self) -> bool {
-        self.cursor == self.characters.len()
-    }
-
-    /// Returns next character, if available, advancing the cursor
-    pub fn pop(&mut self) -> Option<&char> {
-        match self.characters.get(self.cursor) {
-            Some(character) => {
-                self.cursor += 1;
-
-                Some(character)
-            }
-            None => None,
-        }
-    }
+#[test]
+fn parses_lin_test() {
+    let lin = String::from("pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|");
+    let parsed_lin = LinDeal::from_str(&lin).unwrap();
+    println!("{}", parsed_lin);
 }
