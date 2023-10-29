@@ -18,6 +18,7 @@ impl From<ThreadIndex> for std::ffi::c_int {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Target {
     MaxTricks,
     LegalNoScore,
@@ -34,6 +35,7 @@ impl From<Target> for std::ffi::c_int {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Solutions {
     Best,
     AllOptimal,
@@ -50,6 +52,7 @@ impl From<Solutions> for std::ffi::c_int {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Mode {
     Auto,
     AutoSearchAlways,
