@@ -18,9 +18,9 @@ mod payoff;
 mod shape;
 mod simulation;
 mod utils;
-pub extern crate dds;
 
 mod prelude {
+    pub extern crate dds;
     pub const ZERO_LENGTH: u8 = 0;
     pub const ZERO_HCP: u8 = 0;
     pub const MAX_HCP_IN_HAND: u8 = 37;
