@@ -10,5 +10,5 @@ fn AnalysePlay_test() {
     let suitseq = SuitSeq::new(&[0, 0, 0, 0]);
     let rankseq = RankSeq::new(&[4, 3, 12, 2]);
     let mut play = PlayTraceBin::new(suitseq, rankseq);
-    let solvedplay = DDSPlayAnalyzer::analyze_play(&deal, contract, &mut play);
+    let solvedplay = DDSPlayAnalyzer::analyze_play(&deal, contract, &play);
 }

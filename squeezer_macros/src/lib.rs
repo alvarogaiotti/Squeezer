@@ -69,24 +69,70 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     let ty = field.ty;
     if let Some(field_ident) = field.ident {
         quote::quote! {
-            impl RawDDS for #name {
-                type Raw = &#ty;
+            impl<'a> RawDDS<'a> for #name {
+                type Raw = &'a #ty;
 
                 #[inline(always)]
-                fn get_raw(&self) -> Self::Raw {
-                    self.#field_ident
+                fn get_raw(&'a self) -> Self::Raw {
+                    &self.#field_ident
                 }
             }
         }
         .into()
     } else {
         quote::quote! {
-            impl RawDDS for #name {
-                type Raw = #ty;
+            impl<'a> RawDDS<'a> for #name {
+                type Raw = &'a #ty;
 
                 #[inline(always)]
-                fn get_raw(&self) -> Self::Raw {
-                    self.0
+                fn get_raw(&'a self) -> Self::Raw {
+                    &self.0
+                }
+            }
+        }
+        .into()
+    }
+}
+
+#[proc_macro_derive(RawMutDDS, attributes(raw))]
+pub fn rawmutdds_macro_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+
+    impl_rawmutdds_macro(ast)
+}
+fn impl_rawmutdds_macro(ast: syn::DeriveInput) -> TokenStream {
+    let name = ast.ident;
+    let data = match ast.data {
+        syn::Data::Struct(data) => data,
+        _ => unimplemented!(),
+    };
+    let field = data
+        .fields
+        .into_iter()
+        .find(|f| f.attrs.iter().any(|attr| attr.path().is_ident("raw")))
+        .unwrap();
+
+    let ty = field.ty;
+    if let Some(field_ident) = field.ident {
+        quote::quote! {
+            impl<'a> RawMutDDS<'a> for #name {
+                type RawMut = &'a mut #ty;
+
+                #[inline(always)]
+                fn get_raw_mut(&'a mut self) -> Self::RawMut {
+                    &mut self.#field_ident
+                }
+            }
+        }
+        .into()
+    } else {
+        quote::quote! {
+            impl<'a> RawMutDDS<'a> for #name {
+                type RawMut = &'a mut #ty;
+
+                #[inline(always)]
+                fn get_raw_mut(&'a mut self) -> Self::RawMut {
+                    &mut self.0
                 }
             }
         }

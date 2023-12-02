@@ -1,11 +1,16 @@
 use crate::{DDSHandEncoding, DDSSuitEncoding};
 
-pub trait RawDDS {
+pub trait RawDDS<'a> {
     type Raw;
 
-    fn get_raw(&self) -> Self::Raw;
+    fn get_raw(&'a self) -> Self::Raw;
 }
 
+pub trait RawMutDDS<'a> {
+    type RawMut;
+
+    fn get_raw_mut(&'a mut self) -> Self::RawMut;
+}
 /// Models a side: either North-South or East-West
 
 pub trait AsDDSContract {

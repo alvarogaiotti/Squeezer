@@ -1,7 +1,7 @@
 use super::{
     ddserror::{DDSError, DDSErrorKind},
     ddsffi::{boards, boardsPBN, deal, dealPBN},
-    AsDDSContract, Mode, RawDDS, Solutions, Target, MAXNOOFBOARDSEXPORT,
+    AsDDSContract, Mode, RawDDS, RawMutDDS, Solutions, Target, MAXNOOFBOARDSEXPORT,
 };
 use std::{ffi::c_int, fmt::Display};
 
@@ -230,7 +230,7 @@ impl DDSDealBuilder {
 /// the player on lead (representend with the [DDSHandEncoding]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
 /// suit and rank and the remaining cards, representend with the [DDSDealRepr].
-#[derive(RawDDS, Debug)]
+#[derive(RawDDS, RawMutDDS, Debug)]
 pub struct DDSDeal {
     #[raw]
     raw: deal,
@@ -248,9 +248,9 @@ impl DDSDeal {
             raw: deal {
                 trump: trump as c_int,
                 first: first as c_int,
-                currentTrickSuit: current_trick_suit.get_raw(),
-                currentTrickRank: current_trick_rank.get_raw(),
-                remainCards: remain_cards.get_raw(),
+                currentTrickSuit: *current_trick_suit.get_raw(),
+                currentTrickRank: *current_trick_rank.get_raw(),
+                remainCards: *remain_cards.get_raw(),
             },
         }
     }
@@ -276,9 +276,9 @@ impl DDSDealPBN {
             raw: dealPBN {
                 trump,
                 first,
-                currentTrickSuit: current_trick_suit.get_raw(),
-                currentTrickRank: current_trick_rank.get_raw(),
-                remainCards: remain_cards.get_raw(),
+                currentTrickSuit: *current_trick_suit.get_raw(),
+                currentTrickRank: *current_trick_rank.get_raw(),
+                remainCards: *remain_cards.get_raw(),
             },
         }
     }
@@ -319,7 +319,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 /// 5 arrays of length 200, representing
 /// the deals, contracts, DDS `target`, `solution` and `mode` parameters
 /// to be used in the analysis by DDS.
-#[derive(RawDDS, Debug)]
+#[derive(RawDDS, RawMutDDS, Debug)]
 pub struct Boards {
     #[raw]
     raw: boards,

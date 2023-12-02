@@ -1,4 +1,4 @@
-use squeezer_macros::RawDDS;
+use squeezer_macros::{RawDDS, RawMutDDS};
 use std::ffi::c_int;
 
 use crate::bindings::{
@@ -9,7 +9,7 @@ use crate::bindings::{
     },
     deal::{AsDDSDeal, DDSDealBuilder},
     future_tricks::FutureTricks,
-    traits::RawDDS,
+    traits::{RawDDS, RawMutDDS},
     AsDDSContract, Boards, DDSDeal, DDSError, Mode, Solutions, Target, ThreadIndex,
     MAXNOOFBOARDSEXPORT,
 };
@@ -35,7 +35,7 @@ impl BridgeSolver for DDSSolver {
         let result;
         unsafe {
             result = SolveBoard(
-                c_deal.get_raw(),
+                *c_deal.get_raw(),
                 Target::MaxTricks.into(),
                 Solutions::Best.into(),
                 Mode::AutoSearchAlways.into(),
@@ -57,7 +57,7 @@ impl DDSSolver {
         deals: &[D; MAXNOOFBOARDSEXPORT],
         contract: &[C; MAXNOOFBOARDSEXPORT],
     ) -> Result<Vec<u8>, DDSError> {
-        let boards = Boards::new(
+        let mut boards = Boards::new(
             number_of_deals,
             deals,
             contract,
@@ -65,11 +65,11 @@ impl DDSSolver {
             [Solutions::Best; MAXNOOFBOARDSEXPORT],
             [Mode::Auto; MAXNOOFBOARDSEXPORT],
         )?;
-        let bop: *mut boards = &mut boards.get_raw();
-        let solved_boards = SolvedBoards::new(number_of_deals);
+        let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
-            let solved_boards_ptr: *mut solvedBoards = &mut solved_boards.get_raw();
+            let bop: *mut boards = boards.get_raw_mut();
+            let solved_boards_ptr: *mut solvedBoards = solved_boards.get_raw_mut();
             unsafe {
                 result = SolveAllChunksBin(bop, solved_boards_ptr, 1);
             }
@@ -99,7 +99,7 @@ fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
         .build()?)
 }
 
-#[derive(Debug, RawDDS)]
+#[derive(Debug, RawDDS, RawMutDDS)]
 pub struct SolvedBoards {
     #[raw]
     solved_boards: solvedBoards,

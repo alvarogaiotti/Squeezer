@@ -98,7 +98,7 @@ impl PlayTraceBin {
             suit.length
         };
         Self {
-            play_trace_bin: playTraceBin::new(length, suit.get_raw(), rank.get_raw()),
+            play_trace_bin: playTraceBin::new(length, *suit.get_raw(), *rank.get_raw()),
         }
     }
 }
