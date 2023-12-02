@@ -10,7 +10,7 @@ mod solver;
 mod traits;
 mod utils;
 pub use analyseplay::*;
-pub use ddserror::DDSError;
+pub use ddserror::{DDSError, DDSErrorKind};
 pub use deal::*;
 pub use solver::*;
 pub use traits::*;

@@ -1,8 +1,11 @@
 #![allow(dead_code)]
+
 #[cfg(feature = "bbo")]
 mod bbo;
 #[cfg(feature = "bbo_async")]
 mod bbo_async;
+#[cfg(any(feature = "bbo", feature = "bbo_async"))]
+mod bbohelpers;
 mod card;
 mod deal;
 mod dealproduction;
@@ -32,6 +35,8 @@ mod prelude {
     pub use crate::bbo::*;
     #[cfg(feature = "bbo_async")]
     pub use crate::bbo_async::*;
+    #[cfg(any(feature = "bbo", feature = "bbo_async"))]
+    pub use crate::bbohelpers::*;
     pub use crate::card::*;
     pub use crate::deal::*;
     pub use crate::dealproduction::*;

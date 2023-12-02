@@ -22,5 +22,5 @@ bitvec = "1.0.1"
 [features]
 default = ["lin"]
 bbo = ["dep:time", "dep:ureq", "dep:regex", "dep:lazy_static"]
-bbo_async = ["bbo","dep:reqwest"]
+bbo_async = ["dep:time", "dep:regex", "dep:lazy_static", "dep:reqwest"]
 lin = ["dep:regex", "dep:lazy_static"]

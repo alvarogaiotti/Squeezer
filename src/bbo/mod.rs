@@ -1,3 +1,8 @@
+use crate::prelude::{
+    BBOClient, BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
+    BBOLOGIN,
+};
+
 use lazy_static::lazy_static;
 #[cfg(not(test))]
 use log::{debug, info, warn};
@@ -6,29 +11,6 @@ use regex::Regex;
 use std::{println as info, println as warn, println as debug}; // Workaround to use println! for logs.
 use time::{Duration, OffsetDateTime};
 use ureq::Agent;
-#[macro_export]
-macro_rules! get_bboerrorkind_error {
-    ($e: expr) => {
-        match $e {
-            BboErrorKind::UnknownConnectionError(error) => Some(error),
-            BboErrorKind::LoginError => None,
-            BboErrorKind::DownloadError(error) => Some(error),
-            BboErrorKind::HandsRequestError(error) => Some(error),
-        }
-    };
-}
-
-pub const BBOLOGIN: &str =
-    "https://www.bridgebase.com/myhands/myhands_login.php?t=%2Fmyhands%2Findex.php%3F";
-pub const BBOLAND: &str = "https://www.bridgebase.com/myhands/index.php?offset=0";
-pub const BBOHANDS: &str = "https://www.bridgebase.com/myhands/hands.php?";
-pub const BBOBASE: &str = "https://www.bridgebase.com/myhands/";
-
-#[derive(Debug)]
-pub enum ClientError<E: NetworkError> {
-    IoError { source: std::io::Error },
-    ConnectionError { source: BboError<E> },
-}
 
 impl From<BboError<ureq::Error>> for ClientError<ureq::Error> {
     fn from(value: BboError<ureq::Error>) -> Self {
@@ -36,25 +18,10 @@ impl From<BboError<ureq::Error>> for ClientError<ureq::Error> {
     }
 }
 
-impl From<std::io::Error> for ClientError<E: NetworkError> {
+impl<E: NetworkError> From<std::io::Error> for ClientError<E> {
     fn from(value: std::io::Error) -> Self {
         Self::IoError { source: value }
     }
-}
-
-pub trait BBOClient<E: NetworkError> {
-    fn is_logged(&self) -> Result<bool, ClientError<E>>;
-    fn login(&self) -> Result<(), ClientError<E>>;
-    fn download(&self) -> Result<(), ClientError<E>>;
-    fn get_in_interval(
-        &mut self,
-        start_time: OffsetDateTime,
-        end_time: OffsetDateTime,
-    ) -> Result<(), ClientError<E>>;
-}
-
-pub(crate) trait LinkExtractor {
-    fn get_links(&self, text: &str, matches: &mut Vec<String>);
 }
 
 pub struct BlockingBBOClient {
@@ -64,14 +31,6 @@ pub struct BlockingBBOClient {
     hands_links: Vec<String>,
 }
 
-#[derive(Debug)]
-pub struct BboError<E: NetworkError> {
-    pub kind: BboErrorKind<E>,
-}
-
-pub trait NetworkError: std::error::Error {
-    fn extract_url(&self) -> &str;
-}
 impl NetworkError for ureq::Error {
     fn extract_url(&self) -> &str {
         match self {
@@ -87,25 +46,6 @@ impl NetworkError for ureq::Error {
     }
 }
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum BboErrorKind<E: NetworkError> {
-    UnknownConnectionError(Box<E>),
-    LoginError,
-    DownloadError(Box<E>),
-    HandsRequestError(Box<E>),
-}
-
-impl<E: NetworkError + 'static> std::error::Error for BboErrorKind<E> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            BboErrorKind::UnknownConnectionError(error) => Some(error),
-            BboErrorKind::DownloadError(error) => Some(error),
-            BboErrorKind::HandsRequestError(error) => Some(error),
-            BboErrorKind::LoginError => None,
-        }
-    }
-}
 macro_rules! extract_url_ureq {
     ($e:expr) => {
         match $e {
@@ -135,31 +75,6 @@ impl std::error::Error for BboError<ureq::Error> {
 impl From<BboErrorKind<ureq::Error>> for BboError<ureq::Error> {
     fn from(value: BboErrorKind<ureq::Error>) -> Self {
         Self { kind: value }
-    }
-}
-
-impl<E: NetworkError> std::fmt::Display for BboErrorKind<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BboErrorKind::LoginError => write!(f, "incorrect username or password"),
-            BboErrorKind::DownloadError(e) => {
-                write!(f, "unable to download hand from {}", e.extract_url())
-            }
-            BboErrorKind::UnknownConnectionError(e) => {
-                write!(
-                    f,
-                    "unable to connect to {}, check internet connection",
-                    e.extract_url()
-                )
-            }
-            BboErrorKind::HandsRequestError(e) => {
-                write!(
-                    f,
-                    "incorrect time interval request parameters, tried to get from: {}",
-                    e.extract_url()
-                )
-            }
-        }
     }
 }
 

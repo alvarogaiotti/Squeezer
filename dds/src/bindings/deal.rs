@@ -5,14 +5,13 @@ use super::{
 };
 use std::{ffi::c_int, fmt::Display};
 
-// See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
-
 #[derive(Debug, RawDDS, Default)]
 pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
 
 #[derive(Debug, RawDDS, Default)]
 pub struct DDSCurrTrickRank(#[raw] [c_int; 3]);
 
+/// How DDS encodes suits
 pub enum DDSSuitEncoding {
     Spades = 0,
     Hearts = 1,
@@ -21,6 +20,7 @@ pub enum DDSSuitEncoding {
     NoTrump = 4,
 }
 
+// See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 macro_rules! impl_tryfrom_dds {
     ($from:ty, $to:ty, $err:ty) => {
         impl std::convert::TryFrom<$from> for $to {
@@ -48,6 +48,7 @@ impl_tryfrom_dds!(i16, DDSSuitEncoding, DDSDealConstructionError);
 impl_tryfrom_dds!(i32, DDSSuitEncoding, DDSDealConstructionError);
 impl_tryfrom_dds!(isize, DDSSuitEncoding, DDSDealConstructionError);
 
+/// How DDS encodes seat.
 #[derive(Debug, Default)]
 pub enum DDSHandEncoding {
     #[default]
@@ -84,6 +85,8 @@ impl_tryfrom_dds_hand!(i16);
 impl_tryfrom_dds_hand!(i32);
 impl_tryfrom_dds_hand!(isize);
 
+/// This is how DDS represents a "binary deal":
+/// a array of arrays of u32, basing the order on the [DDSHandEncoding]
 #[derive(Debug, RawDDS)]
 pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
@@ -97,6 +100,8 @@ impl DDSDealRepr {
     }
 }
 
+/// This is how DDS represents a PBN deal:
+/// ae array of 80 chars.
 #[derive(Debug, RawDDS)]
 pub struct DDSDealPBNRepr(#[raw] [std::ffi::c_char; 80]);
 
@@ -104,6 +109,8 @@ pub trait AsDDSDeal {
     fn as_dds_deal(&self) -> DDSDealRepr;
 }
 
+/// This helps us build a Deal. Rough edges right now, should be refactored or improved
+/// at least.
 pub struct DDSDealBuilder {
     trump: Option<DDSSuitEncoding>,
     first: Option<DDSHandEncoding>,
@@ -151,6 +158,12 @@ impl Display for DDSDealConstructionError {
     }
 }
 impl std::error::Error for DDSDealConstructionError {}
+
+impl Default for DDSDealBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl DDSDealBuilder {
     pub fn new() -> Self {
@@ -209,6 +222,11 @@ impl DDSDealBuilder {
     }
 }
 
+/// A wrapper around the [deal] struct from DDS.
+/// A `deal` is composed by a trump (represented with the [DDSSuitEncoding]),
+/// the player on lead (representend with the [DDSHandEncoding]), the current
+/// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
+/// suit and rank and the remaining cards, representend with the [DDSDealRepr].
 #[derive(RawDDS, Debug)]
 pub struct DDSDeal {
     #[raw]
@@ -235,6 +253,8 @@ impl DDSDeal {
     }
 }
 
+/// A wrapper around DDS's [dealPBN].
+/// See [DDSDeal] for reference on the fields.
 #[derive(RawDDS, Debug)]
 pub(super) struct DDSDealPBN {
     #[raw]
@@ -291,6 +311,11 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     res
 }
 
+/// A wrapper around the [boards] struct from DDS.
+/// Consists of a number of boards to be analyzed and
+/// 5 arrays of length 200, representing
+/// the deals, contracts, DDS `target`, `solution` and `mode` parameters
+/// to be used in the analysis by DDS.
 #[derive(RawDDS, Debug)]
 pub struct Boards {
     #[raw]

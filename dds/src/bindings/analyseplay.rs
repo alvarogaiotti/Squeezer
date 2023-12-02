@@ -2,11 +2,12 @@ use super::{
     ddsffi::{deal, playTraceBin, solvedPlay, solvedPlays, AnalysePlayBin},
     AsDDSContract, AsDDSDeal, RawDDS,
 };
-use crate::{
-    bindings::ddserror::DDSErrorKind, DDSDealConstructionError, DDSError, RankSeq, SuitSeq,
-};
+use crate::{DDSDealConstructionError, DDSError, DDSErrorKind, RankSeq, SuitSeq};
 use std::ffi::c_int;
 
+/// Wrapper of the [solvedPlays] DoubleDummySolver dll.
+/// The `solvedPlays` struct is a container of 200 [solvedPlay]
+/// and the number of boards effectively to analyze.
 #[derive(RawDDS)]
 pub struct SolvedPlays {
     #[raw]
@@ -39,6 +40,10 @@ impl From<solvedPlay> for SolvedPlay {
     }
 }
 
+/// Wrapper around the [solvedPlay] type from DDS dll.
+/// The `solvedPlay` struct stores 53 integers representing
+/// the optimal number of tricks which can be made by both
+/// side in a given contract after a card is played.
 #[derive(RawDDS)]
 pub struct SolvedPlay {
     #[raw]
@@ -74,7 +79,10 @@ impl Default for SolvedPlay {
 }
 
 #[derive(RawDDS)]
-/// Wrapper around DDS `playTraceBin` type
+/// Wrapper around DDS [playTraceBin] type.
+/// The `playTraceBin` stores two arrays
+/// of 52 element each representing played card's rank
+/// and suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
     #[raw]
     play_trace_bin: playTraceBin,
@@ -101,12 +109,19 @@ impl playTraceBin {
     }
 }
 
+/// A trait which can be implemented by any stuct capable of doing
+/// DD analysis. Simple interface so we can eventually swap other DD solvers
+/// in the future. Kinda like a Strategy Pattern. Now depends on dds for the
+/// generics with traits used but the idea is to create marker traits for deals and
+/// contracts to swap them in.
 pub trait PlayAnalyzer {
+    /// Analyzes a single hand
     fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
         deal: &D,
         contract: C,
         play: &PlayTraceBin,
     ) -> SolvedPlay;
+    /// Analyzes a bunch of hands, theoretically in paraller.
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
         deal: Vec<&D>,
         contract: Vec<C>,
@@ -114,6 +129,7 @@ pub trait PlayAnalyzer {
     ) -> Result<SolvedPlays, DDSDealConstructionError>;
 }
 
+/// Empty struct for DDS solver. We could have other solvers in the future
 pub struct DDSPlayAnalyzer {}
 
 impl PlayAnalyzer for DDSPlayAnalyzer {

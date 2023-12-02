@@ -1,9 +1,9 @@
 use crate::{
-    bbo::{
+    get_bboerrorkind_error,
+    prelude::{
         BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
         BBOLOGIN,
     },
-    get_bboerrorkind_error,
 };
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
