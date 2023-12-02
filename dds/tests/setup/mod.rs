@@ -5,7 +5,7 @@ pub const DEAL: OnceCell<DealMock> = OnceCell::new();
 
 #[derive(Debug, Clone)]
 pub struct DealMock {
-    hands: [[usize; 4]; 4],
+    pub hands: [[usize; 4]; 4],
 }
 
 impl IntoIterator for DealMock {
@@ -38,17 +38,34 @@ impl dds::ContractScorer for ContractMock {
 
 impl dds::AsDDSContract for ContractMock {
     fn as_dds_contract(&self) -> (i32, i32) {
-        (2, 2)
+        (2, 3)
     }
 }
 
 pub fn initialize_test() -> DealMock {
+    /*
+    *       ♠K93
+           ♡JT9862
+           ♢9
+           ♣K73
+
+    ♠T4           ♠AQJ
+    ♡Q            ♡75
+    ♢KQT543       ♢AJ2
+    ♣QT85         ♣J9642
+
+           ♠87652
+           ♡AK43
+           ♢876
+           ♣A
+    */
+
     DEAL.get_or_init(|| DealMock {
         hands: [
-            [1580, 3145728, 71468255805440, 5215168368495034368],
-            [26624, 1233649664, 171798691840, 3459890413727383552],
-            [80, 608436224, 9431748182016, 364791569817010176],
-            [4480, 301989888, 59648505806848, 182395784908505088],
+            [8712, 256114688, 2199023255552, 2344123606046343168],
+            [22528, 10485760, 79182017069056, 744219838422974464],
+            [484, 1612185600, 1924145348608, 4611686018427387904],
+            [1040, 268435456, 57415122812928, 1522216674051227648],
         ],
     })
     .clone()

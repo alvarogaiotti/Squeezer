@@ -44,10 +44,10 @@ impl From<solvedPlay> for SolvedPlay {
 /// The `solvedPlay` struct stores 53 integers representing
 /// the optimal number of tricks which can be made by both
 /// side in a given contract after a card is played.
-#[derive(RawDDS)]
+#[derive(RawDDS, Debug)]
 pub struct SolvedPlay {
     #[raw]
-    solved_play: solvedPlay,
+    pub solved_play: solvedPlay,
 }
 
 impl SolvedPlay {
@@ -85,7 +85,7 @@ impl Default for SolvedPlay {
 /// and suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
     #[raw]
-    play_trace_bin: playTraceBin,
+    pub play_trace_bin: playTraceBin,
 }
 
 impl PlayTraceBin {
@@ -132,6 +132,17 @@ pub trait PlayAnalyzer {
 /// Empty struct for DDS solver. We could have other solvers in the future
 pub struct DDSPlayAnalyzer {}
 
+impl Default for DDSPlayAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl DDSPlayAnalyzer {
+    pub fn new() -> Self {
+        DDSPlayAnalyzer {}
+    }
+}
+
 impl PlayAnalyzer for DDSPlayAnalyzer {
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
         deals: Vec<&D>,
@@ -157,11 +168,15 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
             currentTrickRank: [0; 3],
             remainCards: deal.as_dds_deal().as_slice(),
         };
-        let solved_play = SolvedPlay::new();
-        {
-            let solved: *mut solvedPlay = &mut solved_play.get_raw();
-            let play_trace: *const playTraceBin = &(play.get_raw());
-            unsafe { AnalysePlayBin(c_deal, *play_trace, solved, 0) };
+        let mut solved_play = SolvedPlay::new();
+        let solved: *mut solvedPlay = &mut solved_play.solved_play;
+        let play_trace = play.get_raw();
+        let result = unsafe { AnalysePlayBin(c_deal, *play_trace, solved, 0) };
+        match result {
+            1 => {}
+            n => {
+                println!("{}", std::convert::Into::<DDSError>::into(n))
+            }
         }
         solved_play
     }

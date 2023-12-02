@@ -30,8 +30,8 @@ impl BridgeSolver for DDSSolver {
         contract: &C,
     ) -> Result<u8, Box<dyn std::error::Error>> {
         let c_deal = build_c_deal(contract, deal)?;
-        let future_tricks = FutureTricks::new();
-        let futp: *mut futureTricks = &mut future_tricks.get_raw();
+        let mut future_tricks = FutureTricks::new();
+        let futp: *mut futureTricks = &mut future_tricks.0;
         let result;
         unsafe {
             result = SolveBoard(

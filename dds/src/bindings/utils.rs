@@ -1,6 +1,7 @@
 use crate::RawDDS;
 use squeezer_macros::RawDDS;
 use std::ffi::c_int;
+use std::fmt::write;
 use std::num::NonZeroI32;
 pub enum ThreadIndex {
     Auto,
@@ -74,13 +75,50 @@ pub enum Side {
     EW = 1,
 }
 
+#[derive(Debug)]
+pub enum SeqError {
+    SequenceTooLong,
+    SequenceTooShort,
+}
+
+impl std::error::Error for SeqError {}
+
+impl std::fmt::Display for SeqError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            Self::SequenceTooLong => format!("Sequence length is longer than {}", SEQUENCE_LENGTH),
+            Self::SequenceTooShort => format!("Sequence length is shorter than {}", 1),
+        };
+        write!(f, "{}", string)
+    }
+}
+
 #[derive(RawDDS)]
 pub struct SuitSeq {
     #[raw]
     sequence: [c_int; SEQUENCE_LENGTH],
     pub length: c_int,
 }
-
+impl TryFrom<&[c_int]> for SuitSeq {
+    type Error = SeqError;
+    fn try_from(value: &[c_int]) -> Result<Self, Self::Error> {
+        let length = value.len();
+        if length == 0 {
+            Err(SeqError::SequenceTooShort)
+        } else if length > SEQUENCE_LENGTH {
+            Err(SeqError::SequenceTooLong)
+        } else {
+            let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
+            array.extend_from_slice(value);
+            array.resize(SEQUENCE_LENGTH, -1);
+            Ok(Self {
+                // SAFETY: checks already performed above
+                sequence: array.try_into().unwrap(),
+                length: length as i32,
+            })
+        }
+    }
+}
 impl SuitSeq {
     /// Create a new `SuitSeq`, validating input.
     /// Slice gets truncated if too long

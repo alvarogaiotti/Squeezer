@@ -105,6 +105,9 @@ impl DDSDealRepr {
 #[derive(Debug, RawDDS)]
 pub struct DDSDealPBNRepr(#[raw] [std::ffi::c_char; 80]);
 
+/// Trait for compatibility with DDS. Encodings:
+/// Trump: 0 Spades, 1 Hearts, 2 Diamonds, 3 Clubs
+/// Hands: 0 North, 1 East, 2 South, 3 West
 pub trait AsDDSDeal {
     fn as_dds_deal(&self) -> DDSDealRepr;
 }
