@@ -70,7 +70,7 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     if let Some(field_ident) = field.ident {
         quote::quote! {
             impl RawDDS for #name {
-                type Raw = #ty;
+                type Raw = &#ty;
 
                 #[inline(always)]
                 fn get_raw(&self) -> Self::Raw {
