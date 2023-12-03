@@ -1,6 +1,6 @@
 use super::{
-    ddserror::{DDSError, DDSErrorKind},
-    ddsffi::{boards, boardsPBN, deal, dealPBN},
+    ddserror::{DDSError},
+    ddsffi::{boards, deal, dealPBN},
     AsDDSContract, Mode, RawDDS, RawMutDDS, Solutions, Target, MAXNOOFBOARDSEXPORT,
 };
 use std::{ffi::c_int, fmt::Display};

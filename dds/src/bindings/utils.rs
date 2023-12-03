@@ -1,7 +1,7 @@
 use crate::RawDDS;
 use squeezer_macros::RawDDS;
 use std::ffi::c_int;
-use std::fmt::write;
+
 use std::num::NonZeroI32;
 pub enum ThreadIndex {
     Auto,

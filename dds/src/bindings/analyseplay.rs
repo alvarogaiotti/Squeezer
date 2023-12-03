@@ -2,7 +2,7 @@ use super::{
     ddsffi::{deal, playTraceBin, solvedPlay, solvedPlays, AnalysePlayBin},
     AsDDSContract, AsDDSDeal, RawDDS,
 };
-use crate::{DDSDealConstructionError, DDSError, DDSErrorKind, RankSeq, SuitSeq};
+use crate::{DDSDealConstructionError, DDSError, RankSeq, SuitSeq};
 use std::ffi::c_int;
 
 /// Wrapper of the `solvedPlays` DoubleDummySolver dll.
@@ -147,7 +147,7 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
         deals: Vec<&D>,
         contracts: Vec<C>,
-        play: &PlayTraceBin,
+        _play: &PlayTraceBin,
     ) -> Result<SolvedPlays, DDSDealConstructionError> {
         let no_of_boards = deals.len();
         if no_of_boards != contracts.len() {

@@ -2,9 +2,8 @@ use squeezer_macros::{RawDDS, RawMutDDS};
 use std::ffi::c_int;
 
 use crate::bindings::{
-    ddserror::DDSErrorKind,
     ddsffi::{
-        boards, deal, futureTricks, solvedBoards, solvedPlay, solvedPlays, SolveAllBoards,
+        boards, futureTricks, solvedBoards,
         SolveAllChunksBin, SolveBoard,
     },
     deal::{AsDDSDeal, DDSDealBuilder},
