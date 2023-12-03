@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![warn(clippy::restriction, clippy::pedantic)]
+
 pub mod bindings;
 
 pub use bindings::*;

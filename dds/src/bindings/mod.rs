@@ -1,6 +1,5 @@
 use squeezer_macros::*;
 
-
 mod analyseplay;
 mod ddserror;
 mod ddsffi;
@@ -18,6 +17,7 @@ pub use utils::*;
 
 const MAXNOOFBOARDSEXPORT: usize = ddsffi::MAXNOOFBOARDS as usize;
 
+#[non_exhaustive]
 pub struct DoubleDummySolver {}
 
 pub struct DDSCalc {}
