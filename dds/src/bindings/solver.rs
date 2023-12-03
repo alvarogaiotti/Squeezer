@@ -1,5 +1,5 @@
 use squeezer_macros::{RawDDS, RawMutDDS};
-use std::ffi::c_int;
+use core::ffi::c_int;
 
 use crate::bindings::{
     ddsffi::{
@@ -40,12 +40,12 @@ impl BridgeSolver for DDSSolver {
                 Mode::AutoSearchAlways.into(),
                 futp,
                 ThreadIndex::Auto.into(),
-            )
+            );
         };
         if result != 1 {
             return Err(Box::new(DDSError::new(result)));
         }
-        Ok(13 - future_tricks.score()[0] as u8)
+        return Ok(13 - future_tricks.score()[0] as u8)
     }
 }
 
@@ -114,7 +114,7 @@ impl solvedBoards {
 }
 
 impl SolvedBoards {
-    pub fn new(no_of_boards: c_int) -> Self {
+    #[must_use] pub fn new(no_of_boards: c_int) -> Self {
         Self {
             solved_boards: solvedBoards::new(no_of_boards),
         }

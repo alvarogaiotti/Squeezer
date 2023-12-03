@@ -84,7 +84,7 @@ pub const THREADMEM_LARGE_DEF_MB: u32 = 95;
 pub const MAXNODE: u32 = 1;
 pub const MINNODE: u32 = 0;
 pub const SIMILARDEALLIMIT: u32 = 5;
-pub const SIMILARMAXWINNODES: u32 = 700000;
+pub const SIMILARMAXWINNODES: u32 = 700_000;
 pub const DDS_NOTRUMP: u32 = 4;
 pub type size_t = ::std::os::raw::c_ulong;
 #[repr(C)]

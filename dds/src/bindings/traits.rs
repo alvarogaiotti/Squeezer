@@ -28,7 +28,7 @@ pub trait AsDDSCard {
 pub trait AsDDSPlayTrace<I, C>
 where
     I: IntoIterator,
-    I::Item: std::borrow::Borrow<C>,
+    I::Item: core::borrow::Borrow<C>,
     C: AsDDSCard,
 {
     fn as_play_trace(&self) -> I;

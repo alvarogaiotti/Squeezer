@@ -1,4 +1,4 @@
-use super::ddsffi::*;
+use super::ddsffi::{RETURN_CARD_COUNT, RETURN_CHUNK_SIZE, RETURN_DUPLICATE_CARDS, RETURN_FIRST_WRONG, RETURN_MODE_WRONG_HI, RETURN_MODE_WRONG_LO, RETURN_NO_SUIT, RETURN_PBN_FAULT, RETURN_PLAYED_CARD, RETURN_PLAY_FAULT, RETURN_SOLNS_WRONG_HI, RETURN_SOLNS_WRONG_LO, RETURN_SUIT_OR_RANK, RETURN_TARGET_TOO_HIGH, RETURN_TARGET_WRONG_HI, RETURN_TARGET_WRONG_LO, RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS, RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS};
 
 #[derive(Debug)]
 pub struct DDSError {
@@ -6,7 +6,7 @@ pub struct DDSError {
 }
 
 impl DDSError {
-    pub fn new(value: i32) -> Self {
+    #[must_use] pub fn new(value: i32) -> Self {
         assert_ne!(1, value);
         Self { kind: value.into() }
     }
@@ -24,8 +24,8 @@ impl From<i32> for DDSError {
     }
 }
 
-impl std::fmt::Display for DDSError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DDSError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "something went wrong while solving boards:\n\t{}",
@@ -63,8 +63,8 @@ pub enum DDSErrorKind {
     ChunkSize,
 }
 
-impl From<std::ffi::c_int> for DDSErrorKind {
-    fn from(value: std::ffi::c_int) -> Self {
+impl From<core::ffi::c_int> for DDSErrorKind {
+    fn from(value: core::ffi::c_int) -> Self {
         match value {
             RETURN_UNKNOWN_FAULT => Self::UnknownFault,
             RETURN_ZERO_CARDS => Self::ZeroCards,
@@ -96,8 +96,8 @@ impl From<std::ffi::c_int> for DDSErrorKind {
     }
 }
 
-impl std::fmt::Display for DDSErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DDSErrorKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::UnknownFault => write!(f, "fopen() failed or wrong number of boards"),
             Self::ZeroCards => write!(f, "zero cards"),

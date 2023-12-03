@@ -3,9 +3,9 @@ use super::{
     AsDDSContract, AsDDSDeal, RawDDS,
 };
 use crate::{DDSDealConstructionError, DDSError, RankSeq, SuitSeq};
-use std::ffi::c_int;
+use core::ffi::c_int;
 
-/// Wrapper of the `solvedPlays` DoubleDummySolver dll.
+/// Wrapper of the `solvedPlays` `DoubleDummySolver` dll.
 /// The `solvedPlays` struct is a container of 200 [solvedPlay]
 /// and the number of boards effectively to analyze.
 #[derive(RawDDS)]
@@ -51,24 +51,24 @@ pub struct SolvedPlay {
 }
 
 impl SolvedPlay {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             solved_play: solvedPlay::new(),
         }
     }
-    pub fn tricks(&self) -> &[i32; 53usize] {
-        self.get_tricks()
+    #[must_use]
+    pub fn tricks(&self) -> &[i32; 53_usize] {
+        return self.get_tricks();
     }
 
     fn get_tricks(&self) -> &[i32; 53usize] {
         &self.solved_play.tricks
     }
 
+    #[must_use]
     pub fn number(&self) -> i32 {
-        self.get_number()
-    }
-    fn get_number(&self) -> i32 {
-        self.get_raw().number
+        self.solved_play.number
     }
 }
 
@@ -79,7 +79,7 @@ impl Default for SolvedPlay {
 }
 
 #[derive(RawDDS)]
-/// Wrapper around DDS [playTraceBin] type.
+/// Wrapper around DDS [`playTraceBin`] type.
 /// The `playTraceBin` stores two arrays
 /// of 52 element each representing played card's rank
 /// and suit, then an integer stating the real lenght of the play sequence.
@@ -91,15 +91,16 @@ pub struct PlayTraceBin {
 impl PlayTraceBin {
     /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
     /// cards played and their's rank.
+    #[must_use]
     pub fn new(suit: SuitSeq, rank: RankSeq) -> Self {
         let length = if suit.length != rank.length {
             i32::min(suit.length, rank.length)
         } else {
             suit.length
         };
-        Self {
+        return Self {
             play_trace_bin: playTraceBin::new(length, *suit.get_raw(), *rank.get_raw()),
-        }
+        };
     }
 }
 
@@ -138,6 +139,7 @@ impl Default for DDSPlayAnalyzer {
     }
 }
 impl DDSPlayAnalyzer {
+    #[must_use]
     pub fn new() -> Self {
         DDSPlayAnalyzer {}
     }
@@ -175,7 +177,7 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
         match result {
             1 => {}
             n => {
-                println!("{}", std::convert::Into::<DDSError>::into(n))
+                println!("{}", core::convert::Into::<DDSError>::into(n));
             }
         }
         solved_play

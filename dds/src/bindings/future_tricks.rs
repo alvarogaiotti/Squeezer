@@ -1,4 +1,4 @@
-use std::ffi::c_int;
+use core::ffi::c_int;
 
 use super::{ddsffi::futureTricks, RawDDS};
 
@@ -9,7 +9,7 @@ impl FutureTricks {
     pub fn new() -> Self {
         Self(futureTricks::default())
     }
-    pub fn score<'a>(&'a self) -> &'a [c_int; 13] {
+    pub fn score(&self) -> &[c_int; 13] {
         &self.0.score
     }
 }

@@ -3,7 +3,7 @@ use super::{
     ddsffi::{boards, deal, dealPBN},
     AsDDSContract, Mode, RawDDS, RawMutDDS, Solutions, Target, MAXNOOFBOARDSEXPORT,
 };
-use std::{ffi::c_int, fmt::Display};
+use core::{ffi::c_int, fmt::Display};
 
 #[derive(Debug, RawDDS, Default)]
 pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
@@ -23,7 +23,7 @@ pub enum DDSSuitEncoding {
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 macro_rules! impl_tryfrom_dds {
     ($from:ty, $to:ty, $err:ty) => {
-        impl std::convert::TryFrom<$from> for $to {
+        impl core::convert::TryFrom<$from> for $to {
             type Error = $err;
 
             fn try_from(v: $from) -> Result<Self, Self::Error> {
@@ -60,7 +60,7 @@ pub enum DDSHandEncoding {
 
 macro_rules! impl_tryfrom_dds_hand {
     ($from:ty) => {
-        impl std::convert::TryFrom<$from> for DDSHandEncoding {
+        impl core::convert::TryFrom<$from> for DDSHandEncoding {
             type Error = DDSDealConstructionError;
 
             fn try_from(v: $from) -> Result<Self, Self::Error> {
@@ -86,16 +86,16 @@ impl_tryfrom_dds_hand!(i32);
 impl_tryfrom_dds_hand!(isize);
 
 /// This is how DDS represents a "binary deal":
-/// a array of arrays of u32, basing the order on the [DDSHandEncoding]
+/// a array of arrays of u32, basing the order on the [`DDSHandEncoding`]
 #[derive(Debug, RawDDS)]
 pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
 impl DDSDealRepr {
-    pub fn new(data: [[u32; 4]; 4]) -> Self {
+    #[must_use] pub fn new(data: [[u32; 4]; 4]) -> Self {
         Self(data)
     }
 
-    pub fn as_slice(self) -> [[u32; 4]; 4] {
+    #[must_use] pub fn as_slice(self) -> [[u32; 4]; 4] {
         self.0
     }
 }
@@ -103,7 +103,7 @@ impl DDSDealRepr {
 /// This is how DDS represents a PBN deal:
 /// ae array of 80 chars.
 #[derive(Debug, RawDDS)]
-pub struct DDSDealPBNRepr(#[raw] [std::ffi::c_char; 80]);
+pub struct DDSDealPBNRepr(#[raw] [core::ffi::c_char; 80]);
 
 /// Trait for compatibility with DDS. Encodings:
 /// Trump: 0 Spades, 1 Hearts, 2 Diamonds, 3 Clubs
@@ -134,7 +134,7 @@ pub enum DDSDealConstructionError {
 }
 
 impl Display for DDSDealConstructionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::CurrentTrickRankNotSet => write!(
                 f,
@@ -169,7 +169,7 @@ impl Default for DDSDealBuilder {
 }
 
 impl DDSDealBuilder {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         DDSDealBuilder {
             trump: None,
             first: None,
@@ -179,27 +179,27 @@ impl DDSDealBuilder {
         }
     }
 
-    pub fn trump(mut self, trump: DDSSuitEncoding) -> Self {
+    #[must_use] pub fn trump(mut self, trump: DDSSuitEncoding) -> Self {
         self.trump = Some(trump);
         self
     }
 
-    pub fn first(mut self, first: DDSHandEncoding) -> Self {
+    #[must_use] pub fn first(mut self, first: DDSHandEncoding) -> Self {
         self.first = Some(first);
         self
     }
 
-    pub fn remain_cards(mut self, remain_cards: DDSDealRepr) -> Self {
+    #[must_use] pub fn remain_cards(mut self, remain_cards: DDSDealRepr) -> Self {
         self.remain_cards = Some(remain_cards);
         self
     }
 
-    pub fn current_trick_suit(mut self, current_trick_suit: DDSCurrTrickSuit) -> Self {
+    #[must_use] pub fn current_trick_suit(mut self, current_trick_suit: DDSCurrTrickSuit) -> Self {
         self.current_trick_suit = Some(current_trick_suit);
         self
     }
 
-    pub fn current_trick_rank(mut self, current_trick_rank: DDSCurrTrickRank) -> Self {
+    #[must_use] pub fn current_trick_rank(mut self, current_trick_rank: DDSCurrTrickRank) -> Self {
         self.current_trick_rank = Some(current_trick_rank);
         self
     }
@@ -232,10 +232,10 @@ impl DDSDealBuilder {
 }
 
 /// A wrapper around the [deal] struct from DDS.
-/// A `deal` is composed by a trump (represented with the [DDSSuitEncoding]),
-/// the player on lead (representend with the [DDSHandEncoding]), the current
+/// A `deal` is composed by a trump (represented with the [`DDSSuitEncoding`]),
+/// the player on lead (representend with the [`DDSHandEncoding`]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
-/// suit and rank and the remaining cards, representend with the [DDSDealRepr].
+/// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
 #[derive(RawDDS, RawMutDDS, Debug)]
 pub struct DDSDeal {
     #[raw]
@@ -250,7 +250,7 @@ impl DDSDeal {
         current_trick_suit: DDSCurrTrickSuit,
         remain_cards: DDSDealRepr,
     ) -> Self {
-        Self {
+        return Self {
             raw: deal {
                 trump: trump as c_int,
                 first: first as c_int,
@@ -262,8 +262,8 @@ impl DDSDeal {
     }
 }
 
-/// A wrapper around DDS's [dealPBN].
-/// See [DDSDeal] for reference on the fields.
+/// A wrapper around DDS's [`dealPBN`].
+/// See [`DDSDeal`] for reference on the fields.
 #[derive(RawDDS, Debug)]
 pub(super) struct DDSDealPBN {
     #[raw]
@@ -278,7 +278,7 @@ impl DDSDealPBN {
         current_trick_suit: DDSCurrTrickSuit,
         remain_cards: DDSDealPBNRepr,
     ) -> Self {
-        Self {
+        return Self {
             raw: dealPBN {
                 trump,
                 first,
@@ -308,10 +308,10 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
         _ => unreachable!("sanity checks on rank not performed, i'm panicking"),
     };
     let suitstr = match suit {
-        0 => "♠",
-        1 => "♥",
-        2 => "◆",
-        3 => "♣",
+        0 => "\u{2660}",
+        1 => "\u{2665}",
+        2 => "\u{25c6}",
+        3 => "\u{2663}",
         _ => unreachable!("sanity checks on suit not performed, i'm panicking"),
     };
     let mut res = String::with_capacity(2);

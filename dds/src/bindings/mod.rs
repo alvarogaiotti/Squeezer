@@ -1,4 +1,4 @@
-use squeezer_macros::*;
+use squeezer_macros::{RawDDS, RawMutDDS};
 
 mod analyseplay;
 mod ddserror;
@@ -23,15 +23,15 @@ pub struct DoubleDummySolver {}
 pub struct DDSCalc {}
 
 impl DoubleDummySolver {
-    pub fn solver() -> DDSSolver {
+    #[must_use] pub fn solver() -> DDSSolver {
         DDSSolver {}
     }
 
-    pub fn play_analyzer() -> impl PlayAnalyzer {
+    #[must_use] pub fn play_analyzer() -> impl PlayAnalyzer {
         DDSPlayAnalyzer {}
     }
 
-    pub fn calculator() -> DDSCalc {
+    #[must_use] pub fn calculator() -> DDSCalc {
         DDSCalc {}
     }
 
