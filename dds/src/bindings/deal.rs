@@ -178,26 +178,32 @@ impl DDSDealBuilder {
             remain_cards: None,
         }
     }
+
     pub fn trump(mut self, trump: DDSSuitEncoding) -> Self {
         self.trump = Some(trump);
         self
     }
+
     pub fn first(mut self, first: DDSHandEncoding) -> Self {
         self.first = Some(first);
         self
     }
+
     pub fn remain_cards(mut self, remain_cards: DDSDealRepr) -> Self {
         self.remain_cards = Some(remain_cards);
         self
     }
+
     pub fn current_trick_suit(mut self, current_trick_suit: DDSCurrTrickSuit) -> Self {
         self.current_trick_suit = Some(current_trick_suit);
         self
     }
+
     pub fn current_trick_rank(mut self, current_trick_rank: DDSCurrTrickRank) -> Self {
         self.current_trick_rank = Some(current_trick_rank);
         self
     }
+
     pub fn build(self) -> Result<DDSDeal, DDSDealConstructionError> {
         let remain_cards = self
             .remain_cards

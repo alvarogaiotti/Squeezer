@@ -5,7 +5,7 @@ use super::{
 use crate::{DDSDealConstructionError, DDSError, DDSErrorKind, RankSeq, SuitSeq};
 use std::ffi::c_int;
 
-/// Wrapper of the [solvedPlays] DoubleDummySolver dll.
+/// Wrapper of the `solvedPlays` DoubleDummySolver dll.
 /// The `solvedPlays` struct is a container of 200 [solvedPlay]
 /// and the number of boards effectively to analyze.
 #[derive(RawDDS)]
@@ -40,7 +40,7 @@ impl From<solvedPlay> for SolvedPlay {
     }
 }
 
-/// Wrapper around the [solvedPlay] type from DDS dll.
+/// Wrapper around the `solvedPlay` type from DDS dll.
 /// The `solvedPlay` struct stores 53 integers representing
 /// the optimal number of tricks which can be made by both
 /// side in a given contract after a card is played.
