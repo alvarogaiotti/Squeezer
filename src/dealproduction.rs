@@ -1,5 +1,6 @@
 use crate::prelude::*;
-use bitvec::{BitArr};
+use crate::shapeparser::ShapeParsingError;
+use bitvec::BitArr;
 
 const R: u64 = 61;
 const M: u64 = 2039;
@@ -22,13 +23,13 @@ impl DealerError {
     }
 }
 
-//impl From<ShapeParsingError> for DealerError {
-//    fn from(value: ShapeParsingError) -> Self {
-//        DealerError {
-//            details: value.to_string()
-//        }
-//    }
-//}
+impl From<ShapeParsingError> for DealerError {
+    fn from(value: ShapeParsingError) -> Self {
+        DealerError {
+            details: value.to_string(),
+        }
+    }
+}
 impl fmt::Display for DealerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.details)

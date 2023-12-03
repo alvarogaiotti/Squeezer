@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-#![warn(clippy::restriction, clippy::pedantic)]
+//#![warn(clippy::restriction, clippy::pedantic)]
+#![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
 
 #[cfg(feature = "bbo")]
 mod bbo;
@@ -14,9 +15,9 @@ mod evaluator;
 mod hand;
 #[cfg(feature = "lin")]
 mod linparser;
-//mod parser;
 mod payoff;
 mod shape;
+mod shapeparser;
 mod simulation;
 mod utils;
 

@@ -1,11 +1,8 @@
-use squeezer_macros::{RawDDS, RawMutDDS};
 use core::ffi::c_int;
+use squeezer_macros::{RawDDS, RawMutDDS};
 
 use crate::bindings::{
-    ddsffi::{
-        boards, futureTricks, solvedBoards,
-        SolveAllChunksBin, SolveBoard,
-    },
+    ddsffi::{boards, futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
     deal::{AsDDSDeal, DDSDealBuilder},
     future_tricks::FutureTricks,
     traits::{RawDDS, RawMutDDS},
@@ -45,7 +42,7 @@ impl BridgeSolver for DDSSolver {
         if result != 1 {
             return Err(Box::new(DDSError::new(result)));
         }
-        return Ok(13 - future_tricks.score()[0] as u8)
+        return Ok(13 - future_tricks.score()[0] as u8);
     }
 }
 
@@ -114,7 +111,8 @@ impl solvedBoards {
 }
 
 impl SolvedBoards {
-    #[must_use] pub fn new(no_of_boards: c_int) -> Self {
+    #[must_use]
+    pub fn new(no_of_boards: c_int) -> Self {
         Self {
             solved_boards: solvedBoards::new(no_of_boards),
         }
