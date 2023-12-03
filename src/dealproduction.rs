@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use bitvec::{array::BitArray, BitArr};
+use bitvec::{BitArr};
 
 const R: u64 = 61;
 const M: u64 = 2039;
