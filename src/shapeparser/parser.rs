@@ -13,17 +13,20 @@ pub struct Parser {
 }
 
 // Rough grammar rules:
-// shape       -> ..group {4};
-// group       -> suit+
-// suit        -> length modifier?;
-// length      -> "0".."C";
-// modifier    -> "+" | "-";
-// group[n]    -> "(" | suit suit+ | ")" {4};
 //
-// primary     -> NUMBER | "x"
-// unary       -> primary("+" | "-")
-// group       -> "(" unary (unary)+ ")"
-// shape        -> group | unary
+// primary      -> NUMBER | "x"
+// unary        -> primary("+" | "-")
+// group        -> "(" unary (unary)+ ")"
+// pattern      -> group | unary
+// shape        -> pattern+
+//
+// The more or less correct grammar:
+//
+// <length> ::= [0-9]
+// <unit> ::= <length> ( "+" | "-" )?
+//          | "x"
+// <group> ::= "(" <unit> <unit>+ ")"
+// <shape> ::= <unit>* <group>* <unit>*
 
 impl Parser {
     /// Guess what?! Parses!
