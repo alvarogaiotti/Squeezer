@@ -233,7 +233,7 @@ impl<'a> Shapes {
         // In the Python implementation there is a `safe: bool`, but is always passed as true, so we
         // can avoid it.
     ) -> Result<([u8; SUITS], [u8; SUITS]), DealerError> {
-        // Get the sum of the total we are at whitout the xs.
+        // Get the sum of the total we are at without the xs.
         let pre_set: u8 = shape.iter().filter(|&&x| x != RANKS + 1).sum();
         // Min and max lengths, implemented in the Python library for smartstacking.
         // Here we do not have smartstacking but maybe it'll be implemented in the future.
