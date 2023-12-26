@@ -86,10 +86,7 @@ impl ShapeCreator {
         Self::recur_adder_helper(free_places - 1, shape, patterns, shapes, length + 1, cap);
         shape.push(length);
         Self::recur(free_places, shape, patterns, shapes);
-        if let Some(_popped) = shape.pop() {
-        } else {
-            input_debug();
-        }
+        let _popped = shape.pop();
     }
 
     fn recur(
@@ -167,6 +164,7 @@ mod test {
 
     #[test]
     fn test_recursion() {
+        use super::ShapeCreator;
         use super::{Length, Modifier, Pattern};
         let patterns = vec![
             Pattern::Suit(Length {
@@ -229,7 +227,8 @@ mod test {
     }
     #[test]
     fn recursion2_test() {
-        use super::{Length, Modifier, Pattern};
+        use super::{Length, Modifier, Pattern, ShapeCreator};
+        use itertools::*;
         let patterns = vec![Pattern::Group(vec![
             Length {
                 length: 3,

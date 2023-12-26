@@ -3,6 +3,10 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 #![allow(deref_nullptr)]
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::unseparated_literal_suffix)]
+#![allow(clippy::all)]
+#![allow(clippy::pedantic)]
 
 pub const R_OK: u32 = 4;
 pub const W_OK: u32 = 2;

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-#![allow(clippy::implicit_return)]
 #![warn(clippy::restriction, clippy::pedantic)]
+#![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
 
 pub mod bindings;
 
