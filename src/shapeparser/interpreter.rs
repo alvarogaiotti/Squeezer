@@ -1,7 +1,4 @@
 use std::collections::VecDeque;
-use std::num::NonZeroU8;
-use std::ops::Range;
-use std::slice::Iter;
 
 use super::Modifier;
 use crate::Shapes;
@@ -21,7 +18,7 @@ struct ShapeCreator {
 fn pattern_length_adder(accumulator: u8, element: &Pattern) -> u8 {
     match element {
         Pattern::Suit(Length {
-            length,
+            length: _,
             modifier: Modifier::AtMost,
         }) => accumulator,
         Pattern::Suit(Length {
@@ -55,7 +52,7 @@ impl From<Vec<Pattern>> for ShapeCreator {
 }
 fn input_debug() {
     let mut stringa = String::new();
-    std::io::stdin().read_line(&mut stringa);
+    let _ = std::io::stdin().read_line(&mut stringa);
 }
 
 impl ShapeCreator {
@@ -83,13 +80,13 @@ impl ShapeCreator {
         if free_places == 0 {
             shape.push(length);
             Self::recur(free_places, shape, patterns, shapes);
-            let popped = shape.pop();
+            let _popped = shape.pop();
             return;
         }
         Self::recur_adder_helper(free_places - 1, shape, patterns, shapes, length + 1, cap);
         shape.push(length);
         Self::recur(free_places, shape, patterns, shapes);
-        if let Some(popped) = shape.pop() {
+        if let Some(_popped) = shape.pop() {
         } else {
             input_debug();
         }
@@ -122,7 +119,7 @@ impl ShapeCreator {
                 }) => {
                     shape.push(length);
                     Self::recur(free_places, shape, patterns, shapes);
-                    let popped = shape.pop();
+                    let _popped = shape.pop();
                 }
                 Pattern::Group(ref lengths) => {
                     let group_len = lengths.len();
@@ -149,7 +146,7 @@ impl ShapeCreator {
     }
 
     fn interpret(&mut self) {
-        let mut shape: Vec<u8> = Vec::with_capacity(4);
+        let _shape: Vec<u8> = Vec::with_capacity(4);
     }
 
     fn cap_at_suit_size(free_places: u8, len: u8) -> (u8, u8) {
@@ -167,9 +164,6 @@ impl ShapeCreator {
     }
 }
 mod test {
-    use itertools::Itertools;
-
-    use crate::shapeparser::interpreter::ShapeCreator;
 
     #[test]
     fn test_recursion() {
