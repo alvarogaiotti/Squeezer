@@ -1,15 +1,17 @@
+use std::collections::VecDeque;
+
 use crate::shapeparser::*;
+
 #[derive(Debug)]
-enum ParserState {
-    Grouping,
-    Linear,
+pub(crate) enum Pattern {
+    Suit(Length),
+    Group(Vec<Length>),
 }
 
 #[derive(Debug)]
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    state: ParserState,
 }
 
 // Rough grammar rules:
@@ -39,11 +41,7 @@ impl Parser {
     }
     /// Creates a new Parser
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self {
-            tokens,
-            current: 0,
-            state: ParserState::Linear,
-        }
+        Self { tokens, current: 0 }
     }
 
     /// Advances the cursor and returns the previous token
@@ -87,6 +85,8 @@ impl Parser {
         }
         false
     }
+
+    /// Parses group patterns like 3(532)
     fn group(&mut self) -> Result<Pattern, ShapeParsingError> {
         if self.check(Token::OpenParen) {
             self.advance();
@@ -112,6 +112,7 @@ impl Parser {
         }
         self.suit()
     }
+
     /// Parses suit patterns
     fn suit(&mut self) -> Result<Pattern, ShapeParsingError> {
         println!("In suit, next token:\n{}", self.peek());
@@ -127,19 +128,8 @@ impl Parser {
                 self.advance();
                 if let Token::Modifier(modifier) = self.peek() {
                     self.advance();
-                    println!(
-                        "In suit, emitting:\n{}",
-                        Pattern::Suit(Length { length, modifier })
-                    );
                     Ok(Pattern::Suit(Length { length, modifier }))
                 } else {
-                    println!(
-                        "In suit, emitting:\n{}",
-                        Pattern::Suit(Length {
-                            length,
-                            modifier: Modifier::Exact
-                        })
-                    );
                     Ok(Pattern::Suit(Length {
                         length,
                         modifier: Modifier::Exact,
@@ -149,7 +139,9 @@ impl Parser {
             Token::OpenParen => Err(ShapeParsingError::NestedScope),
             Token::CloseParen => Err(ShapeParsingError::UnmatchParenthesis),
             Token::Modifier(modifier) => Err(ShapeParsingError::OrphanModifier(modifier)),
-            Token::Empty => Err(ShapeParsingError::ShapeTooShort),
+            Token::Empty => {
+                unreachable!("Asked to parse an empty token, which should have been checked before")
+            }
         }
     }
 }
