@@ -1,9 +1,11 @@
 use std::{future, iter::Peekable};
 
 use crate::prelude::*;
+mod interpreter;
 mod parser;
 mod scanner;
 
+pub use interpreter::*;
 pub use parser::*;
 pub use scanner::*;
 
@@ -12,12 +14,6 @@ type Patterns = [Length; 4];
 #[derive(Debug)]
 pub struct Shape {
     patterns: Patterns,
-}
-
-#[derive(Debug)]
-enum Pattern {
-    Suit(Length),
-    Group(Vec<Length>),
 }
 
 impl std::fmt::Display for Pattern {
@@ -147,7 +143,6 @@ fn new_parser_test() {
         .parse()
         .unwrap()
         .into_iter()
-        .map(|x| x.flat())
         .for_each(|x| println!("{:#?}", x));
 }
 #[test]
@@ -159,7 +154,6 @@ fn new_parser_pattern_test() {
         .parse()
         .unwrap()
         .into_iter()
-        .map(|x| x.flat())
         .for_each(|x| println!("{:#?}", x));
 }
 #[test]
