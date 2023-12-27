@@ -1,11 +1,29 @@
-
-
 use crate::shapeparser::*;
 
 #[derive(Debug)]
 pub(crate) enum Pattern {
     Suit(Length),
     Group(Vec<Length>),
+}
+
+impl Pattern {
+    pub fn contains(&self, num: u8) -> bool {
+        match self {
+            Self::Suit(Length {
+                length,
+                modifier: Modifier::Exact,
+            }) => *length == num,
+            Self::Suit(Length {
+                length,
+                modifier: Modifier::AtLeast,
+            }) => num >= *length,
+            Self::Suit(Length {
+                length,
+                modifier: Modifier::AtMost,
+            }) => num <= *length,
+            Self::Group(_) => unimplemented!("Should never call this method with a Group variant"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -95,7 +113,11 @@ impl Parser {
                 match self.peek() {
                     Token::CloseParen => {
                         self.advance();
-                        return Ok(Pattern::Group(group));
+                        if group.len() >= 2 {
+                            return Ok(Pattern::Group(group));
+                        } else {
+                            return Err(ShapeParsingError::MalformedGroup);
+                        }
                     }
                     Token::Empty => return Err(ShapeParsingError::UnmatchParenthesis),
                     _ => match self.suit() {
@@ -154,6 +176,7 @@ pub enum ShapeParsingError {
     ShapeTooLong,
     ShapeTooShort,
     NestedScope,
+    MalformedGroup,
 }
 
 impl std::fmt::Display for ShapeParsingError {
@@ -169,6 +192,8 @@ impl std::fmt::Display for ShapeParsingError {
                 ShapeParsingError::ShapeTooLong => String::from("shape has more than 13 cards"),
                 ShapeParsingError::ShapeTooShort => String::from("shape has less than 13 cards"),
                 ShapeParsingError::NestedScope => String::from("nested grouping not supported"),
+                ShapeParsingError::MalformedGroup =>
+                    String::from("group must contain at least two element"),
             }
         )
     }

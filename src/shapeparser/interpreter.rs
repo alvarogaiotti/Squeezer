@@ -1,11 +1,7 @@
-use std::collections::VecDeque;
-
-use super::Modifier;
+use super::{Length, Modifier, Pattern};
 use crate::Shapes;
 use itertools::*;
-
-use super::Length;
-use super::Pattern;
+use std::{collections::VecDeque, ops::ControlFlow};
 
 trait Interpret {
     fn interpret(self) -> Shapes;
@@ -13,32 +9,6 @@ trait Interpret {
 struct ShapeCreator {
     pub allocated_slots: u8,
     pub iterators: VecDeque<Pattern>,
-}
-
-fn pattern_length_adder(accumulator: u8, element: &Pattern) -> u8 {
-    match element {
-        Pattern::Suit(Length {
-            length: _,
-            modifier: Modifier::AtMost,
-        }) => accumulator,
-        Pattern::Suit(Length {
-            length,
-            modifier: _,
-        }) => accumulator + *length,
-        Pattern::Group(group) => {
-            accumulator
-                + (*group).iter().fold(0, |acc, length| match length {
-                    Length {
-                        length: _,
-                        modifier: Modifier::AtMost,
-                    } => acc,
-                    Length {
-                        length,
-                        modifier: _,
-                    } => acc + *length,
-                })
-        }
-    }
 }
 
 impl From<Vec<Pattern>> for ShapeCreator {
@@ -64,7 +34,6 @@ impl ShapeCreator {
         length: u8,
         cap: Option<u8>,
     ) {
-        //input_debug();
         if let Some(cap) = cap {
             // If we capped the length of a AtMost element, we stop
             if length >= cap {
@@ -95,50 +64,17 @@ impl ShapeCreator {
         patterns: &mut VecDeque<Pattern>,
         shapes: &mut Vec<Vec<u8>>,
     ) {
-        //input_debug();
         if let Some(pattern) = patterns.pop_front() {
-            match pattern {
-                Pattern::Suit(Length {
-                    length,
-                    modifier: Modifier::AtLeast,
-                }) => {
-                    Self::recur_adder_helper(free_places, shape, patterns, shapes, length, None);
-                }
-                Pattern::Suit(Length {
-                    length,
-                    modifier: Modifier::AtMost,
-                }) => {
-                    Self::recur_adder_helper(free_places, shape, patterns, shapes, 0, Some(length));
-                }
-                Pattern::Suit(Length {
-                    length,
-                    modifier: Modifier::Exact,
-                }) => {
-                    shape.push(length);
-                    Self::recur(free_places, shape, patterns, shapes);
-                    let _popped = shape.pop();
-                }
-                Pattern::Group(ref lengths) => {
-                    let group_len = lengths.len();
-                    for permutation in lengths.iter().permutations(group_len) {
-                        for suit in permutation.into_iter().rev() {
-                            patterns.push_front(Pattern::Suit(*suit))
-                        }
-                        Self::recur(free_places, shape, patterns, shapes);
-                        for _ in 0..group_len {
-                            patterns.pop_front();
-                        }
-                    }
-                }
+            if let ControlFlow::Break(_) =
+                Self::shortcircuit_if_last_closes_shape(shape, &pattern, shapes)
+            {
+                patterns.push_front(pattern);
+                return;
             }
+            Self::handle_action_based_on_pattern(&pattern, free_places, shape, patterns, shapes);
             patterns.push_front(pattern);
         } else if free_places == 0 {
             shapes.push(shape.clone());
-            //let popped = shape.pop();
-            //println!("Recur popped {}", popped.unwrap());
-        } else {
-            //let popped = shape.pop();
-            //println!("Recur popped {}", popped.unwrap());
         }
     }
 
@@ -158,6 +94,105 @@ impl ShapeCreator {
             0
         };
         (free_places, new_len)
+    }
+
+    fn handle_action_based_on_pattern(
+        pattern: &Pattern,
+        free_places: u8,
+        shape: &mut Vec<u8>,
+        patterns: &mut VecDeque<Pattern>,
+        shapes: &mut Vec<Vec<u8>>,
+    ) {
+        match *pattern {
+            Pattern::Suit(Length {
+                length,
+                modifier: Modifier::AtLeast,
+            }) => {
+                Self::recur_adder_helper(free_places, shape, patterns, shapes, length, None);
+            }
+            Pattern::Suit(Length {
+                length,
+                modifier: Modifier::AtMost,
+            }) => {
+                Self::recur_adder_helper(free_places, shape, patterns, shapes, 0, Some(length));
+            }
+            Pattern::Suit(Length {
+                length,
+                modifier: Modifier::Exact,
+            }) => {
+                shape.push(length);
+                Self::recur(free_places, shape, patterns, shapes);
+                let _popped = shape.pop();
+            }
+            Pattern::Group(ref lengths) => {
+                Self::handle_group_pattern(lengths, patterns, free_places, shape, shapes);
+            }
+        }
+    }
+
+    fn handle_group_pattern(
+        lengths: &Vec<Length>,
+        patterns: &mut VecDeque<Pattern>,
+        free_places: u8,
+        shape: &mut Vec<u8>,
+        shapes: &mut Vec<Vec<u8>>,
+    ) {
+        let group_len = lengths.len();
+        for permutation in lengths.iter().permutations(group_len) {
+            for suit in permutation.into_iter().rev() {
+                patterns.push_front(Pattern::Suit(*suit))
+            }
+            Self::recur(free_places, shape, patterns, shapes);
+            for _ in 0..group_len {
+                patterns.pop_front();
+            }
+        }
+    }
+
+    fn shortcircuit_if_last_closes_shape(
+        shape: &mut Vec<u8>,
+        pattern: &Pattern,
+        shapes: &mut Vec<Vec<u8>>,
+    ) -> ControlFlow<()> {
+        if shape.len() == 3 {
+            let candidate = 13 - shape.iter().sum::<u8>();
+            if pattern.contains(candidate) {
+                shape.push(candidate);
+                shapes.push(shape.clone());
+                shape.pop();
+                return ControlFlow::Break(());
+            } else {
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
+    }
+}
+
+fn pattern_length_adder(accumulator: u8, element: &Pattern) -> u8 {
+    match element {
+        Pattern::Suit(Length {
+            length: _,
+            modifier: Modifier::AtMost,
+        }) => accumulator,
+        Pattern::Suit(Length {
+            length,
+            modifier: _,
+        }) => accumulator + *length,
+        Pattern::Group(group) => accumulator + (*group).iter().fold(0, group_length_adder),
+    }
+}
+
+fn group_length_adder(accumulator: u8, length: &Length) -> u8 {
+    match length {
+        Length {
+            length: _,
+            modifier: Modifier::AtMost,
+        } => accumulator,
+        Length {
+            length,
+            modifier: _,
+        } => accumulator + *length,
     }
 }
 mod test {
