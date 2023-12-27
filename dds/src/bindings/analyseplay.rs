@@ -1,25 +1,29 @@
 use super::{
-    ddsffi::{deal, playTraceBin, solvedPlay, solvedPlays, AnalysePlayBin},
+    ddsffi::{deal, playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalysePlayBin},
     AsDDSContract, AsDDSDeal, RawDDS,
 };
-use crate::{DDSDealConstructionError, DDSError, RankSeq, SuitSeq};
+use crate::{
+    bindings::ddsffi::RETURN_UNKNOWN_FAULT, DDSDealConstructionError, DDSError, RankSeq, SuitSeq,
+};
 use core::ffi::c_int;
 
+const MAXNOOFBOARDS: usize = super::ddsffi::MAXNOOFBOARDS as usize;
+
 /// Wrapper of the `solvedPlays` `DoubleDummySolver` dll.
-/// The `solvedPlays` struct is a container of 200 [solvedPlay]
+/// The `solvedPlays` struct is a container of MAXNOOFBOARDS [solvedPlay]
 /// and the number of boards effectively to analyze.
 #[derive(RawDDS)]
 pub struct SolvedPlays {
     #[raw]
-    solved_play: solvedPlays,
+    solved_plays: solvedPlays,
 }
 
 impl SolvedPlays {
     fn new(no_of_boards: c_int) -> Self {
         Self {
-            solved_play: solvedPlays {
+            solved_plays: solvedPlays {
                 noOfBoards: no_of_boards,
-                solved: [solvedPlay::new(); 200],
+                solved: [solvedPlay::new(); MAXNOOFBOARDS as usize],
             },
         }
     }
@@ -79,6 +83,53 @@ impl Default for SolvedPlay {
 }
 
 #[derive(RawDDS)]
+/// Wrapper around DDS [`playTracesBin`] type.
+/// The `playTraceBin` stores two arrays
+/// of 52 element each representing played card's rank
+/// and suit, then an integer stating the real lenght of the play sequence.
+pub struct PlayTracesBin {
+    #[raw]
+    pub play_trace_bin: playTracesBin,
+}
+
+impl playTracesBin {
+    const fn new() -> Self {
+        Self {
+            noOfBoards: 0,
+            plays: [playTraceBin::new(); MAXNOOFBOARDS],
+        }
+    }
+}
+
+impl PlayTracesBin {
+    #[allow(clippy::unwrap_in_result, clippy::unwrap_used)]
+    #[inline]
+    #[must_use]
+    /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
+    /// cards played and their's rank.
+    pub fn from_sequences(suits: Vec<SuitSeq>, ranks: Vec<RankSeq>) -> Result<Self, DDSError> {
+        let (suits_len, ranks_len) = (suits.len().clamp(1, 200), ranks.len().clamp(1, 200));
+        if suits_len != ranks_len {
+            return Err(DDSError::new(RETURN_UNKNOWN_FAULT));
+        }
+        let mut plays: Vec<playTraceBin> = suits
+            .into_iter()
+            .zip(ranks)
+            .map(|(suit, rank)| PlayTraceBin::new(suit, rank).play_trace_bin)
+            .collect();
+        plays.resize(MAXNOOFBOARDS, playTraceBin::new());
+        Ok(Self {
+            play_trace_bin: playTracesBin {
+                // SAFETY: capped at 200
+                noOfBoards: suits_len.try_into().unwrap(),
+                // SAFETY: We now the length of the Vec
+                plays: plays.try_into().unwrap(),
+            },
+        })
+    }
+}
+
+#[derive(RawDDS)]
 /// Wrapper around DDS [`playTraceBin`] type.
 /// The `playTraceBin` stores two arrays
 /// of 52 element each representing played card's rank
@@ -89,24 +140,42 @@ pub struct PlayTraceBin {
 }
 
 impl PlayTraceBin {
+    #[inline]
+    #[must_use]
     /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
     /// cards played and their's rank.
-    #[must_use]
     pub fn new(suit: SuitSeq, rank: RankSeq) -> Self {
-        let length = if suit.length != rank.length {
-            i32::min(suit.length, rank.length)
-        } else {
+        let length = if suit.length == rank.length {
             suit.length
+        } else {
+            i32::min(suit.length, rank.length)
         };
         return Self {
-            play_trace_bin: playTraceBin::new(length, *suit.get_raw(), *rank.get_raw()),
+            play_trace_bin: {
+                let number = length;
+                playTraceBin {
+                    number,
+                    suit: *suit.get_raw(),
+                    rank: *rank.get_raw(),
+                }
+            },
         };
     }
 }
 
 impl playTraceBin {
-    pub fn new(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
+    #[inline]
+    #[must_use]
+    /// Creates a new `playTraceBin`
+    pub fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
         Self { number, suit, rank }
+    }
+    pub const fn new() -> Self {
+        Self {
+            number: 0,
+            suit: [0; 52],
+            rank: [0; 52],
+        }
     }
 }
 
@@ -121,24 +190,27 @@ pub trait PlayAnalyzer {
         deal: &D,
         contract: C,
         play: &PlayTraceBin,
-    ) -> SolvedPlay;
+    ) -> Result<SolvedPlay, DDSError>;
     /// Analyzes a bunch of hands, theoretically in paraller.
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
         deal: Vec<&D>,
         contract: Vec<C>,
-        play: &PlayTraceBin,
-    ) -> Result<SolvedPlays, DDSDealConstructionError>;
+        play: &PlayTracesBin,
+    ) -> Result<SolvedPlays, DDSError>;
 }
 
+#[non_exhaustive]
 /// Empty struct for DDS solver. We could have other solvers in the future
-pub struct DDSPlayAnalyzer {}
+pub struct DDSPlayAnalyzer;
 
 impl Default for DDSPlayAnalyzer {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 impl DDSPlayAnalyzer {
+    #[inline]
     #[must_use]
     pub fn new() -> Self {
         DDSPlayAnalyzer {}
@@ -146,40 +218,59 @@ impl DDSPlayAnalyzer {
 }
 
 impl PlayAnalyzer for DDSPlayAnalyzer {
+    #[inline]
     fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
         deals: Vec<&D>,
         contracts: Vec<C>,
-        _play: &PlayTraceBin,
-    ) -> Result<SolvedPlays, DDSDealConstructionError> {
-        let no_of_boards = deals.len();
-        if no_of_boards != contracts.len() {
-            return Err(DDSDealConstructionError::DealNotLoaded);
-        }
+        play: &PlayTracesBin,
+    ) -> Result<SolvedPlays, DDSError> {
+        let deals_len = if let Ok(deals_len) = u32::try_from(deals.len()) {
+            deals_len
+        } else {
+            return Err(DDSError::new(RETURN_UNKNOWN_FAULT));
+        };
+        let contracts_len = if let Ok(contracts_len) = u32::try_from(contracts.len()) {
+            contracts_len
+        } else {
+            return Err(DDSError::new(RETURN_UNKNOWN_FAULT));
+        };
+        let c_deals = contracts
+            .into_iter()
+            .zip(deals.into_iter())
+            .map(|(contract, deal)| construct_dds_deal(contract, deal));
+        let mut solved_plays = SolvedPlays::new(deals_len as i32);
+        let solved: *mut solvedPlays = &mut solved_plays.solved_plays;
+        let play_trace = play.get_raw();
         todo!()
     }
+
+    #[inline]
     fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
         deal: &D,
         contract: C,
         play: &PlayTraceBin,
-    ) -> SolvedPlay {
-        let (trump, first) = contract.as_dds_contract();
-        let c_deal = deal {
-            trump: trump as c_int,
-            first: first as c_int,
-            currentTrickSuit: [0; 3],
-            currentTrickRank: [0; 3],
-            remainCards: deal.as_dds_deal().as_slice(),
-        };
+    ) -> Result<SolvedPlay, DDSError> {
+        let c_deal = construct_dds_deal(contract, deal);
         let mut solved_play = SolvedPlay::new();
         let solved: *mut solvedPlay = &mut solved_play.solved_play;
         let play_trace = play.get_raw();
+        // SAFETY: calling an external C function
         let result = unsafe { AnalysePlayBin(c_deal, *play_trace, solved, 0) };
         match result {
-            1 => {}
-            n => {
-                println!("{}", core::convert::Into::<DDSError>::into(n));
-            }
+            1i32 => Ok(solved_play),
+            n => Err(n.into()),
         }
-        solved_play
     }
+}
+
+fn construct_dds_deal<D: AsDDSDeal, C: AsDDSContract>(contract: C, deal: &D) -> deal {
+    let (trump, first) = contract.as_dds_contract();
+    let c_deal = deal {
+        trump,
+        first,
+        currentTrickSuit: [0i32; 3],
+        currentTrickRank: [0i32; 3],
+        remainCards: deal.as_dds_deal().as_slice(),
+    };
+    c_deal
 }
