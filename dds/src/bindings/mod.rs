@@ -1,4 +1,4 @@
-use squeezer_macros::{RawDDS, RawMutDDS};
+use squeezer_macros::{AsRawDDS, RawDDSRef, RawDDSRefMut};
 
 mod analyseplay;
 mod ddserror;
@@ -18,20 +18,23 @@ pub use utils::*;
 const MAXNOOFBOARDSEXPORT: usize = ddsffi::MAXNOOFBOARDS as usize;
 
 #[non_exhaustive]
-pub struct DoubleDummySolver {}
+pub struct DoubleDummySolver;
 
-pub struct DDSCalc {}
+pub struct DDSCalc;
 
 impl DoubleDummySolver {
-    #[must_use] pub fn solver() -> DDSSolver {
+    #[must_use]
+    pub fn solver() -> DDSSolver {
         DDSSolver {}
     }
 
-    #[must_use] pub fn play_analyzer() -> impl PlayAnalyzer {
+    #[must_use]
+    pub fn play_analyzer() -> impl PlayAnalyzer {
         DDSPlayAnalyzer {}
     }
 
-    #[must_use] pub fn calculator() -> DDSCalc {
+    #[must_use]
+    pub fn calculator() -> DDSCalc {
         DDSCalc {}
     }
 

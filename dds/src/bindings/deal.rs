@@ -1,14 +1,14 @@
 use super::{
-    ddserror::{DDSError},
+    ddserror::DDSError,
     ddsffi::{boards, deal, dealPBN},
-    AsDDSContract, Mode, RawDDS, RawMutDDS, Solutions, Target, MAXNOOFBOARDSEXPORT,
+    AsDDSContract, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDSEXPORT,
 };
 use core::{ffi::c_int, fmt::Display};
 
-#[derive(Debug, RawDDS, Default)]
+#[derive(Debug, RawDDSRef, Default)]
 pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
 
-#[derive(Debug, RawDDS, Default)]
+#[derive(Debug, RawDDSRef, Default)]
 pub struct DDSCurrTrickRank(#[raw] [c_int; 3]);
 
 /// How DDS encodes suits
@@ -87,22 +87,24 @@ impl_tryfrom_dds_hand!(isize);
 
 /// This is how DDS represents a "binary deal":
 /// a array of arrays of u32, basing the order on the [`DDSHandEncoding`]
-#[derive(Debug, RawDDS)]
+#[derive(Debug, RawDDSRef)]
 pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
 impl DDSDealRepr {
-    #[must_use] pub fn new(data: [[u32; 4]; 4]) -> Self {
+    #[must_use]
+    pub fn new(data: [[u32; 4]; 4]) -> Self {
         Self(data)
     }
 
-    #[must_use] pub fn as_slice(self) -> [[u32; 4]; 4] {
+    #[must_use]
+    pub fn as_slice(self) -> [[u32; 4]; 4] {
         self.0
     }
 }
 
 /// This is how DDS represents a PBN deal:
 /// ae array of 80 chars.
-#[derive(Debug, RawDDS)]
+#[derive(Debug, RawDDSRef)]
 pub struct DDSDealPBNRepr(#[raw] [core::ffi::c_char; 80]);
 
 /// Trait for compatibility with DDS. Encodings:
@@ -163,13 +165,16 @@ impl Display for DDSDealConstructionError {
 impl std::error::Error for DDSDealConstructionError {}
 
 impl Default for DDSDealBuilder {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl DDSDealBuilder {
-    #[must_use] pub fn new() -> Self {
+    #[inline]
+    #[must_use]
+    pub fn new() -> Self {
         DDSDealBuilder {
             trump: None,
             first: None,
@@ -179,27 +184,37 @@ impl DDSDealBuilder {
         }
     }
 
-    #[must_use] pub fn trump(mut self, trump: DDSSuitEncoding) -> Self {
+    #[inline]
+    #[must_use]
+    pub fn trump(mut self, trump: DDSSuitEncoding) -> Self {
         self.trump = Some(trump);
         self
     }
 
-    #[must_use] pub fn first(mut self, first: DDSHandEncoding) -> Self {
+    #[inline]
+    #[must_use]
+    pub fn first(mut self, first: DDSHandEncoding) -> Self {
         self.first = Some(first);
         self
     }
 
-    #[must_use] pub fn remain_cards(mut self, remain_cards: DDSDealRepr) -> Self {
+    #[inline]
+    #[must_use]
+    pub fn remain_cards(mut self, remain_cards: DDSDealRepr) -> Self {
         self.remain_cards = Some(remain_cards);
         self
     }
 
-    #[must_use] pub fn current_trick_suit(mut self, current_trick_suit: DDSCurrTrickSuit) -> Self {
+    #[inline]
+    #[must_use]
+    pub fn current_trick_suit(mut self, current_trick_suit: DDSCurrTrickSuit) -> Self {
         self.current_trick_suit = Some(current_trick_suit);
         self
     }
 
-    #[must_use] pub fn current_trick_rank(mut self, current_trick_rank: DDSCurrTrickRank) -> Self {
+    #[inline]
+    #[must_use]
+    pub fn current_trick_rank(mut self, current_trick_rank: DDSCurrTrickRank) -> Self {
         self.current_trick_rank = Some(current_trick_rank);
         self
     }
@@ -231,12 +246,26 @@ impl DDSDealBuilder {
     }
 }
 
+impl deal {
+    #[inline]
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            trump: -1,
+            first: -1,
+            currentTrickSuit: [-1i32; 3],
+            currentTrickRank: [-1i32; 3],
+            remainCards: [[0u32; 4]; 4],
+        }
+    }
+}
+
 /// A wrapper around the [deal] struct from DDS.
 /// A `deal` is composed by a trump (represented with the [`DDSSuitEncoding`]),
 /// the player on lead (representend with the [`DDSHandEncoding`]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
 /// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
-#[derive(RawDDS, RawMutDDS, Debug)]
+#[derive(RawDDSRef, RawDDSRefMut, Debug)]
 pub struct DDSDeal {
     #[raw]
     raw: deal,
@@ -258,13 +287,13 @@ impl DDSDeal {
                 currentTrickRank: *current_trick_rank.get_raw(),
                 remainCards: *remain_cards.get_raw(),
             },
-        }
+        };
     }
 }
 
 /// A wrapper around DDS's [`dealPBN`].
 /// See [`DDSDeal`] for reference on the fields.
-#[derive(RawDDS, Debug)]
+#[derive(RawDDSRef, Debug)]
 pub(super) struct DDSDealPBN {
     #[raw]
     raw: dealPBN,
@@ -286,7 +315,7 @@ impl DDSDealPBN {
                 currentTrickRank: *current_trick_rank.get_raw(),
                 remainCards: *remain_cards.get_raw(),
             },
-        }
+        };
     }
 }
 
@@ -325,7 +354,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 /// 5 arrays of length 200, representing
 /// the deals, contracts, DDS `target`, `solution` and `mode` parameters
 /// to be used in the analysis by DDS.
-#[derive(RawDDS, RawMutDDS, Debug)]
+#[derive(RawDDSRef, RawDDSRefMut, Debug)]
 pub struct Boards {
     #[raw]
     raw: boards,

@@ -28,6 +28,7 @@ impl dds::AsDDSDeal for DealMock {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct ContractMock {}
 
 impl dds::ContractScorer for ContractMock {
@@ -60,13 +61,12 @@ pub fn initialize_test() -> DealMock {
            ♣A
     */
 
-    DEAL.get_or_init(|| DealMock {
+    DealMock {
         hands: [
             [8712, 256114688, 2199023255552, 2344123606046343168],
             [22528, 10485760, 79182017069056, 744219838422974464],
             [484, 1612185600, 1924145348608, 4611686018427387904],
             [1040, 268435456, 57415122812928, 1522216674051227648],
         ],
-    })
-    .clone()
+    }
 }

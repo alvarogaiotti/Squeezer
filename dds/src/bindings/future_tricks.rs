@@ -1,8 +1,8 @@
 use core::ffi::c_int;
 
-use super::{ddsffi::futureTricks, RawDDS};
+use super::{ddsffi::futureTricks, RawDDSRef};
 
-#[derive(Debug, RawDDS)]
+#[derive(Debug, RawDDSRef)]
 pub struct FutureTricks(#[raw] pub futureTricks);
 
 impl FutureTricks {

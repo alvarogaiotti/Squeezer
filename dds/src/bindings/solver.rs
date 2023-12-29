@@ -1,13 +1,11 @@
 use core::ffi::c_int;
-use squeezer_macros::{RawDDS, RawMutDDS};
 
 use crate::bindings::{
     ddsffi::{boards, futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
     deal::{AsDDSDeal, DDSDealBuilder},
     future_tricks::FutureTricks,
-    traits::{RawDDS, RawMutDDS},
-    AsDDSContract, Boards, DDSDeal, DDSError, Mode, Solutions, Target, ThreadIndex,
-    MAXNOOFBOARDSEXPORT,
+    AsDDSContract, Boards, DDSDeal, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
+    ThreadIndex, MAXNOOFBOARDSEXPORT,
 };
 
 pub trait BridgeSolver {
@@ -95,7 +93,7 @@ fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
         .build()?)
 }
 
-#[derive(Debug, RawDDS, RawMutDDS)]
+#[derive(Debug, RawDDSRef, RawDDSRefMut)]
 pub struct SolvedBoards {
     #[raw]
     solved_boards: solvedBoards,

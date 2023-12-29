@@ -48,8 +48,8 @@ fn field_to_index(field: &syn::Field) -> usize {
     panic!("unknown attr")
 }
 
-#[proc_macro_derive(RawDDS, attributes(raw))]
-pub fn rawdds_macro_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(RawDDSRef, attributes(raw))]
+pub fn rawddsref_macro_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
 
     impl_rawdds_macro(ast)
@@ -69,7 +69,7 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     let ty = field.ty;
     if let Some(field_ident) = field.ident {
         quote::quote! {
-            impl<'a> RawDDS<'a> for #name {
+            impl<'a> RawDDSRef<'a> for #name {
                 type Raw = &'a #ty;
 
                 #[inline(always)]
@@ -81,7 +81,7 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
         .into()
     } else {
         quote::quote! {
-            impl<'a> RawDDS<'a> for #name {
+            impl<'a> RawDDSRef<'a> for #name {
                 type Raw = &'a #ty;
 
                 #[inline(always)]
@@ -94,7 +94,53 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(RawMutDDS, attributes(raw))]
+#[proc_macro_derive(AsRawDDS, attributes(raw))]
+pub fn asrawdds_macro_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+
+    impl_as_rawdds_macro(ast)
+}
+fn impl_as_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
+    let name = ast.ident;
+    let data = match ast.data {
+        syn::Data::Struct(data) => data,
+        _ => unimplemented!(),
+    };
+    let field = data
+        .fields
+        .into_iter()
+        .find(|f| f.attrs.iter().any(|attr| attr.path().is_ident("raw")))
+        .unwrap();
+
+    let ty = field.ty;
+    if let Some(field_ident) = field.ident {
+        quote::quote! {
+            impl AsRawDDS for #name {
+                type Raw = #ty;
+
+                #[inline(always)]
+                fn as_raw(self) -> Self::Raw {
+                    self.#field_ident
+                }
+            }
+        }
+        .into()
+    } else {
+        quote::quote! {
+            impl RawDDS for #name {
+                type Raw = #ty;
+
+                #[inline(always)]
+                fn as_raw(self) -> Self::Raw {
+                    &self.0
+                }
+            }
+        }
+        .into()
+    }
+}
+
+#[proc_macro_derive(RawDDSRefMut, attributes(raw))]
 pub fn rawmutdds_macro_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
 
@@ -115,7 +161,7 @@ fn impl_rawmutdds_macro(ast: syn::DeriveInput) -> TokenStream {
     let ty = field.ty;
     if let Some(field_ident) = field.ident {
         quote::quote! {
-            impl<'a> RawMutDDS<'a> for #name {
+            impl<'a> RawDDSRefMut<'a> for #name {
                 type RawMut = &'a mut #ty;
 
                 #[inline(always)]
@@ -127,7 +173,7 @@ fn impl_rawmutdds_macro(ast: syn::DeriveInput) -> TokenStream {
         .into()
     } else {
         quote::quote! {
-            impl<'a> RawMutDDS<'a> for #name {
+            impl<'a> RawDDSRefMut<'a> for #name {
                 type RawMut = &'a mut #ty;
 
                 #[inline(always)]

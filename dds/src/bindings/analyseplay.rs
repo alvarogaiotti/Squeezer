@@ -1,9 +1,12 @@
 use super::{
-    ddsffi::{deal, playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalysePlayBin},
-    AsDDSContract, AsDDSDeal, RawDDS,
+    ddsffi::{
+        deal, playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalysePlayBin, RETURN_NO_FAULT,
+    },
+    AsDDSContract, AsDDSDeal, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
 };
 use crate::{
-    bindings::ddsffi::RETURN_UNKNOWN_FAULT, DDSDealConstructionError, DDSError, RankSeq, SuitSeq,
+    bindings::ddsffi::{boards, AnalyseAllPlaysBin, RETURN_UNKNOWN_FAULT},
+    DDSDealConstructionError, DDSError, RankSeq, SuitSeq,
 };
 use core::ffi::c_int;
 
@@ -12,7 +15,7 @@ const MAXNOOFBOARDS: usize = super::ddsffi::MAXNOOFBOARDS as usize;
 /// Wrapper of the `solvedPlays` `DoubleDummySolver` dll.
 /// The `solvedPlays` struct is a container of MAXNOOFBOARDS [solvedPlay]
 /// and the number of boards effectively to analyze.
-#[derive(RawDDS)]
+#[derive(RawDDSRef, RawDDSRefMut)]
 pub struct SolvedPlays {
     #[raw]
     solved_plays: solvedPlays,
@@ -48,7 +51,7 @@ impl From<solvedPlay> for SolvedPlay {
 /// The `solvedPlay` struct stores 53 integers representing
 /// the optimal number of tricks which can be made by both
 /// side in a given contract after a card is played.
-#[derive(RawDDS, Debug)]
+#[derive(RawDDSRef, Debug)]
 pub struct SolvedPlay {
     #[raw]
     pub solved_play: solvedPlay,
@@ -82,7 +85,7 @@ impl Default for SolvedPlay {
     }
 }
 
-#[derive(RawDDS)]
+#[derive(RawDDSRef, RawDDSRefMut)]
 /// Wrapper around DDS [`playTracesBin`] type.
 /// The `playTraceBin` stores two arrays
 /// of 52 element each representing played card's rank
@@ -93,7 +96,7 @@ pub struct PlayTracesBin {
 }
 
 impl playTracesBin {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             noOfBoards: 0,
             plays: [playTraceBin::new(); MAXNOOFBOARDS],
@@ -118,18 +121,19 @@ impl PlayTracesBin {
             .map(|(suit, rank)| PlayTraceBin::new(suit, rank).play_trace_bin)
             .collect();
         plays.resize(MAXNOOFBOARDS, playTraceBin::new());
+        let plays = plays.try_into().unwrap();
         Ok(Self {
             play_trace_bin: playTracesBin {
                 // SAFETY: capped at 200
                 noOfBoards: suits_len.try_into().unwrap(),
                 // SAFETY: We now the length of the Vec
-                plays: plays.try_into().unwrap(),
+                plays,
             },
         })
     }
 }
 
-#[derive(RawDDS)]
+#[derive(RawDDSRef)]
 /// Wrapper around DDS [`playTraceBin`] type.
 /// The `playTraceBin` stores two arrays
 /// of 52 element each representing played card's rank
@@ -150,31 +154,32 @@ impl PlayTraceBin {
         } else {
             i32::min(suit.length, rank.length)
         };
-        return Self {
+        Self {
             play_trace_bin: {
                 let number = length;
                 playTraceBin {
                     number,
-                    suit: *suit.get_raw(),
-                    rank: *rank.get_raw(),
+                    suit: suit.as_raw(),
+                    rank: rank.as_raw(),
                 }
             },
-        };
+        }
     }
 }
 
 impl playTraceBin {
     #[inline]
     #[must_use]
-    /// Creates a new `playTraceBin`
+    /// Creates a new `playTraceBin` from data
     pub fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
         Self { number, suit, rank }
     }
+    /// Creates a new `playTraceBin`
     pub const fn new() -> Self {
         Self {
             number: 0,
-            suit: [0; 52],
-            rank: [0; 52],
+            suit: [0i32; 52],
+            rank: [0i32; 52],
         }
     }
 }
@@ -192,10 +197,10 @@ pub trait PlayAnalyzer {
         play: &PlayTraceBin,
     ) -> Result<SolvedPlay, DDSError>;
     /// Analyzes a bunch of hands, theoretically in paraller.
-    fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
-        deal: Vec<&D>,
-        contract: Vec<C>,
-        play: &PlayTracesBin,
+    fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
+        deals: Vec<&D>,
+        contracts: Vec<C>,
+        plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError>;
 }
 
@@ -219,29 +224,57 @@ impl DDSPlayAnalyzer {
 
 impl PlayAnalyzer for DDSPlayAnalyzer {
     #[inline]
-    fn analyze_all_play<D: AsDDSDeal, C: AsDDSContract>(
+    fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
         deals: Vec<&D>,
         contracts: Vec<C>,
-        play: &PlayTracesBin,
+        plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError> {
-        let deals_len = if let Ok(deals_len) = u32::try_from(deals.len()) {
+        let deals_len = if let Ok(deals_len) = i32::try_from(deals.len()) {
             deals_len
         } else {
             return Err(DDSError::new(RETURN_UNKNOWN_FAULT));
         };
-        let contracts_len = if let Ok(contracts_len) = u32::try_from(contracts.len()) {
+        let contracts_len = if let Ok(contracts_len) = i32::try_from(contracts.len()) {
             contracts_len
         } else {
             return Err(DDSError::new(RETURN_UNKNOWN_FAULT));
         };
-        let c_deals = contracts
+        if deals_len != contracts_len {
+            return Err(DDSError::new(RETURN_UNKNOWN_FAULT));
+        }
+        let mut c_deals: Vec<deal> = contracts
             .into_iter()
-            .zip(deals.into_iter())
-            .map(|(contract, deal)| construct_dds_deal(contract, deal));
-        let mut solved_plays = SolvedPlays::new(deals_len as i32);
-        let solved: *mut solvedPlays = &mut solved_plays.solved_plays;
-        let play_trace = play.get_raw();
-        todo!()
+            .zip(deals)
+            .map(|(contract, deal)| construct_dds_deal(contract, deal))
+            .collect();
+        c_deals.resize(MAXNOOFBOARDS, deal::new());
+        let mut boards = boards {
+            noOfBoards: deals_len,
+            // SAFETY: We now vec has the right length
+            deals: match c_deals.try_into() {
+                Ok(ddsdeals) => ddsdeals,
+                Err(_) => return Err(DDSError::new(RETURN_UNKNOWN_FAULT)),
+            },
+            target: [Target::MaxTricks.into(); MAXNOOFBOARDS],
+            solutions: [Solutions::Best.into(); MAXNOOFBOARDS],
+            mode: [Mode::Auto.into(); MAXNOOFBOARDS],
+        };
+        let bop: *mut boards = &mut boards;
+        let mut solved_plays = SolvedPlays {
+            solved_plays: solvedPlays {
+                noOfBoards: deals_len,
+                solved: [solvedPlay::new(); MAXNOOFBOARDS],
+            },
+        };
+        let solved: *mut solvedPlays = solved_plays.get_raw_mut();
+        let play_trace: *mut playTracesBin = (*plays).get_raw_mut();
+
+        //SAFETY: calling C
+        let result = unsafe { AnalyseAllPlaysBin(bop, play_trace, solved, 1i32) };
+        match result {
+            success if success == RETURN_NO_FAULT as i32 => Ok(solved_plays),
+            n => Err(n.into()),
+        }
     }
 
     #[inline]
@@ -265,12 +298,11 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
 
 fn construct_dds_deal<D: AsDDSDeal, C: AsDDSContract>(contract: C, deal: &D) -> deal {
     let (trump, first) = contract.as_dds_contract();
-    let c_deal = deal {
+    deal {
         trump,
         first,
         currentTrickSuit: [0i32; 3],
         currentTrickRank: [0i32; 3],
         remainCards: deal.as_dds_deal().as_slice(),
-    };
-    c_deal
+    }
 }

@@ -1,5 +1,4 @@
-use crate::RawDDS;
-use squeezer_macros::RawDDS;
+use super::{AsRawDDS, RawDDSRef};
 use core::ffi::c_int;
 
 use core::num::NonZeroI32;
@@ -89,11 +88,11 @@ impl core::fmt::Display for SeqError {
             Self::SequenceTooLong => format!("Sequence length is longer than {SEQUENCE_LENGTH}"),
             Self::SequenceTooShort => format!("Sequence length is shorter than {}", 1),
         };
-        return write!(f, "{string}")
+        return write!(f, "{string}");
     }
 }
 
-#[derive(RawDDS)]
+#[derive(AsRawDDS, Debug, Clone)]
 pub struct SuitSeq {
     #[raw]
     sequence: [c_int; SEQUENCE_LENGTH],
@@ -106,7 +105,7 @@ impl TryFrom<&[c_int]> for SuitSeq {
         if length == 0 {
             Err(SeqError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(SeqError::SequenceTooLong)
+            return Err(SeqError::SequenceTooLong);
         } else {
             let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
             array.extend_from_slice(value);
@@ -115,14 +114,15 @@ impl TryFrom<&[c_int]> for SuitSeq {
                 // SAFETY: checks already performed above
                 sequence: array.try_into().unwrap(),
                 length: length as i32,
-            })
+            });
         }
     }
 }
 impl SuitSeq {
     /// Create a new `SuitSeq`, validating input.
     /// Slice gets truncated if too long
-    #[must_use] pub fn new(mut sequence: &[c_int]) -> Self {
+    #[must_use]
+    pub fn new(mut sequence: &[c_int]) -> Self {
         let mut length = sequence.len();
         if length > SEQUENCE_LENGTH {
             (sequence, _) = sequence.split_at(SEQUENCE_LENGTH);
@@ -145,7 +145,7 @@ impl SuitSeq {
     }
 }
 
-#[derive(RawDDS)]
+#[derive(Debug, Clone, AsRawDDS)]
 pub struct RankSeq {
     #[raw]
     sequence: [c_int; SEQUENCE_LENGTH],
@@ -155,7 +155,8 @@ pub struct RankSeq {
 impl RankSeq {
     /// Create a new `RankSeq`, validating input.
     /// Slice gets truncated if too long
-    #[must_use] pub fn new(mut sequence: &[c_int]) -> Self {
+    #[must_use]
+    pub fn new(mut sequence: &[c_int]) -> Self {
         let mut length = sequence.len();
         if length > SEQUENCE_LENGTH {
             (sequence, _) = sequence.split_at(SEQUENCE_LENGTH);

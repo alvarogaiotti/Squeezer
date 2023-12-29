@@ -1,12 +1,16 @@
+pub trait AsRawDDS {
+    type Raw;
 
+    fn as_raw(self) -> Self::Raw;
+}
 
-pub trait RawDDS<'a> {
+pub trait RawDDSRef<'a> {
     type Raw;
 
     fn get_raw(&'a self) -> Self::Raw;
 }
 
-pub trait RawMutDDS<'a> {
+pub trait RawDDSRefMut<'a> {
     type RawMut;
 
     fn get_raw_mut(&'a mut self) -> Self::RawMut;
