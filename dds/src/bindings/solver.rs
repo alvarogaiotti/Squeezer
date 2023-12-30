@@ -4,20 +4,30 @@ use crate::bindings::{
     ddsffi::{boards, futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
     deal::{AsDDSDeal, DDSDealBuilder},
     future_tricks::FutureTricks,
+    utils::build_c_deal,
     AsDDSContract, Boards, DDSDeal, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
     ThreadIndex, MAXNOOFBOARDSEXPORT,
 };
 
+#[allow(clippy::module_name_repetitions)]
 pub trait BridgeSolver {
+    /// Returns the number of tricks makable in one contract by one player
+    /// # Errors
+    /// Returns errors if the deal is impossible to be constructed or if the
+    /// solver errors out
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         deal: &D,
         contract: &C,
     ) -> Result<u8, Box<dyn std::error::Error>>;
 }
-pub struct DDSSolver {}
+
+#[non_exhaustive]
+#[allow(clippy::module_name_repetitions)]
+pub struct DDSSolver;
 
 impl BridgeSolver for DDSSolver {
+    #[inline]
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         deal: &D,
@@ -38,7 +48,7 @@ impl BridgeSolver for DDSSolver {
             );
         };
         if result != 1 {
-            return Err(Box::new(DDSError::new(result)));
+            return Err(Box::new(DDSError::from(result)));
         }
         return Ok(13 - future_tricks.score()[0] as u8);
     }
@@ -59,7 +69,9 @@ impl DDSSolver {
             [Solutions::Best; MAXNOOFBOARDSEXPORT],
             [Mode::Auto; MAXNOOFBOARDSEXPORT],
         )?;
-        let mut solved_boards = SolvedBoards::new(number_of_deals);
+        let mut solved_boards = SolvedBoards {
+            solved_boards: solvedBoards::new(number_of_deals),
+        };
         let result;
         {
             let bop: *mut boards = boards.get_raw_mut();
@@ -69,7 +81,7 @@ impl DDSSolver {
             }
         };
         if result != 1 {
-            return Err(DDSError::new(result));
+            return Err(result.into());
         }
         Ok(solved_boards
             .get_raw()
@@ -79,18 +91,6 @@ impl DDSSolver {
             .take(number_of_deals as usize)
             .collect())
     }
-}
-
-fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
-    contract: &C,
-    deal: &D,
-) -> Result<DDSDeal, Box<dyn std::error::Error>> {
-    let (trump, first) = contract.as_dds_contract();
-    Ok(DDSDealBuilder::new()
-        .trump(trump.try_into()?)
-        .first(first.try_into()?)
-        .remain_cards(deal.as_dds_deal())
-        .build()?)
 }
 
 #[derive(Debug, RawDDSRef, RawDDSRefMut)]
@@ -104,15 +104,6 @@ impl solvedBoards {
         Self {
             noOfBoards: no_of_boards,
             solvedBoard: [futureTricks::default(); MAXNOOFBOARDSEXPORT],
-        }
-    }
-}
-
-impl SolvedBoards {
-    #[must_use]
-    pub fn new(no_of_boards: c_int) -> Self {
-        Self {
-            solved_boards: solvedBoards::new(no_of_boards),
         }
     }
 }

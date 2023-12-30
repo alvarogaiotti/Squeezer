@@ -1,3 +1,5 @@
+use crate::SeqError;
+
 use super::{
     ddserror::DDSError,
     ddsffi::{boards, deal, dealPBN},
@@ -21,13 +23,15 @@ pub enum DDSSuitEncoding {
 }
 
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
+/// Macro for quick implementation of the `TryFrom` trait for a type
 macro_rules! impl_tryfrom_dds {
     ($from:ty, $to:ty, $err:ty) => {
         impl core::convert::TryFrom<$from> for $to {
             type Error = $err;
 
-            fn try_from(v: $from) -> Result<Self, Self::Error> {
-                match v {
+            #[inline]
+            fn try_from(value: $from) -> Result<Self, Self::Error> {
+                match value {
                     0 => Ok(Self::Spades),
                     1 => Ok(Self::Hearts),
                     2 => Ok(Self::Diamonds),
@@ -39,6 +43,7 @@ macro_rules! impl_tryfrom_dds {
         }
     };
 }
+
 impl_tryfrom_dds!(u8, DDSSuitEncoding, DDSDealConstructionError);
 impl_tryfrom_dds!(u16, DDSSuitEncoding, DDSDealConstructionError);
 impl_tryfrom_dds!(u32, DDSSuitEncoding, DDSDealConstructionError);
@@ -58,13 +63,15 @@ pub enum DDSHandEncoding {
     West = 3,
 }
 
+/// Macro for implementing `TryFrom` from integer to [`DDSHandEncoding`]
 macro_rules! impl_tryfrom_dds_hand {
-    ($from:ty) => {
-        impl core::convert::TryFrom<$from> for DDSHandEncoding {
+    ($($from:ty),*) => {
+        $(impl core::convert::TryFrom<$from> for DDSHandEncoding {
             type Error = DDSDealConstructionError;
 
-            fn try_from(v: $from) -> Result<Self, Self::Error> {
-                match v {
+            #[inline]
+            fn try_from(value: $from) -> Result<Self, Self::Error> {
+                match value {
                     0 => Ok(Self::North),
                     1 => Ok(Self::East),
                     2 => Ok(Self::South),
@@ -72,18 +79,11 @@ macro_rules! impl_tryfrom_dds_hand {
                     _ => Err(Self::Error::TrumpUnconvertable),
                 }
             }
-        }
+        })*
     };
 }
 
-impl_tryfrom_dds_hand!(u8);
-impl_tryfrom_dds_hand!(u16);
-impl_tryfrom_dds_hand!(u32);
-impl_tryfrom_dds_hand!(usize);
-impl_tryfrom_dds_hand!(i8);
-impl_tryfrom_dds_hand!(i16);
-impl_tryfrom_dds_hand!(i32);
-impl_tryfrom_dds_hand!(isize);
+impl_tryfrom_dds_hand!(u8, u16, u32, usize, i8, i16, i32, isize);
 
 /// This is how DDS represents a "binary deal":
 /// a array of arrays of u32, basing the order on the [`DDSHandEncoding`]
@@ -133,9 +133,17 @@ pub enum DDSDealConstructionError {
     FirstNotDeclared,
     FirstUnconvertable,
     TrumpUnconvertable,
+    IncorrectSequence(SeqError),
+}
+impl From<SeqError> for DDSDealConstructionError {
+    #[inline]
+    fn from(value: SeqError) -> Self {
+        Self::IncorrectSequence(value)
+    }
 }
 
 impl Display for DDSDealConstructionError {
+    #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::CurrentTrickRankNotSet => write!(
@@ -157,7 +165,10 @@ impl Display for DDSDealConstructionError {
                 write!(f, "first cannot be converted from the value you provided")
             }
             Self::TrumpUnconvertable => {
-                write!(f, "first cannot be converted from the value you provided")
+                write!(f, "trump cannot be converted from the value you provided")
+            }
+            Self::IncorrectSequence(error) => {
+                write!(f, "sequence has incorrect encoding:\n\t{error}")
             }
         }
     }
@@ -246,21 +257,7 @@ impl DDSDealBuilder {
     }
 }
 
-impl deal {
-    #[inline]
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            trump: -1,
-            first: -1,
-            currentTrickSuit: [-1i32; 3],
-            currentTrickRank: [-1i32; 3],
-            remainCards: [[0u32; 4]; 4],
-        }
-    }
-}
-
-/// A wrapper around the [deal] struct from DDS.
+/// A wrapper around the `deal` struct from DDS.
 /// A `deal` is composed by a trump (represented with the [`DDSSuitEncoding`]),
 /// the player on lead (representend with the [`DDSHandEncoding`]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
