@@ -32,7 +32,7 @@ impl dds::AsDDSDeal for DealMock {
 pub struct ContractMock {}
 
 impl dds::ContractScorer for ContractMock {
-    fn score(&self, tricks: u8) -> i32 {
+    fn score(&self, _tricks: u8) -> i32 {
         0
     }
 }

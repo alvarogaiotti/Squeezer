@@ -2,10 +2,10 @@ use core::ffi::c_int;
 
 use crate::bindings::{
     ddsffi::{boards, futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
-    deal::{AsDDSDeal, DDSDealBuilder},
+    deal::{AsDDSDeal},
     future_tricks::FutureTricks,
     utils::build_c_deal,
-    AsDDSContract, Boards, DDSDeal, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
+    AsDDSContract, Boards, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
     ThreadIndex, MAXNOOFBOARDSEXPORT,
 };
 
