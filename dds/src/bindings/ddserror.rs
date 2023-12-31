@@ -1,3 +1,5 @@
+use core::fmt;
+
 use super::ddsffi::{
     RETURN_CARD_COUNT, RETURN_CHUNK_SIZE, RETURN_DUPLICATE_CARDS, RETURN_FIRST_WRONG,
     RETURN_MODE_WRONG_HI, RETURN_MODE_WRONG_LO, RETURN_NO_SUIT, RETURN_PBN_FAULT,
@@ -6,6 +8,7 @@ use super::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS,
 };
+use crate::c_int;
 
 /// Wrapper around the DDS errors
 #[derive(Debug)]
@@ -15,30 +18,36 @@ pub struct DDSError {
 }
 
 impl From<DDSErrorKind> for DDSError {
+    #[inline]
     fn from(value: DDSErrorKind) -> Self {
         Self { kind: value }
     }
 }
 
 impl From<i32> for DDSError {
+    #[inline]
     fn from(value: i32) -> Self {
-        assert_ne!(1, value);
+        assert_ne!(1i32, value,"If we fail the assertion we didn't check for the return result, since a return result of 1 means success." );
         Self { kind: value.into() }
     }
 }
 
-impl core::fmt::Display for DDSError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for DDSError {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            f,
+            formatter,
             "something went wrong while solving boards:\n\t{}",
             self.kind
         )
     }
 }
+
+#[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
 impl std::error::Error for DDSError {}
 
 #[derive(Debug)]
+#[allow(clippy::exhaustive_enums)]
 pub enum DDSErrorKind {
     UnknownFault,
     ZeroCards,
@@ -66,8 +75,10 @@ pub enum DDSErrorKind {
     ChunkSize,
 }
 
-impl From<core::ffi::c_int> for DDSErrorKind {
-    fn from(value: core::ffi::c_int) -> Self {
+#[allow(clippy::unreachable)]
+impl From<c_int> for DDSErrorKind {
+    #[inline]
+    fn from(value: c_int) -> Self {
         match value {
             RETURN_UNKNOWN_FAULT => Self::UnknownFault,
             RETURN_ZERO_CARDS => Self::ZeroCards,
@@ -99,33 +110,34 @@ impl From<core::ffi::c_int> for DDSErrorKind {
     }
 }
 
-impl core::fmt::Display for DDSErrorKind {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::UnknownFault => write!(f, "fopen() failed or wrong number of boards"),
-            Self::ZeroCards => write!(f, "zero cards"),
-            Self::TargetTooHigh => write!(f, "target higher than number of tricks remaining"),
-            Self::DuplicateCards => write!(f, "duplicated card"),
-            Self::TargetWrongLo => write!(f, "target is less than -1"),
-            Self::TargetWrongHi => write!(f, "target is higher than 13"),
-            Self::SolnsWrongLo => write!(f, "solutions is less than 1"),
-            Self::SolnsWrongHi => write!(f, "solutions is more than 3"),
-            Self::TooManyCards => write!(f, "too many cards"),
-            Self::SuitOrRank => write!(f, "currentTrickSuit or currentTrickRank have wrong data"),
-            Self::PlayedCard => write!(f, "card already played"),
-            Self::CardCount => write!(f, "wrong number of remining cards for a hand"),
-            Self::ThreadIndex => write!(f, "thread number is less than 0 or higher than the maximum permitted"),
-            Self::ModeWrongLo => write!(f, "mode is less than 0"),
-            Self::ModeWrongHi => write!(f, "mode is greater than 2"),
-            Self::TrumpWrong => write!(f, "trump is not one of 0,1,2,3 or 4"),
-            Self::FirstWrong => write!(f, "first is not one of 0,1,2 or 3"),
-            Self::PlayFault => write!(f, "less than 0 or more than 52 cards supplied, invalid suit or rank supplied or played card is not held by the right player"),
-            Self::PbnFault => write!(f, "PBN string is malformed"),
-            Self::ThreadCreate => write!(f, "thread created"),
-            Self::ThreadWait => write!(f, "something went wrong while waiting for threads to complete"),
-            Self::NoSuit => write!(f, "denomination filter vector has no entries"),
-            Self::TooManyTables => write!(f, "too many tables requested"),
-            Self::ChunkSize => write!(f, "chunk size is less than 1"),
+impl fmt::Display for DDSErrorKind {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::UnknownFault => write!(formatter, "fopen() failed or wrong number of boards"),
+            Self::ZeroCards => write!(formatter, "zero cards"),
+            Self::TargetTooHigh => write!(formatter, "target higher than number of tricks remaining"),
+            Self::DuplicateCards => write!(formatter, "duplicated card"),
+            Self::TargetWrongLo => write!(formatter, "target is less than -1"),
+            Self::TargetWrongHi => write!(formatter, "target is higher than 13"),
+            Self::SolnsWrongLo => write!(formatter, "solutions is less than 1"),
+            Self::SolnsWrongHi => write!(formatter, "solutions is more than 3"),
+            Self::TooManyCards => write!(formatter, "too many cards"),
+            Self::SuitOrRank => write!(formatter, "currentTrickSuit or currentTrickRank have wrong data"),
+            Self::PlayedCard => write!(formatter, "card already played"),
+            Self::CardCount => write!(formatter, "wrong number of remining cards for a hand"),
+            Self::ThreadIndex => write!(formatter, "thread number is less than 0 or higher than the maximum permitted"),
+            Self::ModeWrongLo => write!(formatter, "mode is less than 0"),
+            Self::ModeWrongHi => write!(formatter, "mode is greater than 2"),
+            Self::TrumpWrong => write!(formatter, "trump is not one of 0,1,2,3 or 4"),
+            Self::FirstWrong => write!(formatter, "first is not one of 0,1,2 or 3"),
+            Self::PlayFault => write!(formatter, "less than 0 or more than 52 cards supplied, invalid suit or rank supplied or played card is not held by the right player"),
+            Self::PbnFault => write!(formatter, "PBN string is malformed"),
+            Self::ThreadCreate => write!(formatter, "thread created"),
+            Self::ThreadWait => write!(formatter, "something went wrong while waiting for threads to complete"),
+            Self::NoSuit => write!(formatter, "denomination filter vector has no entries"),
+            Self::TooManyTables => write!(formatter, "too many tables requested"),
+            Self::ChunkSize => write!(formatter, "chunk size is less than 1"),
         }
     }
 }

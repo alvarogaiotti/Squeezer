@@ -24,7 +24,7 @@ impl dds::AsDDSDeal for DealMock {
                 remain_cards[seat][index] = (suit >> (16 * index)) as u32;
             }
         }
-        dds::DDSDealRepr::new(remain_cards)
+        remain_cards.into()
     }
 }
 

@@ -429,7 +429,7 @@ impl dds::AsDDSDeal for Deal {
                 remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
             }
         }
-        dds::DDSDealRepr::new(remain_cards)
+        remain_cards.into()
     }
 }
 

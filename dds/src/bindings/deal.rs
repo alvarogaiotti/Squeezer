@@ -5,7 +5,11 @@ use super::{
     ddsffi::{boards, deal, dealPBN},
     AsDDSContract, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDSEXPORT,
 };
-use core::{ffi::c_int, fmt::Display};
+use core::{
+    convert::Into,
+    ffi::{c_char, c_int},
+    fmt::Display,
+};
 
 #[derive(Debug, RawDDSRef, Default)]
 pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
@@ -13,6 +17,7 @@ pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
 #[derive(Debug, RawDDSRef, Default)]
 pub struct DDSCurrTrickRank(#[raw] [c_int; 3]);
 
+#[allow(clippy::exhaustive_enums)]
 /// How DDS encodes suits
 pub enum DDSSuitEncoding {
     Spades = 0,
@@ -24,35 +29,46 @@ pub enum DDSSuitEncoding {
 
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 /// Macro for quick implementation of the `TryFrom` trait for a type
-macro_rules! impl_tryfrom_dds {
-    ($from:ty, $to:ty, $err:ty) => {
-        impl core::convert::TryFrom<$from> for $to {
-            type Error = $err;
+macro_rules! impl_tryfrom_dds_suit {
+    ($($from:ty),*) => {
+        $(impl core::convert::TryFrom<$from> for DDSSuitEncoding {
+            type Error = DDSDealConstructionError;
 
             #[inline]
             fn try_from(value: $from) -> Result<Self, Self::Error> {
                 match value {
-                    0 => Ok(Self::Spades),
-                    1 => Ok(Self::Hearts),
-                    2 => Ok(Self::Diamonds),
-                    3 => Ok(Self::Clubs),
-                    4 => Ok(Self::NoTrump),
-                    _ => Err(Self::Error::TrumpUnconvertable),
-                }
+            0 => Ok(Self::Spades),
+            1 => Ok(Self::Hearts),
+            2 => Ok(Self::Diamonds),
+            3 => Ok(Self::Clubs),
+            4 => Ok(Self::NoTrump),
+            _ => Err(Self::Error::TrumpUnconvertable),
+               }
             }
-        }
+        })*
     };
 }
 
-impl_tryfrom_dds!(u8, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(u16, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(u32, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(usize, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(i8, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(i16, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(i32, DDSSuitEncoding, DDSDealConstructionError);
-impl_tryfrom_dds!(isize, DDSSuitEncoding, DDSDealConstructionError);
+impl core::convert::TryFrom<i32> for DDSSuitEncoding {
+    type Error = DDSDealConstructionError;
 
+    #[inline]
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0i32 => Ok(Self::Spades),
+            1i32 => Ok(Self::Hearts),
+            2i32 => Ok(Self::Diamonds),
+            3i32 => Ok(Self::Clubs),
+            4i32 => Ok(Self::NoTrump),
+            _ => Err(Self::Error::TrumpUnconvertable),
+        }
+    }
+}
+
+impl_tryfrom_dds_suit!(u8, u16, u32, usize);
+impl_tryfrom_dds_suit!(i8, i16, isize);
+
+#[allow(clippy::exhaustive_enums)]
 /// How DDS encodes seat.
 #[derive(Debug, Default)]
 pub enum DDSHandEncoding {
@@ -83,19 +99,42 @@ macro_rules! impl_tryfrom_dds_hand {
     };
 }
 
-impl_tryfrom_dds_hand!(u8, u16, u32, usize, i8, i16, i32, isize);
+impl core::convert::TryFrom<i32> for DDSHandEncoding {
+    type Error = DDSDealConstructionError;
+
+    #[inline]
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0i32 => Ok(Self::North),
+            1i32 => Ok(Self::East),
+            2i32 => Ok(Self::South),
+            3i32 => Ok(Self::West),
+            _ => Err(Self::Error::TrumpUnconvertable),
+        }
+    }
+}
+impl_tryfrom_dds_hand!(u8, u16, u32, usize, i8, i16, isize);
 
 /// This is how DDS represents a "binary deal":
 /// a array of arrays of u32, basing the order on the [`DDSHandEncoding`]
-#[derive(Debug, RawDDSRef)]
+#[derive(Debug, Default, RawDDSRef)]
 pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
+impl From<[[u32; 4]; 4]> for DDSDealRepr {
+    #[inline]
+    fn from(value: [[u32; 4]; 4]) -> Self {
+        Self(value)
+    }
+}
+
 impl DDSDealRepr {
+    #[inline]
     #[must_use]
-    pub fn new(data: [[u32; 4]; 4]) -> Self {
-        Self(data)
+    pub fn new() -> Self {
+        Self([[0; 4]; 4])
     }
 
+    #[inline]
     #[must_use]
     pub fn as_slice(self) -> [[u32; 4]; 4] {
         self.0
@@ -105,7 +144,11 @@ impl DDSDealRepr {
 /// This is how DDS represents a PBN deal:
 /// ae array of 80 chars.
 #[derive(Debug, RawDDSRef)]
-pub struct DDSDealPBNRepr(#[raw] [core::ffi::c_char; 80]);
+pub struct DDSDealPBNRepr(
+    /// All PBN deals are 80 chars strings
+    #[raw]
+    [c_char; 80],
+);
 
 /// Trait for compatibility with DDS. Encodings:
 /// Trump: 0 Spades, 1 Hearts, 2 Diamonds, 3 Clubs
@@ -117,12 +160,19 @@ pub trait AsDDSDeal {
 /// This helps us build a Deal. Rough edges right now, should be refactored or improved
 /// at least.
 pub struct DDSDealBuilder {
+    /// Trump for the deal, `None` when not set
     trump: Option<DDSSuitEncoding>,
+    /// Leader for the deal, `None` when not set
     first: Option<DDSHandEncoding>,
+    /// Current tricks' suits for the deal, `None` when not set
     current_trick_suit: Option<DDSCurrTrickSuit>,
+    /// Current tricks' ranks for the deal, `None` when not set
     current_trick_rank: Option<DDSCurrTrickRank>,
+    /// Remainig cards in the deal, exluded the one in current_trick* for the deal, `None` when not set
     remain_cards: Option<DDSDealRepr>,
 }
+
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum DDSDealConstructionError {
     DuplicatedCard(c_int, c_int),
@@ -135,6 +185,7 @@ pub enum DDSDealConstructionError {
     TrumpUnconvertable,
     IncorrectSequence(SeqError),
 }
+
 impl From<SeqError> for DDSDealConstructionError {
     #[inline]
     fn from(value: SeqError) -> Self {
@@ -144,35 +195,43 @@ impl From<SeqError> for DDSDealConstructionError {
 
 impl Display for DDSDealConstructionError {
     #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::CurrentTrickRankNotSet => write!(
-                f,
+                formatter,
                 "current trick rank is not set while current trick suit is"
             ),
             Self::CurrentTrickSuitNotSet => write!(
-                f,
+                formatter,
                 "current trick suit is not set while current trick rank is"
             ),
             Self::DuplicatedCard(suit, rank) => {
                 let card = dds_card_tuple_to_string(suit, rank);
-                write!(f, "duplicated card: {card}")
+                write!(formatter, "duplicated card: {card}")
             }
-            Self::DealNotLoaded => write!(f, "deal not loaded"),
-            Self::FirstNotDeclared => write!(f, "leader not declared"),
-            Self::TrumpNotDeclared => write!(f, "trump not declared"),
+            Self::DealNotLoaded => write!(formatter, "deal not loaded"),
+            Self::FirstNotDeclared => write!(formatter, "leader not declared"),
+            Self::TrumpNotDeclared => write!(formatter, "trump not declared"),
             Self::FirstUnconvertable => {
-                write!(f, "first cannot be converted from the value you provided")
+                write!(
+                    formatter,
+                    "first cannot be converted from the value you provided"
+                )
             }
             Self::TrumpUnconvertable => {
-                write!(f, "trump cannot be converted from the value you provided")
+                write!(
+                    formatter,
+                    "trump cannot be converted from the value you provided"
+                )
             }
             Self::IncorrectSequence(error) => {
-                write!(f, "sequence has incorrect encoding:\n\t{error}")
+                write!(formatter, "sequence has incorrect encoding:\n\t{error}")
             }
         }
     }
 }
+
+#[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
 impl std::error::Error for DDSDealConstructionError {}
 
 impl Default for DDSDealBuilder {
@@ -230,6 +289,12 @@ impl DDSDealBuilder {
         self
     }
 
+    #[allow(clippy::question_mark_used, clippy::as_conversions)]
+    #[inline]
+    /// Builds the `DDSDeal`.
+    ///
+    /// # Errors
+    /// This method will return an error when one of the field was not supplied
     pub fn build(self) -> Result<DDSDeal, DDSDealConstructionError> {
         let remain_cards = self
             .remain_cards
@@ -247,13 +312,15 @@ impl DDSDealBuilder {
                 (None, _) => Err(DDSDealConstructionError::CurrentTrickSuitNotSet),
                 (_, None) => Err(DDSDealConstructionError::CurrentTrickRankNotSet),
             }?;
-        Ok(DDSDeal::new(
-            trump,
-            first,
-            current_trick_rank,
-            current_trick_suit,
-            remain_cards,
-        ))
+        Ok(DDSDeal {
+            raw: deal {
+                trump: trump as c_int,
+                first: first as c_int,
+                currentTrickSuit: *current_trick_suit.get_raw(),
+                currentTrickRank: *current_trick_rank.get_raw(),
+                remainCards: *remain_cards.get_raw(),
+            },
+        })
     }
 }
 
@@ -265,79 +332,43 @@ impl DDSDealBuilder {
 #[derive(RawDDSRef, RawDDSRefMut, Debug)]
 pub struct DDSDeal {
     #[raw]
+    /// The raw DDS `deal`
     raw: deal,
-}
-
-impl DDSDeal {
-    pub(super) fn new(
-        trump: DDSSuitEncoding,
-        first: DDSHandEncoding,
-        current_trick_rank: DDSCurrTrickRank,
-        current_trick_suit: DDSCurrTrickSuit,
-        remain_cards: DDSDealRepr,
-    ) -> Self {
-        return Self {
-            raw: deal {
-                trump: trump as c_int,
-                first: first as c_int,
-                currentTrickSuit: *current_trick_suit.get_raw(),
-                currentTrickRank: *current_trick_rank.get_raw(),
-                remainCards: *remain_cards.get_raw(),
-            },
-        };
-    }
 }
 
 /// A wrapper around DDS's [`dealPBN`].
 /// See [`DDSDeal`] for reference on the fields.
 #[derive(RawDDSRef, Debug)]
-pub(super) struct DDSDealPBN {
+pub struct DDSDealPBN {
     #[raw]
+    /// The raw DDS `dealPBN`
     raw: dealPBN,
 }
 
-impl DDSDealPBN {
-    pub fn new(
-        trump: c_int,
-        first: c_int,
-        current_trick_rank: DDSCurrTrickRank,
-        current_trick_suit: DDSCurrTrickSuit,
-        remain_cards: DDSDealPBNRepr,
-    ) -> Self {
-        return Self {
-            raw: dealPBN {
-                trump,
-                first,
-                currentTrickSuit: *current_trick_suit.get_raw(),
-                currentTrickRank: *current_trick_rank.get_raw(),
-                remainCards: *remain_cards.get_raw(),
-            },
-        };
-    }
-}
-
+#[allow(clippy::unreachable)]
+/// Converts a tuple of ints to a `String` representing a card
 fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     let rankstr = match rank {
-        0b_100 => "2",
-        0b_1000 => "3",
-        0b_10000 => "4",
-        0b_100000 => "5",
-        0b_1000000 => "6",
-        0b_10000000 => "7",
-        0b_100000000 => "8",
-        0b_1000000000 => "9",
-        0b_10000000000 => "10",
-        0b_100000000000 => "J",
-        0b_1000000000000 => "Q",
-        0b_10000000000000 => "K",
-        0b_100000000000000 => "A",
+        0b_100i32 => "2",
+        0b_1000i32 => "3",
+        0b_10000i32 => "4",
+        0b_100000i32 => "5",
+        0b_1000000i32 => "6",
+        0b_10000000i32 => "7",
+        0b_100000000i32 => "8",
+        0b_1000000000i32 => "9",
+        0b_10000000000i32 => "10",
+        0b_100000000000i32 => "J",
+        0b_1000000000000i32 => "Q",
+        0b_10000000000000i32 => "K",
+        0b_100000000000000i32 => "A",
         _ => unreachable!("sanity checks on rank not performed, i'm panicking"),
     };
     let suitstr = match suit {
-        0 => "\u{2660}",
-        1 => "\u{2665}",
-        2 => "\u{25c6}",
-        3 => "\u{2663}",
+        0i32 => "\u{2660}",
+        1i32 => "\u{2665}",
+        2i32 => "\u{25c6}",
+        3i32 => "\u{2663}",
         _ => unreachable!("sanity checks on suit not performed, i'm panicking"),
     };
     let mut res = String::with_capacity(2);
@@ -358,66 +389,56 @@ pub struct Boards {
 }
 
 impl Boards {
+    #[inline]
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D; MAXNOOFBOARDSEXPORT],
         contracts: &[C; MAXNOOFBOARDSEXPORT],
-        target: [Target; MAXNOOFBOARDSEXPORT],
-        solution: [Solutions; MAXNOOFBOARDSEXPORT],
-        mode: [Mode; MAXNOOFBOARDSEXPORT],
-    ) -> Result<Self, DDSError> {
-        Ok(Self {
-            raw: boards::new(no_of_boards, deals, contracts, target, solution, mode)?,
-        })
+        target: &[Target; MAXNOOFBOARDSEXPORT],
+        solution: &[Solutions; MAXNOOFBOARDSEXPORT],
+        mode: &[Mode; MAXNOOFBOARDSEXPORT],
+    ) -> Self {
+        Self {
+            raw: boards::new(no_of_boards, deals, contracts, target, solution, mode),
+        }
     }
 }
 
 impl boards {
+    #[allow(clippy::unwrap_used)]
+    /// Creates a new `boards` struct
     fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D; MAXNOOFBOARDSEXPORT],
         contracts: &[C; MAXNOOFBOARDSEXPORT],
-        target: [Target; MAXNOOFBOARDSEXPORT],
-        solution: [Solutions; MAXNOOFBOARDSEXPORT],
-        mode: [Mode; MAXNOOFBOARDSEXPORT],
-    ) -> Result<Self, DDSError> {
-        Ok(boards {
-            noOfBoards: no_of_boards,
-            // SAFETY: Length if 200
-            deals: boards::setup_deals(deals, contracts),
-            target: target.map(|t| t.into()),
-            solutions: solution.map(|t| t.into()),
-            mode: mode.map(|t| t.into()),
-        })
-    }
-
-    fn setup_deals<D: AsDDSDeal, C: AsDDSContract>(
-        deals: &[D; MAXNOOFBOARDSEXPORT],
-        contracts: &[C; MAXNOOFBOARDSEXPORT],
-    ) -> [deal; MAXNOOFBOARDSEXPORT] {
-        deals
+        target: &[Target; MAXNOOFBOARDSEXPORT],
+        solution: &[Solutions; MAXNOOFBOARDSEXPORT],
+        mode: &[Mode; MAXNOOFBOARDSEXPORT],
+    ) -> Self {
+        let c_deals = deals
             .iter()
             .zip(contracts.iter())
-            .map(|(d, c)| {
-                let (trump, first) = c.as_dds_contract();
+            .map(|(deal, contract)| {
+                let (trump, first) = contract.as_dds_contract();
                 deal {
                     trump,
                     first,
-                    currentTrickSuit: [0; 3],
-                    currentTrickRank: [0; 3],
-                    remainCards: d.as_dds_deal().as_slice(),
+                    currentTrickSuit: [0i32; 3],
+                    currentTrickRank: [0i32; 3],
+                    remainCards: deal.as_dds_deal().as_slice(),
                 }
             })
             .collect::<Vec<deal>>()
             .try_into()
-            .unwrap()
-        // SAFETY: already now we can fit them
-        //deals.try_into().unwrap()
-    }
-
-    fn convert_sequence<T: Into<i32>>(
-        sequence: [T; MAXNOOFBOARDSEXPORT],
-    ) -> [i32; MAXNOOFBOARDSEXPORT] {
-        sequence.map(|t| t.into())
+            // SAFETY: already now we can fit them
+            .unwrap();
+        boards {
+            noOfBoards: no_of_boards,
+            // SAFETY: Length if 200
+            deals: c_deals,
+            target: target.map(Into::into),
+            solutions: solution.map(Into::into),
+            mode: mode.map(Into::into),
+        }
     }
 }

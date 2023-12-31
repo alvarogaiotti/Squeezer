@@ -2,11 +2,11 @@ use core::ffi::c_int;
 
 use crate::bindings::{
     ddsffi::{boards, futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
-    deal::{AsDDSDeal},
+    deal::AsDDSDeal,
     future_tricks::FutureTricks,
     utils::build_c_deal,
-    AsDDSContract, Boards, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
-    ThreadIndex, MAXNOOFBOARDSEXPORT,
+    AsDDSContract, Boards, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, ThreadIndex,
+    MAXNOOFBOARDSEXPORT,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -65,10 +65,10 @@ impl DDSSolver {
             number_of_deals,
             deals,
             contract,
-            [Target::MaxTricks; MAXNOOFBOARDSEXPORT],
-            [Solutions::Best; MAXNOOFBOARDSEXPORT],
-            [Mode::Auto; MAXNOOFBOARDSEXPORT],
-        )?;
+            &[Target::MaxTricks; MAXNOOFBOARDSEXPORT],
+            &[Solutions::Best; MAXNOOFBOARDSEXPORT],
+            &[Mode::Auto; MAXNOOFBOARDSEXPORT],
+        );
         let mut solved_boards = SolvedBoards {
             solved_boards: solvedBoards::new(number_of_deals),
         };
