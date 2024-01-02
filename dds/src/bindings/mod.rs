@@ -30,7 +30,7 @@ impl DoubleDummySolver {
 
     #[must_use]
     pub fn play_analyzer() -> impl PlayAnalyzer {
-        DDSPlayAnalyzer {}
+        DDSPlayAnalyzer::new()
     }
 
     #[must_use]
