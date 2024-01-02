@@ -132,7 +132,7 @@ fn impl_as_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
 
                 #[inline(always)]
                 fn as_raw(self) -> Self::Raw {
-                    &self.0
+                    self.0
                 }
             }
         }
