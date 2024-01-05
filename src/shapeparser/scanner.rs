@@ -37,7 +37,9 @@ impl Scanner {
             'x' => self.add_token(Token::Joker),
             length if length.is_ascii_hexdigit() => {
                 // SAFETY: Bounds already checked
-                self.add_token(Token::Length(length.to_digit(16).unwrap() as u8))
+                self.add_token(Token::Length(
+                    length.to_digit(16).unwrap().clamp(0, 13) as u8
+                ))
             }
 
             _ => return Err(ShapeParsingError::UnknownChar(c)),
