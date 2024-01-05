@@ -17,7 +17,7 @@ lazy_static = {version = "1.4.0", optional = true}
 ureq = {version = "2.6.2", features = ["cookies",], optional = true}
 squeezer_macros = { path = "squeezer_macros" }
 dds = { path = "dds" }
-bitvec = "1.0.1"
+bitvec ={version= "1.0.1", features = ["atomic", "std"]}
 
 [features]
 default = ["lin"]

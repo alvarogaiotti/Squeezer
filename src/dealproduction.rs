@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use crate::shapeparser::ShapeParsingError;
-use bitvec::BitArr;
+use bitvec::{bitarr, BitArr};
 
-const R: u64 = 61;
-const M: u64 = 2039;
-const SHAPE_TABLE_BUCKETS: usize = 2048;
+const R: u64 = 14;
+const M: u64 = 1379;
+const SHAPE_TABLE_BUCKETS: usize = M as usize - 1;
 
 type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 
@@ -73,7 +73,7 @@ impl std::hash::BuildHasher for BuildShapeHasher {
 // Struct that represents multiple shapes.
 #[derive(Copy, Clone)]
 pub struct Shapes {
-    shape_table: [bool; SHAPE_TABLE_BUCKETS],
+    shape_table: ShapeTable,
     min_ls: [u8; SUITS],
     max_ls: [u8; SUITS],
 }
@@ -104,11 +104,12 @@ impl<'a> Shapes {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            shape_table: [false; SHAPE_TABLE_BUCKETS],
+            shape_table: bitarr!(0; SHAPE_TABLE_BUCKETS),
             min_ls: [ZERO_LENGTH; SUITS],
             max_ls: [MAX_LENGTH; SUITS],
         }
     }
+
     pub fn remove_shape(&mut self, shape: String) -> Result<(), DealerError> {
         // Take shape pattern. Right now we match on equal enums, but I'll probably change
         // implementation in the future so I'll keep it here for future use.
@@ -184,25 +185,27 @@ impl<'a> Shapes {
 
     fn insert_shape(&mut self, shape: &[u8]) -> Result<(), DealerError> {
         // let safe = true; // used by redeal, don't know exactly what its purpose is.
-        let mut table = [false; SHAPE_TABLE_BUCKETS];
+        let mut table = bitarr!(0; SHAPE_TABLE_BUCKETS);
         let (min_ls, max_ls) = Shapes::table_from_pattern(Vec::from(shape), &mut table)?;
         for suit in Suit::ALL {
             let suit = *suit as usize;
             self.min_ls[suit] = u8::min(self.min_ls[suit], min_ls[suit]);
             self.max_ls[suit] = u8::max(self.max_ls[suit], max_ls[suit]);
         }
-        for (i, bit) in table.iter().enumerate() {
-            self.shape_table[i] |= bit;
-        }
+        //for (i, bit) in table.iter().enumerate() {
+        //    self.shape_table.as_mut_bitslice()[i] |= bit;
+        //}
+        self.shape_table |= table;
         Ok(())
     }
 
     fn delete_shape(&mut self, shape: &[u8]) -> Result<(), DealerError> {
-        let mut table = [false; SHAPE_TABLE_BUCKETS];
+        let mut table = bitarr!(0; SHAPE_TABLE_BUCKETS);
         let (_min_ls, _max_ls) = Shapes::table_from_pattern(Vec::from(shape), &mut table)?;
-        for (i, bit) in table.iter().enumerate() {
-            self.shape_table[i] &= !bit;
-        }
+        //for (i, bit) in table.iter().enumerate() {
+        //    self.shape_table[i] &= !bit;
+        //}
+        self.shape_table &= !self.shape_table;
         Ok(())
     }
 
@@ -229,7 +232,7 @@ impl<'a> Shapes {
 
     fn table_from_pattern(
         shape: Vec<u8>,
-        table: &mut [bool; SHAPE_TABLE_BUCKETS],
+        table: &mut ShapeTable,
         // In the Python implementation there is a `safe: bool`, but is always passed as true, so we
         // can avoid it.
     ) -> Result<([u8; SUITS], [u8; SUITS]), DealerError> {
@@ -283,7 +286,7 @@ impl<'a> Shapes {
         min_ls: &mut [u8; SUITS],
         shape: &[u8],
         max_ls: &mut [u8; SUITS],
-        table: &'a mut [bool; SHAPE_TABLE_BUCKETS],
+        table: &mut ShapeTable,
     ) -> Result<(), DealerError> {
         if pre_set != MAX_LENGTH {
             return Err(DealerError::new("Wrong number of cards in shape."));
@@ -293,7 +296,7 @@ impl<'a> Shapes {
             min_ls[suit] = u8::min(min_ls[suit], shape[suit]);
             max_ls[suit] = u8::max(max_ls[suit], shape[suit]);
         }
-        table[Shapes::hash_flatten(shape)] = true;
+        table.set(Shapes::hash_flatten(shape), true);
         Ok(())
     }
 
@@ -330,11 +333,12 @@ impl<'a> Shapes {
             itertools::iproduct!(rangespades, rangehearts, rangediamonds, rangeclubs)
                 .filter(|(s, h, d, c)| s + h + d + c == MAX_LENGTH)
         {
-            self.shape_table[Shapes::hash_flatten(&[s, h, d, c])] = true;
+            self.shape_table
+                .set(Shapes::hash_flatten(&[s, h, d, c]), true);
         }
     }
     pub const ALL: Shapes = Shapes {
-        shape_table: [true; SHAPE_TABLE_BUCKETS],
+        shape_table: bitarr!(1; SHAPE_TABLE_BUCKETS),
         min_ls: [ZERO_LENGTH; 4],
         max_ls: [MAX_LENGTH; 4],
     };
