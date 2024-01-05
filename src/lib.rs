@@ -45,10 +45,9 @@ mod prelude {
     pub use crate::evaluator::*;
     pub use crate::hand::*;
     pub use crate::linparser::*;
-    #[cfg(feature = "lin")]
-    pub use crate::linparser::*;
+    
     pub use crate::payoff::*;
-    pub use crate::shape::*;
+    
     pub use crate::simulation::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;
