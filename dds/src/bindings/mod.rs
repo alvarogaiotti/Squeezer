@@ -15,7 +15,9 @@ pub use solver::*;
 pub use traits::*;
 pub use utils::*;
 
-const MAXNOOFBOARDSEXPORT: usize = ddsffi::MAXNOOFBOARDS as usize;
+#[allow(clippy::as_conversions)]
+/// Max number of boards set by DDS
+const MAXNOOFBOARDS: usize = ddsffi::MAXNOOFBOARDS as usize;
 
 #[non_exhaustive]
 pub struct DoubleDummySolver;

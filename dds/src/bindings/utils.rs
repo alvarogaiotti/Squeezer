@@ -355,9 +355,9 @@ impl RankSeq {
 /// Will error if the trump or the player are not valid values following
 /// their encodings: [`DDSSuitEncoding`] and [`DDSHandEncoding`]
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
-    contract: &C,
-    deal: &D,
+    contract_and_deal: (&C, &D),
 ) -> Result<DDSDeal, DDSDealConstructionError> {
+    let (contract, deal) = contract_and_deal;
     let (trump, first) = contract.as_dds_contract();
     DDSDealBuilder::new()
         .trump(trump.try_into()?)

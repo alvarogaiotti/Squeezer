@@ -6,7 +6,7 @@ use crate::bindings::{
     future_tricks::FutureTricks,
     utils::build_c_deal,
     AsDDSContract, Boards, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, ThreadIndex,
-    MAXNOOFBOARDSEXPORT,
+    MAXNOOFBOARDS,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -33,7 +33,7 @@ impl BridgeSolver for DDSSolver {
         deal: &D,
         contract: &C,
     ) -> Result<u8, Box<dyn std::error::Error>> {
-        let c_deal = build_c_deal(contract, deal)?;
+        let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
         let futp: *mut futureTricks = &mut future_tricks.0;
         let result;
@@ -58,16 +58,16 @@ impl DDSSolver {
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDSEXPORT],
-        contract: &[C; MAXNOOFBOARDSEXPORT],
+        deals: &[D; MAXNOOFBOARDS],
+        contract: &[C; MAXNOOFBOARDS],
     ) -> Result<Vec<u8>, DDSError> {
         let mut boards = Boards::new(
             number_of_deals,
             deals,
             contract,
-            &[Target::MaxTricks; MAXNOOFBOARDSEXPORT],
-            &[Solutions::Best; MAXNOOFBOARDSEXPORT],
-            &[Mode::Auto; MAXNOOFBOARDSEXPORT],
+            &[Target::MaxTricks; MAXNOOFBOARDS],
+            &[Solutions::Best; MAXNOOFBOARDS],
+            &[Mode::Auto; MAXNOOFBOARDS],
         );
         let mut solved_boards = SolvedBoards {
             solved_boards: solvedBoards::new(number_of_deals),
@@ -103,7 +103,7 @@ impl solvedBoards {
     fn new(no_of_boards: c_int) -> Self {
         Self {
             noOfBoards: no_of_boards,
-            solvedBoard: [futureTricks::default(); MAXNOOFBOARDSEXPORT],
+            solvedBoard: [futureTricks::default(); MAXNOOFBOARDS],
         }
     }
 }
