@@ -1,23 +1,21 @@
 use super::{
     ddsffi::{deal, playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalysePlayBin},
+    utils::build_c_deal,
     AsDDSContract, AsDDSDeal, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
+    MAXNOOFBOARDS,
 };
 use crate::{
     bindings::ddsffi::{boards, AnalyseAllPlaysBin, RETURN_UNKNOWN_FAULT},
-    DDSError, RankSeq, SuitSeq,
+    DDSDeal, DDSError, RankSeq, SuitSeq,
 };
 use core::ffi::c_int;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 /// Number of consecutive boards in a sequence a thread gets when we call
 /// `AnalyseAllPlaysBin`.
 /// 1 means thread1 takes number 1, thread2 takes number 2 and so on
 /// 10 means thread1 takes 1..10, thread2 takes 11..20 etc.
 const CHUNK_SIZE: i32 = 10;
-
-#[allow(clippy::as_conversions)]
-/// Max number of boards set by DDS
-const MAXNOOFBOARDS: usize = super::ddsffi::MAXNOOFBOARDS as usize;
 
 #[non_exhaustive]
 #[derive(RawDDSRef, RawDDSRefMut)]
@@ -282,26 +280,24 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
                 use std::io::Write;
                 use std::thread;
                 let guard = poisoned.into_inner();
-                let mut log = match File::options().create(true).append(true).open("log.txt") {
-                    Ok(file) => file,
-                    Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
-                };
-
-                match log.write(
-                    format!("Thread {:?} found Mutex poisoned", thread::current().id()).as_bytes(),
-                ) {
-                    Ok(n) => {
+                if let Ok(mut file) = File::options().create(true).append(true).open("log.txt") {
+                    if let Ok(n) = file.write(
+                        format!("Thread {:?} found Mutex poisoned", thread::current().id())
+                            .as_bytes(),
+                    ) {
+                        // Arbitrary range
                         if !(0..=70).contains(&n) {
                             return Err(RETURN_UNKNOWN_FAULT.into());
                         }
-                    }
-                    Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
+                    };
                 };
+
                 guard
             }
         };
         inner.analyze_play(deal, contract, play)
     }
+
     #[inline]
     fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
         &self,
@@ -309,12 +305,11 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
         contracts: Vec<&C>,
         plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError> {
-        let inner = if let Ok(inner) = self.inner.lock() {
-            inner
+        if let Ok(inner) = self.inner.lock() {
+            inner.analyze_all_plays(deals, contracts, plays)
         } else {
-            return Err(RETURN_UNKNOWN_FAULT.into());
-        };
-        inner.analyze_all_plays(deals, contracts, plays)
+            Err(RETURN_UNKNOWN_FAULT.into())
+        }
     }
 }
 
@@ -335,25 +330,21 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
         if deals_len != contracts_len || deals_len == 0i32 || contracts_len == 0i32 {
             return Err(RETURN_UNKNOWN_FAULT.into());
         }
-        let mut c_deals: Vec<deal> = contracts
-            .into_iter()
-            .zip(deals)
-            .map(construct_dds_deal)
-            .collect();
-        c_deals.resize(
-            MAXNOOFBOARDS,
-            deal {
-                trump: -1,
-                first: -1,
-                currentTrickSuit: [-1i32; 3],
-                currentTrickRank: [-1i32; 3],
-                remainCards: [[0u32; 4]; 4],
-            },
-        );
+        let mut c_deals: Vec<DDSDeal> =
+            match contracts.into_iter().zip(deals).map(build_c_deal).collect() {
+                Ok(vec) => vec,
+                Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
+            };
+        c_deals.resize(MAXNOOFBOARDS, DDSDeal::new());
         let mut boards = boards {
             noOfBoards: deals_len,
             // We know vec has the right length
-            deals: match c_deals.try_into() {
+            deals: match c_deals
+                .into_iter()
+                .map(AsRawDDS::as_raw)
+                .collect::<Vec<deal>>()
+                .try_into()
+            {
                 Ok(ddsdeals) => ddsdeals,
                 Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
             },
@@ -370,7 +361,7 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
 
         let bop: *mut boards = &mut boards;
         let solved: *mut solvedPlays = solved_plays.get_raw_mut();
-        let play_trace: *mut playTracesBin = (*plays).get_raw_mut();
+        let play_trace: *mut playTracesBin = plays.get_raw_mut();
 
         //SAFETY: calling C
         let result = unsafe { AnalyseAllPlaysBin(bop, play_trace, solved, CHUNK_SIZE) };
@@ -388,28 +379,20 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
         contract: &C,
         play: PlayTraceBin,
     ) -> Result<SolvedPlay, DDSError> {
-        let c_deal = construct_dds_deal((contract, deal));
+        let dds_deal = match build_c_deal((contract, deal)) {
+            Ok(dds_deal) => dds_deal,
+            Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
+        };
+        let c_deal = dds_deal.as_raw();
         let mut solved_play = SolvedPlay::new();
         let solved: *mut solvedPlay = &mut solved_play.solved_play;
         let play_trace = play.as_raw();
         // SAFETY: calling an external C function
         let result = unsafe { AnalysePlayBin(c_deal, play_trace, solved, 0) };
         match result {
+            // RETURN_NO_FAULT == 1i32
             1i32 => Ok(solved_play),
             n => Err(n.into()),
         }
-    }
-}
-
-/// Constructs a DDS deal from a DDS contract and a DDS deal representation
-fn construct_dds_deal<D: AsDDSDeal, C: AsDDSContract>(contract_and_deal: (&C, &D)) -> deal {
-    let (contract, deal) = contract_and_deal;
-    let (trump, first) = contract.as_dds_contract();
-    deal {
-        trump,
-        first,
-        currentTrickSuit: [0i32; 3],
-        currentTrickRank: [0i32; 3],
-        remainCards: deal.as_dds_deal().as_slice(),
     }
 }
