@@ -11,15 +11,62 @@ struct ShapeCreator {
     pub iterators: VecDeque<Pattern>,
 }
 
-impl From<Vec<Pattern>> for ShapeCreator {
-    fn from(value: Vec<Pattern>) -> Self {
+#[derive(Debug)]
+pub enum ShapeInterpretationError {
+    TooMany,
+    NotEnough,
+}
+
+impl std::fmt::Display for ShapeInterpretationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                Self::TooMany => "shape has too many allocated slots",
+                Self::NotEnough => "shape hasn't enough allocated slots",
+            }
+        )
+    }
+}
+
+impl std::error::Error for ShapeInterpretationError {}
+
+impl TryFrom<Vec<Pattern>> for ShapeCreator {
+    type Error = ShapeInterpretationError;
+    fn try_from(value: Vec<Pattern>) -> Result<Self, ShapeInterpretationError> {
+        fn check_modifier(to_be_checked: Modifier) -> impl Fn(&Pattern) -> bool {
+            move |pattern| match *pattern {
+                Pattern::Suit(Length {
+                    length: _,
+                    modifier,
+                }) => modifier == to_be_checked,
+                Pattern::Group(ref lengths) => lengths.iter().any(|length| {
+                    let Length {
+                        length: _,
+                        modifier,
+                    } = *length;
+                    modifier == to_be_checked
+                }),
+            }
+        }
+
         let allocated_slots = value.iter().fold(0u8, pattern_length_adder);
-        Self {
-            allocated_slots,
-            iterators: VecDeque::from(value),
+        if allocated_slots > 13 {
+            Err(ShapeInterpretationError::TooMany)
+        } else if value.iter().any(check_modifier(Modifier::AtMost))
+            && !value.iter().any(check_modifier(Modifier::AtLeast))
+        {
+            Err(ShapeInterpretationError::NotEnough)
+        } else {
+            Ok(Self {
+                allocated_slots,
+                iterators: VecDeque::from(value),
+            })
         }
     }
 }
+
 fn input_debug() {
     let mut stringa = String::new();
     let _ = std::io::stdin().read_line(&mut stringa);
@@ -195,12 +242,14 @@ fn group_length_adder(accumulator: u8, length: &Length) -> u8 {
         } => accumulator + *length,
     }
 }
+
+#[cfg(test)]
 mod test {
+    use super::ShapeCreator;
+    use super::{Length, Modifier, Pattern};
 
     #[test]
     fn test_recursion() {
-        use super::ShapeCreator;
-        use super::{Length, Modifier, Pattern};
         let patterns = vec![
             Pattern::Suit(Length {
                 length: 3,
@@ -221,7 +270,7 @@ mod test {
                 },
             ]),
         ];
-        let mut creator = ShapeCreator::from(patterns);
+        let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
         let mut shape = Vec::new();
         ShapeCreator::recur(
@@ -282,7 +331,7 @@ mod test {
                 modifier: Modifier::Exact,
             },
         ])];
-        let mut creator = ShapeCreator::from(patterns);
+        let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
         let mut shape = Vec::new();
         ShapeCreator::recur(
