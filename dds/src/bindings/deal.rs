@@ -3,7 +3,7 @@ use crate::SeqError;
 use super::{
     ddserror::DDSError,
     ddsffi::{boards, deal, dealPBN},
-    AsDDSContract, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDSEXPORT,
+    AsDDSContract, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDS,
 };
 use core::{
     convert::Into,
@@ -329,11 +329,25 @@ impl DDSDealBuilder {
 /// the player on lead (representend with the [`DDSHandEncoding`]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
 /// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
-#[derive(RawDDSRef, RawDDSRefMut, Debug)]
+#[derive(RawDDSRef, RawDDSRefMut, Debug, AsRawDDS, Copy, Clone)]
 pub struct DDSDeal {
     #[raw]
     /// The raw DDS `deal`
     raw: deal,
+}
+
+impl DDSDeal {
+    pub fn new() -> Self {
+        Self {
+            raw: deal {
+                trump: -1,
+                first: -1,
+                currentTrickSuit: [-1i32; 3],
+                currentTrickRank: [-1i32; 3],
+                remainCards: [[0u32; 4]; 4],
+            },
+        }
+    }
 }
 
 /// A wrapper around DDS's [`dealPBN`].
@@ -392,11 +406,11 @@ impl Boards {
     #[inline]
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
-        deals: &[D; MAXNOOFBOARDSEXPORT],
-        contracts: &[C; MAXNOOFBOARDSEXPORT],
-        target: &[Target; MAXNOOFBOARDSEXPORT],
-        solution: &[Solutions; MAXNOOFBOARDSEXPORT],
-        mode: &[Mode; MAXNOOFBOARDSEXPORT],
+        deals: &[D; MAXNOOFBOARDS],
+        contracts: &[C; MAXNOOFBOARDS],
+        target: &[Target; MAXNOOFBOARDS],
+        solution: &[Solutions; MAXNOOFBOARDS],
+        mode: &[Mode; MAXNOOFBOARDS],
     ) -> Self {
         Self {
             raw: boards::new(no_of_boards, deals, contracts, target, solution, mode),
@@ -409,11 +423,11 @@ impl boards {
     /// Creates a new `boards` struct
     fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
-        deals: &[D; MAXNOOFBOARDSEXPORT],
-        contracts: &[C; MAXNOOFBOARDSEXPORT],
-        target: &[Target; MAXNOOFBOARDSEXPORT],
-        solution: &[Solutions; MAXNOOFBOARDSEXPORT],
-        mode: &[Mode; MAXNOOFBOARDSEXPORT],
+        deals: &[D; MAXNOOFBOARDS],
+        contracts: &[C; MAXNOOFBOARDS],
+        target: &[Target; MAXNOOFBOARDS],
+        solution: &[Solutions; MAXNOOFBOARDS],
+        mode: &[Mode; MAXNOOFBOARDS],
     ) -> Self {
         let c_deals = deals
             .iter()
