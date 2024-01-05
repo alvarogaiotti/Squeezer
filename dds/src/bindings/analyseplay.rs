@@ -9,7 +9,7 @@ use crate::{
     DDSDeal, DDSError, RankSeq, SuitSeq,
 };
 use core::ffi::c_int;
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::{Mutex, OnceLock};
 
 /// Number of consecutive boards in a sequence a thread gets when we call
 /// `AnalyseAllPlaysBin`.

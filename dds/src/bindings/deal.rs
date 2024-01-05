@@ -1,7 +1,6 @@
 use crate::SeqError;
 
 use super::{
-    ddserror::DDSError,
     ddsffi::{boards, deal, dealPBN},
     AsDDSContract, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDS,
 };
