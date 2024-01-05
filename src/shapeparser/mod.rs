@@ -3,9 +3,7 @@ mod interpreter;
 mod parser;
 mod scanner;
 
-
 pub use parser::*;
-
 
 type Patterns = [Length; 4];
 
@@ -131,47 +129,50 @@ impl Length {
 }
 
 #[cfg(test)]
-#[test]
-fn new_parser_test() {
-    use Flattable;
-    let scanner = Scanner::new("(4+33)3-");
-    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
-    println!("New parse pattern test: (4+33)3-");
-    parser
-        .parse()
-        .unwrap()
-        .into_iter()
-        .for_each(|x| println!("{:#?}", x));
-}
-#[test]
-fn new_parser_pattern_test() {
-    let scanner = Scanner::new("(4+3-3x)");
-    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
-    println!("New parse pattern test (4+3-3x)");
-    parser
-        .parse()
-        .unwrap()
-        .into_iter()
-        .for_each(|x| println!("{:#?}", x));
-}
-#[test]
-#[should_panic]
-fn new_parse_returns_orphan_modifier_test() {
-    let scanner = Scanner::new("(+433x)");
-    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
-    let result = parser.parse().unwrap();
-}
-#[test]
-#[should_panic]
-fn new_parse_returns_unclosed_delimiter_test() {
-    let scanner = Scanner::new("4+33x)");
-    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
-    let result = parser.parse().unwrap();
-}
-#[test]
-#[should_panic]
-fn new_parse_returns_unclosed_delimiter2_test() {
-    let scanner = Scanner::new("(4+33x");
-    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
-    let result = parser.parse().unwrap();
+mod test {
+    use super::scanner::Scanner;
+    use super::Parser;
+    #[test]
+    fn new_parser_test() {
+        let scanner = Scanner::new("(4+33)3-");
+        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        println!("New parse pattern test: (4+33)3-");
+        parser
+            .parse()
+            .unwrap()
+            .into_iter()
+            .for_each(|x| println!("{:#?}", x));
+    }
+    #[test]
+    fn new_parser_pattern_test() {
+        let scanner = Scanner::new("(4+3-3x)");
+        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        println!("New parse pattern test (4+3-3x)");
+        parser
+            .parse()
+            .unwrap()
+            .into_iter()
+            .for_each(|x| println!("{:#?}", x));
+    }
+    #[test]
+    #[should_panic]
+    fn new_parse_returns_orphan_modifier_test() {
+        let scanner = Scanner::new("(+433x)");
+        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let result = parser.parse().unwrap();
+    }
+    #[test]
+    #[should_panic]
+    fn new_parse_returns_unclosed_delimiter_test() {
+        let scanner = Scanner::new("4+33x)");
+        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let result = parser.parse().unwrap();
+    }
+    #[test]
+    #[should_panic]
+    fn new_parse_returns_unclosed_delimiter2_test() {
+        let scanner = Scanner::new("(4+33x");
+        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let result = parser.parse().unwrap();
+    }
 }
