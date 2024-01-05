@@ -125,7 +125,7 @@ impl fmt::Display for DDSErrorKind {
             Self::TooManyCards => write!(formatter, "too many cards"),
             Self::SuitOrRank => write!(formatter, "currentTrickSuit or currentTrickRank have wrong data"),
             Self::PlayedCard => write!(formatter, "card already played"),
-            Self::CardCount => write!(formatter, "wrong number of remining cards for a hand"),
+            Self::CardCount => write!(formatter, "wrong number of remaining cards for a hand"),
             Self::ThreadIndex => write!(formatter, "thread number is less than 0 or higher than the maximum permitted"),
             Self::ModeWrongLo => write!(formatter, "mode is less than 0"),
             Self::ModeWrongHi => write!(formatter, "mode is greater than 2"),
