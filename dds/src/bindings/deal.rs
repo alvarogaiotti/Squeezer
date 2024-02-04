@@ -41,7 +41,7 @@ macro_rules! impl_tryfrom_dds_suit {
             2 => Ok(Self::Diamonds),
             3 => Ok(Self::Clubs),
             4 => Ok(Self::NoTrump),
-            _ => Err(Self::Error::TrumpUnconvertable),
+            _ => Err(Self::Error::TrumpUnconvertable(value as i32)),
                }
             }
         })*
@@ -59,7 +59,7 @@ impl core::convert::TryFrom<i32> for DDSSuitEncoding {
             2i32 => Ok(Self::Diamonds),
             3i32 => Ok(Self::Clubs),
             4i32 => Ok(Self::NoTrump),
-            _ => Err(Self::Error::TrumpUnconvertable),
+            _ => Err(Self::Error::TrumpUnconvertable(value)),
         }
     }
 }
@@ -91,7 +91,7 @@ macro_rules! impl_tryfrom_dds_hand {
                     1 => Ok(Self::East),
                     2 => Ok(Self::South),
                     3 => Ok(Self::West),
-                    _ => Err(Self::Error::TrumpUnconvertable),
+                    _ => Err(Self::Error::FirstUnconvertable(value as i32)),
                 }
             }
         })*
@@ -108,7 +108,7 @@ impl core::convert::TryFrom<i32> for DDSHandEncoding {
             1i32 => Ok(Self::East),
             2i32 => Ok(Self::South),
             3i32 => Ok(Self::West),
-            _ => Err(Self::Error::TrumpUnconvertable),
+            _ => Err(Self::Error::FirstUnconvertable(value)),
         }
     }
 }
@@ -180,8 +180,8 @@ pub enum DDSDealConstructionError {
     DealNotLoaded,
     TrumpNotDeclared,
     FirstNotDeclared,
-    FirstUnconvertable,
-    TrumpUnconvertable,
+    FirstUnconvertable(i32),
+    TrumpUnconvertable(i32),
     IncorrectSequence(SeqError),
 }
 
@@ -211,16 +211,18 @@ impl Display for DDSDealConstructionError {
             Self::DealNotLoaded => write!(formatter, "deal not loaded"),
             Self::FirstNotDeclared => write!(formatter, "leader not declared"),
             Self::TrumpNotDeclared => write!(formatter, "trump not declared"),
-            Self::FirstUnconvertable => {
+            Self::FirstUnconvertable(value) => {
                 write!(
                     formatter,
-                    "first cannot be converted from the value you provided"
+                    "first cannot be converted from the value you provided: {}",
+                    value
                 )
             }
-            Self::TrumpUnconvertable => {
+            Self::TrumpUnconvertable(value) => {
                 write!(
                     formatter,
-                    "trump cannot be converted from the value you provided"
+                    "trump cannot be converted from the value you provided: {}",
+                    value
                 )
             }
             Self::IncorrectSequence(error) => {
