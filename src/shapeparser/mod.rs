@@ -2,10 +2,47 @@ use crate::prelude::*;
 mod interpreter;
 mod parser;
 mod scanner;
-
-pub use parser::*;
+pub use interpreter::*;
+use parser::*;
 
 type Patterns = [Length; 4];
+
+#[derive(Debug)]
+pub(crate) enum Pattern {
+    Suit(Length),
+    Group(Vec<Length>),
+}
+
+impl Pattern {
+    #[inline]
+    pub fn contains(&self, num: u8) -> bool {
+        match self {
+            Self::Suit(Length {
+                length,
+                modifier: Modifier::Exact,
+            }) => *length == num,
+            Self::Suit(Length {
+                length,
+                modifier: Modifier::AtLeast,
+            }) => num >= *length,
+            Self::Suit(Length {
+                length,
+                modifier: Modifier::AtMost,
+            }) => num <= *length,
+            Self::Group(_) => {
+                unimplemented!("should never call contains() method with a Group variant")
+            }
+        }
+    }
+    #[must_use]
+    #[inline]
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Suit(_) => 1,
+            Self::Group(patterns) => patterns.len(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Shape {
@@ -134,8 +171,8 @@ mod test {
     use super::Parser;
     #[test]
     fn new_parser_test() {
-        let scanner = Scanner::new("(4+33)3-");
-        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let scanner = Scanner::from("(4+33)3-");
+        let mut parser = Parser::from(scanner.scan_tokens().unwrap());
         println!("New parse pattern test: (4+33)3-");
         parser
             .parse()
@@ -145,8 +182,8 @@ mod test {
     }
     #[test]
     fn new_parser_pattern_test() {
-        let scanner = Scanner::new("(4+3-3x)");
-        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let scanner = Scanner::from("(4+3-3x)");
+        let mut parser = Parser::from(scanner.scan_tokens().unwrap());
         println!("New parse pattern test (4+3-3x)");
         parser
             .parse()
@@ -157,22 +194,22 @@ mod test {
     #[test]
     #[should_panic]
     fn new_parse_returns_orphan_modifier_test() {
-        let scanner = Scanner::new("(+433x)");
-        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let scanner = Scanner::from("(+433x)");
+        let mut parser = Parser::from(scanner.scan_tokens().unwrap());
         let result = parser.parse().unwrap();
     }
     #[test]
     #[should_panic]
     fn new_parse_returns_unclosed_delimiter_test() {
-        let scanner = Scanner::new("4+33x)");
-        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let scanner = Scanner::from("4+33x)");
+        let mut parser = Parser::from(scanner.scan_tokens().unwrap());
         let result = parser.parse().unwrap();
     }
     #[test]
     #[should_panic]
     fn new_parse_returns_unclosed_delimiter2_test() {
-        let scanner = Scanner::new("(4+33x");
-        let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+        let scanner = Scanner::from("(4+33x");
+        let mut parser = Parser::from(scanner.scan_tokens().unwrap());
         let result = parser.parse().unwrap();
     }
 }

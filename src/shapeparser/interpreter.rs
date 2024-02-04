@@ -1,23 +1,24 @@
-use super::{Length, Modifier, Pattern};
-use crate::Shapes;
+use super::{
+    parser::Parser, scanner::ScanningShapeError, Length, Modifier, ParsingShapeError, Pattern,
+};
 use itertools::*;
-use std::{collections::VecDeque, ops::ControlFlow};
+use std::{cmp::Ordering, collections::VecDeque, ops::ControlFlow};
 
-trait Interpret {
-    fn interpret(self) -> Shapes;
-}
-struct ShapeCreator {
-    pub allocated_slots: u8,
-    pub iterators: VecDeque<Pattern>,
+pub type ShapePattern = [u8; 4];
+
+#[derive(Debug)]
+pub(crate) struct ShapeCreator {
+    pub free_places: u8,
+    pub patterns: VecDeque<Pattern>,
 }
 
 #[derive(Debug)]
-pub enum ShapeInterpretationError {
+pub enum InterpretationShapeError {
     TooMany,
     NotEnough,
 }
 
-impl std::fmt::Display for ShapeInterpretationError {
+impl std::fmt::Display for InterpretationShapeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -30,11 +31,11 @@ impl std::fmt::Display for ShapeInterpretationError {
     }
 }
 
-impl std::error::Error for ShapeInterpretationError {}
+impl std::error::Error for InterpretationShapeError {}
 
 impl TryFrom<Vec<Pattern>> for ShapeCreator {
-    type Error = ShapeInterpretationError;
-    fn try_from(value: Vec<Pattern>) -> Result<Self, ShapeInterpretationError> {
+    type Error = InterpretationShapeError;
+    fn try_from(value: Vec<Pattern>) -> Result<Self, InterpretationShapeError> {
         fn check_modifier(to_be_checked: Modifier) -> impl Fn(&Pattern) -> bool {
             move |pattern| match *pattern {
                 Pattern::Suit(Length {
@@ -52,31 +53,104 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
         }
 
         let allocated_slots = value.iter().fold(0u8, pattern_length_adder);
-        if allocated_slots > 13 {
-            Err(ShapeInterpretationError::TooMany)
-        } else if value.iter().any(check_modifier(Modifier::AtMost))
-            && !value.iter().any(check_modifier(Modifier::AtLeast))
-        {
-            Err(ShapeInterpretationError::NotEnough)
-        } else {
-            Ok(Self {
-                allocated_slots,
-                iterators: VecDeque::from(value),
-            })
+        match allocated_slots.cmp(&13) {
+            Ordering::Greater => Err(InterpretationShapeError::TooMany),
+            Ordering::Less => {
+                // Implementation specific detail: we store jokers ('x') as 0 AtLeast.
+                if value.iter().any(check_modifier(Modifier::AtMost))
+                    && !value.iter().any(check_modifier(Modifier::AtLeast))
+                {
+                    Err(InterpretationShapeError::NotEnough)
+                } else {
+                    Ok(Self {
+                        free_places: 13 - allocated_slots,
+                        patterns: VecDeque::from(value),
+                    })
+                }
+            }
+            Ordering::Equal => Ok(Self {
+                free_places: 13 - allocated_slots,
+                patterns: VecDeque::from(value),
+            }),
         }
     }
 }
 
-fn input_debug() {
-    let mut stringa = String::new();
-    let _ = std::io::stdin().read_line(&mut stringa);
+#[derive(Debug)]
+pub struct CreationShapeError {
+    origin: CreationShapeErrorKind,
+}
+
+#[derive(Debug)]
+pub enum CreationShapeErrorKind {
+    Interpretation(InterpretationShapeError),
+    Parsing(ParsingShapeError),
+    Scanning(ScanningShapeError),
+}
+
+impl std::fmt::Display for CreationShapeErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CreationShapeErrorKind::Interpretation(err) => err.fmt(f),
+            CreationShapeErrorKind::Parsing(err) => err.fmt(f),
+            CreationShapeErrorKind::Scanning(err) => err.fmt(f),
+        }
+    }
+}
+
+impl std::fmt::Display for CreationShapeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error creating shape: {}", self.origin)
+    }
+}
+impl std::error::Error for CreationShapeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        let error: &dyn std::error::Error = match self.origin {
+            CreationShapeErrorKind::Interpretation(ref err) => err,
+            CreationShapeErrorKind::Parsing(ref err) => err,
+            CreationShapeErrorKind::Scanning(ref err) => err,
+        };
+        Some(error)
+    }
+}
+
+impl From<ScanningShapeError> for CreationShapeError {
+    fn from(value: ScanningShapeError) -> Self {
+        Self {
+            origin: CreationShapeErrorKind::Scanning(value),
+        }
+    }
+}
+
+impl From<ParsingShapeError> for CreationShapeError {
+    fn from(value: ParsingShapeError) -> Self {
+        Self {
+            origin: CreationShapeErrorKind::Parsing(value),
+        }
+    }
+}
+
+impl From<InterpretationShapeError> for CreationShapeError {
+    fn from(value: InterpretationShapeError) -> Self {
+        Self {
+            origin: CreationShapeErrorKind::Interpretation(value),
+        }
+    }
 }
 
 impl ShapeCreator {
+    pub fn build_shape(pattern: &str) -> Result<Vec<Vec<u8>>, CreationShapeError> {
+        let parsed_input = Parser::parse_pattern(pattern)?;
+        let mut shape_creator = ShapeCreator::try_from(parsed_input)?;
+        let mut shape = Vec::new();
+        let mut shapes = Vec::new();
+        shape_creator.interpret(&mut shape, &mut shapes);
+        Ok(shapes)
+    }
+
     fn recur_adder_helper(
-        free_places: u8,
+        &mut self,
         shape: &mut Vec<u8>,
-        patterns: &mut VecDeque<Pattern>,
         shapes: &mut Vec<Vec<u8>>,
         length: u8,
         cap: Option<u8>,
@@ -87,51 +161,45 @@ impl ShapeCreator {
                 // We push the length we have
                 shape.push(length);
                 // We go ahead with the costruction of shapes
-                Self::recur(free_places, shape, patterns, shapes);
+                self.interpret(shape, shapes);
                 // We backtrack, to restart e push lesser length values with free places
                 shape.pop();
                 return;
             }
         }
-        if free_places == 0 {
+        if self.free_places == 0 {
             shape.push(length);
-            Self::recur(free_places, shape, patterns, shapes);
+            self.interpret(shape, shapes);
             let _popped = shape.pop();
             return;
         }
-        Self::recur_adder_helper(free_places - 1, shape, patterns, shapes, length + 1, cap);
+        self.free_places -= 1;
+        self.recur_adder_helper(shape, shapes, length + 1, cap);
         shape.push(length);
-        Self::recur(free_places, shape, patterns, shapes);
+        self.free_places += 1;
+        self.interpret(shape, shapes);
         let _popped = shape.pop();
     }
 
-    fn recur(
-        free_places: u8,
-        shape: &mut Vec<u8>,
-        patterns: &mut VecDeque<Pattern>,
-        shapes: &mut Vec<Vec<u8>>,
-    ) {
-        if let Some(pattern) = patterns.pop_front() {
+    fn interpret(&mut self, shape: &mut Vec<u8>, shapes: &mut Vec<Vec<u8>>) {
+        if let Some(pattern) = self.patterns.pop_front() {
             if let ControlFlow::Break(_) =
                 Self::shortcircuit_if_last_closes_shape(shape, &pattern, shapes)
             {
-                patterns.push_front(pattern);
+                self.patterns.push_front(pattern);
                 return;
             }
-            Self::handle_action_based_on_pattern(&pattern, free_places, shape, patterns, shapes);
-            patterns.push_front(pattern);
-        } else if free_places == 0 {
+            self.handle_action_based_on_pattern(&pattern, shape, shapes);
+            self.patterns.push_front(pattern);
+        } else if self.free_places == 0 {
             shapes.push(shape.clone());
         }
-    }
-
-    fn interpret(&mut self) {
-        let _shape: Vec<u8> = Vec::with_capacity(4);
     }
 
     fn cap_at_suit_size(free_places: u8, len: u8) -> (u8, u8) {
         Self::cap_at_custom_size(free_places, len, 13)
     }
+
     fn cap_at_custom_size(mut free_places: u8, len: u8, cap: u8) -> (u8, u8) {
         assert!(len < cap);
         let new_len = (len + free_places).clamp(0, cap);
@@ -144,10 +212,9 @@ impl ShapeCreator {
     }
 
     fn handle_action_based_on_pattern(
+        &mut self,
         pattern: &Pattern,
-        free_places: u8,
         shape: &mut Vec<u8>,
-        patterns: &mut VecDeque<Pattern>,
         shapes: &mut Vec<Vec<u8>>,
     ) {
         match *pattern {
@@ -155,43 +222,42 @@ impl ShapeCreator {
                 length,
                 modifier: Modifier::AtLeast,
             }) => {
-                Self::recur_adder_helper(free_places, shape, patterns, shapes, length, None);
+                self.recur_adder_helper(shape, shapes, length, None);
             }
             Pattern::Suit(Length {
                 length,
                 modifier: Modifier::AtMost,
             }) => {
-                Self::recur_adder_helper(free_places, shape, patterns, shapes, 0, Some(length));
+                self.recur_adder_helper(shape, shapes, 0, Some(length));
             }
             Pattern::Suit(Length {
                 length,
                 modifier: Modifier::Exact,
             }) => {
                 shape.push(length);
-                Self::recur(free_places, shape, patterns, shapes);
+                self.interpret(shape, shapes);
                 let _popped = shape.pop();
             }
             Pattern::Group(ref lengths) => {
-                Self::handle_group_pattern(lengths, patterns, free_places, shape, shapes);
+                self.handle_group_pattern(lengths, shape, shapes);
             }
         }
     }
 
     fn handle_group_pattern(
+        &mut self,
         lengths: &Vec<Length>,
-        patterns: &mut VecDeque<Pattern>,
-        free_places: u8,
         shape: &mut Vec<u8>,
         shapes: &mut Vec<Vec<u8>>,
     ) {
         let group_len = lengths.len();
         for permutation in lengths.iter().permutations(group_len) {
             for suit in permutation.into_iter().rev() {
-                patterns.push_front(Pattern::Suit(*suit))
+                self.patterns.push_front(Pattern::Suit(*suit))
             }
-            Self::recur(free_places, shape, patterns, shapes);
+            self.interpret(shape, shapes);
             for _ in 0..group_len {
-                patterns.pop_front();
+                self.patterns.pop_front();
             }
         }
     }
@@ -204,9 +270,9 @@ impl ShapeCreator {
         if shape.len() == 3 {
             let candidate = 13 - shape.iter().sum::<u8>();
             if pattern.contains(candidate) {
-                shape.push(candidate);
-                shapes.push(shape.clone());
-                shape.pop();
+                let mut clone = shape.clone();
+                clone.push(candidate);
+                shapes.push(clone);
                 return ControlFlow::Break(());
             } else {
                 return ControlFlow::Break(());
@@ -273,12 +339,7 @@ mod test {
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
         let mut shape = Vec::new();
-        ShapeCreator::recur(
-            13 - creator.allocated_slots,
-            &mut shape,
-            &mut creator.iterators,
-            &mut shapes,
-        );
+        creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
         let mut res = vec![
             vec![3, 6, 0, 4],
@@ -334,12 +395,7 @@ mod test {
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
         let mut shape = Vec::new();
-        ShapeCreator::recur(
-            13 - creator.allocated_slots,
-            &mut shape,
-            &mut creator.iterators,
-            &mut shapes,
-        );
+        creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
         let mut res: Vec<Vec<u8>> = Vec::new();
         res.extend(vec![3, 6, 0, 4].into_iter().permutations(4));

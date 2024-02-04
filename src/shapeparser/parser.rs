@@ -1,33 +1,11 @@
+use std::cmp::Ordering;
+
 use crate::shapeparser::*;
 
-#[derive(Debug)]
-pub(crate) enum Pattern {
-    Suit(Length),
-    Group(Vec<Length>),
-}
-
-impl Pattern {
-    pub fn contains(&self, num: u8) -> bool {
-        match self {
-            Self::Suit(Length {
-                length,
-                modifier: Modifier::Exact,
-            }) => *length == num,
-            Self::Suit(Length {
-                length,
-                modifier: Modifier::AtLeast,
-            }) => num >= *length,
-            Self::Suit(Length {
-                length,
-                modifier: Modifier::AtMost,
-            }) => num <= *length,
-            Self::Group(_) => unimplemented!("Should never call this method with a Group variant"),
-        }
-    }
-}
+use super::{interpreter::CreationShapeError, scanner::Scanner};
 
 #[derive(Debug)]
-pub struct Parser {
+pub(super) struct Parser {
     tokens: Vec<Token>,
     current: usize,
 }
@@ -49,16 +27,29 @@ pub struct Parser {
 // <shape> ::= <unit>* <group>* <unit>*
 
 impl Parser {
+    pub fn parse_pattern(pattern: &str) -> Result<Vec<Pattern>, CreationShapeError> {
+        let scanner = Scanner::from(pattern);
+        let tokens = scanner.scan_tokens()?;
+        let mut parser = Self::from(tokens);
+        parser.parse().map_err(Into::into)
+    }
+
     /// Guess what?! Parses!
-    pub fn parse(&mut self) -> Result<Vec<Pattern>, ShapeParsingError> {
+    pub fn parse(&mut self) -> Result<Vec<Pattern>, ParsingShapeError> {
         let mut patterns = Vec::new();
         while !self.is_at_end() {
             patterns.push(self.group()?);
         }
-        Ok(patterns)
+        let pattern_length = patterns.iter().fold(0, |acc, pattern| acc + pattern.len());
+        match pattern_length.cmp(&4) {
+            Ordering::Less => Err(ParsingShapeError::ShapeTooShort),
+            Ordering::Greater => Err(ParsingShapeError::ShapeTooLong),
+            Ordering::Equal => Ok(patterns),
+        }
     }
+
     /// Creates a new Parser
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn from(tokens: Vec<Token>) -> Self {
         Self { tokens, current: 0 }
     }
 
@@ -105,7 +96,7 @@ impl Parser {
     }
 
     /// Parses group patterns like 3(532)
-    fn group(&mut self) -> Result<Pattern, ShapeParsingError> {
+    fn group(&mut self) -> Result<Pattern, ParsingShapeError> {
         if self.check(Token::OpenParen) {
             self.advance();
             let mut group = Vec::with_capacity(4);
@@ -116,10 +107,10 @@ impl Parser {
                         if group.len() >= 2 {
                             return Ok(Pattern::Group(group));
                         } else {
-                            return Err(ShapeParsingError::MalformedGroup);
+                            return Err(ParsingShapeError::MalformedGroup);
                         }
                     }
-                    Token::Empty => return Err(ShapeParsingError::UnmatchParenthesis),
+                    Token::Empty => return Err(ParsingShapeError::UnmatchParenthesis),
                     _ => match self.suit() {
                         Ok(Pattern::Suit(length)) => {
                             group.push(length);
@@ -136,8 +127,7 @@ impl Parser {
     }
 
     /// Parses suit patterns
-    fn suit(&mut self) -> Result<Pattern, ShapeParsingError> {
-        println!("In suit, next token:\n{}", self.peek());
+    fn suit(&mut self) -> Result<Pattern, ParsingShapeError> {
         match self.peek() {
             Token::Joker => {
                 self.advance();
@@ -158,9 +148,9 @@ impl Parser {
                     }))
                 }
             }
-            Token::OpenParen => Err(ShapeParsingError::NestedScope),
-            Token::CloseParen => Err(ShapeParsingError::UnmatchParenthesis),
-            Token::Modifier(modifier) => Err(ShapeParsingError::OrphanModifier(modifier)),
+            Token::OpenParen => Err(ParsingShapeError::NestedScope),
+            Token::CloseParen => Err(ParsingShapeError::UnmatchParenthesis),
+            Token::Modifier(modifier) => Err(ParsingShapeError::OrphanModifier(modifier)),
             Token::Empty => {
                 unreachable!("Asked to parse an empty token, which should have been checked before")
             }
@@ -169,9 +159,8 @@ impl Parser {
 }
 
 #[derive(Debug)]
-pub enum ShapeParsingError {
+pub enum ParsingShapeError {
     UnmatchParenthesis,
-    UnknownChar(char),
     OrphanModifier(Modifier),
     ShapeTooLong,
     ShapeTooShort,
@@ -179,25 +168,26 @@ pub enum ShapeParsingError {
     MalformedGroup,
 }
 
-impl std::fmt::Display for ShapeParsingError {
+impl std::fmt::Display for ParsingShapeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match *self {
-                ShapeParsingError::UnmatchParenthesis => String::from("non matching parentheses"),
-                ShapeParsingError::UnknownChar(char) => format!("unknown char {}", char),
-                ShapeParsingError::OrphanModifier(modifier) =>
+                ParsingShapeError::UnmatchParenthesis => String::from("non matching parentheses"),
+                ParsingShapeError::OrphanModifier(modifier) =>
                     format!("orphan modifier: {}", modifier),
-                ShapeParsingError::ShapeTooLong => String::from("shape has more than 13 cards"),
-                ShapeParsingError::ShapeTooShort => String::from("shape has less than 13 cards"),
-                ShapeParsingError::NestedScope => String::from("nested grouping not supported"),
-                ShapeParsingError::MalformedGroup =>
+                ParsingShapeError::ShapeTooLong => String::from("shape has more than 13 cards"),
+                ParsingShapeError::ShapeTooShort => String::from("shape has less than 13 cards"),
+                ParsingShapeError::NestedScope => String::from("nested grouping not supported"),
+                ParsingShapeError::MalformedGroup =>
                     String::from("group must contain at least two element"),
             }
         )
     }
 }
+
+impl std::error::Error for ParsingShapeError {}
 
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 pub enum Modifier {

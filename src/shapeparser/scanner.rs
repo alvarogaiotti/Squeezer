@@ -6,7 +6,7 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(string: &str) -> Self {
+    pub fn from(string: &str) -> Self {
         Self {
             source: string.chars().collect(),
             tokens: Vec::new(),
@@ -14,7 +14,7 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(mut self) -> Result<Vec<Token>, ShapeParsingError> {
+    pub fn scan_tokens(mut self) -> Result<Vec<Token>, ScanningShapeError> {
         while !self.is_at_end() {
             self.scan_token()?;
         }
@@ -26,7 +26,7 @@ impl Scanner {
         self.cursor >= self.source.len()
     }
 
-    fn scan_token(&mut self) -> Result<(), ShapeParsingError> {
+    fn scan_token(&mut self) -> Result<(), ScanningShapeError> {
         let c = self.advance();
 
         match c {
@@ -37,12 +37,15 @@ impl Scanner {
             'x' => self.add_token(Token::Joker),
             length if length.is_ascii_hexdigit() => {
                 // SAFETY: Bounds already checked
-                self.add_token(Token::Length(
-                    length.to_digit(16).unwrap().clamp(0, 13) as u8
-                ))
+                let length = length.to_digit(16).unwrap() as u8;
+                if length <= 13 {
+                    self.add_token(Token::Length(length))
+                } else {
+                    return Err(ScanningShapeError::SuitTooLong(length));
+                }
             }
 
-            _ => return Err(ShapeParsingError::UnknownChar(c)),
+            _ => return Err(ScanningShapeError::UnknownChar(c)),
         }
 
         Ok(())
@@ -87,3 +90,24 @@ impl Scanner {
         }
     }
 }
+
+#[derive(Debug)]
+pub enum ScanningShapeError {
+    UnknownChar(char),
+    SuitTooLong(u8),
+}
+
+impl std::fmt::Display for ScanningShapeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                ScanningShapeError::UnknownChar(char) => format!("unknown char {}", char),
+                ScanningShapeError::SuitTooLong(num) => format!("suit is too long: {}", num),
+            }
+        )
+    }
+}
+
+impl std::error::Error for ScanningShapeError {}
