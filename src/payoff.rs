@@ -1,5 +1,3 @@
-
-
 use crate::prelude::*;
 
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
@@ -33,7 +31,7 @@ where
             diff,
         }
     }
-    pub fn add_data(&mut self, raw_scores: &HashMap<String, i32>) {
+    pub fn add_data(&mut self, raw_scores: &HashMap<&str, i32>) {
         let diff = &self.diff;
         for (i, ei) in self.entries.iter().enumerate() {
             for (j, ej) in self.entries.iter().enumerate() {
@@ -43,8 +41,8 @@ where
                 //);
                 //println!("i:{i}, j:{j}",);
                 self.table[i][j].push(diff(
-                    *raw_scores.get(&ei.to_string()).unwrap(),
-                    *raw_scores.get(&ej.to_string()).unwrap(),
+                    *raw_scores.get(&ei.to_string() as &str).unwrap(),
+                    *raw_scores.get(&ej.to_string() as &str).unwrap(),
                 ));
             }
         }
@@ -132,7 +130,7 @@ pub struct Contract {
 
 impl dds::AsDDSContract for Contract {
     fn as_dds_contract(&self) -> (i32, i32) {
-        (self.level as i32, self.strain as i32)
+        (self.strain as i32, self.declarer.next() as i32)
     }
 }
 
@@ -412,11 +410,14 @@ fn payoff_report_test() {
         Contract::from_str("3NN", false).unwrap(),
     ];
     let mut matrix = Payoff::new(contracts, imps);
-    let mut data: HashMap<String, i32> = HashMap::new();
+    let mut data = HashMap::new();
+    let contratto1str = contratto1.to_string();
+    let contratto2str = contratto2.to_string();
+    let contratto3str = contratto3.to_string();
     for i in 0..14 {
-        data.insert(contratto1.to_string(), contratto1.score(i));
-        data.insert(contratto2.to_string(), contratto2.score(i));
-        data.insert(contratto3.to_string(), contratto3.score(i));
+        data.insert(&contratto1str as &str, contratto1.score(i));
+        data.insert(&contratto2str as &str, contratto2.score(i));
+        data.insert(&contratto3str as &str, contratto3.score(i));
         matrix.add_data(&data)
     }
     matrix.report();
