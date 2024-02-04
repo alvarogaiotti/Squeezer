@@ -1,3 +1,5 @@
+use std::{cell::Cell, num::NonZeroU8};
+
 use crate::prelude::*;
 
 /// Type of the function that checks if a Deal is to be accepted or not
@@ -143,7 +145,8 @@ impl Seat {
 }
 
 macro_rules! impl_add_and_from_ints_for_seat {
-    ($t:ty) => {
+    ($($t:ty),*) => {
+        $(
         impl std::ops::Add<$t> for Seat {
             type Output = Seat;
 
@@ -161,18 +164,10 @@ macro_rules! impl_add_and_from_ints_for_seat {
                     _ => unreachable!(),
                 }
             }
-        }
+        })*
     };
 }
-impl_add_and_from_ints_for_seat!(usize);
-impl_add_and_from_ints_for_seat!(u64);
-impl_add_and_from_ints_for_seat!(u32);
-impl_add_and_from_ints_for_seat!(u16);
-impl_add_and_from_ints_for_seat!(u8);
-impl_add_and_from_ints_for_seat!(i64);
-impl_add_and_from_ints_for_seat!(i32);
-impl_add_and_from_ints_for_seat!(i16);
-impl_add_and_from_ints_for_seat!(i8);
+impl_add_and_from_ints_for_seat!(usize, u64, u32, u16, u8, isize, i64, i32, i16, i8);
 
 ///Models vulnerability as an enum.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
@@ -308,8 +303,8 @@ pub trait Dealer: std::fmt::Debug {
 }
 
 #[derive(Debug)]
-pub enum Subsequent {
-    OutputConsequentially(u8),
+pub enum BoardNumbering {
+    Sequential(Cell<NonZeroU8>),
     OutputAlwaysOne,
 }
 
@@ -323,7 +318,7 @@ pub struct StandardDealer {
     hand_constraints: HashMap<Seat, HandDescriptor>,
     accept_function: AcceptFunction,
     // needed to print sequentially
-    output_as_subsequent: Subsequent,
+    output_as_subsequent: BoardNumbering,
 }
 
 impl std::fmt::Debug for StandardDealer {
@@ -344,7 +339,7 @@ impl Default for StandardDealer {
             deck_starting_state: Cards::ALL,
             hand_constraints: HashMap::new(),
             accept_function: Box::new(|_: &Hands| true),
-            output_as_subsequent: Subsequent::OutputAlwaysOne,
+            output_as_subsequent: BoardNumbering::OutputAlwaysOne,
         }
     }
 }
@@ -382,13 +377,21 @@ impl Dealer for StandardDealer {
         Ok(Deal {
             hands,
             number: match self.output_as_subsequent {
-                Subsequent::OutputConsequentially(num) => num,
-                Subsequent::OutputAlwaysOne => 1,
+                BoardNumbering::Sequential(ref num) => {
+                    let actual = num.get().get();
+                    num.set(match actual {
+                        1..=127 => unsafe { NonZeroU8::new_unchecked(actual + 1) },
+                        _ => unsafe { NonZeroU8::new_unchecked(1) },
+                    });
+                    actual
+                }
+                BoardNumbering::OutputAlwaysOne => 1,
             },
             ..Default::default()
         })
     }
 }
+
 impl StandardDealer {
     fn constraints_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
         if self.hand_constraints.is_empty() {
@@ -396,7 +399,7 @@ impl StandardDealer {
         } else {
             self.hand_constraints
                 .iter()
-                .all(|(seat, hand_constraint)| hand_constraint.check(hands[*seat as usize]))
+                .all(|(seat, hand_constraint)| hand_constraint.check(&hands[*seat as usize]))
         }
     }
 }
@@ -438,6 +441,7 @@ impl Default for Deal {
         Deal::new()
     }
 }
+
 impl Deal {
     /// A new `Deal` with cards dealt randomly
     #[must_use]
@@ -468,6 +472,7 @@ impl Deal {
         [north, east, south, west]
     }
 
+    #[must_use]
     pub fn check(&self, f: impl Fn(&Deal) -> bool) -> bool {
         f(self)
     }
@@ -547,6 +552,7 @@ impl Deal {
         pbn
     }
 
+    #[must_use]
     pub fn as_lin(&self, board_n: u8) -> String {
         let board_n = if board_n % (MAX_N_OF_BOARDS + 1) == 0 {
             1
@@ -605,30 +611,10 @@ impl Deal {
     }
 
     fn as_long(&self) -> String {
-        let west_len = self.hands[Seat::West as usize]
-            .long_str()
-            .split('\n')
-            .map(str::len)
-            .max()
-            .unwrap();
-        let east_len = self.hands[Seat::East as usize]
-            .long_str()
-            .split('\n')
-            .map(str::len)
-            .max()
-            .unwrap();
-        let north_len = self.hands[Seat::North as usize]
-            .long_str()
-            .split('\n')
-            .map(str::len)
-            .max()
-            .unwrap();
-        let south_len = self.hands[Seat::South as usize]
-            .long_str()
-            .split('\n')
-            .map(str::len)
-            .max()
-            .unwrap();
+        let west_len = self.extract_long_strlen(Seat::West);
+        let east_len = self.extract_long_strlen(Seat::East);
+        let north_len = self.extract_long_strlen(Seat::North);
+        let south_len = self.extract_long_strlen(Seat::South);
         let ns_len = if south_len < north_len {
             north_len
         } else {
@@ -639,7 +625,6 @@ impl Deal {
         for line in self.hands[Seat::North as usize].long_str().split('\n') {
             stringa = format!("{stringa}{line:^0$}\n", width - ns_len + line.len());
         }
-        //stringa.push_str("\n");
         for (line_w, line_e) in self.hands[Seat::West as usize]
             .long_str()
             .split('\n')
@@ -664,6 +649,15 @@ impl Deal {
                 .format("\n"),
         );
         stringa
+    }
+
+    fn extract_long_strlen(&self, seat: Seat) -> usize {
+        self.hands[seat as usize]
+            .long_str()
+            .split('\n')
+            .map(str::len)
+            .max()
+            .unwrap()
     }
 
     pub fn iter(&self) -> std::slice::Iter<Hand> {
@@ -703,6 +697,18 @@ impl IntoIterator for Deal {
 #[test]
 fn can_deal_test() {
     _ = Deal::new();
+}
+#[test]
+#[should_panic]
+fn predealing_twice_should_panic() {
+    let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+    let hand1 = Hand::from_str("SA").unwrap();
+    let mut builder = DealerBuilder::new();
+    builder.predeal(Seat::North, hand);
+    builder.predeal(Seat::West, hand);
+    let dealer = builder.build().unwrap();
+    let deal = dealer.deal().unwrap();
+    assert_eq!(deal.north(), hand);
 }
 
 #[test]
