@@ -29,7 +29,7 @@ pub fn polish_club(hand: Hand) -> bool {
             && !Shapes::new().add_shape("(5xx)5").(&hand, "(5xx)5")
         || factory.is_not_in(&hand, "(144)4") && 14 < hand.hcp()
         || hand.hcp() > 17 */
-    possible_hands.check(hand)
+    possible_hands.check(&hand)
 }
 
 #[must_use]
@@ -111,12 +111,12 @@ pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
             .unwrap()
             .build();
         if let Some(seat) = seat {
-            hand_type.check(hands[seat as usize])
+            hand_type.check(&hands[seat as usize])
                 && (26..33).contains(&zar_points(hands[seat as usize]))
         } else {
             hands
                 .iter()
-                .any(|hand| hand_type.check(*hand) && (26..33).contains(&zar_points(*hand)))
+                .any(|hand| hand_type.check(hand) && (26..33).contains(&zar_points(*hand)))
         }
     }));
     builder.build().unwrap()

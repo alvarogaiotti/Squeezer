@@ -198,20 +198,20 @@ impl Default for HcpRange {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct HandType {
-    shape: Shapes,
+    shape: Shape,
     hcp_range: HcpRange,
 }
 
 impl HandType {
     #[must_use]
-    pub fn new(shape: Shapes, hcp_range: HcpRange) -> Self {
+    pub fn new(shape: Shape, hcp_range: HcpRange) -> Self {
         Self { shape, hcp_range }
     }
 
     #[must_use]
-    pub fn check(&self, hand: Hand) -> bool {
+    pub fn check(&self, hand: &Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
     }
     #[must_use]
@@ -231,7 +231,7 @@ pub struct HandDescriptor {
 
 impl HandDescriptor {
     #[must_use]
-    pub fn check(&self, hand: Hand) -> bool {
+    pub fn check(&self, hand: &Hand) -> bool {
         self.possible_hands
             .iter()
             .any(|hand_type| hand_type.check(hand))
@@ -244,7 +244,7 @@ impl HandDescriptor {
 
 #[derive(Default, Debug)]
 pub struct HandTypeBuilder {
-    shapes: Option<Shapes>,
+    shapes: Option<Shape>,
     hcp_range: Option<HcpRange>,
 }
 
@@ -259,7 +259,7 @@ impl HandTypeBuilder {
     #[must_use]
     pub fn balanced(min_hcp: u8, max_hcp: u8) -> Self {
         let mut new = Self {
-            shapes: Some(Shapes::new()),
+            shapes: Some(Shape::default()),
             hcp_range: Some(HcpRange::new(min_hcp, max_hcp)),
         };
 
@@ -273,21 +273,19 @@ impl HandTypeBuilder {
 
     pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(shapes) = &mut self.shapes {
-            shapes.add_shape(String::from(pattern))?;
+            shapes.add_shape(pattern)?;
         } else {
             let mut shape = Shapes::new();
-            shape.add_shape(String::from(pattern))?;
-            self.shapes = Some(shape);
+            shape.add_shape(pattern)?;
+            self.shapes = Some(Shape::Custom(shape));
         }
         Ok(self)
     }
     pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(shapes) = &mut self.shapes {
-            shapes.remove_shape(String::from(pattern))?;
+            shapes.remove_shape(pattern)?;
         } else {
-            let mut shape = Shapes::new();
-            shape.remove_shape(String::from(pattern))?;
-            self.shapes = Some(shape);
+            self.shapes = Some(Shape::Custom(Shapes::but(pattern)?));
         }
         Ok(self)
     }
@@ -298,7 +296,7 @@ impl HandTypeBuilder {
     }
     pub fn with_longest(&mut self, suit: Suit) -> &mut Self {
         let shape = Shapes::new();
-        self.shapes = Some(shape);
+        self.shapes = Some(Shape::Custom(shape));
 
         // SAFETY: ALL VALID SHAPES
         match suit {
@@ -393,12 +391,12 @@ impl HandTypeBuilder {
     }
 
     pub fn build(&mut self) -> HandType {
-        let shape = if let Some(shapes) = self.shapes {
+        let shape = if let Some(shapes) = self.shapes.take() {
             shapes
         } else {
-            Shapes::ALL
+            Shape::All
         };
-        let hcp_range = if let Some(hcp_range) = self.hcp_range {
+        let hcp_range = if let Some(hcp_range) = self.hcp_range.take() {
             hcp_range
         } else {
             HcpRange::default()

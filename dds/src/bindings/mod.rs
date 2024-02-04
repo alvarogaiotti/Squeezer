@@ -49,6 +49,12 @@ impl DoubleDummySolver {
     }
 }
 
+#[inline]
+/// Some thing
+///
+/// # Errors
+///
+/// other
 pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
     contract: &C,
