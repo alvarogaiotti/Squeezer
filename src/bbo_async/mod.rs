@@ -5,10 +5,10 @@ use crate::{
         BBOLOGIN,
     },
 };
-use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
 use regex::Regex;
 use reqwest::Client;
+use std::cell::OnceLock;
 use time::{Duration, OffsetDateTime};
 type Result<T> = std::result::Result<T, ClientError<reqwest::Error>>;
 
@@ -79,11 +79,12 @@ impl std::fmt::Display for BboError<reqwest::Error> {
 
 impl LinkExtractor for AsyncBBOClient {
     fn get_links(&self, webpage: &str, vec: &mut Vec<String>) {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap();
-        }
+        let REGEX: OnceLock<Regex> = OnceLock::new();
+        let regex =
+            REGEX.get_or_init(|| Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap());
         vec.extend(
-            RE.captures_iter(webpage)
+            regex
+                .captures_iter(webpage)
                 .map(|matches| matches.name("lin").unwrap().as_str().to_owned()),
         );
     }

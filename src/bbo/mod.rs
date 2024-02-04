@@ -2,8 +2,8 @@ use crate::prelude::{
     BBOClient, BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
     BBOLOGIN,
 };
+use std::cell::OnceLock;
 
-use lazy_static::lazy_static;
 #[cfg(not(test))]
 use log::{debug, info, warn};
 use regex::Regex;
@@ -112,11 +112,12 @@ impl BlockingBBOClient {
 }
 impl LinkExtractor for BlockingBBOClient {
     fn get_links(&self, webpage: &str, vec: &mut Vec<String>) {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap();
-        }
+        let REGEX: OnceLock<Regex> = OnceLock::new();
+        let regex =
+            REGEX.get_or_init(|| Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap());
         vec.extend(
-            RE.captures_iter(&webpage)
+            regex
+                .captures_iter(&webpage)
                 .map(|matches| matches.name("lin").unwrap().as_str().to_owned()),
         );
     }
@@ -235,8 +236,9 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
                     .into_string()
                     .map_err(|e| ClientError::IoError { source: e })?,
             };
+            // TODO:
             // For now puppy implementation
-            println!("{}", lin);
+            todo!();
             std::thread::sleep(std::time::Duration::from_secs(5));
         }
         if queue.is_empty() {

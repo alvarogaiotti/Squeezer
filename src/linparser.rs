@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 use crate::prelude::*;
-use lazy_static::lazy_static;
 use log::{error, warn};
 use regex::Regex;
-use std::num::{NonZeroU8, ParseIntError};
+use std::{
+    num::{NonZeroU8, ParseIntError},
+    sync::OnceLock,
+};
 /* Lin reference:
  pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|
 */
@@ -286,13 +288,12 @@ impl Bid {
 }
 
 fn players(lin: &str) -> Vec<String> {
-    lazy_static! {
-        static ref PLAYERS: Regex = Regex::new(
-            r"pn\|(?P<south>[\w ]+),(?P<west>[\w ]+),(?P<north>[\w ]+),(?P<east>[\w ]+)\|st"
-        )
-        .unwrap();
-    }
-    PLAYERS.captures(lin).map_or_else(
+    static PLAYERS: OnceLock<Regex> = OnceLock::new();
+    let players = PLAYERS.get_or_init(|| {
+        Regex::new(r"pn\|(?P<south>[\w ]+),(?P<west>[\w ]+),(?P<north>[\w ]+),(?P<east>[\w ]+)\|st")
+            .unwrap()
+    });
+    players.captures(lin).map_or_else(
         || {
             let mut data = Vec::new();
             for _ in 0..4 {
@@ -306,17 +307,16 @@ fn players(lin: &str) -> Vec<String> {
                 .skip(1)
                 .map(|x| x.map_or(String::from("NN"), |m| m.as_str().to_string()))
                 .collect();
-            println!("In players: {:#?}", vec);
             vec
         },
     )
 }
 
 fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
-    lazy_static! {
-        static ref HANDS: Regex = Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap();
-    }
-    if let Some(captures) = HANDS.captures(lin) {
+    static HANDS: OnceLock<Regex> = OnceLock::new();
+    let hands =
+        HANDS.get_or_init(|| Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap());
+    if let Some(captures) = hands.captures(lin) {
         let dealer = match captures
             .name("dealer")
             .expect("No dealer")
@@ -336,7 +336,6 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
             .split(',')
             .map(|hand| Hand::from_str(hand).unwrap_or_else(|_| Hand::new_empty()))
             .collect();
-        println!("{:#?}", vec);
         let hands: [Hand; 4] = vec.try_into().unwrap_or_else(|_| [Hand::new_empty(); 4]);
         (dealer, Hands::new_from(hands))
     } else {
@@ -346,10 +345,9 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
 }
 
 fn number(lin: &str) -> u8 {
-    lazy_static! {
-        static ref NUMBER: Regex = Regex::new(r"ah\|(?P<number>[\w, ]+?)\|").unwrap();
-    }
-    NUMBER
+    static NUMBER: OnceLock<Regex> = OnceLock::new();
+    let number = NUMBER.get_or_init(|| Regex::new(r"ah\|(?P<number>[\w, ]+?)\|").unwrap());
+    number
         .captures(lin)
         .expect("No number capture")
         .name("number")
@@ -363,11 +361,10 @@ fn number(lin: &str) -> u8 {
 }
 
 fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
-    lazy_static! {
-        static ref BIDDING: Regex = Regex::new(r"(?P<waste>mb\|(?P<bid>\w+?)\|)+?").unwrap();
-    }
+    static BIDDING: OnceLock<Regex> = OnceLock::new();
+    let bids = BIDDING.get_or_init(|| Regex::new(r"(?P<waste>mb\|(?P<bid>\w+?)\|)+?").unwrap());
+    let captures = bids.captures_iter(lin);
     let mut bidding = Bidding::new();
-    let captures = BIDDING.captures_iter(lin);
     for cap in captures {
         let bid = match &cap["bid"] {
             "d" => Bid::Double,
@@ -404,7 +401,6 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
                 },
             ),
         };
-        println!("{:#?}", &bid);
         bidding.push(bid)?;
     }
     Ok(bidding)
@@ -433,10 +429,10 @@ impl<'a> IntoIterator for &'a PlaySequence {
 // This function does not return an error if it is unable to parse a card, but returns a JOKER, so
 // remember to check for it and maybe try to reconstruct the right card based on the hand.
 fn play_sequence(lin: &str) -> PlaySequence {
-    lazy_static! {
-        static ref PLAY_SEQUENCE: Regex = Regex::new(r"(?P<waste>pc\|(?P<card>\w+?)\|)+?").unwrap();
-    }
-    let captures = PLAY_SEQUENCE.captures_iter(lin);
+    static PLAY_SEQUENCE: OnceLock<Regex> = OnceLock::new();
+    let play_sequence =
+        PLAY_SEQUENCE.get_or_init(|| Regex::new(r"(?P<waste>pc\|(?P<card>\w+?)\|)+?").unwrap());
+    let captures = play_sequence.captures_iter(lin);
     let mut sequence: Vec<Card> = Vec::new();
     for card in captures {
         sequence.push(Card::from_str(&card["card"]).unwrap_or_else(|_| {
@@ -448,10 +444,9 @@ fn play_sequence(lin: &str) -> PlaySequence {
 }
 
 fn claim(lin: &str) -> Option<u8> {
-    lazy_static! {
-        static ref CLAIM: Regex = Regex::new(r"(?P<claim>mc\|(?P<tricks>\d+))").unwrap();
-    };
-    CLAIM
+    static CLAIM: OnceLock<Regex> = OnceLock::new();
+    let claim = CLAIM.get_or_init(|| Regex::new(r"(?P<claim>mc\|(?P<tricks>\d+))").unwrap());
+    claim
         .captures(lin)
         .map(|capture| match capture.name("tricks") {
             Some(tricks) => tricks.as_str().parse::<u8>().unwrap_or(0),
