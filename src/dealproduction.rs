@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    shapeparser::{CreationShapeError, InterpretationShapeError},
+    shapeparser::{CreationShapeError},
 };
 
 ///Error for wrong Shape pattern passed to `ShapeFactory`.

@@ -51,7 +51,7 @@ mod prelude {
     pub use crate::simulation::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;
-    pub(crate) use itertools::{any, Itertools};
+    pub(crate) use itertools::{Itertools};
     pub use std::str::FromStr;
 
     pub(crate) use std::{
