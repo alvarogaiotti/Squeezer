@@ -42,7 +42,17 @@ impl Default for Shape {
 
 impl Shape {
     pub fn new_from_pattern(pattern: &str) -> Result<Self, DealerError> {
-        todo!()
+        let mut shape = Shapes::new();
+        shape.add_shape(pattern)?;
+        Ok(Self::Custom(shape))
+    }
+
+    pub fn new_from_patterns(patterns: Vec<&str>) -> Result<Self, DealerError> {
+        let mut shape = Shapes::new();
+        for pattern in patterns {
+            shape.add_shape(pattern)?;
+        }
+        Ok(Self::Custom(shape))
     }
 
     pub fn remove_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
