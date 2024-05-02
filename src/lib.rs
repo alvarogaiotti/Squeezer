@@ -20,6 +20,7 @@ mod shape;
 mod shapeparser;
 mod simulation;
 mod utils;
+mod analyse_performance;
 
 mod prelude {
     pub extern crate dds;
@@ -41,6 +42,7 @@ mod prelude {
     pub use crate::bbohelpers::*;
     pub use crate::card::*;
     pub use crate::deal::*;
+    pub use analyse_performance::*;
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
