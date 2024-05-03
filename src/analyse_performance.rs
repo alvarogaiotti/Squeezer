@@ -44,13 +44,14 @@ pub fn analyse_player_performance(player: Seat, contract: Contract, play_result_
         starting_position = TrickPosition::First;
     } else {
         starting_position = (4 - contract.leader() as u8 + player as u8).into();
-
+    }
+    
     for (trick, dd_res) in (&trace.into_iter().chunks(4)).zip(&tricks_iterator.chunks(4)) {
         if &dd_res.nth(starting_position as usize) >= &dd_res.nth(starting_position as usize - 1) {
             correct_played += 1
         } 
     }
-
+    
 }
 
 fn max_for_suit(trump: Option<Suit>) -> impl Fn(Card, Card) -> bool {
