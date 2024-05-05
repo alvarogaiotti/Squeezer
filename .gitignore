@@ -7,3 +7,6 @@ libdds.so
 .idea/
 dds290-dll/
 rusty-tags.vi
+Cargo.lock
+.cargo/
+.replit/
