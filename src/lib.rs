@@ -2,6 +2,7 @@
 //#![warn(clippy::restriction, clippy::pedantic)]
 #![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
 
+mod analyse_performance;
 #[cfg(feature = "bbo")]
 mod bbo;
 #[cfg(feature = "bbo_async")]
@@ -20,7 +21,6 @@ mod shape;
 mod shapeparser;
 mod simulation;
 mod utils;
-mod analyse_performance;
 
 mod prelude {
     pub extern crate dds;
@@ -34,6 +34,7 @@ mod prelude {
     pub const MAX_N_OF_BOARDS: u8 = 128;
     pub const RANKS: u8 = 13;
     pub const NUMBER_OF_HANDS: usize = 4;
+    pub use crate::analyse_performance::*;
     #[cfg(feature = "bbo")]
     pub use crate::bbo::*;
     #[cfg(feature = "bbo_async")]
@@ -42,7 +43,6 @@ mod prelude {
     pub use crate::bbohelpers::*;
     pub use crate::card::*;
     pub use crate::deal::*;
-    pub use analyse_performance::*;
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
@@ -53,7 +53,7 @@ mod prelude {
     pub use crate::simulation::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;
-    pub(crate) use itertools::{Itertools};
+    pub(crate) use itertools::Itertools;
     pub use std::str::FromStr;
 
     pub(crate) use std::{
