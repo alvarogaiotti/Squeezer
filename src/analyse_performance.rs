@@ -39,7 +39,8 @@ pub fn analyse_player_performance(
     let mut correct_played = 0;
     let mut total_played = 0;
     let mut starting_position;
-    let mut last_result = tricks_iterator.next()
+    let mut last_result = tricks_iterator
+        .next()
         .expect("there should always be a result calculated before the attack");
     if contract.leader() == player {
         correct_played += (last_result
@@ -50,20 +51,18 @@ pub fn analyse_player_performance(
         starting_position = TrickPosition::First;
     } else {
         starting_position = (4 - contract.leader() as u8 + player as u8).into();
-    }
-    ;
+    };
     for (_trick, _dd_res) in trace
         .into_iter()
         .chunks(4)
         .into_iter()
         .zip(tricks_iterator.chunks(4).into_iter())
-    {
-    }
+    {}
 }
 
-// fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
-//     &(if let Some(trump) = trump {
-//         |c1: Card, c2: Card| {
+// fn max_for_trump(trump: Option<Suit>) -> Box<dyn Fn(Card, Card) -> Ordering> {
+//     if let Some(trump) = trump {
+//         Box::new(move |c1: Card, c2: Card| {
 //             // Since the first card is always the winner,
 //             // we can just check if the second card is of the trump suit
 //             if c1.suit() != c2.suit() {
@@ -75,14 +74,14 @@ pub fn analyse_player_performance(
 //             } else {
 //                 c1.rank().cmp(&c2.rank())
 //             }
-//         }
+//         })
 //     } else {
-//         |c1: Card, c2: Card| {
+//         Box::new(|c1: Card, c2: Card| {
 //             if c1.suit() != c2.suit() {
 //                 Ordering::Less
 //             } else {
 //                 c1.rank().cmp(&c2.rank())
 //             }
-//         }
-//     })
+//         })
+//     }
 // }
