@@ -23,6 +23,7 @@ impl From<u8> for TrickPosition {
             1 => Self::Second,
             2 => Self::Third,
             3 => Self::Last,
+            _ => unreachable!(),
         }
     }
 }
@@ -38,11 +39,11 @@ pub fn analyse_player_performance(
     let mut correct_played = 0;
     let mut total_played = 0;
     let mut starting_position;
+    let mut last_result = tricks_iterator.next()
+        .expect("there should always be a result calculated before the attack");
     if contract.leader() == player {
-        let optimal = tricks_iterator.next();
-        correct_played += (optimal
-            .expect("there should always be a result calculated before the attack")
-            == tricks_iterator
+        correct_played += (last_result
+            == *tricks_iterator
                 .peek()
                 .expect("there should always be a result calculated after the attack"))
             as usize;
@@ -50,41 +51,38 @@ pub fn analyse_player_performance(
     } else {
         starting_position = (4 - contract.leader() as u8 + player as u8).into();
     }
-
-    for (trick, dd_res) in trace
+    ;
+    for (_trick, _dd_res) in trace
         .into_iter()
         .chunks(4)
         .into_iter()
-        .zip(&tricks_iterator.chunks(4).into_iter())
+        .zip(tricks_iterator.chunks(4).into_iter())
     {
-        if &dd_res.nth(starting_position as usize) >= &dd_res.nth(starting_position as usize - 1) {
-            correct_played += 1
-        }
     }
 }
 
-fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
-    if let Some(trump) = trump {
-        |c1: Card, c2: Card| {
-            // Since the first card is always the winner,
-            // we can just check if the second card is of the trump suit
-            if c1.suit() != c2.suit() {
-                if c2.suit() == trump {
-                    Ordering::Greater
-                } else {
-                    Ordering::Less
-                }
-            } else {
-                c1.rank().cmp(&c2.rank())
-            }
-        }
-    } else {
-        |c1: Card, c2: Card| {
-            if c1.suit() != c2.suit() {
-                Ordering::Less
-            } else {
-                c1.rank().cmp(&c2.rank())
-            }
-        }
-    }
-}
+// fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
+//     &(if let Some(trump) = trump {
+//         |c1: Card, c2: Card| {
+//             // Since the first card is always the winner,
+//             // we can just check if the second card is of the trump suit
+//             if c1.suit() != c2.suit() {
+//                 if c2.suit() == trump {
+//                     Ordering::Greater
+//                 } else {
+//                     Ordering::Less
+//                 }
+//             } else {
+//                 c1.rank().cmp(&c2.rank())
+//             }
+//         }
+//     } else {
+//         |c1: Card, c2: Card| {
+//             if c1.suit() != c2.suit() {
+//                 Ordering::Less
+//             } else {
+//                 c1.rank().cmp(&c2.rank())
+//             }
+//         }
+//     })
+// }

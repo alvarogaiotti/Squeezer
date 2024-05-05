@@ -54,7 +54,7 @@ impl solvedPlay {
 
 impl IntoIterator for solvedPlay {
     type Item = i32;
-    type IntoIter = std::array::IntoIter<Self::Item>;
+    type IntoIter = std::array::IntoIter<Self::Item, 53>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.tricks.into_iter()
@@ -63,7 +63,7 @@ impl IntoIterator for solvedPlay {
 
 impl IntoIterator for SolvedPlay {
     type Item = i32;
-    type IntoIter = std::array::IntoIter<Self::Item>;
+    type IntoIter = std::array::IntoIter<Self::Item, 53>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.solved_play.into_iter()
