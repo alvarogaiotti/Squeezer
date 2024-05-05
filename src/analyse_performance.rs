@@ -79,7 +79,7 @@ fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
             }
         }
     } else {
-        |c1, c2| {
+        |c1: Card, c2: Card| {
             if c1.suit() != c2.suit() {
                 Ordering::Less
             } else {
