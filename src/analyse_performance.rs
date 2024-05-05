@@ -62,7 +62,6 @@ pub fn analyse_player_performance(
     }
 }
 
-
 fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
     if let Some(trump) = trump {
         |c1, c2| {
@@ -75,16 +74,16 @@ fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
                     Ordering::Less
                 }
             } else {
-                    c1.rank()q > c2.rank()
-                }
-
+                c1.rank() > c2.rank()
+            }
+        }
     } else {
         |c1, c2| {
             if c1.suit() != c2.suit() {
-                    Ordering::Less
-                
+                Ordering::Less
             } else {
-                    c1.rank()q > c2.rank()
-                }
+                c1.rank() > c2.rank()
+            }
+        }
     }
 }
