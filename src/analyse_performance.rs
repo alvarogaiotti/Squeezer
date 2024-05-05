@@ -34,17 +34,18 @@ pub fn analyse_player_performance(
     play_result_trace: TraceSolved,
 ) {
     let TraceSolved { trace, results } = play_result_trace;
-    let mut tricks_iterator = results.into_iter().peek();
+    let mut tricks_iterator = results.into_iter().peekable();
     let mut correct_played = 0;
     let mut total_played = 0;
     let mut starting_position;
     if contract.leader() == player {
         let optimal = tricks_iterator.next();
-        if let Some(tricks) = tricks_iterator.peek() {
-            correct_played += optimal == tricks as usize;
-        } else {
-            unreachable!();
-        }
+        correct_played += (optimal
+            .expect("there should always be a result calculated before the attack")
+            == tricks_iterator
+                .peek()
+                .expect("there should always be a result calculated after the attack"))
+            as usize;
         starting_position = TrickPosition::First;
     } else {
         starting_position = (4 - contract.leader() as u8 + player as u8).into();
@@ -74,7 +75,7 @@ fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
                     Ordering::Less
                 }
             } else {
-                c1.rank().cmp(c2.rank())
+                c1.rank().cmp(&c2.rank())
             }
         }
     } else {
@@ -82,7 +83,7 @@ fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
             if c1.suit() != c2.suit() {
                 Ordering::Less
             } else {
-                c1.rank().cmp(c2.rank())
+                c1.rank().cmp(&c2.rank())
             }
         }
     }
