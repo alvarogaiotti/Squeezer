@@ -64,7 +64,7 @@ pub fn analyse_player_performance(
 
 fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
     if let Some(trump) = trump {
-        |c1, c2| {
+        |c1: Card, c2: Card| {
             // Since the first card is always the winner,
             // we can just check if the second card is of the trump suit
             if c1.suit() != c2.suit() {
@@ -74,7 +74,7 @@ fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
                     Ordering::Less
                 }
             } else {
-                c1.rank() > c2.rank()
+                c1.rank().cmp(c2.rank())
             }
         }
     } else {
@@ -82,7 +82,7 @@ fn max_for_trump(trump: Option<Suit>) -> impl Fn(Card, Card) -> Ordering {
             if c1.suit() != c2.suit() {
                 Ordering::Less
             } else {
-                c1.rank() > c2.rank()
+                c1.rank().cmp(c2.rank())
             }
         }
     }
