@@ -43,12 +43,23 @@ impl SolvedPlays {
 
 impl solvedPlay {
     /// Creates a new `solvedPlay` instance
+    #[inline]
     #[must_use]
     const fn new() -> Self {
         Self {
             number: 0i32,
             tricks: [0i32; 53],
         }
+    }
+
+    #[inline]
+    #[must_use]
+    fn iter(&self) -> std::slice::Iter<'_, i32> {
+        self.tricks[..self
+            .number
+            .try_into()
+            .expect("it's a lenght so it's always positive")]
+            .iter()
     }
 }
 
@@ -88,6 +99,15 @@ pub struct SolvedPlay {
     pub solved_play: solvedPlay,
 }
 
+impl std::ops::Index<usize> for SolvedPlay {
+    type Output = i32;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.solved_play.tricks[index]
+    }
+}
+
 impl SolvedPlay {
     #[inline]
     #[must_use]
@@ -102,6 +122,12 @@ impl SolvedPlay {
     #[must_use]
     pub const fn tricks(&self) -> &[i32; 53usize] {
         &self.solved_play.tricks
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn iter(&self) -> std::slice::Iter<'_, i32> {
+        self.solved_play.iter()
     }
 
     #[inline]

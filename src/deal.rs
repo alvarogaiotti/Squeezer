@@ -164,7 +164,26 @@ macro_rules! impl_add_and_from_ints_for_seat {
                     _ => unreachable!(),
                 }
             }
-        })*
+        }
+            impl std::ops::Add<&$t> for Seat {
+                type Output = Seat;
+
+                fn add(self, rhs: &$t) -> Self::Output {
+                    (self as $t + *rhs).into()
+                }
+            }
+            impl From<&$t> for Seat {
+                fn from(n: &$t) -> Self {
+                    match *n % NUMBER_OF_HANDS as $t {
+                        x if x == Seat::North as $t => Seat::North,
+                        x if x == Seat::East as $t => Seat::East,
+                        x if x == Seat::South as $t => Seat::South,
+                        x if x == Seat::West as $t => Seat::West,
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        )*
     };
 }
 impl_add_and_from_ints_for_seat!(usize, u64, u32, u16, u8, isize, i64, i32, i16, i8);

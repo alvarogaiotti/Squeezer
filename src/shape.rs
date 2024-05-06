@@ -298,6 +298,19 @@ pub enum Suit {
     Clubs = 3,
 }
 
+impl TryFrom<Strain> for Suit {
+    type Error = DealerError;
+    fn try_from(strain: Strain) -> Result<Self, Self::Error> {
+        match strain {
+            Strain::Spades => Ok(Suit::Spades),
+            Strain::Hearts => Ok(Suit::Hearts),
+            Strain::Diamonds => Ok(Suit::Diamonds),
+            Strain::Clubs => Ok(Suit::Clubs),
+            _ => Err(DealerError::new("cannot convert NoTrumps to a Suit")),
+        }
+    }
+}
+
 impl std::fmt::Debug for Suit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

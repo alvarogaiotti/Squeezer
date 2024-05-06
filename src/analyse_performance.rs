@@ -9,6 +9,7 @@ pub struct TraceSolved {
 }
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrickPosition {
     First = 0,
     Second,
@@ -35,14 +36,15 @@ pub fn analyse_player_performance(
     play_result_trace: TraceSolved,
 ) {
     let TraceSolved { trace, results } = play_result_trace;
-    let mut tricks_iterator = results.into_iter().peekable();
+    let mut tricks_iterator = results.iter().peekable();
     let mut correct_played = 0;
     let mut total_played = 0;
     let mut starting_position;
+    let mut leader = contract.leader();
     let mut last_result = tricks_iterator
         .next()
         .expect("there should always be a result calculated before the attack");
-    if contract.leader() == player {
+    if leader == player {
         correct_played += (last_result
             == *tricks_iterator
                 .peek()
@@ -50,14 +52,79 @@ pub fn analyse_player_performance(
             as usize;
         starting_position = TrickPosition::First;
     } else {
-        starting_position = (4 - contract.leader() as u8 + player as u8).into();
+        starting_position = player_position(leader, player);
     };
-    for (_trick, _dd_res) in trace
+    let winners_table = winners(trace, contract);
+    for (i,winner) in winners_table.iter().enumerate() {
+        let my_position = player_position(leader, player);
+        // The result sequence starts with the result before the first trick
+        if results[my_position as usize * (i + 1) + 1] <= results[my_position as usize * (i + 1)] {
+            correct_played+=1;
+        }
+        leader = Into::<Seat>::into(winner);
+    }
+    
+}
+
+fn player_position(leader: Seat, player: Seat) -> TrickPosition {
+    (4 - leader as u8 + player as u8).into()
+}
+
+fn winners(play_result_trace: PlaySequence, contract: Contract) -> Vec<usize> {
+    let strain = contract.strain();
+    play_result_trace
         .into_iter()
         .chunks(4)
         .into_iter()
-        .zip(tricks_iterator.chunks(4).into_iter())
-    {}
+        .map(|chunk| {
+            if strain == Strain::NoTrumps {
+                max_no_trump(chunk.into_iter())
+            } else {
+                max_trump(
+                    chunk.into_iter(),
+                    strain.try_into().expect("just checked: it's not NoTrumps"),
+                )
+            }
+        })
+        .collect()
+}
+
+fn max_no_trump<I>(trick: I) -> usize
+where
+    I: Iterator<Item = Card>,
+{
+    trick
+        .enumerate()
+        .max_by(|(_, card1), (_, card2)| {
+            if card1.suit() != card2.suit() {
+                Ordering::Greater
+            } else {
+                card1.rank().cmp(&card2.rank())
+            }
+        })
+        .expect("shouldn't be calling this function whithout a populated trick")
+        .0
+}
+
+fn max_trump<I>(trick: I, trump: Suit) -> usize
+where
+    I: Iterator<Item = Card>,
+{
+    trick
+        .enumerate()
+        .max_by(|(_, card1), (_, card2)| {
+            if card1.suit() != card2.suit() {
+                if card2.suit() == trump {
+                    Ordering::Greater
+                } else {
+                    Ordering::Less
+                }
+            } else {
+                card1.rank().cmp(&card2.rank())
+            }
+        })
+        .expect("shouldn't be calling this function whithout a populated trick")
+        .0
 }
 
 // fn max_for_trump(trump: Option<Suit>) -> Box<dyn Fn(Card, Card) -> Ordering> {
