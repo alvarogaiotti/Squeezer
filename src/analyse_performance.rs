@@ -28,6 +28,17 @@ impl From<u8> for TrickPosition {
         }
     }
 }
+impl From<usize> for TrickPosition {
+    fn from(value: usize) -> Self {
+        match value % 4 {
+            0 => Self::First,
+            1 => Self::Second,
+            2 => Self::Third,
+            3 => Self::Last,
+            _ => unreachable!(),
+        }
+    }
+}
 
 /// Analyse the player performace based on the DDS play analysis
 pub fn analyse_player_performance(
@@ -39,7 +50,6 @@ pub fn analyse_player_performance(
     let mut tricks_iterator = results.iter().peekable();
     let mut correct_played = 0;
     let mut total_played = 0;
-    let mut starting_position;
     let mut leader = contract.leader();
     let mut last_result = tricks_iterator
         .next()
@@ -50,20 +60,16 @@ pub fn analyse_player_performance(
                 .peek()
                 .expect("there should always be a result calculated after the attack"))
             as usize;
-        starting_position = TrickPosition::First;
-    } else {
-        starting_position = player_position(leader, player);
-    };
+    }
     let winners_table = winners(trace, contract);
-    for (i,winner) in winners_table.iter().enumerate() {
+    for (i, winner) in winners_table.iter().enumerate() {
         let my_position = player_position(leader, player);
         // The result sequence starts with the result before the first trick
         if results[my_position as usize * (i + 1) + 1] <= results[my_position as usize * (i + 1)] {
-            correct_played+=1;
+            correct_played += 1;
         }
         leader = Into::<Seat>::into(winner);
     }
-    
 }
 
 fn player_position(leader: Seat, player: Seat) -> TrickPosition {
@@ -127,28 +133,21 @@ where
         .0
 }
 
-// fn max_for_trump(trump: Option<Suit>) -> Box<dyn Fn(Card, Card) -> Ordering> {
-//     if let Some(trump) = trump {
-//         Box::new(move |c1: Card, c2: Card| {
-//             // Since the first card is always the winner,
-//             // we can just check if the second card is of the trump suit
-//             if c1.suit() != c2.suit() {
-//                 if c2.suit() == trump {
-//                     Ordering::Greater
-//                 } else {
-//                     Ordering::Less
-//                 }
-//             } else {
-//                 c1.rank().cmp(&c2.rank())
-//             }
-//         })
-//     } else {
-//         Box::new(|c1: Card, c2: Card| {
-//             if c1.suit() != c2.suit() {
-//                 Ordering::Less
-//             } else {
-//                 c1.rank().cmp(&c2.rank())
-//             }
-//         })
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prelude::*;
+    use dds::*;
+
+    #[test]
+    fn calculate_correct_positions() {
+        let vec: Vec<Seat> = vec![1u8, 2, 3, 0, 1].into_iter().map(Into::into).collect();
+        let player: Vec<Seat> = vec![0u8, 2, 4, 2, 8].into_iter().map(Into::into).collect();
+        for (index, (start, player)) in vec.iter().zip(player.iter()).enumerate() {
+            assert_eq!(
+                TrickPosition::from(3usize + index),
+                player_position(*start, *player)
+            );
+        }
+    }
+}
