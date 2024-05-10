@@ -8,6 +8,65 @@ pub struct TraceSolved {
     pub results: SolvedPlay,
 }
 
+/// Represents a player's track of cards played in a board.
+/// We use Option because sometimes we claim and do not play cards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PlayerPlayTrace([Option<Card>; 13]);
+
+impl std::ops::Index<usize> for PlayerPlayTrace {
+    type Output = Option<Card>;
+    fn index(&self, index: usize) -> &Self::Output {
+        self.0.index(index)
+    }
+}
+
+impl std::ops::IndexMut<usize> for PlayerPlayTrace {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.0.index_mut(index)
+    }
+}
+
+/// Represents a player's track of card's result played in a board.
+/// We use Option because sometimes we claim and do not play cards.
+/// The u8 represents the double dummy result of the card played.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PlayerResultTrace([Option<u8>; 12]);
+
+impl std::ops::Index<usize> for PlayerResultTrace {
+    type Output = Option<u8>;
+    fn index(&self, index: usize) -> &Self::Output {
+        self.0.index(index)
+    }
+}
+
+impl std::ops::IndexMut<usize> for PlayerResultTrace {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.0.index_mut(index)
+    }
+}
+
+pub struct PlayerPlayRecord {
+    tricks: PlayerPlayTrace,
+    results: PlayerResultTrace,
+    trick_counter: usize,
+}
+
+impl PlayerPlayRecord {
+    pub fn new() -> Self {
+        Self {
+            tricks: PlayerPlayTrace::default(),
+            results: PlayerResultTrace::default(),
+            trick_counter: 0,
+        }
+    }
+
+    pub fn push_trick(&mut self, card: Card, result: u8) {
+        self.tricks[self.trick_counter] = Some(card);
+        self.results[self.trick_counter] = Some(result);
+        self.trick_counter += 1;
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrickPosition {
@@ -62,13 +121,13 @@ pub fn analyse_player_performance(
             as usize;
     }
     let winners_table = winners(trace, contract);
+    let mut my_position = player_position(leader, player);
     for (i, winner) in winners_table.iter().enumerate() {
-        let my_position = player_position(leader, player);
         // The result sequence starts with the result before the first trick
         if results[my_position as usize * (i + 1) + 1] <= results[my_position as usize * (i + 1)] {
             correct_played += 1;
         }
-        leader = Into::<Seat>::into(winner);
+        my_position = player_position(*winner, player);
     }
 }
 
@@ -76,7 +135,7 @@ fn player_position(leader: Seat, player: Seat) -> TrickPosition {
     (4 - leader as u8 + player as u8).into()
 }
 
-fn winners(play_result_trace: PlaySequence, contract: Contract) -> Vec<usize> {
+fn winners(play_result_trace: PlaySequence, contract: Contract) -> Vec<Seat> {
     let strain = contract.strain();
     play_result_trace
         .into_iter()
@@ -95,7 +154,7 @@ fn winners(play_result_trace: PlaySequence, contract: Contract) -> Vec<usize> {
         .collect()
 }
 
-fn max_no_trump<I>(trick: I) -> usize
+fn max_no_trump<I>(trick: I) -> Seat
 where
     I: Iterator<Item = Card>,
 {
@@ -110,9 +169,10 @@ where
         })
         .expect("shouldn't be calling this function whithout a populated trick")
         .0
+        .into()
 }
 
-fn max_trump<I>(trick: I, trump: Suit) -> usize
+fn max_trump<I>(trick: I, trump: Suit) -> Seat
 where
     I: Iterator<Item = Card>,
 {
@@ -131,6 +191,7 @@ where
         })
         .expect("shouldn't be calling this function whithout a populated trick")
         .0
+        .into()
 }
 
 #[cfg(test)]
