@@ -376,6 +376,15 @@ impl Suit {
             Suit::Clubs => Err(String::from("Called Suit::Clubs.next() is not permitted.")),
         }
     }
+
+    pub fn rotating_next(self) -> Self {
+        match self {
+            Suit::Spades => Suit::Hearts,
+            Suit::Hearts => Suit::Diamonds,
+            Suit::Diamonds => Suit::Clubs,
+            Suit::Clubs => Suit::Spades
+        }
+    }
 }
 
 #[test]

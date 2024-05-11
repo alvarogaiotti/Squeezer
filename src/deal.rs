@@ -142,6 +142,40 @@ impl Seat {
             Self::South => "South",
         }
     }
+
+    #[inline]
+    #[must_use]
+    /// Beware, this iterator never stops
+    pub fn iter_from(self) -> RotatingSuitIterator{
+        RotatingSuitIterator::new(self)
+    }
+}
+
+/// Beware, this iterator never stops
+pub struct RotatingSuitIterator {
+    state: Seat,
+}
+
+impl Iterator for RotatingSuitIterator {
+    type Item = Seat;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.state = self.state.next();
+        Some(self.state)
+    }
+}
+
+impl RotatingSuitIterator {
+    /// Beware, this iterator never stops
+    pub fn new(state: Seat) -> Self {
+        Self { state }
+    }
+    pub fn set_state(&mut self, state: Seat) {
+        self.state = state;
+    }
+    pub fn state(&self) -> Seat {
+        self.state
+    }
 }
 
 macro_rules! impl_add_and_from_ints_for_seat {
