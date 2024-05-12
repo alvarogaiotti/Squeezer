@@ -146,12 +146,14 @@ impl Seat {
     #[inline]
     #[must_use]
     /// Beware, this iterator never stops
-    pub fn iter_from(self) -> RotatingSuitIterator{
+    pub fn iter_from(self) -> RotatingSuitIterator {
         RotatingSuitIterator::new(self)
     }
 }
 
-/// Beware, this iterator never stops
+/// Iterator that cycles over the seats in a Bridge game.
+/// Can set state and restart.
+/// Start iteration from the next seat with which is initialised.
 pub struct RotatingSuitIterator {
     state: Seat,
 }

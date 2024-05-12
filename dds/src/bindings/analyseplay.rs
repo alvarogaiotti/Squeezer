@@ -48,7 +48,7 @@ impl solvedPlay {
     const fn new() -> Self {
         Self {
             number: 0i32,
-            tricks: [0i32; 53],
+            tricks: [-1i32; 53],
         }
     }
 
@@ -74,10 +74,24 @@ impl IntoIterator for solvedPlay {
 
 impl IntoIterator for SolvedPlay {
     type Item = i32;
-    type IntoIter = std::array::IntoIter<Self::Item, 53>;
+    type IntoIter = SolvedPlayIterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.solved_play.into_iter()
+        SolvedPlayIterator {
+            data: self.solved_play.into_iter(),
+        }
+    }
+}
+
+pub struct SolvedPlayIterator {
+    data: std::array::IntoIter<i32, 53>,
+}
+
+impl Iterator for SolvedPlayIterator {
+    type Item = i32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data.next().filter(|&x| x != -1i32)
     }
 }
 
@@ -249,8 +263,8 @@ impl playTraceBin {
     pub const fn new() -> Self {
         Self {
             number: 0,
-            suit: [0i32; 52],
-            rank: [0i32; 52],
+            suit: [-1i32; 52],
+            rank: [-1i32; 52],
         }
     }
 }

@@ -1,5 +1,10 @@
 use crate::prelude::*;
 
+pub trait Simulable: sealed::PrivateSimulable {}
+mod sealed {
+    pub trait PrivateSimulable: std::fmt::Display {}
+}
+
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
 ///on scoring. Some sort of expected value of the contracts.
 pub struct Payoff<T, D>
@@ -314,6 +319,17 @@ impl Contract {
                 stringa
             }
         )
+    }
+
+    #[must_use]
+    pub fn new(level: u8, strain: Strain, declarer: Seat, vuln: bool, doubled: Doubled) -> Self {
+        Self {
+            vuln,
+            doubled,
+            level,
+            strain,
+            declarer,
+        }
     }
 }
 impl fmt::Display for Contract {

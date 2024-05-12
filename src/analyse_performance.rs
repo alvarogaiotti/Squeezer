@@ -26,9 +26,12 @@ impl std::ops::IndexMut<usize> for PlayerPlayTrace {
         self.0.index_mut(index)
     }
 }
+
+/// Newtype wrapper for a trick, represented with a u8.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Tricks(u8);
 
+/// Newtype wrapper for the double dummy difference between before and after the card is played.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TrickDifference(u8);
 
@@ -117,18 +120,38 @@ impl From<usize> for TrickPosition {
     }
 }
 
-/// Analyse the players performace based on the DDS play analysis
-pub fn analyse_players_performance(contract: Contract, play_result_trace: TraceSolved) {
+/// Analyzes the performance of players based on the contract and the result of playing a sequence of cards.
+/// It evaluates the tricks and results of each player's card plays and determines the winner of each trick.
+///
+/// # Arguments
+///
+/// * `contract` - The contract being played (e.g., Suit and Level)
+/// * `play_result_trace` - The traced sequence of played cards and their corresponding solver results
+///
+/// # Returns
+///
+/// An array of `PlayerPlayRecord` instances representing the performance of each player.
+///
+/// # Panics
+///
+/// Panics if there is no specified winner for a trick.
+/// It may also panic when attempting to convert the contract into a trump type if it is not a No Trump contract.
+pub fn analyse_players_performance(
+    contract: Contract,
+    play_result_trace: TraceSolved,
+) -> [PlayerPlayRecord; 4] {
     let TraceSolved { tricks, results } = play_result_trace;
     let mut results_iterator = results.into_iter();
     let mut players_records: [PlayerPlayRecord; 4] =
         std::array::from_fn(|_| PlayerPlayRecord::new());
     let (winner_notrump, winner_trump);
+    // Determine the winner based on whether it's a No Trump contract or not
     let winner_function: &dyn Fn(Card, Card, Seat, Seat) -> Seat =
         if matches!(contract.strain(), Strain::NoTrumps) {
             winner_notrump = winner_nt;
             &winner_notrump
         } else {
+            // If it's a Trump contract, set the winner accordingly
             let trump = contract.strain().try_into().expect("it's not NoTrump");
             winner_trump =
                 move |previous_card: Card, card: Card, winner: Seat, actual_player: Seat| {
@@ -161,13 +184,14 @@ pub fn analyse_players_performance(contract: Contract, play_result_trace: TraceS
         let mut card_result_iterator = trick.into_iter().zip(results.into_iter());
         let (first_card, result) = card_result_iterator.next().expect("there should always be a leader, otherwise the tricks iterator should not have entered another loop.");
 
-        // Loop body, but winner of the last trick is the actual player
+        // Process the first card of each trick
         let diff = performance_difference(dd_result, result);
         players_records[winner as usize].push_trick(first_card, diff);
         let mut previous_card = first_card;
         dd_result = result;
 
         let mut seat_iterator = winner.iter_from();
+        // Iterate through the rest of the cards in the trick
         for (card, result) in card_result_iterator {
             let actual_player = seat_iterator.next().unwrap();
             winner = winner_function(previous_card, card, actual_player, winner);
@@ -175,9 +199,9 @@ pub fn analyse_players_performance(contract: Contract, play_result_trace: TraceS
             players_records[actual_player as usize].push_trick(card, diff);
             previous_card = card;
             dd_result = result;
-
         }
     }
+    players_records
 }
 
 fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat) -> Seat {
@@ -229,65 +253,6 @@ fn player_position(leader: Seat, player: Seat) -> TrickPosition {
     (4 - leader as u8 + player as u8).into()
 }
 
-// fn winners(play_result_trace: PlaySequence, contract: Contract) -> Vec<Seat> {
-//     let strain = contract.strain();
-//     play_result_trace
-//         .into_iter()
-//         .chunks(4)
-//         .into_iter()
-//         .map(|chunk| {
-//             if strain == Strain::NoTrumps {
-//                 max_no_trump(chunk.into_iter())
-//             } else {
-//                 max_trump(
-//                     chunk.into_iter(),
-//                     strain.try_into().expect("just checked: it's not NoTrumps"),
-//                 )
-//             }
-//         })
-//         .collect()
-// }
-
-// fn max_no_trump<I>(trick: I) -> Seat
-// where
-//     I: Iterator<Item = Card>,
-// {
-//     trick
-//         .enumerate()
-//         .max_by(|(_, card1), (_, card2)| {
-//             if card1.suit() != card2.suit() {
-//                 Ordering::Greater
-//             } else {
-//                 card1.rank().cmp(&card2.rank())
-//             }
-//         })
-//         .expect("shouldn't be calling this function whithout a populated trick")
-//         .0
-//         .into()
-// }
-
-// fn max_trump<I>(trick: I, trump: Suit) -> Seat
-// where
-//     I: Iterator<Item = Card>,
-// {
-//     trick
-//         .enumerate()
-//         .max_by(|(_, card1), (_, card2)| {
-//             if card1.suit() != card2.suit() {
-//                 if card2.suit() == trump {
-//                     Ordering::Greater
-//                 } else {
-//                     Ordering::Less
-//                 }
-//             } else {
-//                 card1.rank().cmp(&card2.rank())
-//             }
-//         })
-//         .expect("shouldn't be calling this function whithout a populated trick")
-//         .0
-//         .into()
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,5 +269,69 @@ mod tests {
                 player_position(*start, *player)
             );
         }
+    }
+    #[test]
+    fn test_performance_difference() {
+        let better = performance_difference(9, 7);
+        let equal = performance_difference(5, 5);
+        let worse = performance_difference(3, 6);
+
+        assert_eq!(
+            better,
+            CardPerformance::Better(Tricks(7), TrickDifference(2))
+        );
+        assert_eq!(equal, CardPerformance::Equal(Tricks(5)));
+        assert_eq!(worse, CardPerformance::Worse(Tricks(6), TrickDifference(3)));
+    }
+
+    #[test]
+    fn test_winner_nt() {
+        let winner = winner_nt(
+            Card::new(Suit::Hearts, Rank::Ten),
+            Card::new(Suit::Hearts, Rank::Ace),
+            Seat::North,
+            Seat::South,
+        );
+        assert_eq!(winner, Seat::South);
+
+        let winner = winner_nt(
+            Card::new(Suit::Spades, Rank::Five),
+            Card::new(Suit::Hearts, Rank::Ace),
+            Seat::West,
+            Seat::North,
+        );
+        assert_eq!(winner, Seat::North);
+    }
+
+    #[test]
+    fn test_analyse_players_performance() {
+        let contract = Contract::new(3, Strain::NoTrumps, Seat::North, false, Doubled::NotDoubled);
+        let play_seq = PlaySequence::new(vec![
+            Card::new(Suit::Spades, 14),
+            Card::new(Suit::Spades, 13),
+            Card::new(Suit::Hearts, 12),
+            Card::new(Suit::Hearts, 11),
+            Card::new(Suit::Hearts, 5),
+            Card::new(Suit::Spades, 12),
+            Card::new(Suit::Hearts, 10),
+            Card::new(Suit::Hearts, 7),
+            Card::new(Suit::Diamonds, 13),
+            Card::new(Suit::Spades, 11),
+            Card::new(Suit::Hearts, 3),
+            Card::new(Suit::Hearts, 2),
+            Card::new(Suit::Hearts, 6),
+            Card::new(Suit::Spades, 9),
+            Card::new(Suit::Clubs, 10),
+            Card::new(Suit::Clubs, 8),
+        ]);
+        let solved_play = SolvedPlay::new(); // Dummy initialization
+
+        let trace_solved = TraceSolved {
+            tricks: play_seq,
+            results: solved_play,
+        };
+        let players_performance = analyse_players_performance(contract, trace_solved);
+
+        // Perform your assertions here
     }
 }
