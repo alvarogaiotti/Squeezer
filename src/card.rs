@@ -22,6 +22,12 @@ impl std::fmt::Debug for Card {
     }
 }
 
+impl std::fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+   write!(f, "{}{}", self.rankchar(), self.suit()) 
+}
+}
+
 impl Card {
     #[must_use]
     pub const fn new(suit: Suit, rank: u8) -> Self {

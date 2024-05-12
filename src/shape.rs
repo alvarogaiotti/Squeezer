@@ -322,6 +322,12 @@ impl std::fmt::Debug for Suit {
     }
 }
 
+impl std::fmt::Display for Suit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.unicode())
+    }
+}
+
 impl std::convert::From<Suit> for usize {
     fn from(suit: Suit) -> usize {
         suit as usize

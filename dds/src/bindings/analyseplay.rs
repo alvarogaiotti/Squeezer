@@ -149,6 +149,18 @@ impl SolvedPlay {
     pub const fn number(&self) -> i32 {
         self.solved_play.number
     }
+
+    /// Function for testing purposes and should not be used.
+    #[must_use]
+    pub fn from_seq(mut seq: Vec<i32>) -> Self {
+        seq.resize(53, -1i32);
+        Self {
+            solved_play: solvedPlay {
+                number: seq.len() as i32,
+                tricks: seq.try_into().expect("just resized")
+            }
+        }
+    }
 }
 
 impl Default for SolvedPlay {

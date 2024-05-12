@@ -153,7 +153,7 @@ impl Seat {
 
 /// Iterator that cycles over the seats in a Bridge game.
 /// Can set state and restart.
-/// Start iteration from the next seat with which is initialised.
+/// Start iteration from the seat next to the one with which is initialised.
 pub struct RotatingSuitIterator {
     state: Seat,
 }

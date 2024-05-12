@@ -410,6 +410,12 @@ pub struct PlaySequence {
     sequence: Vec<Card>,
 }
 
+impl PlaySequence {
+    pub fn new(sequence: Vec<Card>) -> Self {
+        Self { sequence }
+    }
+}
+
 impl IntoIterator for PlaySequence {
     type Item = Card;
     type IntoIter = <Vec<Card> as IntoIterator>::IntoIter;
