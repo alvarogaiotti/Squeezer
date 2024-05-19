@@ -3,7 +3,7 @@
     <img src="./Squeezer logo.jpeg" alt="Logo" width="150" height="150">
   </a>
 
-# Rusty-dealer
+# Squeezer
 
 An attempt at a Bridge software suite for deal generation, simulation and performance analysis.
 This started as  a reimplementation of [redeal](https://github.com/anntzer/redeal) by Antony Lee in Rust. Based on the super useful [bridge-cards](https://github.com/droundy/bridge-cards) by David Roundy.
