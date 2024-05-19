@@ -10,9 +10,28 @@ use std::{
  pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|
 */
 
+/// A struct for parsing lin files.
+/// You can feed a lin file and parse it,
+/// expecting to obtai a ParsedLin struct.
+/// The struct expects a something that can be turn into a
+/// Iterator<Item=char> for parsing it.
+/// You'll interact very rarely with this struct directly.
+/// Instead, you'll use the `LinDeal` struct and its from_str method.
+
 pub struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
 }
+
+/// This structure represents a full lin file parsed.
+/// The result if a struct containing:
+/// - the players
+/// - the hands of the players
+/// - the board number
+/// - the bidding (if present)
+/// - the play sequence (if present)
+///
+/// This is a 'low level' struct, and you'll interact with it very rarely.
+/// Instead, you'll use the `LinDeal` struct and its methods.
 
 pub struct ParsedLin {
     players: String,
@@ -22,6 +41,17 @@ pub struct ParsedLin {
     play_sequence: String,
 }
 
+/// This struct represents a deal parsed from a lin file.
+/// This struct has everything needed to work with it.
+/// It contains:
+/// - the players
+/// - the hands of the players
+/// - the board number
+/// - the bidding (if present)
+/// - the play sequence (if present)
+/// - the dealer
+///
+/// You can create a lin deal starting from a str with
 pub struct LinDeal {
     players: [String; 4],
     hands: Hands,
@@ -29,6 +59,61 @@ pub struct LinDeal {
     bidding: Option<Bidding>,
     play_sequence: Option<PlaySequence>,
     dealer: Seat,
+}
+
+impl LinDeal {
+    pub fn players(&self) -> &[String; 4] {
+        &self.players
+    }
+
+    pub fn hands(&self) -> Hands {
+        self.hands
+    }
+
+    pub fn number(&self) -> u8 {
+        self.number
+    }
+
+    pub fn bidding(&self) -> Option<&Bidding> {
+        self.bidding.as_ref()
+    }
+
+    pub fn play_sequence(&self) -> Option<&PlaySequence> {
+        self.play_sequence.as_ref()
+    }
+
+    pub fn dealer(&self) -> Seat {
+        self.dealer
+    }
+
+    pub fn contract(&self) -> Option<Contract> {
+        let mut contract = None;
+        if let Some(ref bidding) = self.bidding {
+            let mut declarer = self.dealer as usize + bidding.len();
+            let mut doubled = Doubled::NotDoubled;
+            for bid in bidding.iter().rev() {
+                match *bid {
+                    Bid::Double => {
+                        doubled = Doubled::Doubled;
+                        declarer = declarer - 1;
+                    }
+                    Bid::Pass => declarer = declarer - 1,
+                    Bid::Redouble => {
+                        doubled = Doubled::Redoubled;
+                        declarer = declarer - 1;
+                    }
+                    Bid::Contract(level, strain) => {
+                        let declarer = declarer.into();
+                        let vuln = Vulnerable::from_number_and_seat(self.number, declarer);
+                        contract =
+                            Some(Contract::new(level.into(), strain, declarer, vuln, doubled));
+                        break;
+                    }
+                }
+            }
+        }
+        contract
+    }
 }
 
 impl std::fmt::Display for LinDeal {
@@ -108,6 +193,17 @@ impl FromStr for LinDeal {
     }
 }
 
+impl dds::AsDDSDeal for LinDeal {
+    fn as_dds_deal(&self) -> dds::DDSDealRepr {
+        let mut remain_cards = [[0; 4]; 4];
+        for (seat, hand) in self.hands.into_iter().enumerate() {
+            for (index, suit) in hand.into_iter().enumerate() {
+                remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
+            }
+        }
+        remain_cards.into()
+    }
+}
 /// Structure that represents a bidding sequence
 /// made of [`Bid`]s
 #[derive(Debug, Default)]
@@ -178,6 +274,13 @@ impl Bidding {
             bidding: Vec::new(),
         }
     }
+    pub fn len(&self) -> usize {
+        self.bidding.len()
+    }
+    pub fn get(&self, index: usize) -> Option<&Bid> {
+        self.bidding.get(index)
+    }
+
     pub fn iter(&self) -> std::slice::Iter<Bid> {
         self.bidding.iter()
     }
@@ -224,6 +327,7 @@ impl std::fmt::Display for Bid {
         }
     }
 }
+
 #[derive(Debug)]
 pub struct BidError {
     pub bid: String,
@@ -406,6 +510,7 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
     Ok(bidding)
 }
 
+#[derive(Debug)]
 pub struct PlaySequence {
     sequence: Vec<Card>,
 }
@@ -414,6 +519,9 @@ impl PlaySequence {
     pub fn new(sequence: Vec<Card>) -> Self {
         Self { sequence }
     }
+    pub fn len(&self) -> usize {
+        self.sequence.len()
+    }
 }
 
 impl IntoIterator for PlaySequence {
@@ -421,6 +529,26 @@ impl IntoIterator for PlaySequence {
     type IntoIter = <Vec<Card> as IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
         self.sequence.into_iter()
+    }
+}
+
+impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) { 
+    type Error = dds::SeqError;
+
+    fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
+        use dds::{SuitSeq, RankSeq, SeqError, SEQUENCE_LENGTH};
+        let len = value.len();
+        if len == 0 {
+            return Err(SeqError::SequenceTooShort);
+        } else if len > SEQUENCE_LENGTH {
+            return Err(SeqError::SequenceTooLong);
+        } else {
+            let (suitseq, rankseq): (Vec<_>, Vec<_>) = value
+                .into_iter()
+                .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
+                .unzip();
+            Ok((SuitSeq::try_from(suitseq.as_slice())?, RankSeq::try_from(rankseq.as_slice())?))
+        }
     }
 }
 

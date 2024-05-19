@@ -200,20 +200,20 @@ fn curry_winner_trump(trump: Suit) -> impl Fn(Card, Card, Seat, Seat) -> (Seat, 
                 (winner, previous_card)
             }
         } else if previous_card.rank() > card.rank() {
-                (winner, previous_card)
+            (winner, previous_card)
         } else {
-                (actual_player, card)
+            (actual_player, card)
         }
     }
 }
 
 fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat) -> (Seat, Card) {
     if previous_card.suit() != card.suit() {
-                (winner, previous_card)
+        (winner, previous_card)
     } else if previous_card.rank() > card.rank() {
-                (winner, previous_card)
+        (winner, previous_card)
     } else {
-                (actual_player, card)
+        (actual_player, card)
     }
 }
 
@@ -334,33 +334,28 @@ mod tests {
 
     #[test]
     fn test_analyse_players_performance() {
-        let contract = Contract::new(2, Strain::Spades, Seat::West, false, Doubled::NotDoubled);
+        let contract = Contract::new(2, Strain::Spades, Seat::West, Vulnerable::No, Doubled::NotDoubled);
         let play_seq = PlaySequence::new(vec![
             Card::new(Suit::Spades, 2), // N
             Card::new(Suit::Spades, 3),
             Card::new(Suit::Spades, 4),
             Card::new(Suit::Spades, 14), // Winner W
-            
             Card::new(Suit::Hearts, 5),  // W
             Card::new(Suit::Hearts, 6),
             Card::new(Suit::Hearts, 13), // Winner East
             Card::new(Suit::Hearts, 3),
-            
             Card::new(Suit::Hearts, 4), // E
             Card::new(Suit::Hearts, 8),
             Card::new(Suit::Hearts, 14), // Winner W
             Card::new(Suit::Hearts, 2),
-            
             Card::new(Suit::Hearts, 12), // W, Winner W
             Card::new(Suit::Hearts, 7),
             Card::new(Suit::Hearts, 10),
             Card::new(Suit::Hearts, 11),
-            
             Card::new(Suit::Hearts, 9), // W
             Card::new(Suit::Spades, 5),
             Card::new(Suit::Spades, 8),
             Card::new(Suit::Spades, 13), // Winner S
-            
             Card::new(Suit::Clubs, 7),   // S
             Card::new(Suit::Clubs, 10),
             Card::new(Suit::Spades, 6), // Winner N
@@ -375,7 +370,6 @@ mod tests {
             results: solved_play,
         };
         let players_performance = analyse_players_performance(contract, trace_solved);
-        let mut counter = 0;
         assert_eq!(
             players_performance[Seat::North as usize].tricks[0].unwrap(),
             Card::S2

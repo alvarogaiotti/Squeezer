@@ -1,5 +1,20 @@
 use crate::prelude::*;
 
+/// Struct for evaluating card holdings with a particular logic:
+/// for example: controls, or aces, or 6421, or other counting methods.
+/// Could be modified to accept a i32 for more flexibility to the counting style.
+/// es. give half a point for a ten ecc.
+///
+/// # Example
+///
+/// ```
+/// use squeezer::{Evaluator,Cards};
+///
+/// let hcp = Evaluator::new(&[4u8, 3u8, 2u8, 1u8]);
+/// let mut deck = Cards::ALL;
+/// let hand = deck.pick(13).unwrap();
+/// assert_eq!(hcp.evaluate(hand), { hand.high_card_points() });
+/// ```
 pub struct Evaluator {
     evaluator: Box<dyn Fn(Cards) -> u8>,
 }

@@ -215,7 +215,7 @@ impl Cards {
     /// A new, full French deck without Jokers.
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
-    pub fn new_deck() -> Self {
+    pub const fn new_deck() -> Self {
         Cards::ALL
     }
 

@@ -4,7 +4,7 @@ use super::{AsDDSContract, AsDDSDeal, AsRawDDS, DDSDeal, DDSDealBuilder};
 use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
 
 /// The length of a sequence of suits or ranks
-const SEQUENCE_LENGTH: usize = 52;
+pub const SEQUENCE_LENGTH: usize = 52;
 
 #[allow(clippy::exhaustive_enums)]
 pub enum ThreadIndex {
@@ -191,11 +191,10 @@ impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
         } else if length > SEQUENCE_LENGTH {
             return Err(SeqError::SequenceTooLong);
         } else {
-            let mut array = value.to_vec();
-            array.resize(SEQUENCE_LENGTH, -1i32);
+            let mut sequence = [-1i32; SEQUENCE_LENGTH];
+            sequence.copy_from_slice(&value[0..SEQUENCE_LENGTH]);
             return Ok(Self {
-                // SAFETY: checks already performed above
-                sequence: array.try_into().unwrap(),
+                sequence,
                 // SAFETY: checks already performed above
                 length: i32::try_from(length).unwrap(),
             });
@@ -224,18 +223,20 @@ impl TryFrom<&[c_int]> for SuitSeq {
         } else if length > SEQUENCE_LENGTH {
             return Err(SeqError::SequenceTooLong);
         } else {
-            let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
-            array.extend_from_slice(value);
-            array.resize(SEQUENCE_LENGTH, -1i32);
+            // let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
+            // array.extend_from_slice(value);
+            // array.resize(SEQUENCE_LENGTH, -1i32);
+            let mut sequence = [-1i32; SEQUENCE_LENGTH];
+            sequence.copy_from_slice(value);
             return Ok(Self {
-                // SAFETY: checks already performed above
-                sequence: array.try_into().unwrap(),
+                sequence,
                 // SAFETY: checks already performed above
                 length: i32::try_from(length).unwrap(),
             });
         }
     }
 }
+
 
 impl SuitSeq {
     #[inline]

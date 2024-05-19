@@ -6,6 +6,7 @@ use crate::prelude::*;
 pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
 
 /// Structure that holds 4 `Hand`s of 13 cards
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Hands {
     hands: [Hand; 4],
 }
@@ -234,6 +235,78 @@ pub enum Vulnerability {
     All = 3,
 }
 
+impl Vulnerability {
+    pub const VULNERABILITY_TABLE: [Vulnerability; 16] = [
+        Vulnerability::None,
+        Vulnerability::NS,
+        Vulnerability::EW,
+        Vulnerability::All,
+        Vulnerability::NS,
+        Vulnerability::EW,
+        Vulnerability::All,
+        Vulnerability::None,
+        Vulnerability::EW,
+        Vulnerability::All,
+        Vulnerability::None,
+        Vulnerability::NS,
+        Vulnerability::All,
+        Vulnerability::None,
+        Vulnerability::NS,
+        Vulnerability::EW,
+    ];
+
+    pub const fn is_vulnerable(&self, seat: Seat) -> Vulnerable {
+        let seat_position = (seat as usize) % 2;
+        if ((*self as usize) & (1 << seat_position)) == 1 {
+            Vulnerable::Yes
+        } else {
+            Vulnerable::No
+        }
+    }
+    pub const fn from_number(board_number: u8) -> Self {
+        Self::VULNERABILITY_TABLE[(board_number % 16) as usize]
+    }
+}
+
+pub struct VulnerabilityIterator {
+    board_number: u8,
+}
+
+impl VulnerabilityIterator {
+    pub const fn new() -> Self {
+        Self { board_number: 0 }
+    }
+    pub fn from_state(state: Vulnerability) -> Self {
+        // SAFETY: We'll find the state
+        let board_number = Vulnerability::VULNERABILITY_TABLE
+            .iter()
+            .position(|x| *x == state)
+            .unwrap() as u8;
+
+        Self { board_number }
+    }
+
+    pub const fn from_board_number(board_number: u8) -> Self {
+        Self { board_number }
+    }
+}
+
+impl Iterator for VulnerabilityIterator {
+    type Item = Vulnerability;
+    fn next(&mut self) -> Option<Self::Item> {
+        let state = Vulnerability::from_number(self.board_number);
+        self.board_number += 1;
+        Some(state)
+    }
+}
+
+impl IntoIterator for Vulnerability {
+    type IntoIter = VulnerabilityIterator;
+    type Item = Vulnerability;
+    fn into_iter(self) -> Self::IntoIter {
+        VulnerabilityIterator::from_state(self)
+    }
+}
 /// A builder for a dealer object. It's the standard way to create
 /// a [`Dealer`] that deals a specific type of deal.
 ///
@@ -353,7 +426,7 @@ impl DealerBuilder {
     }
 }
 
-pub trait Dealer: std::fmt::Debug {
+pub trait Dealer {
     fn deal(&self) -> Result<Deal, DealerError>;
 }
 

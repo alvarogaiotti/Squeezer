@@ -17,12 +17,17 @@ impl Default for Hand {
 }
 
 impl Hand {
+    /// Create a new Hand with 13 random cards from a deck.
+    /// Returns the created Hand.
     #[must_use]
     pub fn new() -> Self {
         Hand {
             cards: Cards::new_deck().pick(13).unwrap(),
         }
     }
+
+    /// Create a new Hand with no cards.
+    /// Returns the created Hand.
     #[must_use]
     pub const fn new_empty() -> Self {
         Hand {
@@ -30,16 +35,26 @@ impl Hand {
         }
     }
 
+    /// Set the cards of the Hand to the specified cards.
+    /// Parameters:
+    /// - `cards`: The new set of cards for the Hand.
     pub fn set_cards(&mut self, cards: Cards) {
         self.cards = cards;
     }
 
+    /// Check if the Hand contains a specific card.
+    /// Parameters:
+    /// - `card`: The card to check for in the Hand.
+    /// Returns true if the Hand contains the card, false otherwise.
     #[must_use]
     pub fn contains(&self, card: Card) -> bool {
         self.cards.contains(card)
     }
+
+    /// Get the distribution of suits in the Hand.
+    /// Returns an array representing the number of cards in each suit.
     #[must_use]
-    pub fn shape(&self) -> [u8; 4] {
+    pub const fn shape(&self) -> [u8; 4] {
         let spades = self.slen();
         let hearts = self.hlen();
         let diamonds = self.dlen();
@@ -47,6 +62,10 @@ impl Hand {
         [spades, hearts, diamonds, clubs]
     }
 
+    /// Get the number of cards in a specific suit.
+    /// Parameters:
+    /// - `suit`: The suit for which to count the cards.
+    /// Returns the number of cards in the specified suit.
     #[must_use]
     pub fn len_of_suit(&self, suit: Suit) -> u8 {
         match suit {
@@ -56,51 +75,86 @@ impl Hand {
             Suit::Clubs => self.clen(),
         }
     }
+
+    /// Get the cards in the Spades suit.
+    /// Returns the cards in the Spades suit.
     #[must_use]
-    pub fn spades(&self) -> Cards {
+    pub const fn spades(&self) -> Cards {
         self.cards.spades()
     }
+
+    /// Get the cards in the Hearts suit.
+    /// Returns the cards in the Hearts suit.
     #[must_use]
-    pub fn hearts(&self) -> Cards {
+    pub const fn hearts(&self) -> Cards {
         self.cards.hearts()
     }
+
+    /// Get the cards in the Diamonds suit.
+    /// Returns the cards in the Diamonds suit.
     #[must_use]
-    pub fn diamonds(&self) -> Cards {
+    pub const fn diamonds(&self) -> Cards {
         self.cards.diamonds()
     }
+
+    /// Get the cards in the Clubs suit.
+    /// Returns the cards in the Clubs suit.
     #[must_use]
-    pub fn clubs(&self) -> Cards {
+    pub const fn clubs(&self) -> Cards {
         self.cards.clubs()
     }
+
+    /// Get the number of cards in the Spades suit.
+    /// Returns the number of cards in the Spades suit.
     #[must_use]
-    pub fn slen(&self) -> u8 {
+    pub const fn slen(&self) -> u8 {
         self.spades().len()
     }
+
+    /// Get the number of cards in the Hearts suit.
+    /// Returns the number of cards in the Hearts suit.
     #[must_use]
-    pub fn hlen(&self) -> u8 {
+    pub const fn hlen(&self) -> u8 {
         self.hearts().len()
     }
+
+    /// Get the number of cards in the Diamonds suit.
+    /// Returns the number of cards in the Diamonds suit.
     #[must_use]
-    pub fn dlen(&self) -> u8 {
+    pub const fn dlen(&self) -> u8 {
         self.diamonds().len()
     }
+
+    /// Get the number of cards in the Clubs suit.
+    /// Returns the number of cards in the Clubs suit.
     #[must_use]
-    pub fn clen(&self) -> u8 {
+    pub const fn clen(&self) -> u8 {
         self.clubs().len()
     }
 
+    /// Get the High Card Points (HCP) of the Hand.
+    /// Returns the HCP value of the Hand.
     #[must_use]
     pub fn hcp(&self) -> u8 {
         self.cards.high_card_points()
     }
+
+    /// Get the cards in the Hand as a set.
+    /// Returns the cards in the Hand.
     #[must_use]
     pub fn as_cards(&self) -> Cards {
         self.cards
     }
+
+    /// Get the cards in the Hand as bit representation.
+    /// Returns the bit representation of the cards in the Hand.
     #[must_use]
     pub fn as_bits(&self) -> u64 {
         self.cards.as_bits()
     }
+
+    /// Get a long string representation of the Hand.
+    /// Returns a string representing the cards in the Hand in multiple lines.
     #[must_use]
     pub fn long_str(&self) -> String {
         format!("{}", self.into_iter().format("\n"))
@@ -157,7 +211,7 @@ impl Iterator for HandIterator {
         Some(result)
     }
 }
-
+/// Represents a range of High Card Points.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct HcpRange {
     min_hcp: u8,
@@ -166,38 +220,49 @@ pub struct HcpRange {
 
 impl HcpRange {
     /// This function guarantees that the HcpRange created is possible.
+    /// i.e. that the min_hcp is less than or equal to the max_hcp.
+    /// and that the max_hcp is clamped to 37.
     #[must_use]
-    pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
-        let min_hcp = min_hcp.clamp(ZERO_HCP, max_hcp);
-        let max_hcp = max_hcp.clamp(min_hcp, MAX_HCP_IN_HAND);
+    pub const fn new(min_hcp: u8, max_hcp: u8) -> Self {
+        let min_hcp = if min_hcp > 37 { 37 } else { min_hcp };
+        let max_hcp = if max_hcp > 37 { 37 } else if max_hcp < min_hcp { min_hcp } else {max_hcp};
         Self { min_hcp, max_hcp }
     }
 
+    /// Get the minimum value of the HCP range.
     #[must_use]
-    pub fn min(&self) -> u8 {
+    pub const fn min(&self) -> u8 {
         self.min_hcp
     }
+
+    /// Get the maximum value of the HCP range.
     #[must_use]
-    pub fn max(&self) -> u8 {
+    pub const fn max(&self) -> u8 {
         self.max_hcp
     }
 
+    /// Check if the specified HCP is within this range.
     #[must_use]
-    pub fn contains(&self, hcp: u8) -> bool {
-        self.as_range().contains(&hcp)
+    pub const fn contains(&self, hcp: u8) -> bool {
+        self.min_hcp <= hcp && self.max_hcp >= hcp
     }
+
+    /// Get the range of HCP values as an inclusive range.
     #[must_use]
-    pub fn as_range(&self) -> RangeInclusive<u8> {
+    pub const fn as_range(&self) -> RangeInclusive<u8> {
         self.min()..=self.max()
     }
 }
-
 impl Default for HcpRange {
     fn default() -> Self {
         HcpRange::new(0, 37)
     }
 }
 
+/// Represents a set of possible hands with the accepted shapes and the accepted HCP range.
+/// This struct main goal is to express a single hand type that we can accept.
+/// If you want to represent multiple hand types, you can use the `HandDescriptor` struct,
+/// which embbeds multiple `HandType`s.
 #[derive(Debug, Default, Clone)]
 pub struct HandType {
     shape: Shape,
@@ -205,37 +270,47 @@ pub struct HandType {
 }
 
 impl HandType {
+    /// Create a new HandType with the specified shape and HCP range.
     #[must_use]
-    pub fn new(shape: Shape, hcp_range: HcpRange) -> Self {
+    pub const fn new(shape: Shape, hcp_range: HcpRange) -> Self {
         Self { shape, hcp_range }
     }
 
+    /// Check if the HandType matches the given hand based on shape and HCP range.
     #[must_use]
     pub fn check(&self, hand: &Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
     }
+
+    /// Get the length ranges for each suit based on the accepted shapes.
     #[must_use]
     pub fn len_ranges(&self) -> [LenRange; 4] {
         self.shape.len_ranges()
     }
+
+    /// Get the accepted HCP range for this HandType.
     #[must_use]
     pub fn hcp_range(&self) -> HcpRange {
         self.hcp_range
     }
 }
 
+/// Represents a descriptor for a set of possible hands with accepted shapes and High Card Point (HCP) ranges.
 #[derive(Debug, Default)]
 pub struct HandDescriptor {
     possible_hands: Vec<HandType>,
 }
 
 impl HandDescriptor {
+    /// Check if a given hand matches any of the possible hand types based on shape and HCP range.
     #[must_use]
     pub fn check(&self, hand: &Hand) -> bool {
         self.possible_hands
             .iter()
             .any(|hand_type| hand_type.check(hand))
     }
+
+    /// Create a new HandDescriptor with the specified list of possible hand types.
     #[must_use]
     pub fn new(possible_hands: Vec<HandType>) -> Self {
         Self { possible_hands }
@@ -258,17 +333,13 @@ impl HandTypeBuilder {
     }
     #[must_use]
     pub fn balanced(min_hcp: u8, max_hcp: u8) -> Self {
-        let mut new = Self {
-            shapes: Some(Shape::default()),
+        let mut shapes = Shapes::new();
+        shapes.add_balanced();
+        Self {
+            shapes: Some(Shape::Custom(shapes)),
             hcp_range: Some(HcpRange::new(min_hcp, max_hcp)),
-        };
+        }
 
-        // SAFETY: KNOWN VALID SHAPES
-        new.add_shape("(5332)").unwrap();
-        new.add_shape("(3334)").unwrap();
-        new.add_shape("(4234)").unwrap();
-
-        new
     }
 
     pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {

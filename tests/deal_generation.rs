@@ -1,6 +1,4 @@
-use dds::dd_score;
 use squeezer::*;
-use std::collections::HashMap;
 
 #[test]
 fn main_to_be() {

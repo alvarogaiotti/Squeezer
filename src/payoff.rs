@@ -1,3 +1,7 @@
+/// This file contains implementations for simulating and analyzing bridge game scenarios.
+/// It includes structures for handling payoff matrices, bridge contracts, scoring functions, and utility functions.
+/// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract, and various scoring functions such as `imps` and `matchpoints`.
+/// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
 
 pub trait Simulable: sealed::PrivateSimulable {}
@@ -36,15 +40,16 @@ where
             diff,
         }
     }
+
+    /// Adds data to the payoff matrix based on raw scores and updates the matrix entries.
+    ///
+    /// # Arguments
+    ///
+    /// * `raw_scores` - A reference to a hashmap containing raw scores for each contract entry.
     pub fn add_data(&mut self, raw_scores: &HashMap<&str, i32>) {
         let diff = &self.diff;
         for (i, ei) in self.entries.iter().enumerate() {
             for (j, ej) in self.entries.iter().enumerate() {
-                //println!(
-                //    "{:?}\nv[i]:{:?}\nv[i][j]:{:?}",
-                //    self.table, self.table[i], self.table[i][j]
-                //);
-                //println!("i:{i}, j:{j}",);
                 self.table[i][j].push(diff(
                     *raw_scores.get(&ei.to_string() as &str).unwrap(),
                     *raw_scores.get(&ej.to_string() as &str).unwrap(),
@@ -52,6 +57,9 @@ where
             }
         }
     }
+
+    /// This function generates a report displaying the Payoff matrix in the terminal.
+    /// It compares the expected value of each option with respect to the others.
     pub fn report(&self) {
         let mut means_stderrs: Vec<Vec<(f32, f32)>> = Vec::new();
         for (i, line) in self.table.iter().enumerate() {
@@ -60,7 +68,7 @@ where
                 means_stderrs[i].push((
                     mean(score).unwrap(),
                     std_deviation(score).unwrap() / (score.len() as f32).sqrt(),
-                ))
+                ));
             }
         }
         println!("\t{:.7}", self.entries.iter().format("\t"));
@@ -91,9 +99,9 @@ where
                     } else {
                         output
                     }
-                })
+                });
             }
-            println!()
+            println!();
         }
     }
 }
@@ -106,6 +114,7 @@ fn mean(data: &[i32]) -> Option<f32> {
         _ => None,
     }
 }
+
 fn std_deviation(data: &[i32]) -> Option<f32> {
     match (mean(data), data.len()) {
         (Some(data_mean), count) if count > 0 => {
@@ -123,10 +132,22 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Vulnerable {
+    Yes,
+    No,
+}
+
+impl Vulnerable {
+    pub const fn from_number_and_seat(board_number:u8, seat: Seat) -> Self {
+        let state = Vulnerability::from_number(board_number);
+        state.is_vulnerable(seat)
+    }
+}
 /// A struct representing a contract
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Contract {
-    vuln: bool,
+    vuln: Vulnerable,
     level: u8,
     doubled: Doubled,
     strain: Strain,
@@ -169,7 +190,7 @@ impl dds::ContractScorer for Contract {
                 Doubled::NotDoubled => {}
             };
             bonus += if base_score >= 100 {
-                if self.vuln {
+                if matches!(self.vuln, Vulnerable::Yes) {
                     500
                 } else {
                     300
@@ -178,17 +199,19 @@ impl dds::ContractScorer for Contract {
                 50
             };
             bonus += if self.level == 6 {
-                match self.vuln {
-                    true => 750,
-                    false => 500,
+                if matches!(self.vuln, Vulnerable::Yes) {
+                    750
+                } else {
+                    500
                 }
             } else {
                 0
             };
             bonus += if self.level == 7 {
-                match self.vuln {
-                    true => 1500,
-                    false => 1000,
+                if matches!(self.vuln, Vulnerable::Yes) {
+                    1500
+                } else {
+                    1000
                 }
             } else {
                 0
@@ -198,14 +221,14 @@ impl dds::ContractScorer for Contract {
         } else {
             let mut score: i32;
             if matches!(self.doubled, Doubled::NotDoubled) {
-                let per_undertrick = if self.vuln { 100 } else { 50 };
+                let per_undertrick = if matches!(self.vuln, Vulnerable::Yes) { 100 } else { 50 };
                 score = overtricks * per_undertrick;
             } else {
                 match overtricks {
-                    -1 => score = if self.vuln { -200 } else { -100 },
-                    -2 => score = if self.vuln { -500 } else { -300 },
+                    -1 => score = if matches!(self.vuln, Vulnerable::Yes) { -200 } else { -100 },
+                    -2 => score = if matches!(self.vuln, Vulnerable::Yes) { -500 } else { -300 },
                     _ => {
-                        score = if self.vuln {
+                        score = if matches!(self.vuln, Vulnerable::Yes) {
                             300 * overtricks + 100
                         } else {
                             300 * overtricks + 400
@@ -268,20 +291,27 @@ impl Ord for Strain {
 }
 
 impl Contract {
+    /// Returns the strain of the contract.
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     pub fn strain(&self) -> Strain {
         self.strain
     }
+    
+    /// Returns the next player after the declarer, i.e., the leader of the contract.
     #[must_use]
     pub fn leader(&self) -> Seat {
         self.declarer().next()
     }
+    
+    /// Returns the declarer of the contract.
     #[must_use]
     pub fn declarer(&self) -> Seat {
         self.declarer
     }
-    pub fn from_str(s: &str, vuln: bool) -> Result<Self, DealerError> {
+    
+    /// Constructs a `Contract` from a string representation.
+    pub fn from_str(s: &str, vuln: Vulnerable) -> Result<Self, DealerError> {
         let doubled = match s.len() - s.trim_end_matches('X').len() {
             0 => Doubled::NotDoubled,
             1 => Doubled::Doubled,
@@ -301,7 +331,8 @@ impl Contract {
             declarer: chars.next().unwrap().try_into()?,
         })
     }
-
+    
+    /// Returns a non-unicode string representation of the contract.
     #[must_use]
     pub fn not_unicode_str(&self) -> String {
         format!(
@@ -320,9 +351,10 @@ impl Contract {
             }
         )
     }
-
+    
+    /// Constructs a new `Contract` instance.
     #[must_use]
-    pub fn new(level: u8, strain: Strain, declarer: Seat, vuln: bool, doubled: Doubled) -> Self {
+    pub fn new(level: u8, strain: Strain, declarer: Seat, vuln: Vulnerable, doubled: Doubled) -> Self {
         Self {
             vuln,
             doubled,
@@ -379,6 +411,7 @@ impl Strain {
         }
     }
 }
+
 impl fmt::Display for Strain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -417,13 +450,13 @@ pub fn matchpoints(my: i32, other: i32) -> i32 {
 use dds::ContractScorer;
 #[test]
 fn payoff_report_test() {
-    let contratto1 = Contract::from_str("3CN", false).unwrap();
-    let contratto2 = Contract::from_str("3DN", false).unwrap();
-    let contratto3 = Contract::from_str("3NN", false).unwrap();
+    let contratto1 = Contract::from_str("3CN", Vulnerable::No).unwrap();
+    let contratto2 = Contract::from_str("3DN", Vulnerable::No).unwrap();
+    let contratto3 = Contract::from_str("3NN", Vulnerable::No).unwrap();
     let contracts = vec![
-        Contract::from_str("3CN", false).unwrap(),
-        Contract::from_str("3DN", false).unwrap(),
-        Contract::from_str("3NN", false).unwrap(),
+        Contract::from_str("3CN", Vulnerable::No).unwrap(),
+        Contract::from_str("3DN", Vulnerable::No).unwrap(),
+        Contract::from_str("3NN", Vulnerable::No).unwrap(),
     ];
     let mut matrix = Payoff::new(contracts, imps);
     let mut data = HashMap::new();
@@ -441,11 +474,11 @@ fn payoff_report_test() {
 }
 #[test]
 fn can_create_contract_from_str_test() {
-    let contract_c = Contract::from_str("3CN", false).unwrap();
-    let contract_d = Contract::from_str("3DN", false).unwrap();
-    let contract_s = Contract::from_str("3SN", false).unwrap();
-    let contract_h = Contract::from_str("3HN", false).unwrap();
-    let contract_n = Contract::from_str("3NNXX", false).unwrap();
+    let contract_c = Contract::from_str("3CN", Vulnerable::No).unwrap();
+    let contract_d = Contract::from_str("3DN", Vulnerable::No).unwrap();
+    let contract_s = Contract::from_str("3SN", Vulnerable::No).unwrap();
+    let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
+    let contract_n = Contract::from_str("3NNXX", Vulnerable::No).unwrap();
     assert_eq!(contract_c.to_string(), "3♣N");
     assert_eq!(contract_d.to_string(), "3♦N");
     assert_eq!(contract_h.to_string(), "3♥N");
@@ -455,15 +488,15 @@ fn can_create_contract_from_str_test() {
 #[test]
 #[should_panic(expected = "Wrong contract level")]
 fn create_contract_wrong_level_test() {
-    let _contract = Contract::from_str("8CS", false).unwrap();
+    let _contract = Contract::from_str("8CS", Vulnerable::No).unwrap();
 }
 #[test]
 fn contract_computes_correct_scores_test() {
-    let contract_c = Contract::from_str("6CN", false).unwrap();
-    let contract_d = Contract::from_str("5DNX", true).unwrap();
-    let contract_s = Contract::from_str("4SN", false).unwrap();
-    let contract_h = Contract::from_str("3HN", false).unwrap();
-    let contract_n = Contract::from_str("3NN", false).unwrap();
+    let contract_c = Contract::from_str("6CN", Vulnerable::No).unwrap();
+    let contract_d = Contract::from_str("5DNX", Vulnerable::Yes).unwrap();
+    let contract_s = Contract::from_str("4SN", Vulnerable::No).unwrap();
+    let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
+    let contract_n = Contract::from_str("3NN", Vulnerable::No).unwrap();
     assert_eq!(400_i32, contract_n.score(9));
     assert_eq!(140_i32, contract_h.score(9));
     assert_eq!(420_i32, contract_s.score(10));

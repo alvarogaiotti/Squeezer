@@ -25,7 +25,6 @@ mod utils;
 mod prelude {
     pub extern crate dds;
     pub const ZERO_LENGTH: u8 = 0;
-    pub const ZERO_HCP: u8 = 0;
     pub const MAX_HCP_IN_HAND: u8 = 37;
     pub const MAX_HCP_IN_DECK: u8 = 40;
     pub const MAX_LENGTH: u8 = 13;
