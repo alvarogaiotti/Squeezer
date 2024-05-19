@@ -2,7 +2,7 @@
   <a href="https://github.com/alvarogaiotti/squeezer">
     <img src="./Squeezer logo.jpeg" alt="Logo" width="150" height="150">
   </a>
-
+</div>
 # Squeezer
 
 An attempt at a Bridge software suite for deal generation, simulation and performance analysis.
