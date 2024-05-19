@@ -10,3 +10,4 @@ rusty-tags.vi
 Cargo.lock
 .cargo/
 .replit/
+.replit*
