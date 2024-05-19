@@ -5,8 +5,14 @@ mod scanner;
 pub use interpreter::*;
 use parser::*;
 
+/// A pattern is a shape pattern, which is formed by 4 Lenght tokens.
+/// It represent a set of possible shapes.
 type Patterns = [Length; 4];
 
+/// Pattern enum to represent different shape patterns.
+///
+/// - `Suit(Length)`: Represents a single length suit pattern.
+/// - `Group(Vec<Length>)`: Represents a grouped pattern with multiple lengths. Grouped patterns are series of Suit patterns enclosed by a pair of round parenthesis.
 #[derive(Debug)]
 pub(crate) enum Pattern {
     Suit(Length),
@@ -14,6 +20,7 @@ pub(crate) enum Pattern {
 }
 
 impl Pattern {
+    /// Checks if the pattern contains a certain length.
     #[inline]
     pub fn contains(&self, num: u8) -> bool {
         match self {
@@ -29,11 +36,11 @@ impl Pattern {
                 length,
                 modifier: Modifier::AtMost,
             }) => num <= *length,
-            Self::Group(_) => {
-                unimplemented!("should never call contains() method with a Group variant")
-            }
+            Self::Group(_) => false,
         }
     }
+
+    /// Returns the length of the pattern, not of the contained variant.
     #[must_use]
     #[inline]
     pub fn len(&self) -> usize {
@@ -58,15 +65,15 @@ impl std::fmt::Display for Pattern {
     }
 }
 
-trait Flattable {
-    fn flat(self) -> Vec<Length>;
+trait Groupable {
+    fn group(self) -> Vec<Length>;
 }
 
-impl Flattable for Pattern {
-    fn flat(self) -> Vec<Length> {
+impl Groupable for Pattern {
+    fn group(self) -> Vec<Length> {
         match self {
             Pattern::Suit(len) => vec![len],
-            Pattern::Group(lenghts) => lenghts.into_iter().collect(),
+            Pattern::Group(lenghts) => lenghts,
         }
     }
 }
@@ -90,6 +97,15 @@ impl Into<Shape> for Vec<Length> {
     }
 }
 
+
+/// Enum to represent different tokens in the shape definition string.
+///
+/// - `Length(u8)`: Represents a numerical length token.
+/// - `Modifier(Modifier)`: Represents a modifier token.
+/// - `Joker`: Represents a wildcard token.
+/// - `OpenParen`: Represents an opening parenthesis token.
+/// - `CloseParen`: Represents a closing parenthesis token.
+/// - `Empty`: Represents an empty token.
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 pub enum Token {
     Length(u8),
@@ -109,6 +125,7 @@ impl Token {
         token_as_int!(self, Token::Length)
     }
 }
+
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -116,9 +133,7 @@ impl std::fmt::Display for Token {
             "{}",
             match self {
                 Token::Length(num) => format!("Token::Length({})", num),
-                Token::Modifier(Modifier::AtLeast) => "Token::Plus".to_string(),
-                Token::Modifier(Modifier::AtMost) => "Token::Minus".to_string(),
-                Token::Modifier(Modifier::Exact) => "Token::Modifier::Exact".to_string(),
+                Token::Modifier(modifier) => format!("Token::Modifier({})", modifier),
                 Token::Joker => "Token::Joker".to_string(),
                 Token::OpenParen => "Token::OpenParens".to_string(),
                 Token::CloseParen => "Token::ClosedParens".to_string(),
@@ -128,6 +143,8 @@ impl std::fmt::Display for Token {
     }
 }
 
+
+/// Struct representing a Length with a numerical value and a Modifier.
 #[derive(Debug, Copy, Clone)]
 pub struct Length {
     length: u8,

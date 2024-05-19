@@ -4,17 +4,24 @@ use super::{
 use itertools::*;
 use std::{cmp::Ordering, collections::VecDeque, ops::ControlFlow};
 
+/// Represents a single shape description.
 pub type ShapePattern = [u8; 4];
 
+/// Represents the creator of shapes.
 #[derive(Debug)]
 pub(crate) struct ShapeCreator {
+    /// Number of free places where shapes can be constructed.
     pub free_places: u8,
+    /// Patterns to define the shape construction rules.
     pub patterns: VecDeque<Pattern>,
 }
 
+/// Represents errors that can occur during the interpretation of shapes.
 #[derive(Debug)]
 pub enum InterpretationShapeError {
+    /// Indicates that there are too many allocated slots in a shape.
     TooMany,
+    /// Indicates that there are not enough allocated slots in a shape.
     NotEnough,
 }
 
@@ -36,6 +43,7 @@ impl std::error::Error for InterpretationShapeError {}
 impl TryFrom<Vec<Pattern>> for ShapeCreator {
     type Error = InterpretationShapeError;
     fn try_from(value: Vec<Pattern>) -> Result<Self, InterpretationShapeError> {
+        // Define a closure to check if a pattern's modifier matches the provided Modifier
         fn check_modifier(to_be_checked: Modifier) -> impl Fn(&Pattern) -> bool {
             move |pattern| match *pattern {
                 Pattern::Suit(Length {
@@ -52,6 +60,7 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
             }
         }
 
+        // Calculate the total length of all patterns
         let allocated_slots = value.iter().fold(0u8, pattern_length_adder);
         match allocated_slots.cmp(&13) {
             Ordering::Greater => Err(InterpretationShapeError::TooMany),
@@ -76,15 +85,21 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
     }
 }
 
+/// Represents an error that can occur during the creation of shapes.
 #[derive(Debug)]
 pub struct CreationShapeError {
+    /// The origin of the creation error.
     origin: CreationShapeErrorKind,
 }
 
+/// Represents the types of errors that can occur during the creation of shapes.
 #[derive(Debug)]
 pub enum CreationShapeErrorKind {
+    /// Error during the interpretation of shapes.
     Interpretation(InterpretationShapeError),
+    /// Error during the parsing of shapes.
     Parsing(ParsingShapeError),
+    /// Error during the scanning of shapes.
     Scanning(ScanningShapeError),
 }
 
@@ -139,6 +154,7 @@ impl From<InterpretationShapeError> for CreationShapeError {
 }
 
 impl ShapeCreator {
+    /// Builds a shape based on the provided pattern.
     pub fn build_shape(pattern: &str) -> Result<Vec<Vec<u8>>, CreationShapeError> {
         let parsed_input = Parser::parse_pattern(pattern)?;
         let mut shape_creator = ShapeCreator::try_from(parsed_input)?;
@@ -148,6 +164,7 @@ impl ShapeCreator {
         Ok(shapes)
     }
 
+    /// Recursive helper function to add elements to the shape based on the provided length and cap values.
     fn recur_adder_helper(
         &mut self,
         shape: &mut Vec<u8>,
@@ -156,13 +173,13 @@ impl ShapeCreator {
         cap: Option<u8>,
     ) {
         if let Some(cap) = cap {
-            // If we capped the length of a AtMost element, we stop
+            // If we capped the length of an AtMost element, we stop
             if length >= cap {
                 // We push the length we have
                 shape.push(length);
-                // We go ahead with the costruction of shapes
+                // We go ahead with the construction of shapes
                 self.interpret(shape, shapes);
-                // We backtrack, to restart e push lesser length values with free places
+                // We backtrack to restart and push lesser length values with free places
                 shape.pop();
                 return;
             }
@@ -181,6 +198,7 @@ impl ShapeCreator {
         let _popped = shape.pop();
     }
 
+    /// Interprets the current pattern and constructs shapes accordingly.
     fn interpret(&mut self, shape: &mut Vec<u8>, shapes: &mut Vec<Vec<u8>>) {
         if let Some(pattern) = self.patterns.pop_front() {
             if let ControlFlow::Break(_) =
@@ -196,10 +214,12 @@ impl ShapeCreator {
         }
     }
 
+    /// Ensures that the number of free places is capped at the suit size.
     fn cap_at_suit_size(free_places: u8, len: u8) -> (u8, u8) {
         Self::cap_at_custom_size(free_places, len, 13)
     }
 
+    /// Updates the value of `free_places` based on the provided length and capacity
     fn cap_at_custom_size(mut free_places: u8, len: u8, cap: u8) -> (u8, u8) {
         assert!(len < cap);
         let new_len = (len + free_places).clamp(0, cap);
@@ -211,6 +231,7 @@ impl ShapeCreator {
         (free_places, new_len)
     }
 
+    /// Handles the action based on the given pattern.
     fn handle_action_based_on_pattern(
         &mut self,
         pattern: &Pattern,
@@ -244,6 +265,7 @@ impl ShapeCreator {
         }
     }
 
+    /// Handles the group pattern by interpreting the lengths and updating the shapes.
     fn handle_group_pattern(
         &mut self,
         lengths: &Vec<Length>,
@@ -262,6 +284,7 @@ impl ShapeCreator {
         }
     }
 
+    /// Short circuits if the last element closes the shape and adds it to the list of shapes.
     fn shortcircuit_if_last_closes_shape(
         shape: &mut Vec<u8>,
         pattern: &Pattern,

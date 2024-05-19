@@ -1,4 +1,5 @@
 use crate::shapeparser::*;
+/// Represents a Scanner for parsing shapes.
 pub struct Scanner {
     source: Vec<char>,
     tokens: Vec<Token>,
@@ -6,6 +7,7 @@ pub struct Scanner {
 }
 
 impl Scanner {
+    /// Constructs a new Scanner from the provided string.
     pub fn from(string: &str) -> Self {
         Self {
             source: string.chars().collect(),
@@ -14,6 +16,7 @@ impl Scanner {
         }
     }
 
+    /// Scans tokens from the source string and returns a vector of Token.
     pub fn scan_tokens(mut self) -> Result<Vec<Token>, ScanningShapeError> {
         while !self.is_at_end() {
             self.scan_token()?;
@@ -22,10 +25,12 @@ impl Scanner {
         Ok(self.tokens)
     }
 
+    /// Checks if the cursor is at the end of the source string.
     pub fn is_at_end(&self) -> bool {
         self.cursor >= self.source.len()
     }
 
+    /// Scans a single token from the source string.
     fn scan_token(&mut self) -> Result<(), ScanningShapeError> {
         let c = self.advance();
 
@@ -51,10 +56,12 @@ impl Scanner {
         Ok(())
     }
 
+    /// Adds a token to the tokens vector.
     fn add_token(&mut self, token: Token) {
         self.tokens.push(token);
     }
 
+    /// Advances the cursor and returns the character at the new cursor position.
     fn advance(&mut self) -> char {
         self.cursor += 1;
 
@@ -63,22 +70,22 @@ impl Scanner {
         *self.source.get(self.cursor - 1).unwrap()
     }
 
-    /// Returns the cursor position
+    /// Returns the current cursor position.
     pub fn cursor(&self) -> usize {
         self.cursor
     }
 
-    /// Returns next char without advancing the cursor
+    /// Returns the next character without advancing the cursor.
     pub fn peek(&self) -> Option<&char> {
         self.source.get(self.cursor)
     }
 
-    /// Returns whether the string is exhausted or not
+    /// Returns whether the source string is fully scanned or not.
     pub fn exhausted(&self) -> bool {
         self.cursor == self.source.len()
     }
 
-    /// Returns next character, if available, advancing the cursor
+    /// Returns the next character, advancing the cursor if available.
     pub fn pop(&mut self) -> Option<&char> {
         match self.source.get(self.cursor) {
             Some(character) => {
@@ -91,9 +98,12 @@ impl Scanner {
     }
 }
 
+/// Represents errors that can occur during scanning shapes.
 #[derive(Debug)]
 pub enum ScanningShapeError {
+    /// Indicates an unknown character encountered during scanning.
     UnknownChar(char),
+    /// Indicates that the suit is too long.
     SuitTooLong(u8),
 }
 

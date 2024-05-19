@@ -4,27 +4,30 @@ use crate::shapeparser::*;
 
 use super::{interpreter::CreationShapeError, scanner::Scanner};
 
+/// Parser for parsing shape describing strings.
+/// Uses the following DSL:
+/// Rough grammar rules:
+///
+/// primary      -> NUMBER | "x"
+/// unary        -> primary("+" | "-")
+/// group        -> "(" unary (unary)+ ")"
+/// pattern      -> group | unary
+/// shape        -> pattern+
+///
+/// The more or less correct grammar:
+///
+/// <length> ::= [0-9]
+/// <unit> ::= <length> ( "+" | "-" )?
+///          | "x"
+/// <group> ::= "(" <unit> <unit>+ ")"
+/// <shape> ::= <unit>* <group>* <unit>*
 #[derive(Debug)]
 pub(super) struct Parser {
     tokens: Vec<Token>,
     current: usize,
 }
 
-// Rough grammar rules:
-//
-// primary      -> NUMBER | "x"
-// unary        -> primary("+" | "-")
-// group        -> "(" unary (unary)+ ")"
-// pattern      -> group | unary
-// shape        -> pattern+
-//
-// The more or less correct grammar:
-//
-// <length> ::= [0-9]
-// <unit> ::= <length> ( "+" | "-" )?
-//          | "x"
-// <group> ::= "(" <unit> <unit>+ ")"
-// <shape> ::= <unit>* <group>* <unit>*
+
 
 impl Parser {
     pub fn parse_pattern(pattern: &str) -> Result<Vec<Pattern>, CreationShapeError> {
@@ -158,13 +161,21 @@ impl Parser {
     }
 }
 
+
+/// Errors that can occur during parsing a shape.
 #[derive(Debug)]
 pub enum ParsingShapeError {
+    /// Indicates there are unmatched parentheses.
     UnmatchParenthesis,
+    /// Indicates an orphan modifier is present.
     OrphanModifier(Modifier),
+    /// Indicates the shape description has more than 13 cards.
     ShapeTooLong,
+    /// Indicates the shape description has less than 13 cards.
     ShapeTooShort,
+    /// Indicates nested grouping is not supported.
     NestedScope,
+    /// Indicates a group must contain at least two elements.
     MalformedGroup,
 }
 
@@ -189,10 +200,14 @@ impl std::fmt::Display for ParsingShapeError {
 
 impl std::error::Error for ParsingShapeError {}
 
+/// Represents modifiers for length in a shape description.
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 pub enum Modifier {
+    /// Indicates the length must be at least a specific value.
     AtLeast,
+    /// Indicates the length must be at most a specific value.
     AtMost,
+    /// Indicates the length must be an exact value.
     Exact,
 }
 
