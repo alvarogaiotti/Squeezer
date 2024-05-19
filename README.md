@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://github.com/alvarogaiotti/squeezer">
-    <img src="./squeezer logo.jpeg" alt="Logo" width="150" height="150">
+    <img src="./Squeezer logo.jpeg" alt="Logo" width="150" height="150">
   </a>
 
 # Rusty-dealer
