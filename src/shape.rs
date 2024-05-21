@@ -26,8 +26,14 @@ impl std::hash::Hasher for ShapeHasher {
     }
 }
 
+/// Type alias for the storage table of shapes.
+/// We use a bit array to store the shapes so they are efficient memory wise.
+/// The shape table is a hash table with a fixed size.
 type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 
+/// Public enum representing a Shape. I'll probably add something more
+/// fine tuned later, for now we discriminate just based on whether we need
+/// all the shapes or just some subset of them.
 #[derive(Debug, Clone)]
 pub enum Shape {
     Custom(Shapes),
@@ -92,7 +98,10 @@ impl Shape {
     }
 }
 
-// Struct that represents multiple shapes.
+/// Struct that represents multiple shapes.
+/// The shapes are stored in a bit array and this is the main data structure
+/// for keeping track of the shape we are interested into.
+/// Offers all the necessary methods to manipulate the shapes.
 #[derive(Clone)]
 pub struct Shapes {
     shape_table: Box<ShapeTable>,
