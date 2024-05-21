@@ -52,7 +52,7 @@ impl Pattern {
 }
 
 #[derive(Debug)]
-pub struct Shape {
+struct PatternsAsShape {
     patterns: Patterns,
 }
 
@@ -87,13 +87,13 @@ macro_rules! token_as_int {
     };
 }
 
-impl Into<Shape> for Vec<Length> {
-    fn into(self) -> Shape {
+impl Into<PatternsAsShape> for Vec<Length> {
+    fn into(self) -> PatternsAsShape {
         use itertools::*;
         assert_eq!(self.len(), 4);
         let mut patterns = [Length::at_least(0); 4];
         patterns.iter_mut().set_from(self);
-        Shape { patterns }
+        PatternsAsShape { patterns }
     }
 }
 
