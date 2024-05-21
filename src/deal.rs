@@ -822,57 +822,59 @@ impl IntoIterator for Deal {
 }
 
 #[cfg(test)]
-#[test]
-fn can_deal_test() {
-    _ = Deal::new();
-}
-#[test]
-#[should_panic]
-fn predealing_twice_should_panic() {
-    let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
-    let hand1 = Hand::from_str("SA").unwrap();
-    let mut builder = DealerBuilder::new();
-    builder.predeal(Seat::North, hand);
-    builder.predeal(Seat::West, hand);
-    let dealer = builder.build().unwrap();
-    let deal = dealer.deal().unwrap();
-    assert_eq!(deal.north(), hand);
-}
+mod test {
+    use crate::prelude::*;
+    #[test]
+    fn can_deal_test() {
+        _ = Deal::new();
+    }
+    #[test]
+    #[should_panic]
+    fn predealing_twice_should_panic() {
+        let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let mut builder = DealerBuilder::new();
+        builder.predeal(Seat::North, hand);
+        builder.predeal(Seat::West, hand);
+        let dealer = builder.build().unwrap();
+        let deal = dealer.deal().unwrap();
+        assert_eq!(deal.north(), hand);
+    }
 
-#[test]
-fn dealer_builder_test() {
-    let dealer_builder = DealerBuilder::new();
-    _ = dealer_builder.build();
-}
+    #[test]
+    fn dealer_builder_test() {
+        let dealer_builder = DealerBuilder::new();
+        _ = dealer_builder.build();
+    }
 
-#[test]
-fn dealer_deals_test() {
-    let db = DealerBuilder::new();
-    let dealer = db.build().unwrap();
-    _ = dealer.deal().unwrap();
-}
+    #[test]
+    fn dealer_deals_test() {
+        let db = DealerBuilder::new();
+        let dealer = db.build().unwrap();
+        _ = dealer.deal().unwrap();
+    }
 
-#[test]
-fn dealer_deals_with_predeal_test() {
-    let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
-    let mut builder = DealerBuilder::new();
-    builder.predeal(Seat::North, hand);
-    let dealer = builder.build().unwrap();
-    let deal = dealer.deal().unwrap();
-    assert_eq!(deal.north(), hand);
-}
+    #[test]
+    fn dealer_deals_with_predeal_test() {
+        let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let mut builder = DealerBuilder::new();
+        builder.predeal(Seat::North, hand);
+        let dealer = builder.build().unwrap();
+        let deal = dealer.deal().unwrap();
+        assert_eq!(deal.north(), hand);
+    }
 
-#[test]
-fn dealer_deals_with_predeal_and_accept_function_test() {
-    let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
-    let mut builder = DealerBuilder::new();
-    builder
-        .predeal(Seat::North, hand)
-        .with_function(Box::new(|hands: &Hands| {
-            hands.north().slen() + hands.south().slen() > 8
-        }));
-    let dealer = builder.build().unwrap();
-    let deal = dealer.deal().unwrap();
-    println!("{}", &deal);
-    assert!(deal.north().slen() + deal.south().slen() > 8);
+    #[test]
+    fn dealer_deals_with_predeal_and_accept_function_test() {
+        let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let mut builder = DealerBuilder::new();
+        builder
+            .predeal(Seat::North, hand)
+            .with_function(Box::new(|hands: &Hands| {
+                hands.north().slen() + hands.south().slen() > 8
+            }));
+        let dealer = builder.build().unwrap();
+        let deal = dealer.deal().unwrap();
+        println!("{}", &deal);
+        assert!(deal.north().slen() + deal.south().slen() > 8);
+    }
 }
