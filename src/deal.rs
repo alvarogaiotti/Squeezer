@@ -405,9 +405,9 @@ impl DealerBuilder {
     /// let dealer = builder.build().unwrap();
     /// ```
     #[inline]
-    pub fn with_function(
+    pub fn with_function<T: Fn(&Hands) -> bool + Send + Sync + 'static>(
         &mut self,
-        accept_function: impl Fn(&Hands) -> bool + Send + Sync + 'static,
+        accept_function: T,
     ) -> &mut Self {
         self.accept = Box::new(accept_function);
         self
