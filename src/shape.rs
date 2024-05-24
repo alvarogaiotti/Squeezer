@@ -66,7 +66,7 @@ impl Shape {
     }
 
     pub fn remove_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
-        match self {
+        match *self {
             Self::Custom(ref mut shape) => shape.remove_shape(pattern),
             Self::All => {
                 *self = Self::Custom(Shapes::but(pattern)?);
@@ -75,24 +75,24 @@ impl Shape {
         }
     }
     pub fn add_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
-        match self {
+        match *self {
             Self::Custom(ref mut shape) => shape.add_shape(pattern),
             Self::All => Ok(()),
         }
     }
     #[must_use]
     #[inline]
-    pub fn is_member(&self, hand_to_match: &Hand) -> bool {
-        match self {
-            Self::Custom(shape) => shape.is_member(hand_to_match),
+    pub fn is_member(&self, hand_to_match: Hand) -> bool {
+        match *self {
+            Self::Custom(ref shape) => shape.is_member(hand_to_match),
             Self::All => true,
         }
     }
 
     #[inline]
     pub fn len_ranges(&self) -> [LenRange; 4] {
-        match self {
-            Self::Custom(shape) => shape.len_ranges(),
+        match *self {
+            Self::Custom(ref shape) => shape.len_ranges(),
             Self::All => [LenRange::default(); 4],
         }
     }
@@ -143,6 +143,7 @@ impl Shapes {
     }
 
     /// Converts a shape pattern to an index.
+    #[allow(clippy::cast_possible_truncation)]
     pub const fn shape_pattern_to_index(pattern: [u8; 4]) -> usize {
         let mut state = 0;
         let mut index = 0;
@@ -150,12 +151,13 @@ impl Shapes {
             state = (R * state + pattern[index] as u64) % M;
             index += 1;
         }
+        // We cannot truncate the state because it is modulo M, so smaller than 1379.
         state as usize
     }
 
     /// Checks if a hand is a member of the shape.
     #[must_use]
-    fn is_member(&self, hand_to_match: &Hand) -> bool {
+    fn is_member(&self, hand_to_match: Hand) -> bool {
         self.shape_table[Self::shape_pattern_to_index(hand_to_match.shape())]
     }
 
@@ -164,7 +166,7 @@ impl Shapes {
         // Implementation can change in the future.
         let patterns = ShapeCreator::build_shape(shape)?;
         for pattern in patterns {
-            self.delete_shape(pattern.try_into().unwrap())?;
+            self.delete_shape(pattern.try_into().unwrap());
         }
         Ok(())
     }
@@ -246,10 +248,9 @@ impl Shapes {
     }
 
     /// Deletes a shape from the table.
-    fn delete_shape(&mut self, shape: ShapePattern) -> Result<(), DealerError> {
+    fn delete_shape(&mut self, shape: ShapePattern) {
         self.shape_table
             .set(Self::shape_pattern_to_index(shape), false);
-        Ok(())
     }
 
     /// Get the flattened version of the pattern descriptor.
@@ -265,6 +266,7 @@ impl Shapes {
 
     /// Get the hash value of the flattened pattern descriptor.
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn hash_flatten(pattern_descriptor: &[u8]) -> usize {
         let mut hasher = ShapeHasher::default();
         hasher.write(pattern_descriptor);
@@ -281,7 +283,7 @@ impl Shapes {
             .next_tuple()
             .unwrap();
         for shape in itertools::iproduct!(rangespades, rangehearts, rangediamonds, rangeclubs)
-            .filter(|(s, h, d, c)| s + h + d + c == MAX_LENGTH)
+            .filter(|&(s, h, d, c)| s + h + d + c == MAX_LENGTH)
             .map(ShapePattern::from)
         {
             self.shape_table

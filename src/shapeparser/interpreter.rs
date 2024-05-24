@@ -43,21 +43,18 @@ impl std::error::Error for InterpretationShapeError {}
 impl TryFrom<Vec<Pattern>> for ShapeCreator {
     type Error = InterpretationShapeError;
     fn try_from(value: Vec<Pattern>) -> Result<Self, InterpretationShapeError> {
-        // Define a closure to check if a pattern's modifier matches the provided Modifier
-        fn check_modifier(to_be_checked: Modifier) -> impl Fn(&Pattern) -> bool {
-            move |pattern| match *pattern {
-                Pattern::Suit(Length {
-                    length: _,
-                    modifier,
-                }) => modifier == to_be_checked,
-                Pattern::Group(ref lengths) => lengths.iter().any(|length| {
-                    let Length {
-                        length: _,
-                        modifier,
-                    } = *length;
-                    modifier == to_be_checked
-                }),
-            }
+        
+        // Define a macro that returns a closure to check if a pattern's modifier matches the provided Modifier
+        macro_rules! check_modifier {
+            ($to_be_checked:path) => {
+                |pattern| match pattern {
+                    Pattern::Suit(Length { modifier, .. }) => modifier == &$to_be_checked,
+                    Pattern::Group(lengths) => lengths.iter().any(|length| {
+                        let Length { modifier, .. } = length;
+                        modifier == &$to_be_checked
+                    }),
+                }
+            };
         }
 
         // Calculate the total length of all patterns
@@ -66,8 +63,8 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
             Ordering::Greater => Err(InterpretationShapeError::TooMany),
             Ordering::Less => {
                 // Implementation specific detail: we store jokers ('x') as 0 AtLeast.
-                if value.iter().any(check_modifier(Modifier::AtMost))
-                    && !value.iter().any(check_modifier(Modifier::AtLeast))
+                if value.iter().any(check_modifier!(Modifier::AtMost))
+                    && !value.iter().any(check_modifier!(Modifier::AtLeast))
                 {
                     Err(InterpretationShapeError::NotEnough)
                 } else {
@@ -184,7 +181,7 @@ impl ShapeCreator {
                 return;
             }
         }
-        
+
         // Base case: we have reached the end of the shape.
         // We push the length we have and keep going on interpreting the rest of the shape.
         if self.free_places == 0 {
@@ -193,13 +190,13 @@ impl ShapeCreator {
             let _popped = shape.pop();
             return;
         }
-        
+
         // Otherwise we remove one place from the free places and
         // add one to the length value. Then we recur to try to get
         // to the base case.
         self.free_places -= 1;
         self.recur_adder_helper(shape, shapes, length + 1, cap);
-        
+
         // We then reset the free places, push the length we were called with
         // and continue to interpret the rest of the shape.
         self.free_places += 1;
@@ -214,9 +211,7 @@ impl ShapeCreator {
     fn interpret(&mut self, shape: &mut Vec<u8>, shapes: &mut Vec<Vec<u8>>) {
         if let Some(pattern) = self.patterns.pop_front() {
             // If we are dealing with the last pattern
-            if let ControlFlow::Break(candidate) =
-                Self::is_last_pattern(shape, &pattern)
-            {
+            if let ControlFlow::Break(candidate) = Self::is_last_pattern(shape, &pattern) {
                 // We check if we can create a shape with the last pattern
                 if let Some(candidate) = candidate {
                     // If so, we push the shape to the shapes vector
@@ -319,10 +314,7 @@ impl ShapeCreator {
     }
 
     /// Short circuits if the last element closes the shape and adds it to the list of shapes.
-    fn is_last_pattern(
-        shape: &mut Vec<u8>,
-        pattern: &Pattern,
-    ) -> ControlFlow<Option<u8>> {
+    fn is_last_pattern(shape: &mut Vec<u8>, pattern: &Pattern) -> ControlFlow<Option<u8>> {
         if shape.len() == 3 {
             let candidate = 13 - shape.iter().sum::<u8>();
             if pattern.contains(candidate) {
@@ -453,30 +445,34 @@ mod test {
     #[test]
     fn recursion3_test() {
         use super::{Length, Modifier, Pattern, ShapeCreator};
-        let patterns = vec![Pattern::Group(vec![
-            Length {
-                length: 3,
-                modifier: Modifier::Exact,
-            },
-            Length {
-                length: 2,
-                modifier: Modifier::Exact,
-            },]), Pattern::Group(vec![
-            Length {
-                length: 7,
-                modifier: Modifier::Exact,
-            },
-            Length {
-                length: 1,
-                modifier: Modifier::Exact,
-            },
-        ])];
+        let patterns = vec![
+            Pattern::Group(vec![
+                Length {
+                    length: 3,
+                    modifier: Modifier::Exact,
+                },
+                Length {
+                    length: 2,
+                    modifier: Modifier::Exact,
+                },
+            ]),
+            Pattern::Group(vec![
+                Length {
+                    length: 7,
+                    modifier: Modifier::Exact,
+                },
+                Length {
+                    length: 1,
+                    modifier: Modifier::Exact,
+                },
+            ]),
+        ];
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
         let mut shape = Vec::new();
         creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
-        let mut res: Vec<_> = vec![[3,2,7,1], [3,2,1,7], [2,3,1,7], [2,3,7,1],];
+        let mut res: Vec<_> = vec![[3, 2, 7, 1], [3, 2, 1, 7], [2, 3, 1, 7], [2, 3, 7, 1]];
         res.sort();
         assert_eq!(shapes, res);
     }

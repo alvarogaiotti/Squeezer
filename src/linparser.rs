@@ -18,7 +18,7 @@ use std::{
 /// You'll interact very rarely with this struct directly.
 /// Instead, you'll use the `LinDeal` struct and its from_str method.
 
-pub struct LinParser<T: IntoIterator<Item = char>> {
+struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
 }
 
@@ -151,9 +151,9 @@ impl std::fmt::Display for LinParsingError {
 
 impl std::error::Error for LinParsingError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match &self.kind {
-            LinParsingErrorKind::Bidding(e) => Some(e),
-            _ => None,
+        match self.kind {
+            LinParsingErrorKind::Bidding(ref e) => Some(e),
+            LinParsingErrorKind::Player | LinParsingErrorKind::Hands | LinParsingErrorKind::Number => None,
         }
     }
 }
@@ -233,12 +233,12 @@ pub enum BiddingErrorKind {
 
 impl std::fmt::Display for BiddingErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        match *self {
             BiddingErrorKind::Insufficient => write!(f, "bidding is insufficient"),
             BiddingErrorKind::NonStarter => {
                 write!(f, "bidding cannot be started with a Double or a Redouble")
             }
-            BiddingErrorKind::NonExistent(bid) => write!(f, "{bid}"),
+            BiddingErrorKind::NonExistent(ref bid) => write!(f, "{bid}"),
         }
     }
 }
@@ -260,8 +260,7 @@ impl std::fmt::Display for BiddingError {
 impl std::error::Error for BiddingError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.kind {
-            BiddingErrorKind::Insufficient => None,
-            BiddingErrorKind::NonStarter => None,
+            BiddingErrorKind::Insufficient | BiddingErrorKind::NonStarter => None,
             BiddingErrorKind::NonExistent(ref e) => e.source(),
         }
     }
@@ -269,21 +268,33 @@ impl std::error::Error for BiddingError {
 
 impl Bidding {
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self {
             bidding: Vec::new(),
         }
     }
+    #[must_use]
+    #[inline]
     pub fn len(&self) -> usize {
         self.bidding.len()
     }
+    #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0usize
+    }
+    #[must_use]
+    #[inline]
     pub fn get(&self, index: usize) -> Option<&Bid> {
         self.bidding.get(index)
     }
-
+    #[must_use]
+    #[inline]
     pub fn iter(&self) -> std::slice::Iter<Bid> {
         self.bidding.iter()
     }
+    #[inline]
     pub fn push(&mut self, bid: Bid) -> Result<(), BiddingError> {
         if let Some(last) = self.bidding.last() {
             if bid.can_bid_over(last) {
@@ -304,6 +315,14 @@ impl Bidding {
                 kind: BiddingErrorKind::NonStarter,
             })
         }
+    }
+}
+
+impl<'a> IntoIterator for &'a Bidding {
+    type Item = &'a Bid;
+    type IntoIter = std::slice::Iter<'a, Bid>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -532,23 +551,26 @@ impl IntoIterator for PlaySequence {
     }
 }
 
-impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) { 
+impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
     type Error = dds::SeqError;
 
     fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
-        use dds::{SuitSeq, RankSeq, SeqError, SEQUENCE_LENGTH};
+        use dds::{RankSeq, SeqError, SuitSeq, SEQUENCE_LENGTH};
         let len = value.len();
         if len == 0 {
             return Err(SeqError::SequenceTooShort);
         } else if len > SEQUENCE_LENGTH {
             return Err(SeqError::SequenceTooLong);
-        } else {
-            let (suitseq, rankseq): (Vec<_>, Vec<_>) = value
-                .into_iter()
-                .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
-                .unzip();
-            Ok((SuitSeq::try_from(suitseq.as_slice())?, RankSeq::try_from(rankseq.as_slice())?))
         }
+        
+        let (suitseq, rankseq): (Vec<_>, Vec<_>) = value
+            .into_iter()
+            .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
+            .unzip();
+        Ok((
+            SuitSeq::try_from(suitseq.as_slice())?,
+            RankSeq::try_from(rankseq.as_slice())?,
+        ))
     }
 }
 

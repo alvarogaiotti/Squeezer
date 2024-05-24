@@ -7,6 +7,7 @@
 #![allow(clippy::unseparated_literal_suffix)]
 #![allow(clippy::all)]
 #![allow(clippy::pedantic)]
+#![allow(clippy::restriction)]
 
 pub const R_OK: u32 = 4;
 pub const W_OK: u32 = 2;

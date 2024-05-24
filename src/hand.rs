@@ -54,7 +54,7 @@ impl Hand {
     /// Get the distribution of suits in the Hand.
     /// Returns an array representing the number of cards in each suit.
     #[must_use]
-    pub const fn shape(&self) -> [u8; 4] {
+    pub const fn shape(&self) -> ShapePattern {
         let spades = self.slen();
         let hearts = self.hlen();
         let diamonds = self.dlen();
@@ -225,7 +225,13 @@ impl HcpRange {
     #[must_use]
     pub const fn new(min_hcp: u8, max_hcp: u8) -> Self {
         let min_hcp = if min_hcp > 37 { 37 } else { min_hcp };
-        let max_hcp = if max_hcp > 37 { 37 } else if max_hcp < min_hcp { min_hcp } else {max_hcp};
+        let max_hcp = if max_hcp > 37 {
+            37
+        } else if max_hcp < min_hcp {
+            min_hcp
+        } else {
+            max_hcp
+        };
         Self { min_hcp, max_hcp }
     }
 
@@ -278,7 +284,7 @@ impl HandType {
 
     /// Check if the HandType matches the given hand based on shape and HCP range.
     #[must_use]
-    pub fn check(&self, hand: &Hand) -> bool {
+    pub fn check(&self, hand: Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
     }
 
@@ -304,7 +310,7 @@ pub struct HandDescriptor {
 impl HandDescriptor {
     /// Check if a given hand matches any of the possible hand types based on shape and HCP range.
     #[must_use]
-    pub fn check(&self, hand: &Hand) -> bool {
+    pub fn check(&self, hand: Hand) -> bool {
         self.possible_hands
             .iter()
             .any(|hand_type| hand_type.check(hand))
@@ -339,11 +345,10 @@ impl HandTypeBuilder {
             shapes: Some(Shape::Custom(shapes)),
             hcp_range: Some(HcpRange::new(min_hcp, max_hcp)),
         }
-
     }
 
     pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
-        if let Some(shapes) = &mut self.shapes {
+        if let Some(ref mut shapes) = self.shapes {
             shapes.add_shape(pattern)?;
         } else {
             let mut shape = Shapes::new();
@@ -353,7 +358,7 @@ impl HandTypeBuilder {
         Ok(self)
     }
     pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
-        if let Some(shapes) = &mut self.shapes {
+        if let Some(ref mut shapes) = self.shapes {
             shapes.remove_shape(pattern)?;
         } else {
             self.shapes = Some(Shape::Custom(Shapes::but(pattern)?));
@@ -369,7 +374,6 @@ impl HandTypeBuilder {
         let shape = Shapes::new();
         self.shapes = Some(Shape::Custom(shape));
 
-        // SAFETY: ALL VALID SHAPES
         match suit {
             Suit::Spades => {
                 self.add_shape("5xxx").unwrap();

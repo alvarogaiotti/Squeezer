@@ -1,7 +1,4 @@
-use crate::{
-    prelude::*,
-    shapeparser::{CreationShapeError},
-};
+use crate::{prelude::*, shapeparser::CreationShapeError};
 
 ///Error for wrong Shape pattern passed to `ShapeFactory`.
 #[derive(Debug)]
@@ -13,7 +10,7 @@ impl DealerError {
     #[must_use]
     pub fn new(msg: &str) -> Self {
         Self {
-            details: msg.to_string(),
+            details: msg.to_owned(),
         }
     }
 }
@@ -46,7 +43,7 @@ impl StringShapePattern {
     #[must_use]
     pub fn new(pattern: &str) -> Self {
         Self {
-            pattern: pattern.to_string(),
+            pattern: pattern.to_owned(),
         }
     }
 }
@@ -62,20 +59,18 @@ impl ShapeDescriptor {
         if pattern.contains('(') {
             Self::ClassOfShapes {
                 shape_pattern: StringShapePattern {
-                    pattern: pattern.to_string(),
+                    pattern: pattern.to_owned(),
                 },
             }
         } else {
             Self::SingleShape {
                 shape_pattern: StringShapePattern {
-                    pattern: pattern.to_string(),
+                    pattern: pattern.to_owned()
                 },
             }
         }
     }
-}
 
-impl ShapeDescriptor {
     #[must_use]
     pub fn new(pattern: &str) -> Self {
         if pattern.contains('(') {

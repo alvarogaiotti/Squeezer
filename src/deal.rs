@@ -51,38 +51,53 @@ impl std::ops::Index<usize> for Hands {
 }
 
 impl Hands {
+    #[inline]
     pub(crate) fn new_from(hands: [Hand; 4]) -> Self {
         Self { hands }
     }
 
     /// Returns the array of `[Hand]`s
     #[must_use]
+    #[inline]
     pub fn hands(&self) -> &[Hand; 4] {
         &self.hands
     }
 
     /// Returns North `[Hand]`
     #[must_use]
+    #[inline]
     pub fn north(&self) -> &Hand {
         &self.hands[Seat::North as usize]
     }
     /// Returns South `[Hand]`
     #[must_use]
+    #[inline]
     pub fn south(&self) -> &Hand {
         &self.hands[Seat::South as usize]
     }
     /// Returns East `[Hand]`
     #[must_use]
+    #[inline]
     pub fn east(&self) -> &Hand {
         &self.hands[Seat::East as usize]
     }
     /// Returns West `[Hand]`
     #[must_use]
+    #[inline]
     pub fn west(&self) -> &Hand {
         &self.hands[Seat::West as usize]
     }
+    #[inline]
     pub fn iter(&self) -> std::slice::Iter<Hand> {
         self.hands.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Hands {
+    type IntoIter = std::slice::Iter<'a, Hand>;
+    type Item = &'a Hand;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -124,17 +139,20 @@ impl TryFrom<char> for Seat {
 impl Seat {
     ///Returns the next seat in a cyclic manner in this order: North, East, South, West
     #[must_use]
+    #[inline]
     pub fn next(self) -> Seat {
         self + 1
     }
 
     ///Iteration over seats starting from North
     #[must_use]
+    #[inline]
     pub fn iter() -> IntoIter<Seat, 4> {
         [Seat::North, Seat::East, Seat::South, Seat::West].into_iter()
     }
 
     #[must_use]
+    #[inline]
     pub fn long_str(&self) -> &str {
         match self {
             Self::North => "North",
@@ -170,6 +188,7 @@ impl Iterator for RotatingSuitIterator {
 
 impl RotatingSuitIterator {
     /// Beware, this iterator never stops
+    #[inline]
     pub fn new(state: Seat) -> Self {
         Self { state }
     }
@@ -255,6 +274,7 @@ impl Vulnerability {
         Vulnerability::EW,
     ];
 
+    #[inline]
     pub const fn is_vulnerable(&self, seat: Seat) -> Vulnerable {
         let seat_position = (seat as usize) % 2;
         if ((*self as usize) & (1 << seat_position)) == 1 {
@@ -263,6 +283,7 @@ impl Vulnerability {
             Vulnerable::No
         }
     }
+    #[inline]
     pub const fn from_number(board_number: u8) -> Self {
         Self::VULNERABILITY_TABLE[(board_number % 16) as usize]
     }
@@ -273,9 +294,11 @@ pub struct VulnerabilityIterator {
 }
 
 impl VulnerabilityIterator {
+    #[inline]
     pub const fn new() -> Self {
         Self { board_number: 0 }
     }
+    #[inline]
     pub fn from_state(state: Vulnerability) -> Self {
         // SAFETY: We'll find the state
         let board_number = Vulnerability::VULNERABILITY_TABLE
@@ -286,6 +309,7 @@ impl VulnerabilityIterator {
         Self { board_number }
     }
 
+    #[inline]
     pub const fn from_board_number(board_number: u8) -> Self {
         Self { board_number }
     }
@@ -347,6 +371,7 @@ impl Default for DealerBuilder {
 
 impl DealerBuilder {
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self {
             accept: Box::new(|_: &Hands| true),
@@ -358,6 +383,7 @@ impl DealerBuilder {
 
     /// Set the cards that a particular [`Seat`] will be dealt. Will not fail right away if same card
     /// is dealt twice, but will fail in the building phase.
+    #[inline]
     pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
         self.predealt_hands.insert(seat, hand);
         self
@@ -378,6 +404,7 @@ impl DealerBuilder {
     /// //This Dealer will only deal Deals in which North and South have a heart fit.
     /// let dealer = builder.build().unwrap();
     /// ```
+    #[inline]
     pub fn with_function(
         &mut self,
         accept_function: impl Fn(&Hands) -> bool + Send + Sync + 'static,
@@ -388,6 +415,7 @@ impl DealerBuilder {
 
     /// Method used to set hand specification for a [`Seat`]. See [`HandDescriptor`] for
     /// details.
+    #[inline]
     pub fn with_hand_specification(
         &mut self,
         seat: Seat,
@@ -397,6 +425,7 @@ impl DealerBuilder {
         self
     }
 
+    #[inline]
     pub fn with_vulnerability(&mut self, vulnerability: Vulnerability) -> &mut Self {
         self.vulnerability = vulnerability;
         self
@@ -404,6 +433,7 @@ impl DealerBuilder {
 
     /// Builds the Dealer.
     /// **NOTE**: this will method will return an error if you try to predeal the same card twice.
+    #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
         for hand in self.predealt_hands.values() {
@@ -474,6 +504,7 @@ impl Default for StandardDealer {
 
 impl Dealer for StandardDealer {
     /// Deals a deal based on the parameters set via the constructor.
+    #[inline]
     fn deal(&self) -> Result<Deal, DealerError> {
         let mut hands: [Hand; 4] = [Hand::default(); 4];
         // This way to write the while loop ensures that we deal at least once
@@ -508,7 +539,9 @@ impl Dealer for StandardDealer {
                 BoardNumbering::Sequential(ref num) => {
                     let actual = num.get().get();
                     num.set(match actual {
+                        // SAFETY: Just checked
                         1..=127 => unsafe { NonZeroU8::new_unchecked(actual + 1) },
+                        // SAFETY: Literal 1.
                         _ => unsafe { NonZeroU8::new_unchecked(1) },
                     });
                     actual
@@ -521,13 +554,14 @@ impl Dealer for StandardDealer {
 }
 
 impl StandardDealer {
+    /// Sets the function that will be used to check if the [`Deal`] is to be accepted.
     fn constraints_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
         if self.hand_constraints.is_empty() {
             true
         } else {
             self.hand_constraints
                 .iter()
-                .all(|(seat, hand_constraint)| hand_constraint.check(&hands[*seat as usize]))
+                .all(|(seat, hand_constraint)| hand_constraint.check(hands[*seat as usize]))
         }
     }
 }
@@ -573,6 +607,7 @@ impl Default for Deal {
 impl Deal {
     /// A new `Deal` with cards dealt randomly
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self {
             vulnerability: Vulnerability::None,
@@ -585,6 +620,7 @@ impl Deal {
     /// Creates a new deal with conditions
 
     #[must_use]
+    #[inline]
     pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
         let mut deck = Cards::ALL;
         let north = Hand {
@@ -601,30 +637,36 @@ impl Deal {
     }
 
     #[must_use]
-    pub fn check(&self, f: impl Fn(&Deal) -> bool) -> bool {
+    #[inline]
+    pub fn check<T: Fn(&Deal) -> bool>(&self, f: T) -> bool {
         f(self)
     }
 
+    #[inline]
     pub fn set_vuln(&mut self, vuln: Vulnerability) {
         self.vulnerability = vuln;
     }
 
     #[must_use]
+    #[inline]
     pub fn west(&self) -> Hand {
         self.hands[3]
     }
 
     #[must_use]
+    #[inline]
     pub fn north(&self) -> Hand {
         self.hands[0]
     }
 
     #[must_use]
+    #[inline]
     pub fn east(&self) -> Hand {
         self.hands[1]
     }
 
     #[must_use]
+    #[inline]
     pub fn south(&self) -> Hand {
         self.hands[2]
     }
@@ -633,23 +675,28 @@ impl Deal {
         self.printer = style;
     }
 
+    #[inline]
     pub fn long(&mut self) {
         self.set_print_style(Printer::Long);
     }
 
+    #[inline]
     pub fn pbn(&mut self) {
         self.set_print_style(Printer::Pbn);
     }
 
+    #[inline]
     pub fn short(&mut self) {
         self.set_print_style(Printer::Short);
     }
 
+    #[inline]
     pub fn lin(&mut self) {
         self.set_print_style(Printer::Lin);
     }
 
     #[must_use]
+    #[inline]
     pub fn as_string(&self) -> String {
         match self.printer {
             Printer::Pbn => self.as_pbn(),
@@ -660,6 +707,7 @@ impl Deal {
     }
 
     #[must_use]
+    #[inline]
     pub fn as_pbn(&self) -> String {
         let mut pbn = format!("[Board \"{}\"]\n[Deal \"N:", self.number);
         pbn = format!(
@@ -681,6 +729,7 @@ impl Deal {
     }
 
     #[must_use]
+    #[inline]
     pub fn as_lin(&self, board_n: u8) -> String {
         let board_n = if board_n % (MAX_N_OF_BOARDS + 1) == 0 {
             1
@@ -693,7 +742,7 @@ impl Deal {
         ); // Dealer for the deal. LIN is a weird format.
         for (position, hand) in self.into_iter().enumerate() {
             if position != 0 {
-                stringa.push(',') // TODO: Wirte this and next block with iterators
+                stringa.push(','); // TODO: Wirte this and next block with iterators
             }
             for (index, holding) in hand.into_iter().enumerate() {
                 stringa.push(match index {
@@ -760,13 +809,13 @@ impl Deal {
         {
             stringa = format!(
                 "{stringa}{line_w:<0$}{line_e:<1$}\n",
-                if !line_w.is_empty() {
-                    width - east_len
-                } else {
+                if line_w.is_empty() {
                     width - east_len - 1
+                } else {
+                    width - east_len
                 },
                 east_len
-            )
+            );
         }
         stringa = format!(
             "{stringa}{}",
@@ -788,8 +837,17 @@ impl Deal {
             .unwrap()
     }
 
+    #[inline]
     pub fn iter(&self) -> std::slice::Iter<Hand> {
         self.hands.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Deal {
+    type IntoIter = std::slice::Iter<'a, Hand>;
+    type Item = &'a Hand;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

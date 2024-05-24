@@ -208,9 +208,8 @@ fn curry_winner_trump(trump: Suit) -> impl Fn(Card, Card, Seat, Seat) -> (Seat, 
 }
 
 fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat) -> (Seat, Card) {
-    if previous_card.suit() != card.suit() {
-        (winner, previous_card)
-    } else if previous_card.rank() > card.rank() {
+    // Short circuits.
+    if previous_card.suit() != card.suit() || previous_card.rank() > card.rank() {
         (winner, previous_card)
     } else {
         (actual_player, card)
@@ -218,7 +217,7 @@ fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat)
 }
 
 fn performance_difference(previous_result: i32, result: i32) -> CardPerformance {
-    let diff = match previous_result - result {
+    match previous_result - result {
         x if x < 0i32 => CardPerformance::Better(
             Tricks(
                 result
@@ -247,8 +246,7 @@ fn performance_difference(previous_result: i32, result: i32) -> CardPerformance 
                 .try_into()
                 .expect("trick number should always be positive"),
         )),
-    };
-    diff
+    }
 }
 
 /// Returns the player position in the trick.
@@ -334,7 +332,13 @@ mod tests {
 
     #[test]
     fn test_analyse_players_performance() {
-        let contract = Contract::new(2, Strain::Spades, Seat::West, Vulnerable::No, Doubled::NotDoubled);
+        let contract = Contract::new(
+            2,
+            Strain::Spades,
+            Seat::West,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
         let play_seq = PlaySequence::new(vec![
             Card::new(Suit::Spades, 2), // N
             Card::new(Suit::Spades, 3),

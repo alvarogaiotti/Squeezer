@@ -81,22 +81,21 @@ impl Groupable for Pattern {
 macro_rules! token_as_int {
     ($token:expr, $variant:path) => {
         match $token {
-            $variant(x) => *x,
+            $variant(x) => x,
             _ => 0u8,
         }
     };
 }
 
-impl Into<PatternsAsShape> for Vec<Length> {
-    fn into(self) -> PatternsAsShape {
+impl From<Vec<Length>> for PatternsAsShape {
+    fn from(value: Vec<Length>) -> Self {
         use itertools::*;
-        assert_eq!(self.len(), 4);
+        assert_eq!(value.len(), 4);
         let mut patterns = [Length::at_least(0); 4];
-        patterns.iter_mut().set_from(self);
+        patterns.iter_mut().set_from(value);
         PatternsAsShape { patterns }
     }
 }
-
 
 /// Enum to represent different tokens in the shape definition string.
 ///
@@ -117,10 +116,10 @@ pub enum Token {
 }
 
 impl Token {
-    fn is_len_token(&self) -> bool {
+    fn is_len_token(self) -> bool {
         matches!(self, Self::Length(_))
     }
-    fn as_int(&self) -> u8 {
+    fn as_int(self) -> u8 {
         assert!(self.is_len_token());
         token_as_int!(self, Token::Length)
     }
@@ -134,15 +133,14 @@ impl std::fmt::Display for Token {
             match self {
                 Token::Length(num) => format!("Token::Length({})", num),
                 Token::Modifier(modifier) => format!("Token::Modifier({})", modifier),
-                Token::Joker => "Token::Joker".to_string(),
-                Token::OpenParen => "Token::OpenParens".to_string(),
-                Token::CloseParen => "Token::ClosedParens".to_string(),
-                Token::Empty => "Token::Empty".to_string(),
+                Token::Joker => "Token::Joker".to_owned(),
+                Token::OpenParen => "Token::OpenParens".to_owned(),
+                Token::CloseParen => "Token::ClosedParens".to_owned(),
+                Token::Empty => "Token::Empty".to_owned(),
             }
         )
     }
 }
-
 
 /// Struct representing a Length with a numerical value and a Modifier.
 #[derive(Debug, Copy, Clone)]
@@ -213,20 +211,20 @@ mod test {
     fn new_parse_returns_orphan_modifier_test() {
         let scanner = Scanner::from("(+433x)");
         let mut parser = Parser::from(scanner.scan_tokens().unwrap());
-        let result = parser.parse().unwrap();
+        parser.parse().unwrap();
     }
     #[test]
     #[should_panic]
     fn new_parse_returns_unclosed_delimiter_test() {
         let scanner = Scanner::from("4+33x)");
         let mut parser = Parser::from(scanner.scan_tokens().unwrap());
-        let result = parser.parse().unwrap();
+        parser.parse().unwrap();
     }
     #[test]
     #[should_panic]
     fn new_parse_returns_unclosed_delimiter2_test() {
         let scanner = Scanner::from("(4+33x");
         let mut parser = Parser::from(scanner.scan_tokens().unwrap());
-        let result = parser.parse().unwrap();
+        parser.parse().unwrap();
     }
 }

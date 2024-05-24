@@ -1,6 +1,21 @@
 #![allow(dead_code)]
-//#![warn(clippy::restriction, clippy::pedantic)]
+#![warn(clippy::restriction, clippy::pedantic)]
 #![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
+#![allow(clippy::single_call_fn)]
+#![allow(clippy::missing_trait_methods)]
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::as_conversions)]
+#![allow(clippy::question_mark_used)]
+#![allow(clippy::std_instead_of_core)]
+#![allow(clippy::std_instead_of_alloc)]
+#![allow(clippy::absolute_paths)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::pub_with_shorthand)]
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::missing_inline_in_public_items)]
+#![allow(clippy::unreachable)]
+#![allow(clippy::unwrap_used)]
 
 mod analyse_performance;
 #[cfg(feature = "bbo")]
@@ -48,6 +63,7 @@ mod prelude {
     pub use crate::linparser::*;
     pub use crate::payoff::*;
     pub use crate::shape::*;
+    pub use crate::shapeparser::*;
 
     pub use crate::simulation::*;
     pub use crate::utils::*;
