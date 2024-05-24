@@ -532,7 +532,7 @@ mod test {
             .union(hearts);
 
         let hand = Hand { cards };
-        assert!(factory.is_member(&hand));
+        assert!(factory.is_member(hand));
     }
     #[test]
     fn shapes_from_len_range_test() {
@@ -573,7 +573,7 @@ mod test {
             .union(hearts);
 
         let hand = Hand { cards };
-        assert!(factory.is_member(&hand));
+        assert!(factory.is_member(hand));
     }
     #[test]
     fn can_remove_correct_shapes() {
@@ -591,9 +591,9 @@ mod test {
         let hand = Hand { cards };
         let mut factory = Shapes::new();
         factory.add_shape("3xx2").unwrap();
-        assert!(factory.is_member(&hand));
+        assert!(factory.is_member(hand));
         factory.remove_shape("3352").unwrap();
-        assert!(!factory.is_member(&hand));
+        assert!(!factory.is_member(hand));
     }
 
     #[test]
