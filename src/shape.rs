@@ -471,7 +471,8 @@ impl Suit {
 }
 
 mod test {
-    use super::*;
+    use crate::{Shapes, Cards};
+    
     #[test]
     fn shape_creation_test() {
         let mut shapes = Shapes::new();
