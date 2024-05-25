@@ -17,6 +17,7 @@
 #![allow(clippy::unreachable)]
 #![allow(clippy::unwrap_used)]
 
+#[cfg(feature = "dds")]
 mod analyse_performance;
 #[cfg(feature = "bbo")]
 mod bbo;
@@ -31,13 +32,16 @@ mod evaluator;
 mod hand;
 #[cfg(feature = "lin")]
 mod linparser;
+#[cfg(feature = "dds")]
 mod payoff;
 mod shape;
 mod shapeparser;
 mod simulation;
 mod utils;
+mod contract;
 
 mod prelude {
+    #[cfg(feature="dds")]
     pub extern crate dds;
     pub const ZERO_LENGTH: u8 = 0;
     pub const MAX_HCP_IN_HAND: u8 = 37;
@@ -47,7 +51,9 @@ mod prelude {
     pub const SHAPE_COMBINATIONS: usize = 560;
     pub const MAX_N_OF_BOARDS: u8 = 128;
     pub const RANKS: u8 = 13;
+    pub use crate::contract::*;
     pub const NUMBER_OF_HANDS: usize = 4;
+    #[cfg(feature="dds")]
     pub use crate::analyse_performance::*;
     #[cfg(feature = "bbo")]
     pub use crate::bbo::*;
@@ -60,11 +66,13 @@ mod prelude {
     pub use crate::dealproduction::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
+    #[cfg(feature="lin")]
     pub use crate::linparser::*;
+    #[cfg(feature = "dds")]
     pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::shapeparser::*;
-
+    #[cfg(feature="dds")]
     pub use crate::simulation::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;

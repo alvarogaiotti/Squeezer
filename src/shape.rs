@@ -471,7 +471,7 @@ impl Suit {
 }
 
 mod test {
-    use crate::{Shapes, Cards};
+    use crate::{Shapes, Cards, Hand, LenRange};
     
     #[test]
     fn shape_creation_test() {

@@ -586,6 +586,7 @@ pub struct Deal {
     number: u8,
 }
 
+#[cfg(feature = "dds")]
 impl dds::AsDDSDeal for Deal {
     fn as_dds_deal(&self) -> dds::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];

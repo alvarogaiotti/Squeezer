@@ -43,7 +43,6 @@ impl std::error::Error for InterpretationShapeError {}
 impl TryFrom<Vec<Pattern>> for ShapeCreator {
     type Error = InterpretationShapeError;
     fn try_from(value: Vec<Pattern>) -> Result<Self, InterpretationShapeError> {
-        
         // Define a macro that returns a closure to check if a pattern's modifier matches the provided Modifier
         macro_rules! check_modifier {
             ($to_be_checked:path) => {
@@ -228,7 +227,10 @@ impl ShapeCreator {
             self.handle_action_based_on_pattern(&pattern, shape, shapes);
             self.patterns.push_front(pattern);
         } else if self.free_places == 0 {
+            // If we have no more patterns and we have no more free places, we push the shape to the shapes vector
             shapes.push(shape.clone());
+        } else {
+            // If we have no more patterns and we still have free places, we simply return as we are in a dead end.
         }
     }
 
@@ -319,9 +321,8 @@ impl ShapeCreator {
             let candidate = 13 - shape.iter().sum::<u8>();
             if pattern.contains(candidate) {
                 return ControlFlow::Break(Some(candidate));
-            } else {
-                return ControlFlow::Break(None);
             }
+            return ControlFlow::Break(None);
         }
         ControlFlow::Continue(())
     }
@@ -331,12 +332,12 @@ fn pattern_length_adder(accumulator: u8, element: &Pattern) -> u8 {
     fn length_adder(accumulator: u8, length: &Length) -> u8 {
         match length {
             Length {
-                length: _,
                 modifier: Modifier::AtMost,
+                ..
             } => accumulator,
             Length {
                 length,
-                modifier: _,
+                ..
             } => accumulator + *length,
         }
     }

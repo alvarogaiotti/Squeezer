@@ -27,8 +27,6 @@ pub(super) struct Parser {
     current: usize,
 }
 
-
-
 impl Parser {
     pub fn parse_pattern(pattern: &str) -> Result<Vec<Pattern>, CreationShapeError> {
         let scanner = Scanner::from(pattern);
@@ -109,9 +107,8 @@ impl Parser {
                         self.advance();
                         if group.len() >= 2 {
                             return Ok(Pattern::Group(group));
-                        } else {
-                            return Err(ParsingShapeError::MalformedGroup);
                         }
+                        return Err(ParsingShapeError::MalformedGroup);
                     }
                     Token::Empty => return Err(ParsingShapeError::UnmatchParenthesis),
                     _ => match self.suit() {
@@ -160,7 +157,6 @@ impl Parser {
         }
     }
 }
-
 
 /// Errors that can occur during parsing a shape.
 #[derive(Debug)]

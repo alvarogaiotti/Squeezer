@@ -193,6 +193,7 @@ impl FromStr for LinDeal {
     }
 }
 
+#[cfg(feature = "dds")]
 impl dds::AsDDSDeal for LinDeal {
     fn as_dds_deal(&self) -> dds::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
@@ -551,6 +552,7 @@ impl IntoIterator for PlaySequence {
     }
 }
 
+#[cfg(feature = "dds")]
 impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
     type Error = dds::SeqError;
 

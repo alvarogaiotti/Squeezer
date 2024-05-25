@@ -14,7 +14,7 @@ time = {version= "0.3.20", optional = true}
 regex ={version= "1", optional = true}
 ureq = {version = "2.6.2", features = ["cookies",], optional = true}
 squeezer_macros = { path = "squeezer_macros" }
-dds = { path = "dds" }
+dds = { path = "dds", optional = true}
 bitvec ={version= "1.0.1", features = ["atomic", "std"]}
 
 [features]
@@ -22,3 +22,4 @@ default = ["lin"]
 bbo = ["dep:time", "dep:ureq", "dep:regex",]
 bbo_async = ["dep:time", "dep:regex", "dep:reqwest"]
 lin = ["dep:regex"]
+dds = ["dep:dds"]
