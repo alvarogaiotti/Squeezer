@@ -38,6 +38,7 @@ mod shape;
 mod shapeparser;
 mod simulation;
 mod utils;
+mod error;
 mod contract;
 
 mod prelude {
@@ -53,6 +54,7 @@ mod prelude {
     pub const RANKS: u8 = 13;
     pub use crate::contract::*;
     pub const NUMBER_OF_HANDS: usize = 4;
+    pub use crate::error::*;
     #[cfg(feature="dds")]
     pub use crate::analyse_performance::*;
     #[cfg(feature = "bbo")]
