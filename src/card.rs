@@ -474,6 +474,24 @@ impl Cards {
 	pub const fn as_bits(self) -> u64 {
         self.bits
     }
+
+    #[must_use]
+    #[inline]
+    pub fn dedup(self) -> Self {
+        let mut insert = true;
+        let mut dedup = Cards::EMPTY;
+        for card in Cards::ALL.into_iter().rev() {
+            if self.contains(card) {
+                if insert {
+                insert = false;
+                dedup = dedup.insert(card);
+            }
+            } else {
+                insert = true;
+            }
+        }
+        dedup
+    }
 }
 
 impl std::ops::Add for Cards {
@@ -744,4 +762,10 @@ impl DoubleEndedIterator for SuitIterator {
             Some(Card { offset: next as u8 })
         }
     }
+}
+
+#[test]
+fn dedup_works() {
+    let cards = Cards::DIAMONDS;
+    assert_eq!(cards.dedup(), Cards::EMPTY.insert(Card::DA));
 }

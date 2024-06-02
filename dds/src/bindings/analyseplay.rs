@@ -226,6 +226,10 @@ impl PlayTracesBin {
             },
         })
     }
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.play_trace_bin.noOfBoards.try_into().unwrap()
+    }
 }
 
 #[non_exhaustive]
@@ -268,7 +272,7 @@ impl playTraceBin {
     #[inline]
     #[must_use]
     /// Creates a new `playTraceBin` from data
-    pub const fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
+    const fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
         Self { number, suit, rank }
     }
     /// Creates a new `playTraceBin`
@@ -397,7 +401,7 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
     ) -> Result<SolvedPlays, DDSError> {
         let deals_len = i32::try_from(deals.len().clamp(0, MAXNOOFBOARDS)).unwrap();
         let contracts_len = i32::try_from(contracts.len().clamp(0, MAXNOOFBOARDS)).unwrap();
-        if deals_len != contracts_len || deals_len == 0i32 || contracts_len == 0i32 {
+        if deals_len != contracts_len || deals_len == 0i32 || contracts_len == 0i32 || deals_len != plays.len() as i32 {
             return Err(RETURN_UNKNOWN_FAULT.into());
         }
         let mut c_deals: Vec<DDSDeal> =

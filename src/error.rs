@@ -8,6 +8,8 @@ pub enum SqueezerError {
     LinParsing(LinParsingError),
     CreationShape(CreationShapeError),
     DealingError(DealerError),
+    #[cfg(feature = "dds")]
+    DDSError(dds::DDSError),
 }
 
 impl Error for SqueezerError {
@@ -16,6 +18,8 @@ impl Error for SqueezerError {
             SqueezerError::LinParsing(ref err) => Some(err),
             SqueezerError::CreationShape(ref err) => Some(err),
             SqueezerError::DealingError(ref err) => Some(err),
+            #[cfg(feature = "dds")]
+            SqueezerError::DDSError(ref err) => Some(err),
         }
     }
 }
@@ -24,5 +28,18 @@ impl std::fmt::Display for SqueezerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let inner = self.source().unwrap();
         write!(f, "squeezer encountered an error:\n\t{}", inner)
+    }
+}
+
+impl From<DealerError> for SqueezerError {
+    fn from(value: DealerError) -> Self {
+        Self::DealingError(value)
+    }
+}
+
+#[cfg(feature = "dds")]
+impl From<dds::DDSError> for SqueezerError {
+    fn from(value: dds::DDSError) -> Self {
+        Self::DDSError(value)
     }
 }

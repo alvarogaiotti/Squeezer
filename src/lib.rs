@@ -36,6 +36,7 @@ mod linparser;
 mod payoff;
 mod shape;
 mod shapeparser;
+#[cfg(feature = "dds")]
 mod simulation;
 mod utils;
 mod error;

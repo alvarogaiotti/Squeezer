@@ -169,6 +169,7 @@ pub struct SuitSeq {
     length: c_int,
 }
 
+
 impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
     type Error = SeqError;
 
