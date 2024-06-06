@@ -1,14 +1,315 @@
 use crate::SeqError;
 
 use super::{
-    ddsffi::{boards, deal, dealPBN},
     AsDDSContract, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDS,
 };
 use core::{
-    convert::Into,
+    convert::{Into, TryFrom},
     ffi::{c_char, c_int},
     fmt::Display,
 };
+
+/// A wrapper around the [boards] struct from DDS.
+/// Consists of a number of boards to be analyzed and
+/// 5 arrays of length 200, representing
+/// the deals, contracts, DDS `target`, `solution` and `mode` parameters
+/// to be used in the analysis by DDS.
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Boards {
+    pub no_of_boards: ::std::os::raw::c_int,
+    pub deals: [DdsDeal; 200usize],
+    pub target: [::std::os::raw::c_int; 200usize],
+    pub solutions: [::std::os::raw::c_int; 200usize],
+    pub mode: [::std::os::raw::c_int; 200usize],
+}
+#[test]
+fn bindgen_test_layout_boards() {
+    assert_eq!(
+        ::std::mem::size_of::<Boards>(),
+        21604usize,
+        concat!("Size of: ", stringify!(boards))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<Boards>(),
+        4usize,
+        concat!("Alignment of ", stringify!(boards))
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<Boards>())).no_of_boards as *const _ as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boards),
+            "::",
+            stringify!(noOfBoards)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<Boards>())).deals as *const _ as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boards),
+            "::",
+            stringify!(deals)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<Boards>())).target as *const _ as usize },
+        19204usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boards),
+            "::",
+            stringify!(target)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<Boards>())).solutions as *const _ as usize },
+        20004usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boards),
+            "::",
+            stringify!(solutions)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<Boards>())).mode as *const _ as usize },
+        20804usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boards),
+            "::",
+            stringify!(mode)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct boardsPBN {
+    pub noOfBoards: ::std::os::raw::c_int,
+    pub deals: [dealPBN; 200usize],
+    pub target: [::std::os::raw::c_int; 200usize],
+    pub solutions: [::std::os::raw::c_int; 200usize],
+    pub mode: [::std::os::raw::c_int; 200usize],
+}
+#[test]
+fn bindgen_test_layout_boardsPBN() {
+    assert_eq!(
+        ::std::mem::size_of::<boardsPBN>(),
+        24804usize,
+        concat!("Size of: ", stringify!(boardsPBN))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<boardsPBN>(),
+        4usize,
+        concat!("Alignment of ", stringify!(boardsPBN))
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<boardsPBN>())).noOfBoards as *const _ as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boardsPBN),
+            "::",
+            stringify!(noOfBoards)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<boardsPBN>())).deals as *const _ as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boardsPBN),
+            "::",
+            stringify!(deals)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<boardsPBN>())).target as *const _ as usize },
+        22404usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boardsPBN),
+            "::",
+            stringify!(target)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<boardsPBN>())).solutions as *const _ as usize },
+        23204usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boardsPBN),
+            "::",
+            stringify!(solutions)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<boardsPBN>())).mode as *const _ as usize },
+        24004usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(boardsPBN),
+            "::",
+            stringify!(mode)
+        )
+    );
+}
+
+/// A wrapper around the `deal` struct from DDS.
+/// A `deal` is composed by a trump (represented with the [`DDSSuitEncoding`]),
+/// the player on lead (representend with the [`DDSHandEncoding`]), the current
+/// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
+/// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct DdsDeal {
+    pub trump: ::std::os::raw::c_int,
+    pub first: ::std::os::raw::c_int,
+    pub current_trick_suit: [::std::os::raw::c_int; 3usize],
+    pub current_trick_rank: [::std::os::raw::c_int; 3usize],
+    pub remain_cards: [[::std::os::raw::c_uint; 4usize]; 4usize],
+}
+#[test]
+fn bindgen_test_layout_deal() {
+    assert_eq!(
+        ::std::mem::size_of::<DdsDeal>(),
+        96usize,
+        concat!("Size of: ", stringify!(deal))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<DdsDeal>(),
+        4usize,
+        concat!("Alignment of ", stringify!(deal))
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<DdsDeal>())).trump as *const _ as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(deal),
+            "::",
+            stringify!(trump)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<DdsDeal>())).first as *const _ as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(deal),
+            "::",
+            stringify!(first)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<DdsDeal>())).current_trick_suit as *const _ as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(deal),
+            "::",
+            stringify!(currentTrickSuit)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<DdsDeal>())).current_trick_rank as *const _ as usize },
+        20usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(deal),
+            "::",
+            stringify!(currentTrickRank)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<DdsDeal>())).remain_cards as *const _ as usize },
+        32usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(deal),
+            "::",
+            stringify!(remainCards)
+        )
+    );
+}
+/// A wrapper around DDS's [`dealPBN`].
+/// See [`deal`] for reference on the fields.
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct dealPBN {
+    pub trump: ::std::os::raw::c_int,
+    pub first: ::std::os::raw::c_int,
+    pub currentTrickSuit: [::std::os::raw::c_int; 3usize],
+    pub currentTrickRank: [::std::os::raw::c_int; 3usize],
+    pub remainCards: [::std::os::raw::c_char; 80usize],
+}
+#[test]
+fn bindgen_test_layout_dealPBN() {
+    assert_eq!(
+        ::std::mem::size_of::<dealPBN>(),
+        112usize,
+        concat!("Size of: ", stringify!(dealPBN))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<dealPBN>(),
+        4usize,
+        concat!("Alignment of ", stringify!(dealPBN))
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<dealPBN>())).trump as *const _ as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(dealPBN),
+            "::",
+            stringify!(trump)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<dealPBN>())).first as *const _ as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(dealPBN),
+            "::",
+            stringify!(first)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<dealPBN>())).currentTrickSuit as *const _ as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(dealPBN),
+            "::",
+            stringify!(currentTrickSuit)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<dealPBN>())).currentTrickRank as *const _ as usize },
+        20usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(dealPBN),
+            "::",
+            stringify!(currentTrickRank)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<dealPBN>())).remainCards as *const _ as usize },
+        32usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(dealPBN),
+            "::",
+            stringify!(remainCards)
+        )
+    );
+}
 
 #[derive(Debug, RawDDSRef, Default)]
 pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
@@ -41,14 +342,14 @@ macro_rules! impl_tryfrom_dds_suit {
             2 => Ok(Self::Diamonds),
             3 => Ok(Self::Clubs),
             4 => Ok(Self::NoTrump),
-            _ => Err(Self::Error::TrumpUnconvertable(value as i32)),
+            _ => Err(Self::Error::TrumpUnconvertable(value.try_into().unwrap_or(-1i32))),
                }
             }
         })*
     };
 }
 
-impl core::convert::TryFrom<i32> for DDSSuitEncoding {
+impl TryFrom<i32> for DDSSuitEncoding {
     type Error = DDSDealConstructionError;
 
     #[inline]
@@ -91,14 +392,14 @@ macro_rules! impl_tryfrom_dds_hand {
                     1 => Ok(Self::East),
                     2 => Ok(Self::South),
                     3 => Ok(Self::West),
-                    _ => Err(Self::Error::FirstUnconvertable(value as i32)),
+                    _ => Err(Self::Error::FirstUnconvertable(value.try_into().unwrap_or(-1i32))),
                 }
             }
         })*
     };
 }
 
-impl core::convert::TryFrom<i32> for DDSHandEncoding {
+impl TryFrom<i32> for DDSHandEncoding {
     type Error = DDSDealConstructionError;
 
     #[inline]
@@ -167,7 +468,7 @@ pub struct DDSDealBuilder {
     current_trick_suit: Option<DDSCurrTrickSuit>,
     /// Current tricks' ranks for the deal, `None` when not set
     current_trick_rank: Option<DDSCurrTrickRank>,
-    /// Remainig cards in the deal, exluded the one in current_trick* for the deal, `None` when not set
+    /// Remainig cards in the deal, exluded the one in `current_trick` for the deal, `None` when not set
     remain_cards: Option<DDSDealRepr>,
 }
 
@@ -214,15 +515,13 @@ impl Display for DDSDealConstructionError {
             Self::FirstUnconvertable(value) => {
                 write!(
                     formatter,
-                    "first cannot be converted from the value you provided: {}",
-                    value
+                    "first cannot be converted from the value you provided: {value}",
                 )
             }
             Self::TrumpUnconvertable(value) => {
                 write!(
                     formatter,
-                    "trump cannot be converted from the value you provided: {}",
-                    value
+                    "trump cannot be converted from the value you provided: {value}",
                 )
             }
             Self::IncorrectSequence(error) => {
@@ -296,7 +595,7 @@ impl DDSDealBuilder {
     ///
     /// # Errors
     /// This method will return an error when one of the field was not supplied
-    pub fn build(self) -> Result<DDSDeal, DDSDealConstructionError> {
+    pub fn build(self) -> Result<DdsDeal, DDSDealConstructionError> {
         let remain_cards = self
             .remain_cards
             .ok_or(DDSDealConstructionError::DealNotLoaded)?;
@@ -313,51 +612,26 @@ impl DDSDealBuilder {
                 (None, _) => Err(DDSDealConstructionError::CurrentTrickSuitNotSet),
                 (_, None) => Err(DDSDealConstructionError::CurrentTrickRankNotSet),
             }?;
-        Ok(DDSDeal {
-            raw: deal {
-                trump: trump as c_int,
-                first: first as c_int,
-                currentTrickSuit: *current_trick_suit.get_raw(),
-                currentTrickRank: *current_trick_rank.get_raw(),
-                remainCards: *remain_cards.get_raw(),
-            },
+        Ok(DdsDeal {
+            trump: trump as c_int,
+            first: first as c_int,
+            current_trick_suit: *current_trick_suit.get_raw(),
+            current_trick_rank: *current_trick_rank.get_raw(),
+            remain_cards: *remain_cards.get_raw(),
         })
     }
 }
 
-/// A wrapper around the `deal` struct from DDS.
-/// A `deal` is composed by a trump (represented with the [`DDSSuitEncoding`]),
-/// the player on lead (representend with the [`DDSHandEncoding`]), the current
-/// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
-/// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
-#[derive(RawDDSRef, RawDDSRefMut, Debug, AsRawDDS, Copy, Clone)]
-pub struct DDSDeal {
-    #[raw]
-    /// The raw DDS `deal`
-    raw: deal,
-}
-
-impl DDSDeal {
+impl DdsDeal {
     pub fn new() -> Self {
         Self {
-            raw: deal {
-                trump: -1,
-                first: -1,
-                currentTrickSuit: [-1i32; 3],
-                currentTrickRank: [-1i32; 3],
-                remainCards: [[0u32; 4]; 4],
-            },
+            trump: -1,
+            first: -1,
+            current_trick_suit: [-1i32; 3],
+            current_trick_rank: [-1i32; 3],
+            remain_cards: [[0u32; 4]; 4],
         }
     }
-}
-
-/// A wrapper around DDS's [`dealPBN`].
-/// See [`DDSDeal`] for reference on the fields.
-#[derive(RawDDSRef, Debug)]
-pub struct DDSDealPBN {
-    #[raw]
-    /// The raw DDS `dealPBN`
-    raw: dealPBN,
 }
 
 #[allow(clippy::unreachable)]
@@ -392,17 +666,6 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     res
 }
 
-/// A wrapper around the [boards] struct from DDS.
-/// Consists of a number of boards to be analyzed and
-/// 5 arrays of length 200, representing
-/// the deals, contracts, DDS `target`, `solution` and `mode` parameters
-/// to be used in the analysis by DDS.
-#[derive(RawDDSRef, RawDDSRefMut, Debug)]
-pub struct Boards {
-    #[raw]
-    raw: boards,
-}
-
 impl Boards {
     #[inline]
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
@@ -414,12 +677,12 @@ impl Boards {
         mode: &[Mode; MAXNOOFBOARDS],
     ) -> Self {
         Self {
-            raw: boards::new(no_of_boards, deals, contracts, target, solution, mode),
+            raw: Boards::new(no_of_boards, deals, contracts, target, solution, mode),
         }
     }
 }
 
-impl boards {
+impl Boards {
     #[allow(clippy::unwrap_used)]
     /// Creates a new `boards` struct
     fn new<D: AsDDSDeal, C: AsDDSContract>(
@@ -435,20 +698,20 @@ impl boards {
             .zip(contracts.iter())
             .map(|(deal, contract)| {
                 let (trump, first) = contract.as_dds_contract();
-                deal {
+                DdsDeal {
                     trump,
                     first,
-                    currentTrickSuit: [0i32; 3],
-                    currentTrickRank: [0i32; 3],
-                    remainCards: deal.as_dds_deal().as_slice(),
+                    current_trick_suit: [0i32; 3],
+                    current_trick_rank: [0i32; 3],
+                    remain_cards: deal.as_dds_deal().as_slice(),
                 }
             })
-            .collect::<Vec<deal>>()
+            .collect::<Vec<DdsDeal>>()
             .try_into()
             // SAFETY: already now we can fit them
             .unwrap();
-        boards {
-            noOfBoards: no_of_boards,
+        Boards {
+            no_of_boards,
             // SAFETY: Length if 200
             deals: c_deals,
             target: target.map(Into::into),

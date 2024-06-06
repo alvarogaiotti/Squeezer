@@ -1,14 +1,14 @@
 use super::{
-    ddsffi::{deal, playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalysePlayBin},
+    ddsffi::{
+        playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalyseAllPlaysBin, AnalysePlayBin,
+        RETURN_UNKNOWN_FAULT,
+    },
     utils::build_c_deal,
-    AsDDSContract, AsDDSDeal, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
-    MAXNOOFBOARDS,
+    AsDDSContract, AsDDSDeal, AsRawDDS, Boards, DdsDeal, Mode, RawDDSRef, RawDDSRefMut, Solutions,
+    Target, MAXNOOFBOARDS,
 };
-use crate::{
-    bindings::ddsffi::{boards, AnalyseAllPlaysBin, RETURN_UNKNOWN_FAULT},
-    DDSDeal, DDSError, RankSeq, SuitSeq,
-};
-use core::ffi::c_int;
+use crate::{DDSError, RankSeq, SuitSeq};
+use core::{ffi::c_int, slice::Iter};
 use std::sync::{Mutex, OnceLock};
 
 /// Number of consecutive boards in a sequence a thread gets when we call
@@ -16,30 +16,6 @@ use std::sync::{Mutex, OnceLock};
 /// 1 means thread1 takes number 1, thread2 takes number 2 and so on
 /// 10 means thread1 takes 1..10, thread2 takes 11..20 etc.
 const CHUNK_SIZE: i32 = 10;
-
-#[non_exhaustive]
-#[derive(RawDDSRef, RawDDSRefMut)]
-/// Wrapper of the `solvedPlays` `DoubleDummySolver` dll.
-/// The `solvedPlays` struct is a container of MAXNOOFBOARDS [solvedPlay]
-/// and the number of boards effectively to analyze.
-pub struct SolvedPlays {
-    #[raw]
-    /// Wrapped type `solvedPlays`
-    solved_plays: solvedPlays,
-}
-
-impl SolvedPlays {
-    /// Creates a new `SolvedPlays` instance with 0 number of boards
-    #[must_use]
-    const fn new() -> Self {
-        Self {
-            solved_plays: solvedPlays {
-                noOfBoards: 0i32,
-                solved: [solvedPlay::new(); MAXNOOFBOARDS],
-            },
-        }
-    }
-}
 
 impl solvedPlay {
     /// Creates a new `solvedPlay` instance
@@ -53,8 +29,8 @@ impl solvedPlay {
     }
 
     #[inline]
-    #[must_use]
-    fn iter(&self) -> std::slice::Iter<'_, i32> {
+    /// Returns a `core::slice::Iter` over the tricks.
+    fn iter(&self) -> Iter<'_, i32> {
         self.tricks[..self
             .number
             .try_into()
@@ -65,108 +41,35 @@ impl solvedPlay {
 
 impl IntoIterator for solvedPlay {
     type Item = i32;
-    type IntoIter = std::array::IntoIter<Self::Item, 53>;
+    type IntoIter = core::array::IntoIter<Self::Item, 53>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.tricks.into_iter()
     }
 }
 
-impl IntoIterator for SolvedPlay {
-    type Item = i32;
-    type IntoIter = SolvedPlayIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        SolvedPlayIterator {
-            data: self.solved_play.into_iter(),
-        }
-    }
-}
-
-pub struct SolvedPlayIterator {
-    data: std::array::IntoIter<i32, 53>,
-}
-
-impl Iterator for SolvedPlayIterator {
-    type Item = i32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data.next().filter(|&x| x != -1i32)
-    }
-}
-
-impl From<solvedPlay> for SolvedPlay {
-    #[inline]
-    fn from(value: solvedPlay) -> Self {
-        Self { solved_play: value }
-    }
-}
-
-/// Wrapper around the `solvedPlay` type from DDS dll.
-/// The `solvedPlay` struct stores 53 integers representing
-/// the optimal number of tricks which can be made by both
-/// side in a given contract after a card is played.
-#[non_exhaustive]
-#[derive(RawDDSRef, Debug)]
-pub struct SolvedPlay {
-    #[raw]
-    pub solved_play: solvedPlay,
-}
-
-impl std::ops::Index<usize> for SolvedPlay {
-    type Output = i32;
-
-    #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.solved_play.tricks[index]
-    }
-}
-
-impl SolvedPlay {
-    #[inline]
-    #[must_use]
-    /// Creates a new `SolvedPlay`
-    pub const fn new() -> Self {
-        Self {
-            solved_play: solvedPlay::new(),
-        }
-    }
-
+impl solvedPlay {
     #[inline]
     #[must_use]
     pub const fn tricks(&self) -> &[i32; 53usize] {
-        &self.solved_play.tricks
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn iter(&self) -> std::slice::Iter<'_, i32> {
-        self.solved_play.iter()
+        &self.tricks
     }
 
     #[inline]
     #[must_use]
     pub const fn number(&self) -> i32 {
-        self.solved_play.number
+        self.number
     }
 
     /// Function for testing purposes and should not be used.
     #[must_use]
     pub fn from_seq(mut seq: Vec<i32>) -> Self {
+        let number = seq.len() as i32;
         seq.resize(53, -1i32);
         Self {
-            solved_play: solvedPlay {
-                number: seq.len() as i32,
-                tricks: seq.try_into().expect("just resized")
-            }
+            number,
+            tricks: seq.try_into().expect("just resized"),
         }
-    }
-}
-
-impl Default for SolvedPlay {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -179,6 +82,12 @@ impl Default for SolvedPlay {
 pub struct PlayTracesBin {
     #[raw]
     pub play_trace_bin: playTracesBin,
+}
+
+impl Default for playTracesBin {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl playTracesBin {
@@ -268,6 +177,12 @@ impl PlayTraceBin {
     }
 }
 
+impl Default for playTraceBin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl playTraceBin {
     #[inline]
     #[must_use]
@@ -299,7 +214,7 @@ pub trait PlayAnalyzer {
         deal: &D,
         contract: &C,
         play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DDSError>;
+    ) -> Result<solvedPlay, DDSError>;
     /// Analyzes a bunch of hands in paraller.
     /// # Errors
     /// Will return an Error when DDS fails in some way or the deals and contracts vecs have
@@ -309,7 +224,7 @@ pub trait PlayAnalyzer {
         deals: Vec<&D>,
         contracts: Vec<&C>,
         plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DDSError>;
+    ) -> Result<solvedPlays, DDSError>;
 }
 
 #[non_exhaustive]
@@ -346,27 +261,15 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
         deal: &D,
         contract: &C,
         play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DDSError> {
-        let inner = match self.inner.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => {
-                use std::fs::File;
-                use std::io::Write;
+    ) -> Result<solvedPlay, DDSError> {
+        let inner = if let Ok(guard) = self.inner.lock() {
+            guard
+        } else {
+            #[allow(clippy::print_stderr, clippy::use_debug)]
+            {
                 use std::thread;
-                let guard = poisoned.into_inner();
-                if let Ok(mut file) = File::options().create(true).append(true).open("log.txt") {
-                    if let Ok(n) = file.write(
-                        format!("Thread {:?} found Mutex poisoned", thread::current().id())
-                            .as_bytes(),
-                    ) {
-                        // Arbitrary range
-                        if !(0..=70).contains(&n) {
-                            return Err(RETURN_UNKNOWN_FAULT.into());
-                        }
-                    };
-                };
-
-                guard
+                eprintln!("Thread {:?} found Mutex poisoned", thread::current().id());
+                return Err(RETURN_UNKNOWN_FAULT.into());
             }
         };
         inner.analyze_play(deal, contract, play)
@@ -378,7 +281,7 @@ impl PlayAnalyzer for DDSPlayAnalyzer {
         deals: Vec<&D>,
         contracts: Vec<&C>,
         plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DDSError> {
+    ) -> Result<solvedPlays, DDSError> {
         if let Ok(inner) = self.inner.lock() {
             inner.analyze_all_plays(deals, contracts, plays)
         } else {
@@ -398,27 +301,26 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
         deals: Vec<&D>,
         contracts: Vec<&C>,
         plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DDSError> {
+    ) -> Result<solvedPlays, DDSError> {
         let deals_len = i32::try_from(deals.len().clamp(0, MAXNOOFBOARDS)).unwrap();
         let contracts_len = i32::try_from(contracts.len().clamp(0, MAXNOOFBOARDS)).unwrap();
-        if deals_len != contracts_len || deals_len == 0i32 || contracts_len == 0i32 || deals_len != plays.len() as i32 {
+        if deals_len != contracts_len
+            || deals_len == 0i32
+            || contracts_len == 0i32
+            || deals_len != plays.len() as i32
+        {
             return Err(RETURN_UNKNOWN_FAULT.into());
         }
-        let mut c_deals: Vec<DDSDeal> =
+        let mut c_deals: Vec<DdsDeal> =
             match contracts.into_iter().zip(deals).map(build_c_deal).collect() {
                 Ok(vec) => vec,
                 Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
             };
-        c_deals.resize(MAXNOOFBOARDS, DDSDeal::new());
-        let mut boards = boards {
-            noOfBoards: deals_len,
+        c_deals.resize(MAXNOOFBOARDS, DdsDeal::new());
+        let mut boards = Boards {
+            no_of_boards: deals_len,
             // We know vec has the right length
-            deals: match c_deals
-                .into_iter()
-                .map(AsRawDDS::as_raw)
-                .collect::<Vec<deal>>()
-                .try_into()
-            {
+            deals: match c_deals.into_iter().collect::<Vec<DdsDeal>>().try_into() {
                 Ok(ddsdeals) => ddsdeals,
                 Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
             },
@@ -426,15 +328,13 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
             solutions: [Solutions::Best.into(); MAXNOOFBOARDS],
             mode: [Mode::Auto.into(); MAXNOOFBOARDS],
         };
-        let mut solved_plays = SolvedPlays {
-            solved_plays: solvedPlays {
-                noOfBoards: deals_len,
-                solved: [solvedPlay::new(); MAXNOOFBOARDS],
-            },
+        let mut solved_plays = solvedPlays {
+            noOfBoards: deals_len,
+            solved: [solvedPlay::new(); MAXNOOFBOARDS],
         };
 
-        let bop: *mut boards = &mut boards;
-        let solved: *mut solvedPlays = solved_plays.get_raw_mut();
+        let bop: *mut Boards = &mut boards;
+        let solved: *mut solvedPlays = &mut solved_plays;
         let play_trace: *mut playTracesBin = plays.get_raw_mut();
 
         //SAFETY: calling C
@@ -452,17 +352,16 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
         deal: &D,
         contract: &C,
         play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DDSError> {
+    ) -> Result<solvedPlay, DDSError> {
         let dds_deal = match build_c_deal((contract, deal)) {
             Ok(dds_deal) => dds_deal,
             Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
         };
-        let c_deal = dds_deal.as_raw();
-        let mut solved_play = SolvedPlay::new();
-        let solved: *mut solvedPlay = &mut solved_play.solved_play;
+        let mut solved_play = solvedPlay::new();
+        let solved: *mut solvedPlay = &mut solved_play;
         let play_trace = play.as_raw();
         // SAFETY: calling an external C function
-        let result = unsafe { AnalysePlayBin(c_deal, play_trace, solved, 0) };
+        let result = unsafe { AnalysePlayBin(dds_deal, play_trace, solved, 0) };
         match result {
             // RETURN_NO_FAULT == 1i32
             1i32 => Ok(solved_play),

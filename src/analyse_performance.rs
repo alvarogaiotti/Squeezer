@@ -1,9 +1,10 @@
 use crate::prelude::*;
-use dds::*;
-use itertools::*;
+use dds::SolvedPlay;
+use itertools::Itertools;
 
 /// A struct that contains the the sequence of cards played
 /// and the dd tricks of every card once played.
+#[non_exhaustive]
 pub struct TraceSolved {
     pub tricks: PlaySequence,
     pub results: SolvedPlay,
@@ -35,6 +36,7 @@ pub struct Tricks(u8);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TrickDifference(u8);
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CardPerformance {
     Better(Tricks, TrickDifference),
@@ -62,7 +64,7 @@ impl std::ops::IndexMut<usize> for PlayerResultTrace {
 }
 
 /// Represents a player's track of card's result played in a board.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PlayerPlayRecord {
     pub tricks: PlayerPlayTrace,
     pub results: PlayerResultTrace,
@@ -71,6 +73,7 @@ pub struct PlayerPlayRecord {
 
 impl PlayerPlayRecord {
     /// Create a new player play record.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tricks: PlayerPlayTrace::default(),
@@ -88,9 +91,10 @@ impl PlayerPlayRecord {
     }
 }
 
+/// Represents the position of a player for this trick.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Represents the position of a player for this trick.
+#[non_exhaustive]
 pub enum TrickPosition {
     First = 0,
     Second,
@@ -137,6 +141,7 @@ impl From<usize> for TrickPosition {
 ///
 /// Panics if there is no specified winner for a trick.
 /// It may also panic when attempting to convert the contract into a trump type if it is not a No Trump contract.
+#[must_use]
 pub fn analyse_players_performance(
     contract: Contract,
     play_result_trace: TraceSolved,

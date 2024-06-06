@@ -1,6 +1,6 @@
 use crate::DDSDealConstructionError;
 
-use super::{AsDDSContract, AsDDSDeal, AsRawDDS, DDSDeal, DDSDealBuilder};
+use super::{ddsffi::deal, AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder};
 use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
 
 /// The length of a sequence of suits or ranks
@@ -169,7 +169,6 @@ pub struct SuitSeq {
     length: c_int,
 }
 
-
 impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
     type Error = SeqError;
 
@@ -237,7 +236,6 @@ impl TryFrom<&[c_int]> for SuitSeq {
         }
     }
 }
-
 
 impl SuitSeq {
     #[inline]
@@ -358,7 +356,7 @@ impl RankSeq {
 /// their encodings: [`DDSSuitEncoding`] and [`DDSHandEncoding`]
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     contract_and_deal: (&C, &D),
-) -> Result<DDSDeal, DDSDealConstructionError> {
+) -> Result<deal, DDSDealConstructionError> {
     let (contract, deal) = contract_and_deal;
     let (trump, first) = contract.as_dds_contract();
     DDSDealBuilder::new()

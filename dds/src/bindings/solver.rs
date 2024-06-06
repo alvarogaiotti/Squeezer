@@ -1,12 +1,12 @@
 use core::ffi::c_int;
 
 use crate::bindings::{
-    ddsffi::{boards, futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
+    ddsffi::{futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
     deal::AsDDSDeal,
     future_tricks::FutureTricks,
     utils::build_c_deal,
-    AsDDSContract, Boards, DDSError, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, ThreadIndex,
-    MAXNOOFBOARDS,
+    AsDDSContract, Boards, DDSError, DdsDeal, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
+    ThreadIndex, MAXNOOFBOARDS,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -39,7 +39,7 @@ impl BridgeSolver for DDSSolver {
         let result;
         unsafe {
             result = SolveBoard(
-                *c_deal.get_raw(),
+                c_deal,
                 Target::MaxTricks.into(),
                 Solutions::Best.into(),
                 Mode::AutoSearchAlways.into(),
@@ -74,7 +74,7 @@ impl DDSSolver {
         };
         let result;
         {
-            let bop: *mut boards = boards.get_raw_mut();
+            let bop: *mut Boards = &mut boards;
             let solved_boards_ptr: *mut solvedBoards = solved_boards.get_raw_mut();
             unsafe {
                 result = SolveAllChunksBin(bop, solved_boards_ptr, 1);

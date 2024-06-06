@@ -15,7 +15,7 @@ fn analyse_play_test() {
     let play = PlayTraceBin::new(suitseq, rankseq);
     let analyzer = DDSPlayAnalyzer::new();
     let solvedplay = analyzer.analyze_play(&deal, &contract, play).unwrap();
-    assert_eq!([2, 2, 2, 2, 2], solvedplay.solved_play.tricks[..5]);
+    assert_eq!([2, 2, 2, 2, 2], solvedplay.tricks[..5]);
 }
 
 #[test]
@@ -36,9 +36,8 @@ fn analyse_all_play_test() {
     let solved_plays = analyzer
         .analyze_all_plays(deals, contracts, &mut plays)
         .unwrap();
-    let real_plays = solved_plays.get_raw();
-    assert_eq!(TRIES, real_plays.noOfBoards.try_into().unwrap());
-    for plays in real_plays.solved {
+    assert_eq!(TRIES, solved_plays.noOfBoards.try_into().unwrap());
+    for plays in solved_plays.solved {
         assert_eq!([2, 2, 2, 2, 2], plays.tricks[..5]);
     }
 }
