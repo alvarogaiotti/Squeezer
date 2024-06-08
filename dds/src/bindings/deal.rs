@@ -1,8 +1,6 @@
 use crate::SeqError;
 
-use super::{
-    AsDDSContract, AsRawDDS, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target, MAXNOOFBOARDS,
-};
+use super::{AsDDSContract, Mode, RawDDSRef, Solutions, Target, MAXNOOFBOARDS};
 use core::{
     convert::{Into, TryFrom},
     ffi::{c_char, c_int},
@@ -88,27 +86,27 @@ fn bindgen_test_layout_boards() {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct boardsPBN {
-    pub noOfBoards: ::std::os::raw::c_int,
-    pub deals: [dealPBN; 200usize],
+pub struct BoardsPbn {
+    pub no_of_boards: ::std::os::raw::c_int,
+    pub deals: [DdsDealPbn; 200usize],
     pub target: [::std::os::raw::c_int; 200usize],
     pub solutions: [::std::os::raw::c_int; 200usize],
     pub mode: [::std::os::raw::c_int; 200usize],
 }
 #[test]
-fn bindgen_test_layout_boardsPBN() {
+fn bindgen_test_layout_boards_pbn() {
     assert_eq!(
-        ::std::mem::size_of::<boardsPBN>(),
+        ::std::mem::size_of::<BoardsPbn>(),
         24804usize,
         concat!("Size of: ", stringify!(boardsPBN))
     );
     assert_eq!(
-        ::std::mem::align_of::<boardsPBN>(),
+        ::std::mem::align_of::<BoardsPbn>(),
         4usize,
         concat!("Alignment of ", stringify!(boardsPBN))
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<boardsPBN>())).noOfBoards as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).no_of_boards as *const _ as usize },
         0usize,
         concat!(
             "Offset of field: ",
@@ -118,7 +116,7 @@ fn bindgen_test_layout_boardsPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<boardsPBN>())).deals as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).deals as *const _ as usize },
         4usize,
         concat!(
             "Offset of field: ",
@@ -128,7 +126,7 @@ fn bindgen_test_layout_boardsPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<boardsPBN>())).target as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).target as *const _ as usize },
         22404usize,
         concat!(
             "Offset of field: ",
@@ -138,7 +136,7 @@ fn bindgen_test_layout_boardsPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<boardsPBN>())).solutions as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).solutions as *const _ as usize },
         23204usize,
         concat!(
             "Offset of field: ",
@@ -148,7 +146,7 @@ fn bindgen_test_layout_boardsPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<boardsPBN>())).mode as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).mode as *const _ as usize },
         24004usize,
         concat!(
             "Offset of field: ",
@@ -240,27 +238,27 @@ fn bindgen_test_layout_deal() {
 /// See [`deal`] for reference on the fields.
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct dealPBN {
+pub struct DdsDealPbn {
     pub trump: ::std::os::raw::c_int,
     pub first: ::std::os::raw::c_int,
-    pub currentTrickSuit: [::std::os::raw::c_int; 3usize],
-    pub currentTrickRank: [::std::os::raw::c_int; 3usize],
-    pub remainCards: [::std::os::raw::c_char; 80usize],
+    pub current_trick_suit: [::std::os::raw::c_int; 3usize],
+    pub current_trick_rank: [::std::os::raw::c_int; 3usize],
+    pub remain_cards: [::std::os::raw::c_char; 80usize],
 }
 #[test]
-fn bindgen_test_layout_dealPBN() {
+fn bindgen_test_layout_dds_deal_pbn() {
     assert_eq!(
-        ::std::mem::size_of::<dealPBN>(),
+        ::std::mem::size_of::<DdsDealPbn>(),
         112usize,
         concat!("Size of: ", stringify!(dealPBN))
     );
     assert_eq!(
-        ::std::mem::align_of::<dealPBN>(),
+        ::std::mem::align_of::<DdsDealPbn>(),
         4usize,
         concat!("Alignment of ", stringify!(dealPBN))
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<dealPBN>())).trump as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).trump as *const _ as usize },
         0usize,
         concat!(
             "Offset of field: ",
@@ -270,7 +268,7 @@ fn bindgen_test_layout_dealPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<dealPBN>())).first as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).first as *const _ as usize },
         4usize,
         concat!(
             "Offset of field: ",
@@ -280,7 +278,7 @@ fn bindgen_test_layout_dealPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<dealPBN>())).currentTrickSuit as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).current_trick_suit as *const _ as usize },
         8usize,
         concat!(
             "Offset of field: ",
@@ -290,7 +288,7 @@ fn bindgen_test_layout_dealPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<dealPBN>())).currentTrickRank as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).current_trick_rank as *const _ as usize },
         20usize,
         concat!(
             "Offset of field: ",
@@ -300,7 +298,7 @@ fn bindgen_test_layout_dealPBN() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<dealPBN>())).remainCards as *const _ as usize },
+        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).remain_cards as *const _ as usize },
         32usize,
         concat!(
             "Offset of field: ",
@@ -667,25 +665,9 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 }
 
 impl Boards {
-    #[inline]
-    pub fn new<D: AsDDSDeal, C: AsDDSContract>(
-        no_of_boards: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contracts: &[C; MAXNOOFBOARDS],
-        target: &[Target; MAXNOOFBOARDS],
-        solution: &[Solutions; MAXNOOFBOARDS],
-        mode: &[Mode; MAXNOOFBOARDS],
-    ) -> Self {
-        Self {
-            raw: Boards::new(no_of_boards, deals, contracts, target, solution, mode),
-        }
-    }
-}
-
-impl Boards {
     #[allow(clippy::unwrap_used)]
     /// Creates a new `boards` struct
-    fn new<D: AsDDSDeal, C: AsDDSContract>(
+    pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D; MAXNOOFBOARDS],
         contracts: &[C; MAXNOOFBOARDS],

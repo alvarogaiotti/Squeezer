@@ -4,6 +4,7 @@ mod analyseplay;
 mod ddserror;
 mod ddsffi;
 mod deal;
+mod ffi;
 mod future_tricks;
 mod solver;
 mod traits;
@@ -11,6 +12,7 @@ mod utils;
 pub use analyseplay::*;
 pub use ddserror::{DDSError, DDSErrorKind};
 pub use deal::*;
+pub use ffi::*;
 pub use solver::*;
 pub use traits::*;
 pub use utils::*;
@@ -41,11 +43,11 @@ impl DoubleDummySolver {
     }
 
     fn set_max_threads(user_threads: ThreadIndex) {
-        unsafe { ddsffi::SetMaxThreads(user_threads.into()) }
+        unsafe { ffi::SetMaxThreads(user_threads.into()) }
     }
 
     fn set_resources(max_memory_mb: i32, max_threads: ThreadIndex) {
-        unsafe { ddsffi::SetResources(max_memory_mb, max_threads.into()) }
+        unsafe { ffi::SetResources(max_memory_mb, max_threads.into()) }
     }
 }
 

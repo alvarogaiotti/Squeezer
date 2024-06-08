@@ -1,13 +1,11 @@
 use super::{
-    ddsffi::{
-        playTraceBin, playTracesBin, solvedPlay, solvedPlays, AnalyseAllPlaysBin, AnalysePlayBin,
-        RETURN_UNKNOWN_FAULT,
-    },
+    ddsffi::{playTraceBin, playTracesBin, solvedPlay, solvedPlays, RETURN_UNKNOWN_FAULT},
+    ffi::{AnalyseAllPlaysBin, AnalysePlayBin},
     utils::build_c_deal,
     AsDDSContract, AsDDSDeal, AsRawDDS, Boards, DdsDeal, Mode, RawDDSRef, RawDDSRefMut, Solutions,
     Target, MAXNOOFBOARDS,
 };
-use crate::{DDSError, RankSeq, SuitSeq};
+use crate::{DDSDealConstructionError, DDSError, RankSeq, SuitSeq};
 use core::{ffi::c_int, slice::Iter};
 use std::sync::{Mutex, OnceLock};
 
@@ -311,11 +309,15 @@ impl PlayAnalyzer for DDSPlayAnalyzerRaw {
         {
             return Err(RETURN_UNKNOWN_FAULT.into());
         }
-        let mut c_deals: Vec<DdsDeal> =
-            match contracts.into_iter().zip(deals).map(build_c_deal).collect() {
-                Ok(vec) => vec,
-                Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
-            };
+        let mut c_deals: Vec<DdsDeal> = match contracts
+            .into_iter()
+            .zip(deals)
+            .map(build_c_deal)
+            .collect::<Result<Vec<_>, DDSDealConstructionError>>()
+        {
+            Ok(vec) => vec,
+            Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
+        };
         c_deals.resize(MAXNOOFBOARDS, DdsDeal::new());
         let mut boards = Boards {
             no_of_boards: deals_len,

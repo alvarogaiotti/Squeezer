@@ -1,12 +1,11 @@
 use core::ffi::c_int;
 
 use crate::bindings::{
-    ddsffi::{futureTricks, solvedBoards, SolveAllChunksBin, SolveBoard},
     deal::AsDDSDeal,
+    ffi::{SolveAllChunksBin, SolveBoard},
     future_tricks::FutureTricks,
     utils::build_c_deal,
-    AsDDSContract, Boards, DDSError, DdsDeal, Mode, RawDDSRef, RawDDSRefMut, Solutions, Target,
-    ThreadIndex, MAXNOOFBOARDS,
+    AsDDSContract, Boards, DDSError, Mode, Solutions, Target, ThreadIndex, MAXNOOFBOARDS,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -35,7 +34,7 @@ impl BridgeSolver for DDSSolver {
     ) -> Result<u8, Box<dyn std::error::Error>> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
-        let futp: *mut futureTricks = &mut future_tricks.0;
+        let futp: *mut FutureTricks = &mut future_tricks;
         let result;
         unsafe {
             result = SolveBoard(
@@ -61,6 +60,7 @@ impl DDSSolver {
         deals: &[D; MAXNOOFBOARDS],
         contract: &[C; MAXNOOFBOARDS],
     ) -> Result<Vec<u8>, DDSError> {
+        assert!(number_of_deals <= MAXNOOFBOARDS as i32);
         let mut boards = Boards::new(
             number_of_deals,
             deals,
@@ -69,13 +69,11 @@ impl DDSSolver {
             &[Solutions::Best; MAXNOOFBOARDS],
             &[Mode::Auto; MAXNOOFBOARDS],
         );
-        let mut solved_boards = SolvedBoards {
-            solved_boards: solvedBoards::new(number_of_deals),
-        };
+        let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
             let bop: *mut Boards = &mut boards;
-            let solved_boards_ptr: *mut solvedBoards = solved_boards.get_raw_mut();
+            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
             unsafe {
                 result = SolveAllChunksBin(bop, solved_boards_ptr, 1);
             }
@@ -84,8 +82,6 @@ impl DDSSolver {
             return Err(result.into());
         }
         Ok(solved_boards
-            .get_raw()
-            .solvedBoard
             .into_iter()
             .map(|ft| ft.score[0] as u8)
             .take(number_of_deals as usize)
@@ -93,17 +89,60 @@ impl DDSSolver {
     }
 }
 
-#[derive(Debug, RawDDSRef, RawDDSRefMut)]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct SolvedBoards {
-    #[raw]
-    solved_boards: solvedBoards,
+    pub no_of_boards: ::std::os::raw::c_int,
+    pub solved_board: [FutureTricks; 200usize],
 }
 
-impl solvedBoards {
+impl SolvedBoards {
     fn new(no_of_boards: c_int) -> Self {
         Self {
-            noOfBoards: no_of_boards,
-            solvedBoard: [futureTricks::default(); MAXNOOFBOARDS],
+            no_of_boards,
+            solved_board: [FutureTricks::default(); MAXNOOFBOARDS],
         }
     }
+}
+
+impl IntoIterator for SolvedBoards {
+    type Item = FutureTricks;
+    type IntoIter = std::array::IntoIter<Self::Item, MAXNOOFBOARDS>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.solved_board.into_iter()
+    }
+}
+#[test]
+fn bindgen_test_layout_solved_boards() {
+    assert_eq!(
+        ::std::mem::size_of::<SolvedBoards>(),
+        43204usize,
+        concat!("Size of: ", stringify!(solvedBoards))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<SolvedBoards>(),
+        4usize,
+        concat!("Alignment of ", stringify!(solvedBoards))
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<SolvedBoards>())).no_of_boards as *const _ as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(solvedBoards),
+            "::",
+            stringify!(noOfBoards)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::std::ptr::null::<SolvedBoards>())).solved_board as *const _ as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(solvedBoards),
+            "::",
+            stringify!(solvedBoard)
+        )
+    );
 }

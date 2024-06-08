@@ -1,6 +1,6 @@
 use crate::DDSDealConstructionError;
 
-use super::{ddsffi::deal, AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder};
+use super::{AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder, DdsDeal};
 use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
 
 /// The length of a sequence of suits or ranks
@@ -192,7 +192,7 @@ impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
             return Err(SeqError::SequenceTooLong);
         } else {
             let mut sequence = [-1i32; SEQUENCE_LENGTH];
-            sequence.copy_from_slice(&value[0..SEQUENCE_LENGTH]);
+            sequence[0..length].copy_from_slice(&value[0..length]);
             return Ok(Self {
                 sequence,
                 // SAFETY: checks already performed above
@@ -356,7 +356,7 @@ impl RankSeq {
 /// their encodings: [`DDSSuitEncoding`] and [`DDSHandEncoding`]
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     contract_and_deal: (&C, &D),
-) -> Result<deal, DDSDealConstructionError> {
+) -> Result<DdsDeal, DDSDealConstructionError> {
     let (contract, deal) = contract_and_deal;
     let (trump, first) = contract.as_dds_contract();
     DDSDealBuilder::new()
