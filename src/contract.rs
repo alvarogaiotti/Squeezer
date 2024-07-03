@@ -7,7 +7,7 @@ pub enum Vulnerable {
 }
 
 impl Vulnerable {
-    pub const fn from_number_and_seat(board_number:u8, seat: Seat) -> Self {
+    pub const fn from_number_and_seat(board_number: u8, seat: Seat) -> Self {
         let state = Vulnerability::from_number(board_number);
         state.is_vulnerable(seat)
     }
@@ -91,12 +91,28 @@ impl dds::ContractScorer for Contract {
         } else {
             let mut score: i32;
             if matches!(self.doubled, Doubled::NotDoubled) {
-                let per_undertrick = if matches!(self.vuln, Vulnerable::Yes) { 100 } else { 50 };
+                let per_undertrick = if matches!(self.vuln, Vulnerable::Yes) {
+                    100
+                } else {
+                    50
+                };
                 score = overtricks * per_undertrick;
             } else {
                 match overtricks {
-                    -1 => score = if matches!(self.vuln, Vulnerable::Yes) { -200 } else { -100 },
-                    -2 => score = if matches!(self.vuln, Vulnerable::Yes) { -500 } else { -300 },
+                    -1 => {
+                        score = if matches!(self.vuln, Vulnerable::Yes) {
+                            -200
+                        } else {
+                            -100
+                        }
+                    }
+                    -2 => {
+                        score = if matches!(self.vuln, Vulnerable::Yes) {
+                            -500
+                        } else {
+                            -300
+                        }
+                    }
                     _ => {
                         score = if matches!(self.vuln, Vulnerable::Yes) {
                             300 * overtricks + 100
@@ -174,6 +190,11 @@ impl Contract {
         self.declarer().next()
     }
 
+    #[must_use]
+    pub fn level(&self) -> u8 {
+        self.level
+    }
+
     /// Returns the declarer of the contract.
     #[must_use]
     pub fn declarer(&self) -> Seat {
@@ -224,7 +245,13 @@ impl Contract {
 
     /// Constructs a new `Contract` instance.
     #[must_use]
-    pub fn new(level: u8, strain: Strain, declarer: Seat, vuln: Vulnerable, doubled: Doubled) -> Self {
+    pub fn new(
+        level: u8,
+        strain: Strain,
+        declarer: Seat,
+        vuln: Vulnerable,
+        doubled: Doubled,
+    ) -> Self {
         Self {
             vuln,
             doubled,

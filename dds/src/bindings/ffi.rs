@@ -1,9 +1,11 @@
 use super::ddsffi::{
     allParResults, ddTableDeal, ddTableDealPBN, ddTableDeals, ddTableDealsPBN, ddTableResults,
-    ddTablesRes, parResults, parResultsDealer, parResultsMaster, parTextResults, playTraceBin,
-    playTracePBN, playTracesBin, playTracesPBN, solvedPlay, solvedPlays,
+    ddTablesRes, parResults, parResultsDealer, parResultsMaster, parTextResults,
 };
-use crate::{Boards, BoardsPbn, DdsDealPbn, SolvedBoards};
+use crate::{
+    Boards, BoardsPbn, DdsDealPbn, PlayTraceBin, PlayTracePBN, PlayTracesBin, PlayTracesPBN,
+    SolvedBoards, SolvedPlay, SolvedPlays,
+};
 
 use super::future_tricks::FutureTricks;
 use super::DdsDeal;
@@ -168,32 +170,32 @@ extern "C" {
 extern "C" {
     pub fn AnalysePlayBin(
         dl: DdsDeal,
-        play: playTraceBin,
-        solved: *mut solvedPlay,
+        play: PlayTraceBin,
+        solved: *mut SolvedPlay,
         thrId: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn AnalysePlayPBN(
         dlPBN: DdsDealPbn,
-        playPBN: playTracePBN,
-        solvedp: *mut solvedPlay,
+        playPBN: PlayTracePBN,
+        solvedp: *mut SolvedPlay,
         thrId: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn AnalyseAllPlaysBin(
         bop: *mut Boards,
-        plp: *mut playTracesBin,
-        solvedp: *mut solvedPlays,
+        plp: *mut PlayTracesBin,
+        solvedp: *mut SolvedPlays,
         chunkSize: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn AnalyseAllPlaysPBN(
         bopPBN: *mut BoardsPbn,
-        plpPBN: *mut playTracesPBN,
-        solvedp: *mut solvedPlays,
+        plpPBN: *mut PlayTracesPBN,
+        solvedp: *mut SolvedPlays,
         chunkSize: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }

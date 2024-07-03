@@ -2,7 +2,6 @@ use squeezer::*;
 
 #[test]
 fn main_to_be() {
-    let predeal = Hand::from_str("SQ63H542DK42C8763").unwrap();
     let mut south_shapes = Shapes::new();
     south_shapes.add_shape("3262").unwrap();
     south_shapes.add_shape("2362").unwrap();
@@ -26,6 +25,7 @@ fn main_to_be() {
         .unwrap();
     let west_spec = hand_builder.build();
     let mut builder = DealerBuilder::new();
+    let predeal = Cards::from_str("SQ63H542DK42C8763").unwrap();
     builder
         .predeal(Seat::North, predeal)
         .with_hand_specification(Seat::South, south_specs)

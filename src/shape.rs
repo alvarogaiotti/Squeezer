@@ -383,14 +383,14 @@ impl TryFrom<Strain> for Suit {
             Strain::Hearts => Ok(Suit::Hearts),
             Strain::Diamonds => Ok(Suit::Diamonds),
             Strain::Clubs => Ok(Suit::Clubs),
-            _ => Err(DealerError::new("cannot convert NoTrumps to a Suit")),
+            Strain::NoTrumps => Err(DealerError::new("cannot convert NoTrumps to a Suit")),
         }
     }
 }
 
 impl std::fmt::Debug for Suit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match *self {
             Suit::Clubs => write!(f, "C"),
             Suit::Diamonds => write!(f, "D"),
             Suit::Hearts => write!(f, "H"),
@@ -426,10 +426,10 @@ impl Suit {
     #[must_use]
     pub fn unicode(self) -> char {
         match self {
-            Suit::Clubs => '♣',
-            Suit::Diamonds => '♦',
-            Suit::Hearts => '♥',
-            Suit::Spades => '♠',
+            Suit::Clubs => '\u{2663}',
+            Suit::Diamonds => '\u{2666}',
+            Suit::Hearts => '\u{2665}',
+            Suit::Spades => '\u{2660}',
         }
     }
     /// The latin character for this suit
@@ -471,8 +471,8 @@ impl Suit {
 }
 
 mod test {
-    use crate::{Shapes, Cards, Hand, LenRange};
-    
+    use crate::{Cards, Hand, LenRange, Shapes};
+
     #[test]
     fn shape_creation_test() {
         let mut shapes = Shapes::new();

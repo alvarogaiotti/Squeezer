@@ -338,7 +338,7 @@ impl IntoIterator for Vulnerability {
 /// ```
 /// # use squeezer::*;
 /// let mut builder = DealerBuilder::new();
-/// builder.predeal(Seat::North, Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap());
+/// builder.predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap());
 /// let dealer = builder.build().unwrap();
 /// //North will have AKQ AKQ AKQ AKQJ.
 /// println!("{}",dealer.deal().unwrap());
@@ -359,7 +359,7 @@ pub struct DealerBuilder {
     /// Descriptor of the hands we would like, e.g.
     hand_descriptors: HashMap<Seat, HandDescriptor>,
     /// Hands to predeal.
-    predealt_hands: HashMap<Seat, Hand>,
+    predealt_hands: HashMap<Seat, Cards>,
     vulnerability: Vulnerability,
 }
 
@@ -384,7 +384,8 @@ impl DealerBuilder {
     /// Set the cards that a particular [`Seat`] will be dealt. Will not fail right away if same card
     /// is dealt twice, but will fail in the building phase.
     #[inline]
-    pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
+    pub fn predeal(&mut self, seat: Seat, hand: Cards) -> &mut Self {
+        assert!(hand.len() <= 13);
         self.predealt_hands.insert(seat, hand);
         self
     }
@@ -436,14 +437,14 @@ impl DealerBuilder {
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
-        for hand in self.predealt_hands.values() {
-            if !hand.cards.difference(deck).is_empty() {
+        for &hand in self.predealt_hands.values() {
+            if !hand.difference(deck).is_empty() {
                 return Err(DealerError::new(
-                    format!("card dealt twice: {}", hand.cards.difference(deck)).as_str(),
+                    format!("card dealt twice: {}", hand.difference(deck)).as_str(),
                 ));
             }
 
-            deck = deck.difference(hand.as_cards());
+            deck = deck.difference(hand);
         }
         Ok(StandardDealer {
             predeal: self.predealt_hands,
@@ -470,7 +471,7 @@ pub enum BoardNumbering {
 /// You won't interact much with this struct other that call the [`StandardDealer::deal`] method. Use the [`DealerBuilder`] instead to create a [`Dealer`] that
 /// fits your needs.
 pub struct StandardDealer {
-    predeal: HashMap<Seat, Hand>,
+    predeal: HashMap<Seat, Cards>,
     vulnerability: Vulnerability,
     deck_starting_state: Cards,
     hand_constraints: HashMap<Seat, HandDescriptor>,
@@ -512,15 +513,15 @@ impl Dealer for StandardDealer {
         while {
             let mut deck = self.deck_starting_state;
             for seat in Seat::iter() {
-                if let Some(hand) = self.predeal.get(&seat) {
-                    let predeal_len = hand.as_cards().len();
+                if let Some(&hand) = self.predeal.get(&seat) {
+                    let predeal_len = hand.len();
                     if predeal_len < 13 {
                         let Some(cards_to_add) = deck.pick(13 - predeal_len as usize) else {
                             return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
                         };
-                        hands[seat as usize].set_cards(hand.as_cards() + cards_to_add);
+                        hands[seat as usize].set_cards(hand + cards_to_add);
                     } else {
-                        hands[seat as usize].set_cards(hand.as_cards());
+                        hands[seat as usize].set_cards(hand);
                     }
                 } else {
                     hands[seat as usize] = if let Some(cards) = deck.pick(13) {
@@ -568,6 +569,7 @@ impl StandardDealer {
 
 /// State tracker for the deal print output.
 #[derive(Debug, Copy, Clone)]
+#[non_exhaustive]
 pub enum Printer {
     Pbn,
     Lin,
@@ -619,7 +621,10 @@ impl Deal {
     }
 
     /// Creates a new deal with conditions
-
+    ///
+    /// # Panics
+    ///
+    /// Can panic when dealing fails in some way
     #[must_use]
     #[inline]
     pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
@@ -743,7 +748,7 @@ impl Deal {
         ); // Dealer for the deal. LIN is a weird format.
         for (position, hand) in self.into_iter().enumerate() {
             if position != 0 {
-                stringa.push(','); // TODO: Wirte this and next block with iterators
+                stringa.push(','); // TODO: Write this and next block with iterators
             }
             for (index, holding) in hand.into_iter().enumerate() {
                 stringa.push(match index {
@@ -890,13 +895,13 @@ mod test {
     #[test]
     #[should_panic]
     fn predealing_twice_should_panic() {
-        let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
         builder.predeal(Seat::North, hand);
         builder.predeal(Seat::West, hand);
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
-        assert_eq!(deal.north(), hand);
+        assert_eq!(deal.north().as_cards(), hand);
     }
 
     #[test]
@@ -914,17 +919,17 @@ mod test {
 
     #[test]
     fn dealer_deals_with_predeal_test() {
-        let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
         builder.predeal(Seat::North, hand);
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
-        assert_eq!(deal.north(), hand);
+        assert_eq!(deal.north().as_cards(), hand);
     }
 
     #[test]
     fn dealer_deals_with_predeal_and_accept_function_test() {
-        let hand = Hand::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
         builder
             .predeal(Seat::North, hand)
@@ -933,7 +938,6 @@ mod test {
             }));
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
-        println!("{}", &deal);
         assert!(deal.north().slen() + deal.south().slen() > 8);
     }
 }

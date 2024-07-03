@@ -24,14 +24,14 @@ impl std::fmt::Debug for Card {
 
 impl std::fmt::Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-   write!(f, "{}{}", self.rankchar(), self.suit()) 
-}
+        write!(f, "{}{}", self.rankchar(), self.suit())
+    }
 }
 
 impl Card {
     #[must_use]
     #[inline]
-	pub const fn new(suit: Suit, rank: u8) -> Self {
+    pub const fn new(suit: Suit, rank: u8) -> Self {
         Card {
             offset: rank + 16 * suit as u8,
         }
@@ -40,7 +40,7 @@ impl Card {
     ///Returns suit of the card.
     #[must_use]
     #[inline]
-	pub const fn suit(self) -> Suit {
+    pub const fn suit(self) -> Suit {
         match self.offset >> 4 {
             0 => Suit::Spades,
             1 => Suit::Hearts,
@@ -52,14 +52,14 @@ impl Card {
     /// Returns the rank of the card.
     #[must_use]
     #[inline]
-	pub const fn rank(self) -> u8 {
+    pub const fn rank(self) -> u8 {
         self.offset % 16
     }
 
     /// Returns the name of the rank of the card.
     #[must_use]
     #[inline]
-	pub const fn rankname(self) -> &'static str {
+    pub const fn rankname(self) -> &'static str {
         match self.rank() {
             2 => "2",
             3 => "3",
@@ -81,7 +81,7 @@ impl Card {
     /// Returns the name of the rank of the card.
     #[must_use]
     #[inline]
-	pub const fn rankchar(self) -> char {
+    pub const fn rankchar(self) -> char {
         match self.rank() {
             2 => '2',
             3 => '3',
@@ -221,26 +221,26 @@ impl Cards {
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     #[inline]
-	pub const fn new_deck() -> Self {
+    pub const fn new_deck() -> Self {
         Cards::ALL
     }
 
     /// Number of cards stored.
     #[must_use]
     #[inline]
-	pub const fn len(&self) -> u8 {
+    pub const fn len(&self) -> u8 {
         self.bits.count_ones() as u8
     }
 
     #[must_use]
     #[inline]
-	pub const fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
 
     #[must_use]
     #[inline]
-	pub const fn insert(self, card: Card) -> Self {
+    pub const fn insert(self, card: Card) -> Self {
         Self {
             bits: self.bits | (1 << card.offset),
         }
@@ -249,7 +249,7 @@ impl Cards {
     /// NOTE: Removes, does not `pop`.
     #[must_use]
     #[inline]
-	pub const fn remove(self, card: Card) -> Self {
+    pub const fn remove(self, card: Card) -> Self {
         Self {
             bits: self.bits & !(1 << card.offset),
         }
@@ -257,14 +257,14 @@ impl Cards {
 
     #[must_use]
     #[inline]
-	pub const fn contains(self, card: Card) -> bool {
+    pub const fn contains(self, card: Card) -> bool {
         self.bits & (1 << card.offset) != 0
     }
 
     /// Sum of two `Cards` instances.
     #[must_use]
     #[inline]
-	pub const fn union(&self, cards: Cards) -> Self {
+    pub const fn union(&self, cards: Cards) -> Self {
         Self {
             bits: self.bits | cards.bits,
         }
@@ -273,7 +273,7 @@ impl Cards {
     /// Difference of two `Cards` instances.
     #[must_use]
     #[inline]
-	pub const fn difference(&self, cards: Cards) -> Self {
+    pub const fn difference(&self, cards: Cards) -> Self {
         Self {
             bits: self.bits & !cards.bits,
         }
@@ -289,7 +289,7 @@ impl Cards {
     /// Returns all the cards of `suit` stored in this instance.
     #[must_use]
     #[inline]
-	pub const fn in_suit(self, suit: Suit) -> Self {
+    pub const fn in_suit(self, suit: Suit) -> Self {
         let offset = suit as i32 * 16;
         Cards {
             bits: ((self.bits >> offset) & 0xFFFF) << offset,
@@ -300,7 +300,7 @@ impl Cards {
     /// Returns `None` only if there aren't enough cards.
     #[must_use]
     #[inline]
-	pub fn pick(&mut self, num: usize) -> Option<Cards> {
+    pub fn pick(&mut self, num: usize) -> Option<Cards> {
         self.pick_rng(&mut rand::thread_rng(), num)
     }
 
@@ -350,7 +350,7 @@ impl Cards {
     /// Just the spades from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn spades(self) -> Cards {
+    pub const fn spades(self) -> Cards {
         self.intersection(Cards::SPADES)
     }
 
@@ -360,7 +360,7 @@ impl Cards {
     /// Just the hearts from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn hearts(self) -> Cards {
+    pub const fn hearts(self) -> Cards {
         self.intersection(Cards::HEARTS)
     }
 
@@ -370,7 +370,7 @@ impl Cards {
     /// Just the diamonds from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn diamonds(self) -> Cards {
+    pub const fn diamonds(self) -> Cards {
         self.intersection(Cards::DIAMONDS)
     }
 
@@ -380,7 +380,7 @@ impl Cards {
     /// Just the clubs from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn clubs(self) -> Cards {
+    pub const fn clubs(self) -> Cards {
         self.intersection(Cards::CLUBS)
     }
 
@@ -397,7 +397,7 @@ impl Cards {
     /// Just the aces from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn aces(self) -> Cards {
+    pub const fn aces(self) -> Cards {
         self.intersection(Cards::ACES)
     }
     /// The kings
@@ -409,7 +409,7 @@ impl Cards {
     /// Just the kins from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn kings(self) -> Cards {
+    pub const fn kings(self) -> Cards {
         self.intersection(Cards::KINGS)
     }
     /// The queens
@@ -421,7 +421,7 @@ impl Cards {
     /// Just the queens from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn queens(self) -> Cards {
+    pub const fn queens(self) -> Cards {
         self.intersection(Cards::QUEENS)
     }
     /// The jacks
@@ -433,7 +433,7 @@ impl Cards {
     /// Just the jacks from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn jacks(self) -> Cards {
+    pub const fn jacks(self) -> Cards {
         self.intersection(Cards::JACKS)
     }
     /// The tens
@@ -445,14 +445,14 @@ impl Cards {
     /// Just the tens from this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn tens(self) -> Cards {
+    pub const fn tens(self) -> Cards {
         self.intersection(Cards::TENS)
     }
 
     /// High card points.
     #[must_use]
     #[inline]
-	pub const fn high_card_points(self) -> u8 {
+    pub const fn high_card_points(self) -> u8 {
         self.aces().len()
             + self.intersection(Cards::ACES.union(Cards::KINGS)).len()
             + self
@@ -471,24 +471,19 @@ impl Cards {
     /// Returns the inner u64 type representing this `Cards` instance.
     #[must_use]
     #[inline]
-	pub const fn as_bits(self) -> u64 {
+    pub const fn as_bits(self) -> u64 {
         self.bits
     }
 
     #[must_use]
     #[inline]
     pub fn dedup(self) -> Self {
-        let mut insert = true;
+        let mut insert = 2;
         let mut dedup = Cards::EMPTY;
-        for card in Cards::ALL.into_iter().rev() {
-            if self.contains(card) {
-                if insert {
-                insert = false;
-                dedup = dedup.insert(card);
-            }
-            } else {
-                insert = true;
-            }
+        let bits = self.bits;
+        for index in (1..64u64).rev() {
+            dedup.bits |= (bits & 1 << index) & insert;
+            insert = !(bits & 1 << index) >> 1u8;
         }
         dedup
     }
@@ -545,13 +540,13 @@ impl SuitIterator {
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     #[inline]
-	pub fn len(&self) -> u8 {
+    pub fn len(&self) -> u8 {
         self.bits.count_ones() as u8
     }
 
     #[must_use]
     #[inline]
-	pub const fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
 }
@@ -564,8 +559,8 @@ impl Iterator for SuitIterator {
         if self.bits == 0 {
             None
         } else {
-            let next = self.bits.trailing_zeros();
-            self.bits &= !(1 << next);
+            let next = self.bits.leading_zeros();
+            self.bits &= !(1 << (63 - next));
             Some(Card { offset: next as u8 })
         }
     }

@@ -23,8 +23,9 @@ impl From<ThreadIndex> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Target {
+    #[default]
     MaxTricks,
     LegalNoScore,
     Goal(NonZeroI32),
@@ -42,8 +43,9 @@ impl From<Target> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum Solutions {
+    #[default]
     Best,
     AllOptimal,
     AllLegal,
@@ -61,8 +63,9 @@ impl From<Solutions> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum Mode {
+    #[default]
     Auto,
     AutoSearchAlways,
     Always,

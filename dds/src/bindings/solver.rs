@@ -97,7 +97,7 @@ pub struct SolvedBoards {
 }
 
 impl SolvedBoards {
-    fn new(no_of_boards: c_int) -> Self {
+    pub fn new(no_of_boards: c_int) -> Self {
         Self {
             no_of_boards,
             solved_board: [FutureTricks::default(); MAXNOOFBOARDS],

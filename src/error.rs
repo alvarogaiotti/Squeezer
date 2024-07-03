@@ -10,6 +10,8 @@ pub enum SqueezerError {
     DealingError(DealerError),
     #[cfg(feature = "dds")]
     DDSError(dds::DDSError),
+    #[cfg(feature = "dds")]
+    SeqError(dds::SeqError),
 }
 
 impl Error for SqueezerError {
@@ -20,6 +22,8 @@ impl Error for SqueezerError {
             SqueezerError::DealingError(ref err) => Some(err),
             #[cfg(feature = "dds")]
             SqueezerError::DDSError(ref err) => Some(err),
+            #[cfg(feature = "dds")]
+            SqueezerError::SeqError(ref err) => Some(err),
         }
     }
 }
@@ -41,5 +45,12 @@ impl From<DealerError> for SqueezerError {
 impl From<dds::DDSError> for SqueezerError {
     fn from(value: dds::DDSError) -> Self {
         Self::DDSError(value)
+    }
+}
+
+#[cfg(feature = "dds")]
+impl From<dds::SeqError> for SqueezerError {
+    fn from(value: dds::SeqError) -> Self {
+        Self::SeqError(value)
     }
 }

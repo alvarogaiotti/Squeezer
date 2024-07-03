@@ -14,8 +14,8 @@ fn complete_deal_analysis_test() {
     let play_sequence = parsed_lin.play_sequence();
     assert!(play_sequence.is_some());
     println!("{:?}", play_sequence.unwrap());
-    let (suitseq,rankseq): (SuitSeq, RankSeq) = play_sequence.unwrap().try_into().unwrap();
-    let playtrace = PlayTraceBin::new(suitseq,rankseq);
+    let (suitseq, rankseq): (SuitSeq, RankSeq) = play_sequence.unwrap().try_into().unwrap();
+    let playtrace = PlayTraceBin::from_sequences(suitseq, rankseq);
     let solver = DDSPlayAnalyzer::new();
     let analyzed_plays = solver.analyze_play(&parsed_lin, &contract, playtrace);
 }
