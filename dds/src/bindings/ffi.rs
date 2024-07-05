@@ -1,7 +1,5 @@
-use super::ddsffi::{
-    allParResults, ddTableDeal, ddTableDealPBN, ddTableDeals, ddTableDealsPBN, ddTableResults,
-    ddTablesRes, parResults, parResultsDealer, parResultsMaster, parTextResults,
-};
+use super::ddsffi::{parResultsDealer, parResultsMaster, parTextResults};
+use super::tables::*;
 use crate::{
     Boards, BoardsPbn, DdsDealPbn, PlayTraceBin, PlayTracePBN, PlayTracesBin, PlayTracesPBN,
     SolvedBoards, SolvedPlay, SolvedPlays,
@@ -47,32 +45,32 @@ extern "C" {
 }
 extern "C" {
     pub fn CalcDDtable(
-        tableDeal: ddTableDeal,
-        tablep: *mut ddTableResults,
+        tableDeal: DdTableDeal,
+        tablep: *mut DdTableResults,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn CalcDDtablePBN(
-        tableDealPBN: ddTableDealPBN,
-        tablep: *mut ddTableResults,
+        tableDealPBN: DdTableDealPbn,
+        tablep: *mut DdTableResults,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn CalcAllTables(
-        dealsp: *mut ddTableDeals,
+        dealsp: *mut DdTableDeals,
         mode: ::std::os::raw::c_int,
         trumpFilter: *mut ::std::os::raw::c_int,
-        resp: *mut ddTablesRes,
-        presp: *mut allParResults,
+        resp: *mut DdTablesRes,
+        presp: *mut AllParResults,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn CalcAllTablesPBN(
-        dealsp: *mut ddTableDealsPBN,
+        dealsp: *mut DdTableDealsPbn,
         mode: ::std::os::raw::c_int,
         trumpFilter: *mut ::std::os::raw::c_int,
-        resp: *mut ddTablesRes,
-        presp: *mut allParResults,
+        resp: *mut DdTablesRes,
+        presp: *mut AllParResults,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
@@ -106,37 +104,37 @@ extern "C" {
 }
 extern "C" {
     pub fn Par(
-        tablep: *mut ddTableResults,
-        presp: *mut parResults,
+        tablep: *mut DdTableResults,
+        presp: *mut ParResults,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn CalcPar(
-        tableDeal: ddTableDeal,
+        tableDeal: DdTableDeal,
         vulnerable: ::std::os::raw::c_int,
-        tablep: *mut ddTableResults,
-        presp: *mut parResults,
+        tablep: *mut DdTableResults,
+        presp: *mut ParResults,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn CalcParPBN(
-        tableDealPBN: ddTableDealPBN,
-        tablep: *mut ddTableResults,
+        tableDealPBN: DdTableDealPbn,
+        tablep: *mut DdTableResults,
         vulnerable: ::std::os::raw::c_int,
-        presp: *mut parResults,
+        presp: *mut ParResults,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn SidesPar(
-        tablep: *mut ddTableResults,
+        tablep: *mut DdTableResults,
         sidesRes: *mut parResultsDealer,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     pub fn DealerPar(
-        tablep: *mut ddTableResults,
+        tablep: *mut DdTableResults,
         presp: *mut parResultsDealer,
         dealer: ::std::os::raw::c_int,
         vulnerable: ::std::os::raw::c_int,
@@ -144,7 +142,7 @@ extern "C" {
 }
 extern "C" {
     pub fn DealerParBin(
-        tablep: *mut ddTableResults,
+        tablep: *mut DdTableResults,
         presp: *mut parResultsMaster,
         dealer: ::std::os::raw::c_int,
         vulnerable: ::std::os::raw::c_int,
@@ -152,7 +150,7 @@ extern "C" {
 }
 extern "C" {
     pub fn SidesParBin(
-        tablep: *mut ddTableResults,
+        tablep: *mut DdTableResults,
         sidesRes: *mut parResultsMaster,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
