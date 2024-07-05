@@ -1,6 +1,8 @@
-use crate::DDSDealConstructionError;
+use crate::{BridgeSolver, ContractScorer, DDSDealConstructionError};
 
-use super::{AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder, DdsDeal};
+use super::{
+    doubledummy::DoubleDummySolver, AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder, DdsDeal,
+};
 use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
 
 /// The length of a sequence of suits or ranks
@@ -367,4 +369,19 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
         .first(first.try_into()?)
         .remain_cards(deal.as_dds_deal())
         .build()
+}
+
+#[inline]
+/// Some thing
+///
+/// # Errors
+///
+/// other
+pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
+    deal: &D,
+    contract: &C,
+) -> Result<i32, Box<dyn std::error::Error>> {
+    let solver = DoubleDummySolver::new();
+    let tricks = solver.dd_tricks(deal, contract)?;
+    Ok(contract.score(tricks))
 }

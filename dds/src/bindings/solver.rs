@@ -19,74 +19,13 @@ pub trait BridgeSolver {
         deal: &D,
         contract: &C,
     ) -> Result<u8, Box<dyn std::error::Error>>;
-}
 
-#[non_exhaustive]
-#[allow(clippy::module_name_repetitions)]
-pub struct DDSSolver;
-
-impl BridgeSolver for DDSSolver {
-    #[inline]
-    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deal: &D,
-        contract: &C,
-    ) -> Result<u8, Box<dyn std::error::Error>> {
-        let c_deal = build_c_deal((contract, deal))?;
-        let mut future_tricks = FutureTricks::new();
-        let futp: *mut FutureTricks = &mut future_tricks;
-        let result;
-        unsafe {
-            result = SolveBoard(
-                c_deal,
-                Target::MaxTricks.into(),
-                Solutions::Best.into(),
-                Mode::AutoSearchAlways.into(),
-                futp,
-                ThreadIndex::Auto.into(),
-            );
-        };
-        if result != 1 {
-            return Err(Box::new(DDSError::from(result)));
-        }
-        return Ok(13 - future_tricks.score()[0] as u8);
-    }
-}
-
-impl DDSSolver {
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
         deals: &[D; MAXNOOFBOARDS],
         contract: &[C; MAXNOOFBOARDS],
-    ) -> Result<Vec<u8>, DDSError> {
-        assert!(number_of_deals <= MAXNOOFBOARDS as i32);
-        let mut boards = Boards::new(
-            number_of_deals,
-            deals,
-            contract,
-            &[Target::MaxTricks; MAXNOOFBOARDS],
-            &[Solutions::Best; MAXNOOFBOARDS],
-            &[Mode::Auto; MAXNOOFBOARDS],
-        );
-        let mut solved_boards = SolvedBoards::new(number_of_deals);
-        let result;
-        {
-            let bop: *mut Boards = &mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
-            unsafe {
-                result = SolveAllChunksBin(bop, solved_boards_ptr, 1);
-            }
-        };
-        if result != 1 {
-            return Err(result.into());
-        }
-        Ok(solved_boards
-            .into_iter()
-            .map(|ft| ft.score[0] as u8)
-            .take(number_of_deals as usize)
-            .collect())
-    }
+    ) -> Result<Vec<u8>, DDSError>;
 }
 
 #[repr(C)]

@@ -1,5 +1,5 @@
 use dds::{
-    DDSPlayAnalyzer, PlayAnalyzer, PlayTraceBin, PlayTracesBin, RankSeq, RawDDSRef, SuitSeq,
+    DoubleDummySolver, PlayAnalyzer, PlayTraceBin, PlayTracesBin, RankSeq, RawDDSRef, SuitSeq,
 };
 mod setup;
 use setup::*;
@@ -13,7 +13,7 @@ fn analyse_play_test() {
     let suitseq = SuitSeq::try_from([0i32, 0i32, 0i32, 0i32]).unwrap();
     let rankseq = RankSeq::try_from([4i32, 3i32, 12i32, 2i32]).unwrap();
     let play = PlayTraceBin::from_sequences(suitseq, rankseq);
-    let analyzer = DDSPlayAnalyzer::new();
+    let analyzer = DoubleDummySolver::new();
     let solvedplay = analyzer.analyze_play(&deal, &contract, play).unwrap();
     assert_eq!([2, 2, 2, 2, 2], solvedplay.tricks[..5]);
 }
@@ -30,7 +30,7 @@ fn analyse_all_play_test() {
     rankseqs.resize_with(TRIES, || rankseq.clone());
     let contracts_owner = Vec::from([ContractMock {}; TRIES]);
     let mut plays = PlayTracesBin::from_sequences(suitseqs, rankseqs).unwrap();
-    let analyzer = DDSPlayAnalyzer::new();
+    let analyzer = DoubleDummySolver::new();
     let solved_plays = analyzer
         .analyze_all_plays(&deals_owner, &contracts_owner, &mut plays)
         .unwrap();

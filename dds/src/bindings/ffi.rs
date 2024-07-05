@@ -10,6 +10,8 @@ use crate::{
 use super::future_tricks::FutureTricks;
 use super::DdsDeal;
 
+pub struct InnerDds;
+
 extern "C" {
     pub fn SetMaxThreads(userThreads: ::std::os::raw::c_int);
 }
