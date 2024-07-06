@@ -399,6 +399,19 @@ pub enum Suit {
     Clubs = 3,
 }
 
+impl TryFrom<i32> for Suit {
+    type Error = DealerError;
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Suit::Spades),
+            1 => Ok(Suit::Hearts),
+            2 => Ok(Suit::Diamonds),
+            3 => Ok(Suit::Clubs),
+            num => Err(DealerError::new(&format!("cannot convert {} to Suit", num))),
+        }
+    }
+}
+
 impl TryFrom<Strain> for Suit {
     type Error = DealerError;
     fn try_from(strain: Strain) -> Result<Self, Self::Error> {

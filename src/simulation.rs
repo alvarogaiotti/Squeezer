@@ -1,17 +1,20 @@
-use std::{array, fmt::Display};
+use colored::Colorize;
+use std::{
+    array,
+    collections::{hash_map::Entry, HashMap, HashSet},
+    fmt::Display,
+    hash::Hash,
+};
 
 use crate::{
     prelude::{Card, Contract, Dealer, SqueezerError},
-    Deal,
+    Deal, Suit,
 };
 use dds::MAXNOOFBOARDS;
 use itertools::Itertools;
 
-pub trait SimulationResult
-where
-    Self: Sized,
-{
-    fn report(self) {}
+pub trait SimulationResult {
+    fn report(&self) {}
 }
 
 pub trait Simulation<T: SimulationResult> {
@@ -44,10 +47,31 @@ impl LeadCard {
             set_percentage: 0.0,
         }
     }
+
+    fn update(&mut self, tricks_beating: u8, runs: usize) {
+        self.average_tricks = self
+            .number_of_tricks
+            .iter()
+            .enumerate()
+            .map(|(tricks, times)| tricks * times)
+            .sum::<usize>() as f32
+            / runs as f32;
+        self.set_percentage = (self.number_of_tricks[tricks_beating as usize..]
+            .iter()
+            .sum::<usize>() as f32
+            / runs as f32)
+            * 100.0;
+    }
+}
+
+impl Hash for LeadCard {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.card.hash(state);
+    }
 }
 
 pub struct LeadSimulationResult {
-    lead_results: Vec<LeadCard>,
+    lead_results: HashMap<Card, LeadCard>,
     deals_run: usize,
     contract: Contract,
 }
@@ -57,7 +81,7 @@ impl LeadSimulationResult {
     #[must_use]
     pub fn new(contract: Contract, deals_run: usize) -> Self {
         Self {
-            lead_results: Vec::with_capacity(8),
+            lead_results: HashMap::with_capacity(8),
             contract,
             deals_run,
         }
@@ -67,12 +91,87 @@ impl LeadSimulationResult {
     /// # Panics
     ///
     /// Panics when DDS returns a negative result for the tricks
-    pub fn add_results(&mut self, _results: dds::SolvedBoards) {}
+    pub fn add_results(&mut self, results: dds::SolvedBoards) {
+        let mut results_iter = results.into_iter();
+        if let Some(solved) = results_iter.next() {
+            for index in 0..solved.cards as usize {
+                let rank = solved.rank[index];
+                let suit = solved.suit[index];
+                let card = Card::new(Suit::try_from(suit).unwrap(), rank as u8);
+                self.lead_results
+                    .entry(card)
+                    .and_modify(|lead_card| {
+                        lead_card.number_of_tricks[solved.score[index] as usize] += 1
+                    })
+                    .or_insert_with(|| {
+                        let mut lead_card = LeadCard::new(card);
+                        let tricks = solved.score[index] as usize;
+                        lead_card.number_of_tricks[tricks] += 1;
+                        lead_card
+                    });
+            }
+        }
+        for solved in results_iter {
+            for index in 0..solved.cards as usize {
+                let rank = solved.rank[index];
+                let suit = solved.suit[index];
+                let card = Card::new(Suit::try_from(suit).unwrap(), rank as u8);
+                self.lead_results
+                    .entry(card)
+                    .and_modify(|lead_card| {
+                        lead_card.number_of_tricks[solved.score[index] as usize] += 1
+                    })
+                    .or_insert_with(|| {
+                        let mut lead_card = LeadCard::new(card);
+                        lead_card.number_of_tricks[solved.score[index] as usize] += 1;
+                        lead_card
+                    });
+            }
+        }
+    }
+
+    fn update(&mut self, tricks_beating: u8, runs: usize) {
+        for lead in self.lead_results.values_mut() {
+            lead.update(tricks_beating, runs)
+        }
+    }
 }
 
 impl SimulationResult for LeadSimulationResult {
-    fn report(self) {
-        todo!()
+    fn report(&self) {
+        let width = self.deals_run.to_string().len();
+        let width = if width < 4 { 4 } else { width };
+        println!("Simulated {} deals:", self.deals_run);
+        println!("{:^1$}", "Frequency of tricks taken", width * 14 + 16);
+        println!(
+            "Ld   Avg  %Set   {:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}",
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+        );
+        let mut res_iter = self
+            .lead_results
+            .iter()
+            .sorted_by(|a, b| b.1.set_percentage.total_cmp(&a.1.set_percentage));
+        let first = res_iter.next().unwrap();
+        println!(
+            "{}",
+            format!(
+                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
+                first.0,
+                first.1.average_tricks,
+                first.1.set_percentage,
+                first.1.number_of_tricks.iter().format("")
+            )
+            .green()
+        );
+        for lead in res_iter {
+            println!(
+                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
+                lead.0,
+                lead.1.average_tricks,
+                lead.1.set_percentage,
+                lead.1.number_of_tricks.iter().format("")
+            );
+        }
     }
 }
 
@@ -102,9 +201,9 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
         let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
 
         let contracts = [self.contract; MAXNOOFBOARDS];
-        let targets = [dds::Target::default(); MAXNOOFBOARDS];
-        let solutions = [dds::Solutions::default(); MAXNOOFBOARDS];
-        let modes = [dds::Mode::default(); MAXNOOFBOARDS];
+        let targets = [dds::Target::MaxTricks; MAXNOOFBOARDS];
+        let solutions = [dds::Solutions::AllLegal; MAXNOOFBOARDS];
+        let modes = [dds::Mode::Auto; MAXNOOFBOARDS];
 
         // For the number of boads, stepped by the number of deals we use per analysis
         for _ in (0..self.num_of_boards).step_by(MAXNOOFBOARDS) {
@@ -118,6 +217,7 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
         let solvedb = self.solve_boards(num, &contracts, &targets, &solutions, &modes)?;
         sim_result.add_results(solvedb);
 
+        sim_result.update(8 - self.contract.level(), self.num_of_boards);
         Ok(sim_result)
     }
 }
@@ -203,24 +303,24 @@ mod test {
     #[test]
     fn lead_simulation_ok() {
         let mut builder = DealerBuilder::new();
-        let hand = Cards::from_str("AQT KQ732").unwrap();
+        let hand = Cards::from_str("AQT KQ732 432 43").unwrap();
         builder
             .predeal(Seat::South, hand.try_into().unwrap())
             .with_function(|cards| {
                 let east = cards.east();
                 let west = cards.west();
-                east.hlen() + west.hlen() >= 8
+                east.hlen() + west.hlen() == 8
                     && east.hcp() + west.hcp() >= 20
                     && east.hcp() + west.hcp() <= 24
             });
         let dealer = builder.build().unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
-            num_of_boards: 10,
+            num_of_boards: 1000,
             dealer,
             contract,
         };
-        //let result = simulation.run().unwrap();
-        //result.report();
+        let result = simulation.run().unwrap();
+        result.report();
     }
 }
