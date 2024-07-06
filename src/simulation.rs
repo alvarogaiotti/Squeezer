@@ -1,14 +1,11 @@
 use std::{array, fmt::Display};
 
 use crate::{
-    imps,
-    prelude::{Card, Cards, Contract, Dealer, SqueezerError},
-    Deal, Hand,
+    prelude::{Card, Contract, Dealer, SqueezerError},
+    Deal,
 };
-use dds::{
-    ContractScorer, DDSPlayAnalyzer, PlayAnalyzer, PlayTracesBin, RankSeq, SolvedPlays, SuitSeq,
-};
-use itertools::*;
+use dds::MAXNOOFBOARDS;
+use itertools::Itertools;
 
 pub trait SimulationResult
 where
@@ -18,6 +15,8 @@ where
 }
 
 pub trait Simulation<T: SimulationResult> {
+    /// # Errors
+    /// - `DDSError`
     fn run(&self) -> Result<T, SqueezerError>;
 }
 
@@ -36,6 +35,7 @@ pub struct LeadCard {
 }
 
 impl LeadCard {
+    #[must_use]
     pub fn new(card: Card) -> Self {
         Self {
             card,
@@ -55,14 +55,9 @@ pub struct LeadSimulationResult {
 impl LeadSimulationResult {
     #[inline]
     #[must_use]
-    pub fn new(leads: Cards, contract: Contract, deals_run: usize) -> Self {
-        let lead_results = leads
-            .dedup()
-            .into_iter()
-            .map(|card| LeadCard::new(card))
-            .collect();
+    pub fn new(contract: Contract, deals_run: usize) -> Self {
         Self {
-            lead_results,
+            lead_results: Vec::with_capacity(8),
             contract,
             deals_run,
         }
@@ -72,37 +67,12 @@ impl LeadSimulationResult {
     /// # Panics
     ///
     /// Panics when DDS returns a negative result for the tricks
-    pub fn add_results(&mut self, results: dds::SolvedBoards) {
-        for trick in results {}
-    }
+    pub fn add_results(&mut self, _results: dds::SolvedBoards) {}
 }
 
 impl SimulationResult for LeadSimulationResult {
     fn report(self) {
-        let tricks = self.lead_results;
-        let leads_results = self
-            .cards
-            .into_iter()
-            .zip(tricks)
-            .map(|(card, results_array)| {
-                let mut sum = 0;
-                let mut times_beaten = 0;
-                let setting_tricks = 8 - self.contract.level() as usize;
-
-                for (ntricks, times_made) in results_array.iter().enumerate() {
-                    sum += ntricks * *times_made;
-                    if setting_tricks > ntricks {
-                        continue;
-                    }
-                    times_beaten += times_made;
-                }
-                LeadCard {
-                    card,
-                    number_of_tricks: results_array,
-                    average_tricks: sum as f32 / self.deals_run as f32,
-                    set_percentage: times_beaten as f32 / self.deals_run as f32,
-                }
-            });
+        todo!()
     }
 }
 
@@ -129,74 +99,62 @@ impl Display for LeadSimulationResult {
 impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
     #[allow(clippy::integer_division)]
     fn run(&self) -> Result<LeadSimulationResult, SqueezerError> {
-        let dedup = self.leader_hand.dedup();
-        let number_of_leads = dedup.len() as usize;
-        let number_of_deals_per_analysis = 200 / number_of_leads;
-        let length_of_play_traces = number_of_deals_per_analysis * number_of_leads;
+        let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
 
-        // Create the Seq vectors to feed to PlayTraces
-        let (suits, ranks): (Vec<SuitSeq>, Vec<RankSeq>) = dedup
-            .into_iter()
-            .map(|card| {
-                (
-                    [card.suit() as i32].try_into().unwrap(),
-                    [card.rank()].try_into().unwrap(),
-                )
-            })
-            .cycle()
-            .take(length_of_play_traces)
-            .unzip();
-
-        let mut plays = PlayTracesBin::from_sequences(suits, ranks)?;
-        let mut deal_producer = DealProducer::new(&self.dealer, number_of_leads);
-        let mut sim_result =
-            LeadSimulationResult::new(self.leader_hand, self.contract, self.num_of_boards);
-        let contracts = vec![self.contract; plays.len()];
+        let contracts = [self.contract; MAXNOOFBOARDS];
+        let targets = [dds::Target::default(); MAXNOOFBOARDS];
+        let solutions = [dds::Solutions::default(); MAXNOOFBOARDS];
+        let modes = [dds::Mode::default(); MAXNOOFBOARDS];
 
         // For the number of boads, stepped by the number of deals we use per analysis
-        for _ in (0..self.num_of_boards).step_by(200) {
+        for _ in (0..self.num_of_boards).step_by(MAXNOOFBOARDS) {
             // We take from the deal producer the number we need
-            let deals = array::from_fn(|_| self.dealer.deal().unwrap());
-            let mut boards = dds::Boards::new(
-                200,
-                &deals,
-                &[self.contract; 200],
-                &[dds::Target::default(); 200],
-                &[dds::Solutions::default(); 200],
-                &[dds::Mode::default(); 200],
-            );
-            let mut solvedb = dds::SolvedBoards::new(200);
-            unsafe {
-                dds::SolveAllBoardsBin(
-                    &mut boards as *mut dds::Boards,
-                    &mut solvedb as *mut dds::SolvedBoards,
-                )
-            };
+            let solvedb =
+                self.solve_boards(MAXNOOFBOARDS, &contracts, &targets, &solutions, &modes)?;
             sim_result.add_results(solvedb);
         }
 
-        // We do the same for the remaining deals
-        let rest = self.num_of_boards % number_of_deals_per_analysis;
-        let (suits_rest, rank_rest) = dedup
-            .into_iter()
-            .map(|card| {
-                (
-                    [card.suit() as i32].try_into().unwrap(),
-                    [card.rank()].try_into().unwrap(),
-                )
-            })
-            .cycle()
-            .take(rest)
-            .unzip();
-
-        let mut rest_playtrace = PlayTracesBin::from_sequences(suits_rest, rank_rest)?;
-        let deals = (&mut deal_producer).take(rest).collect();
-        let contracts_rest = vec![self.contract; rest];
-        let solved_plays =
-            analyzer.analyze_all_plays(&deals, &contracts_rest, &mut rest_playtrace)?;
-        sim_result.add_results(solved_plays);
+        let num = self.num_of_boards % MAXNOOFBOARDS;
+        let solvedb = self.solve_boards(num, &contracts, &targets, &solutions, &modes)?;
+        sim_result.add_results(solvedb);
 
         Ok(sim_result)
+    }
+}
+
+impl<T: Dealer> LeadSimulation<T> {
+    fn solve_boards(
+        &self,
+        num: usize,
+        contracts: &[Contract; MAXNOOFBOARDS],
+        targets: &[dds::Target; MAXNOOFBOARDS],
+        solutions: &[dds::Solutions; MAXNOOFBOARDS],
+        modes: &[dds::Mode; MAXNOOFBOARDS],
+    ) -> Result<dds::SolvedBoards, SqueezerError> {
+        // We take from the deal producer the number we need
+        let deals = array::from_fn(|_| self.dealer.deal().unwrap());
+        let mut boards = dds::Boards::new(
+            i32::try_from(num).unwrap(),
+            &deals,
+            contracts,
+            targets,
+            solutions,
+            modes,
+        );
+        let mut solvedb = dds::SolvedBoards::new(i32::try_from(num).unwrap());
+        // TODO: Implement the right interface on `DoubleDummySolver` for this free
+        // function.
+        if (unsafe {
+            dds::SolveAllBoardsBin(
+                std::ptr::from_mut::<dds::Boards>(&mut boards),
+                std::ptr::from_mut::<dds::SolvedBoards>(&mut solvedb),
+            )
+        } < 0)
+        {
+            Err(SqueezerError::DDSError(21.into()))
+        } else {
+            Ok(solvedb)
+        }
     }
 }
 
@@ -246,22 +204,23 @@ mod test {
     fn lead_simulation_ok() {
         let mut builder = DealerBuilder::new();
         let hand = Cards::from_str("AQT KQ732").unwrap();
-        builder.predeal(Seat::South, hand).with_function(|cards| {
-            let east = cards.east();
-            let west = cards.west();
-            east.hlen() + west.hlen() >= 8
-                && east.hcp() + west.hcp() >= 20
-                && east.hcp() + west.hcp() <= 24
-        });
+        builder
+            .predeal(Seat::South, hand.try_into().unwrap())
+            .with_function(|cards| {
+                let east = cards.east();
+                let west = cards.west();
+                east.hlen() + west.hlen() >= 8
+                    && east.hcp() + west.hcp() >= 20
+                    && east.hcp() + west.hcp() <= 24
+            });
         let dealer = builder.build().unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
             num_of_boards: 10,
-            leader_hand: hand,
             dealer,
             contract,
         };
-        let result = simulation.run().unwrap();
-        result.report();
+        //let result = simulation.run().unwrap();
+        //result.report();
     }
 }

@@ -1,12 +1,6 @@
-use super::{
-    ddsffi::RETURN_UNKNOWN_FAULT,
-    ffi::{AnalyseAllPlaysBin, AnalysePlayBin},
-    utils::build_c_deal,
-    AsDDSContract, AsDDSDeal, AsRawDDS, Boards, DdsDeal, Mode, Solutions, Target, MAXNOOFBOARDS,
-};
-use crate::{DDSDealConstructionError, DDSError, RankSeq, SuitSeq};
+use super::{ddsffi::RETURN_UNKNOWN_FAULT, AsDDSContract, AsDDSDeal, AsRawDDS, MAXNOOFBOARDS};
+use crate::{DDSError, RankSeq, SuitSeq};
 use core::{ffi::c_int, slice::Iter};
-use std::sync::{Mutex, OnceLock};
 
 /// Number of consecutive boards in a sequence a thread gets when we call
 /// `AnalyseAllPlaysBin`.

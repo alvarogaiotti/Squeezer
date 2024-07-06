@@ -7,6 +7,7 @@ pub enum Vulnerable {
 }
 
 impl Vulnerable {
+    #[must_use]
     pub const fn from_number_and_seat(board_number: u8, seat: Seat) -> Self {
         let state = Vulnerability::from_number(board_number);
         state.is_vulnerable(seat)
@@ -43,7 +44,7 @@ impl dds::ContractScorer for Contract {
             let mut base_score: i32 = per_trick * i32::from(self.level);
             let mut bonus: i32 = 0;
             if self.strain == Strain::NoTrumps {
-                base_score += 10
+                base_score += 10;
             };
 
             match self.doubled {
@@ -122,7 +123,7 @@ impl dds::ContractScorer for Contract {
                     }
                 }
                 if matches!(self.doubled, Doubled::Redoubled) {
-                    score *= 2
+                    score *= 2;
                 }
             }
             score
@@ -159,18 +160,17 @@ impl PartialOrd for Strain {
 impl Ord for Strain {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering;
-        match self {
-            Strain::NoTrumps => match other {
+        if let Strain::NoTrumps = self {
+            match other {
                 Strain::NoTrumps => Ordering::Equal,
                 _ => Ordering::Greater,
-            },
-            _ => {
-                let comp = (*self as usize).cmp(&(*other as usize));
-                match comp {
-                    Ordering::Less => Ordering::Greater,
-                    Ordering::Greater => Ordering::Less,
-                    _ => comp,
-                }
+            }
+        } else {
+            let comp = (*self as usize).cmp(&(*other as usize));
+            match comp {
+                Ordering::Less => Ordering::Greater,
+                Ordering::Greater => Ordering::Less,
+                Ordering::Equal => comp,
             }
         }
     }
@@ -201,7 +201,11 @@ impl Contract {
         self.declarer
     }
 
-    /// Constructs a `Contract` from a string representation.
+    /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
+    ///
+    /// # Errors
+    /// Errors if the contract string is improperly formatted
+    #[allow(clippy::cast_possible_truncation)]
     pub fn from_str(s: &str, vuln: Vulnerable) -> Result<Self, DealerError> {
         let doubled = match s.len() - s.trim_end_matches('X').len() {
             0 => Doubled::NotDoubled,
@@ -210,7 +214,11 @@ impl Contract {
             _ => unreachable!("too many `X`"),
         };
         let mut chars = s.chars();
-        let level = chars.next().unwrap().to_digit(10).unwrap();
+        let level = chars
+            .next()
+            .ok_or(DealerError::new("no contract level"))?
+            .to_digit(10)
+            .ok_or(DealerError::new("contract level too high"))?;
         if !(1..=7).contains(&level) {
             return Err(DealerError::new("Wrong contract level"));
         };
@@ -218,8 +226,14 @@ impl Contract {
             vuln,
             doubled,
             level: level as u8,
-            strain: chars.next().unwrap().try_into()?,
-            declarer: chars.next().unwrap().try_into()?,
+            strain: chars
+                .next()
+                .ok_or(DealerError::new("no contract strain"))?
+                .try_into()?,
+            declarer: chars
+                .next()
+                .ok_or(DealerError::new("no contract dealer"))?
+                .try_into()?,
         })
     }
 
@@ -236,7 +250,7 @@ impl Contract {
             } else {
                 let mut stringa = String::new();
                 for _ in 0..(self.doubled as usize) {
-                    stringa.push('X')
+                    stringa.push('X');
                 }
                 stringa
             }
@@ -254,8 +268,8 @@ impl Contract {
     ) -> Self {
         Self {
             vuln,
-            doubled,
             level,
+            doubled,
             strain,
             declarer,
         }
@@ -274,7 +288,7 @@ impl fmt::Display for Contract {
             } else {
                 let mut stringa = String::new();
                 for _ in 0..(self.doubled as usize) {
-                    stringa.push('X')
+                    stringa.push('X');
                 }
                 stringa
             }

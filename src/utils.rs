@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[must_use]
+#[allow(clippy::missing_panics_doc)]
 pub fn polish_club(hand: Hand) -> bool {
     let weak1n = HandTypeBuilder::new()
         .add_shape("(4432)")
@@ -68,26 +69,26 @@ fn evaluate_short_honors(hand: Hand) -> u8 {
 fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
     let mut sorted_suits = hand.into_iter().sorted_by_key(Cards::len).rev();
     let longest = sorted_suits.next().unwrap();
-    let longest2nd = sorted_suits.next().unwrap();
-    let longest3rd = sorted_suits.next().unwrap();
+    let second_longest = sorted_suits.next().unwrap();
+    let third_longest = sorted_suits.next().unwrap();
     let shortest = sorted_suits.next().unwrap();
-    let sum_long = longest.len() + longest2nd.len();
+    let sum_long = longest.len() + second_longest.len();
     let diff_long_short = longest.len() - shortest.len();
     let mut points = sum_long + diff_long_short;
     if 10 < hand.hcp()
         && hand.hcp() < 15
-        && longest.high_card_points() + longest2nd.high_card_points() >= hand.hcp() - 1
+        && longest.high_card_points() + second_longest.high_card_points() >= hand.hcp() - 1
         || (14 < hand.hcp()
             && longest.high_card_points()
-                + longest2nd.high_card_points()
-                + longest3rd.high_card_points()
+                + second_longest.high_card_points()
+                + third_longest.high_card_points()
                 >= hand.hcp() - 1)
     {
         points += 1;
     }
 
     if points == 25 && hand.spades().len() > 3 {
-        points += 1
+        points += 1;
     }
     points
 }
@@ -99,6 +100,7 @@ pub fn zar_points(hand: Hand) -> u8 {
 }
 
 #[must_use]
+#[allow(clippy::missing_panics_doc)]
 pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
     let mut builder = DealerBuilder::new();
     builder.with_function(Box::new(move |hands: &Hands| {
@@ -120,12 +122,4 @@ pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
         }
     }));
     builder.build().unwrap()
-}
-
-#[must_use]
-pub fn deal_1nt_3nt(hands: &[Hand; 4]) -> bool {
-    for (_seat, hand) in hands.iter().enumerate() {
-        if hand.hcp() < 18 && hand.hcp() > 14 {}
-    }
-    todo!()
 }

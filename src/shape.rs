@@ -1,9 +1,10 @@
 use crate::prelude::*;
-use crate::shapeparser::*;
+use crate::shapeparser::{ShapeCreator, ShapePattern};
 use bitvec::{bitarr, BitArr};
 
 const R: u64 = 14;
 const M: u64 = 1379;
+#[allow(clippy::cast_possible_truncation)]
 const SHAPE_TABLE_BUCKETS: usize = M as usize;
 
 #[derive(Default)]
@@ -17,7 +18,7 @@ impl std::hash::Hasher for ShapeHasher {
         // when hashing multiple shapes with the same hasher.
         self.state = 0;
         for &byte in bytes {
-            self.state = (R * self.state + u64::from(byte)) % M
+            self.state = (R * self.state + u64::from(byte)) % M;
         }
     }
 
@@ -47,16 +48,21 @@ impl Default for Shape {
 }
 
 impl Shape {
+    /// # Errors
+    /// When the pattern is not correct
     pub fn new_from_pattern(pattern: &str) -> Result<Self, DealerError> {
         let mut shape = Shapes::new();
         shape.add_shape(pattern)?;
         Ok(Self::Custom(shape))
     }
 
+    #[must_use]
     pub fn new_empty() -> Self {
         Self::Custom(Shapes::new())
     }
 
+    /// # Errors
+    /// When the pattern is not correct
     pub fn new_from_patterns(patterns: Vec<&str>) -> Result<Self, DealerError> {
         let mut shape = Shapes::new();
         for pattern in patterns {
@@ -65,6 +71,8 @@ impl Shape {
         Ok(Self::Custom(shape))
     }
 
+    /// # Errors
+    /// When the pattern is not correct
     pub fn remove_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
         match *self {
             Self::Custom(ref mut shape) => shape.remove_shape(pattern),
@@ -74,6 +82,8 @@ impl Shape {
             }
         }
     }
+    /// # Errors
+    /// When the pattern is not correct
     pub fn add_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
         match *self {
             Self::Custom(ref mut shape) => shape.add_shape(pattern),
@@ -90,6 +100,7 @@ impl Shape {
     }
 
     #[inline]
+    #[must_use]
     pub fn len_ranges(&self) -> [LenRange; 4] {
         match *self {
             Self::Custom(ref shape) => shape.len_ranges(),
@@ -114,7 +125,7 @@ impl std::fmt::Debug for Shapes {
         f.debug_struct("Shapes")
             .field("min_ls", &self.min_ls)
             .field("max_ls", &self.max_ls)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -144,6 +155,7 @@ impl Shapes {
 
     /// Converts a shape pattern to an index.
     #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
     pub const fn shape_pattern_to_index(pattern: [u8; 4]) -> usize {
         let mut state = 0;
         let mut index = 0;
@@ -162,9 +174,14 @@ impl Shapes {
     }
 
     /// Removes shapes based on a given string.
+    /// # Errors
+    /// When the pattern is not correct
+    #[allow(clippy::missing_panics_doc)]
     pub fn remove_shape(&mut self, shape: &str) -> Result<(), DealerError> {
         // Implementation can change in the future.
         let patterns = ShapeCreator::build_shape(shape)?;
+
+        // Returns error before panicking
         for pattern in patterns {
             self.delete_shape(pattern.try_into().unwrap());
         }
@@ -214,7 +231,7 @@ impl Shapes {
     }
 
     /// Creates a new Shapes instance filled with shapes.
-    /// Should use Shapes::All for normal purposes.
+    /// Should use `Shapes::All` for normal purposes.
     fn new_filled() -> Self {
         Self {
             shape_table: Box::new(bitarr!(1; SHAPE_TABLE_BUCKETS)),
@@ -224,6 +241,8 @@ impl Shapes {
     }
 
     /// Removes a shape and returns a new table instance.
+    /// # Errors
+    /// When the pattern is not correct
     pub fn but(shape: &str) -> Result<Self, DealerError> {
         let mut table = Self::new_filled();
         table.remove_shape(shape)?;
@@ -231,6 +250,9 @@ impl Shapes {
     }
 
     /// Adds a shape to the table.
+    /// # Errors
+    /// When the pattern is not correct
+    #[allow(clippy::missing_panics_doc)]
     pub fn add_shape(&mut self, shape: &str) -> Result<(), DealerError> {
         // Implementation can change in the future.
         let patterns = ShapeCreator::build_shape(shape)?;
@@ -254,6 +276,8 @@ impl Shapes {
     }
 
     /// Get the flattened version of the pattern descriptor.
+    /// # Panics
+    /// When the pattern is not correct
     #[must_use]
     pub fn flatten(pattern_descriptor: &[u8]) -> usize {
         let (s, h, d, c) = pattern_descriptor
@@ -451,15 +475,18 @@ impl Suit {
     pub const ALL: &'static [Self] = &[Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs];
 
     /// Next suit.
-    pub fn next(self) -> Result<Self, String> {
+    /// # Errors
+    #[must_use]
+    pub fn next(self) -> Option<Self> {
         match self {
-            Suit::Spades => Ok(Suit::Hearts),
-            Suit::Hearts => Ok(Suit::Diamonds),
-            Suit::Diamonds => Ok(Suit::Clubs),
-            Suit::Clubs => Err(String::from("Called Suit::Clubs.next() is not permitted.")),
+            Suit::Spades => Some(Suit::Hearts),
+            Suit::Hearts => Some(Suit::Diamonds),
+            Suit::Diamonds => Some(Suit::Clubs),
+            Suit::Clubs => None,
         }
     }
 
+    #[must_use]
     pub fn rotating_next(self) -> Self {
         match self {
             Suit::Spades => Suit::Hearts,
@@ -471,7 +498,7 @@ impl Suit {
 }
 
 mod test {
-    use crate::{Cards, Hand, LenRange, Shapes};
+    use super::*;
 
     #[test]
     fn shape_creation_test() {
@@ -494,7 +521,7 @@ mod test {
         let mut true_arr = Vec::<usize>::new();
         for (i, data) in factory.shape_table.iter().enumerate() {
             if *data {
-                true_arr.push(i)
+                true_arr.push(i);
             }
         }
         let mut ok_shapes = vec![
@@ -547,7 +574,7 @@ mod test {
         let mut true_arr = Vec::<usize>::new();
         for (i, data) in shapes.shape_table.iter().enumerate() {
             if *data {
-                true_arr.push(i)
+                true_arr.push(i);
             }
         }
         let mut ok_shapes = vec![

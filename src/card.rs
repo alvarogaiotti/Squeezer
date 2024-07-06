@@ -216,18 +216,18 @@ pub struct Cards {
     bits: u64,
 }
 
+#[allow(clippy::cast_possible_truncation)]
 impl Cards {
-    /// A new, full French deck without Jokers.
-    #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     #[inline]
+    /// A new, full French deck without Jokers.
     pub const fn new_deck() -> Self {
         Cards::ALL
     }
 
-    /// Number of cards stored.
     #[must_use]
     #[inline]
+    /// Number of cards stored.
     pub const fn len(&self) -> u8 {
         self.bits.count_ones() as u8
     }
@@ -551,17 +551,20 @@ impl SuitIterator {
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 impl Iterator for SuitIterator {
-    #[allow(clippy::cast_possible_truncation)]
     type Item = Card;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let cards = Cards { bits: self.bits };
         if self.bits == 0 {
             None
         } else {
             let next = self.bits.leading_zeros();
             self.bits &= !(1 << (63 - next));
-            Some(Card { offset: next as u8 })
+            Some(Card {
+                offset: 63 - next as u8,
+            })
         }
     }
 
@@ -674,7 +677,7 @@ impl std::str::FromStr for Card {
 }
 
 impl std::str::FromStr for Cards {
-    type Err = String;
+    type Err = DealerError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut cards = Cards::EMPTY;
@@ -694,7 +697,9 @@ impl std::str::FromStr for Cards {
                     suit = Suit::Spades;
                 }
                 ' ' => {
-                    suit = suit.next()?;
+                    suit = suit.next().ok_or(DealerError::new(
+                        "more than 4 suits, check input string for spaces",
+                    ))?;
                 }
                 '2' => {
                     cards = cards.insert(Card::new(suit, 2));
@@ -747,6 +752,8 @@ impl From<u64> for Cards {
         Cards { bits }
     }
 }
+
+#[allow(clippy::cast_possible_truncation)]
 impl DoubleEndedIterator for SuitIterator {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.bits == 0 {

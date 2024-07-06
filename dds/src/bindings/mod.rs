@@ -26,4 +26,4 @@ pub use utils::*;
 
 #[allow(clippy::as_conversions)]
 /// Max number of boards set by DDS
-const MAXNOOFBOARDS: usize = ddsffi::MAXNOOFBOARDS as usize;
+pub const MAXNOOFBOARDS: usize = ddsffi::MAXNOOFBOARDS as usize;

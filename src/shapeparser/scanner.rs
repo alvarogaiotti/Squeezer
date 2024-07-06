@@ -31,6 +31,7 @@ impl Scanner {
     }
 
     /// Scans a single token from the source string.
+    #[allow(clippy::cast_possible_truncation)]
     fn scan_token(&mut self) -> Result<(), ScanningShapeError> {
         let c = self.advance();
 
@@ -44,7 +45,7 @@ impl Scanner {
                 // SAFETY: Bounds already checked
                 let length = length.to_digit(16).unwrap() as u8;
                 if length <= 13 {
-                    self.add_token(Token::Length(length))
+                    self.add_token(Token::Length(length));
                 } else {
                     return Err(ScanningShapeError::SuitTooLong(length));
                 }
@@ -113,8 +114,8 @@ impl std::fmt::Display for ScanningShapeError {
             f,
             "{}",
             match *self {
-                ScanningShapeError::UnknownChar(char) => format!("unknown char {}", char),
-                ScanningShapeError::SuitTooLong(num) => format!("suit is too long: {}", num),
+                ScanningShapeError::UnknownChar(char) => format!("unknown char {char}"),
+                ScanningShapeError::SuitTooLong(num) => format!("suit is too long: {num}"),
             }
         )
     }

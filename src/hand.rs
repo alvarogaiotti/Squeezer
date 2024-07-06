@@ -20,6 +20,7 @@ impl Hand {
     /// Create a new Hand with 13 random cards from a deck.
     /// Returns the created Hand.
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn new() -> Self {
         Hand {
             cards: Cards::new_deck().pick(13).unwrap(),
@@ -161,13 +162,25 @@ impl Hand {
     }
 }
 
+impl TryFrom<Cards> for Hand {
+    type Error = DealerError;
+
+    fn try_from(value: Cards) -> Result<Self, Self::Error> {
+        if value.len() > 13 {
+            Err(DealerError::new("too many cards in hand"))
+        } else {
+            Ok(Hand { cards: value })
+        }
+    }
+}
+
 impl FromStr for Hand {
-    type Err = String;
+    type Err = DealerError;
 
     fn from_str(hand: &str) -> Result<Hand, Self::Err> {
         let cards = Cards::from_str(hand)?;
         if cards.len() != 13 {
-            return Err("Wrong number of cards for a Bridge hand!".to_string());
+            return Err(DealerError::new("Wrong number of cards for a Bridge hand!"));
         }
         Ok(Hand { cards })
     }
@@ -219,9 +232,9 @@ pub struct HcpRange {
 }
 
 impl HcpRange {
-    /// This function guarantees that the HcpRange created is possible.
-    /// i.e. that the min_hcp is less than or equal to the max_hcp.
-    /// and that the max_hcp is clamped to 37.
+    /// This function guarantees that the `HcpRange` created is possible.
+    /// i.e. that the `min_hcp` is less than or equal to the `max_hcp`.
+    /// and that the `max_hcp` is clamped to 37.
     #[must_use]
     pub const fn new(min_hcp: u8, max_hcp: u8) -> Self {
         let min_hcp = if min_hcp > 37 { 37 } else { min_hcp };
@@ -276,13 +289,13 @@ pub struct HandType {
 }
 
 impl HandType {
-    /// Create a new HandType with the specified shape and HCP range.
+    /// Create a new `HandType` with the specified shape and HCP range.
     #[must_use]
     pub const fn new(shape: Shape, hcp_range: HcpRange) -> Self {
         Self { shape, hcp_range }
     }
 
-    /// Check if the HandType matches the given hand based on shape and HCP range.
+    /// Check if the `HandType` matches the given hand based on shape and HCP range.
     #[must_use]
     pub fn check(&self, hand: Hand) -> bool {
         self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
@@ -294,7 +307,7 @@ impl HandType {
         self.shape.len_ranges()
     }
 
-    /// Get the accepted HCP range for this HandType.
+    /// Get the accepted HCP range for this `HandType`.
     #[must_use]
     pub fn hcp_range(&self) -> HcpRange {
         self.hcp_range
@@ -316,7 +329,7 @@ impl HandDescriptor {
             .any(|hand_type| hand_type.check(hand))
     }
 
-    /// Create a new HandDescriptor with the specified list of possible hand types.
+    /// Create a new `HandDescriptor` with the specified list of possible hand types.
     #[must_use]
     pub fn new(possible_hands: Vec<HandType>) -> Self {
         Self { possible_hands }
@@ -347,7 +360,9 @@ impl HandTypeBuilder {
         }
     }
 
-    pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
+    /// # Errors
+    /// Errors if the shape is not parsable
+    pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, DealerError> {
         if let Some(ref mut shapes) = self.shapes {
             shapes.add_shape(pattern)?;
         } else {
@@ -357,6 +372,8 @@ impl HandTypeBuilder {
         }
         Ok(self)
     }
+    /// # Errors
+    /// Errors if the shape is not parsable
     pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
         if let Some(ref mut shapes) = self.shapes {
             shapes.remove_shape(pattern)?;
@@ -370,6 +387,9 @@ impl HandTypeBuilder {
         self.hcp_range = Some(HcpRange::new(min_hcp, max_hcp));
         self
     }
+    #[allow(clippy::missing_panics_doc)]
+    /// # Errors
+    /// Errors if the shape is not parsable
     pub fn with_longest(&mut self, suit: Suit) -> &mut Self {
         let shape = Shapes::new();
         self.shapes = Some(Shape::Custom(shape));
@@ -471,11 +491,7 @@ impl HandTypeBuilder {
         } else {
             Shape::All
         };
-        let hcp_range = if let Some(hcp_range) = self.hcp_range.take() {
-            hcp_range
-        } else {
-            HcpRange::default()
-        };
+        let hcp_range = self.hcp_range.take().unwrap_or_default();
         HandType { shape, hcp_range }
     }
 }

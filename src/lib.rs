@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![warn(clippy::restriction, clippy::pedantic)]
+#![warn(clippy::pedantic)]
 #![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
 #![allow(clippy::single_call_fn)]
 #![allow(clippy::missing_trait_methods)]
@@ -16,6 +16,8 @@
 #![allow(clippy::missing_inline_in_public_items)]
 #![allow(clippy::unreachable)]
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::integer_division_remainder_used)]
+#![allow(clippy::module_name_repetitions)]
 
 #[cfg(feature = "dds")]
 mod analyse_performance;
@@ -26,8 +28,10 @@ mod bbo_async;
 #[cfg(any(feature = "bbo", feature = "bbo_async"))]
 mod bbohelpers;
 mod card;
+mod contract;
 mod deal;
 mod dealproduction;
+mod error;
 mod evaluator;
 mod hand;
 #[cfg(feature = "lin")]
@@ -39,11 +43,9 @@ mod shapeparser;
 #[cfg(feature = "dds")]
 mod simulation;
 mod utils;
-mod error;
-mod contract;
 
 mod prelude {
-    #[cfg(feature="dds")]
+    #[cfg(feature = "dds")]
     pub extern crate dds;
     pub const ZERO_LENGTH: u8 = 0;
     pub const MAX_HCP_IN_HAND: u8 = 37;
@@ -55,8 +57,7 @@ mod prelude {
     pub const RANKS: u8 = 13;
     pub use crate::contract::*;
     pub const NUMBER_OF_HANDS: usize = 4;
-    pub use crate::error::*;
-    #[cfg(feature="dds")]
+    #[cfg(feature = "dds")]
     pub use crate::analyse_performance::*;
     #[cfg(feature = "bbo")]
     pub use crate::bbo::*;
@@ -67,15 +68,16 @@ mod prelude {
     pub use crate::card::*;
     pub use crate::deal::*;
     pub use crate::dealproduction::*;
+    pub use crate::error::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
-    #[cfg(feature="lin")]
+    #[cfg(feature = "lin")]
     pub use crate::linparser::*;
     #[cfg(feature = "dds")]
     pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::shapeparser::*;
-    #[cfg(feature="dds")]
+    #[cfg(feature = "dds")]
     pub use crate::simulation::*;
     pub use crate::utils::*;
     pub(crate) use colored::Colorize;

@@ -46,6 +46,7 @@ where
     /// # Arguments
     ///
     /// * `raw_scores` - A reference to a hashmap containing raw scores for each contract entry.
+    #[allow(clippy::missing_panics_doc)]
     pub fn add_data(&mut self, raw_scores: &HashMap<&str, i32>) {
         let diff = &self.diff;
         for (i, ei) in self.entries.iter().enumerate() {
@@ -60,11 +61,12 @@ where
 
     /// This function generates a report displaying the Payoff matrix in the terminal.
     /// It compares the expected value of each option with respect to the others.
+    #[allow(clippy::missing_panics_doc, clippy::cast_precision_loss)]
     pub fn report(&self) {
         let mut means_stderrs: Vec<Vec<(f32, f32)>> = Vec::new();
         for (i, line) in self.table.iter().enumerate() {
             means_stderrs.push(Vec::new());
-            for (_j, score) in line.iter().enumerate() {
+            for score in line {
                 means_stderrs[i].push((
                     mean(score).unwrap(),
                     std_deviation(score).unwrap() / (score.len() as f32).sqrt(),
@@ -106,6 +108,7 @@ where
     }
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn mean(data: &[i32]) -> Option<f32> {
     let sum = data.iter().sum::<i32>() as f32;
     let count = data.len();
@@ -115,6 +118,7 @@ fn mean(data: &[i32]) -> Option<f32> {
     }
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn std_deviation(data: &[i32]) -> Option<f32> {
     match (mean(data), data.len()) {
         (Some(data_mean), count) if count > 0 => {
@@ -132,7 +136,7 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
     }
 }
 
-
+#[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
 fn bisect_right(value: i32, lista: &[i32]) -> i32 {
     for (i, &x) in lista.iter().enumerate() {
         if x < value {
@@ -176,7 +180,7 @@ fn payoff_report_test() {
         data.insert(&contratto1str as &str, contratto1.score(i));
         data.insert(&contratto2str as &str, contratto2.score(i));
         data.insert(&contratto3str as &str, contratto3.score(i));
-        matrix.add_data(&data)
+        matrix.add_data(&data);
     }
     matrix.report();
     assert_eq!(7, matrix.table[2][0][9]);

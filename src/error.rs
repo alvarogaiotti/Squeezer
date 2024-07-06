@@ -31,7 +31,7 @@ impl Error for SqueezerError {
 impl std::fmt::Display for SqueezerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let inner = self.source().unwrap();
-        write!(f, "squeezer encountered an error:\n\t{}", inner)
+        write!(f, "squeezer encountered an error:\n\t{inner}")
     }
 }
 

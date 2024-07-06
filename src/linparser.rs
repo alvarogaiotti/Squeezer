@@ -12,11 +12,11 @@ use std::{
 
 /// A struct for parsing lin files.
 /// You can feed a lin file and parse it,
-/// expecting to obtai a ParsedLin struct.
+/// expecting to obtai a `ParsedLin` struct.
 /// The struct expects a something that can be turn into a
 /// Iterator<Item=char> for parsing it.
 /// You'll interact very rarely with this struct directly.
-/// Instead, you'll use the `LinDeal` struct and its from_str method.
+/// Instead, you'll use the `LinDeal` struct and its `from_str` method.
 
 struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
@@ -62,30 +62,37 @@ pub struct LinDeal {
 }
 
 impl LinDeal {
+    #[must_use]
     pub fn players(&self) -> &[String; 4] {
         &self.players
     }
 
+    #[must_use]
     pub fn hands(&self) -> Hands {
         self.hands
     }
 
+    #[must_use]
     pub fn number(&self) -> u8 {
         self.number
     }
 
+    #[must_use]
     pub fn bidding(&self) -> Option<&Bidding> {
         self.bidding.as_ref()
     }
 
+    #[must_use]
     pub fn play_sequence(&self) -> Option<&PlaySequence> {
         self.play_sequence.as_ref()
     }
 
+    #[must_use]
     pub fn dealer(&self) -> Seat {
         self.dealer
     }
 
+    #[must_use]
     pub fn contract(&self) -> Option<Contract> {
         let mut contract = None;
         if let Some(ref bidding) = self.bidding {
@@ -95,12 +102,12 @@ impl LinDeal {
                 match *bid {
                     Bid::Double => {
                         doubled = Doubled::Doubled;
-                        declarer = declarer - 1;
+                        declarer -= 1;
                     }
-                    Bid::Pass => declarer = declarer - 1,
+                    Bid::Pass => declarer -= 1,
                     Bid::Redouble => {
                         doubled = Doubled::Redoubled;
-                        declarer = declarer - 1;
+                        declarer -= 1;
                     }
                     Bid::Contract(level, strain) => {
                         let declarer = declarer.into();
@@ -153,7 +160,9 @@ impl std::error::Error for LinParsingError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.kind {
             LinParsingErrorKind::Bidding(ref e) => Some(e),
-            LinParsingErrorKind::Player | LinParsingErrorKind::Hands | LinParsingErrorKind::Number => None,
+            LinParsingErrorKind::Player
+            | LinParsingErrorKind::Hands
+            | LinParsingErrorKind::Number => None,
         }
     }
 }
@@ -290,12 +299,14 @@ impl Bidding {
     pub fn get(&self, index: usize) -> Option<&Bid> {
         self.bidding.get(index)
     }
-    #[must_use]
     #[inline]
     pub fn iter(&self) -> std::slice::Iter<Bid> {
         self.bidding.iter()
     }
     #[inline]
+    /// # Errors
+    /// - If the `Bid` is insufficient
+    /// - If we are at the first `Bid` and find a Double or Redouble
     pub fn push(&mut self, bid: Bid) -> Result<(), BiddingError> {
         if let Some(last) = self.bidding.last() {
             if bid.can_bid_over(last) {
@@ -536,11 +547,23 @@ pub struct PlaySequence {
 }
 
 impl PlaySequence {
+    #[must_use]
     pub fn new(sequence: Vec<Card>) -> Self {
         Self { sequence }
     }
+    #[must_use]
     pub fn len(&self) -> usize {
         self.sequence.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[must_use]
+    pub fn iter(&self) -> <&Self as std::iter::IntoIterator>::IntoIter {
+        self.into_iter()
     }
 }
 
@@ -564,7 +587,7 @@ impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
         } else if len > SEQUENCE_LENGTH {
             return Err(SeqError::SequenceTooLong);
         }
-        
+
         let (suitseq, rankseq): (Vec<_>, Vec<_>) = value
             .into_iter()
             .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
@@ -596,7 +619,7 @@ fn play_sequence(lin: &str) -> PlaySequence {
         sequence.push(Card::from_str(&card["card"]).unwrap_or_else(|_| {
             error!("cannot parse a card, using joker");
             Card::JOKER
-        }))
+        }));
     }
     PlaySequence { sequence }
 }
@@ -616,5 +639,5 @@ fn claim(lin: &str) -> Option<u8> {
 fn parses_lin_test() {
     let lin = String::from("pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|");
     let parsed_lin = LinDeal::from_str(&lin).unwrap();
-    println!("{}", parsed_lin);
+    println!("{parsed_lin}");
 }

@@ -1,7 +1,7 @@
 use super::{
     parser::Parser, scanner::ScanningShapeError, Length, Modifier, ParsingShapeError, Pattern,
 };
-use itertools::*;
+use itertools::Itertools;
 use std::{cmp::Ordering, collections::VecDeque, ops::ControlFlow};
 
 /// Represents a single shape description.
@@ -243,11 +243,7 @@ impl ShapeCreator {
     fn cap_at_custom_size(mut free_places: u8, len: u8, cap: u8) -> (u8, u8) {
         assert!(len < cap);
         let new_len = (len + free_places).clamp(0, cap);
-        free_places = if let Some(result) = free_places.checked_sub(cap - len) {
-            result
-        } else {
-            0
-        };
+        free_places = free_places.checked_sub(cap - len).unwrap_or_default();
         (free_places, new_len)
     }
 
@@ -297,16 +293,16 @@ impl ShapeCreator {
     /// Handles the group pattern by interpreting the lengths and updating the shapes.
     fn handle_group_pattern(
         &mut self,
-        lengths: &Vec<Length>,
+        lengths: &[Length],
         shape: &mut Vec<u8>,
         shapes: &mut Vec<Vec<u8>>,
     ) {
         let group_len = lengths.len();
         for permutation in lengths.iter().permutations(group_len) {
-            for suit in permutation.into_iter() {
+            for suit in permutation {
                 // Note to myself: is push front because we want to keep patterns not already handled last,
                 // so we place our group members to the first place, where we are right now
-                self.patterns.push_front(Pattern::Suit(*suit))
+                self.patterns.push_front(Pattern::Suit(*suit));
             }
             self.interpret(shape, shapes);
             for _ in 0..group_len {
@@ -316,7 +312,7 @@ impl ShapeCreator {
     }
 
     /// Short circuits if the last element closes the shape and adds it to the list of shapes.
-    fn is_last_pattern(shape: &mut Vec<u8>, pattern: &Pattern) -> ControlFlow<Option<u8>> {
+    fn is_last_pattern(shape: &mut [u8], pattern: &Pattern) -> ControlFlow<Option<u8>> {
         if shape.len() == 3 {
             let candidate = 13 - shape.iter().sum::<u8>();
             if pattern.contains(candidate) {
@@ -329,21 +325,23 @@ impl ShapeCreator {
 }
 
 fn pattern_length_adder(accumulator: u8, element: &Pattern) -> u8 {
-    fn length_adder(accumulator: u8, length: &Length) -> u8 {
+    fn length_adder(accumulator: u8, length: Length) -> u8 {
         match length {
             Length {
                 modifier: Modifier::AtMost,
                 ..
             } => accumulator,
-            Length {
-                length,
-                ..
-            } => accumulator + *length,
+            Length { length, .. } => accumulator + length,
         }
     }
     match element {
-        Pattern::Suit(length) => length_adder(accumulator, length),
-        Pattern::Group(group) => accumulator + (*group).iter().fold(0, length_adder),
+        Pattern::Suit(length) => length_adder(accumulator, *length),
+        Pattern::Group(group) => {
+            accumulator
+                + (*group)
+                    .iter()
+                    .fold(0, |acc, &value| length_adder(acc, value))
+        }
     }
 }
 

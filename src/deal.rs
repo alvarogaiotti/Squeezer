@@ -189,12 +189,14 @@ impl Iterator for RotatingSuitIterator {
 impl RotatingSuitIterator {
     /// Beware, this iterator never stops
     #[inline]
+    #[must_use]
     pub fn new(state: Seat) -> Self {
         Self { state }
     }
     pub fn set_state(&mut self, state: Seat) {
         self.state = state;
     }
+    #[must_use]
     pub fn state(&self) -> Seat {
         self.state
     }
@@ -210,6 +212,7 @@ macro_rules! impl_add_and_from_ints_for_seat {
                 (self as $t + rhs).into()
             }
         }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         impl From<$t> for Seat {
             fn from(n: $t) -> Self {
                 match n % NUMBER_OF_HANDS as $t {
@@ -221,24 +224,25 @@ macro_rules! impl_add_and_from_ints_for_seat {
                 }
             }
         }
-            impl std::ops::Add<&$t> for Seat {
-                type Output = Seat;
+        impl std::ops::Add<&$t> for Seat {
+            type Output = Seat;
 
-                fn add(self, rhs: &$t) -> Self::Output {
-                    (self as $t + *rhs).into()
+            fn add(self, rhs: &$t) -> Self::Output {
+                (self as $t + *rhs).into()
+            }
+        }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        impl From<&$t> for Seat {
+            fn from(n: &$t) -> Self {
+                match *n % NUMBER_OF_HANDS as $t {
+                    x if x == Seat::North as $t => Seat::North,
+                    x if x == Seat::East as $t => Seat::East,
+                    x if x == Seat::South as $t => Seat::South,
+                    x if x == Seat::West as $t => Seat::West,
+                    _ => unreachable!(),
                 }
             }
-            impl From<&$t> for Seat {
-                fn from(n: &$t) -> Self {
-                    match *n % NUMBER_OF_HANDS as $t {
-                        x if x == Seat::North as $t => Seat::North,
-                        x if x == Seat::East as $t => Seat::East,
-                        x if x == Seat::South as $t => Seat::South,
-                        x if x == Seat::West as $t => Seat::West,
-                        _ => unreachable!(),
-                    }
-                }
-            }
+        }
         )*
     };
 }
@@ -275,6 +279,7 @@ impl Vulnerability {
     ];
 
     #[inline]
+    #[must_use]
     pub const fn is_vulnerable(&self, seat: Seat) -> Vulnerable {
         let seat_position = (seat as usize) % 2;
         if ((*self as usize) & (1 << seat_position)) == 1 {
@@ -284,6 +289,7 @@ impl Vulnerability {
         }
     }
     #[inline]
+    #[must_use]
     pub const fn from_number(board_number: u8) -> Self {
         Self::VULNERABILITY_TABLE[(board_number % 16) as usize]
     }
@@ -295,10 +301,14 @@ pub struct VulnerabilityIterator {
 
 impl VulnerabilityIterator {
     #[inline]
+    #[must_use]
     pub const fn new() -> Self {
         Self { board_number: 0 }
     }
+
+    #[allow(clippy::missing_panics_doc, clippy::cast_possible_truncation)]
     #[inline]
+    #[must_use]
     pub fn from_state(state: Vulnerability) -> Self {
         // SAFETY: We'll find the state
         let board_number = Vulnerability::VULNERABILITY_TABLE
@@ -310,8 +320,15 @@ impl VulnerabilityIterator {
     }
 
     #[inline]
+    #[must_use]
     pub const fn from_board_number(board_number: u8) -> Self {
         Self { board_number }
+    }
+}
+
+impl Default for VulnerabilityIterator {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -338,7 +355,7 @@ impl IntoIterator for Vulnerability {
 /// ```
 /// # use squeezer::*;
 /// let mut builder = DealerBuilder::new();
-/// builder.predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap());
+/// builder.predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap().try_into().unwrap());
 /// let dealer = builder.build().unwrap();
 /// //North will have AKQ AKQ AKQ AKQJ.
 /// println!("{}",dealer.deal().unwrap());
@@ -359,7 +376,7 @@ pub struct DealerBuilder {
     /// Descriptor of the hands we would like, e.g.
     hand_descriptors: HashMap<Seat, HandDescriptor>,
     /// Hands to predeal.
-    predealt_hands: HashMap<Seat, Cards>,
+    predealt_hands: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
 }
 
@@ -384,8 +401,7 @@ impl DealerBuilder {
     /// Set the cards that a particular [`Seat`] will be dealt. Will not fail right away if same card
     /// is dealt twice, but will fail in the building phase.
     #[inline]
-    pub fn predeal(&mut self, seat: Seat, hand: Cards) -> &mut Self {
-        assert!(hand.len() <= 13);
+    pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
         self.predealt_hands.insert(seat, hand);
         self
     }
@@ -433,18 +449,19 @@ impl DealerBuilder {
     }
 
     /// Builds the Dealer.
-    /// **NOTE**: this will method will return an error if you try to predeal the same card twice.
+    /// # Errors
+    /// This will method will return an error if you try to predeal the same card twice.
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
         for &hand in self.predealt_hands.values() {
-            if !hand.difference(deck).is_empty() {
+            if !hand.cards.difference(deck).is_empty() {
                 return Err(DealerError::new(
-                    format!("card dealt twice: {}", hand.difference(deck)).as_str(),
+                    format!("card dealt twice: {}", hand.cards.difference(deck)).as_str(),
                 ));
             }
 
-            deck = deck.difference(hand);
+            deck = deck.difference(hand.cards);
         }
         Ok(StandardDealer {
             predeal: self.predealt_hands,
@@ -458,6 +475,8 @@ impl DealerBuilder {
 }
 
 pub trait Dealer {
+    /// # Errors
+    /// Errors if is unable to deal a `Deal`
     fn deal(&self) -> Result<Deal, DealerError>;
 }
 
@@ -471,7 +490,7 @@ pub enum BoardNumbering {
 /// You won't interact much with this struct other that call the [`StandardDealer::deal`] method. Use the [`DealerBuilder`] instead to create a [`Dealer`] that
 /// fits your needs.
 pub struct StandardDealer {
-    predeal: HashMap<Seat, Cards>,
+    predeal: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
     deck_starting_state: Cards,
     hand_constraints: HashMap<Seat, HandDescriptor>,
@@ -486,7 +505,7 @@ impl std::fmt::Debug for StandardDealer {
             .field("Predeal", &self.predeal)
             .field("Vulnerability", &self.vulnerability)
             .field("Hand Constraints", &self.hand_constraints)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -514,14 +533,14 @@ impl Dealer for StandardDealer {
             let mut deck = self.deck_starting_state;
             for seat in Seat::iter() {
                 if let Some(&hand) = self.predeal.get(&seat) {
-                    let predeal_len = hand.len();
+                    let predeal_len = hand.cards.len();
                     if predeal_len < 13 {
                         let Some(cards_to_add) = deck.pick(13 - predeal_len as usize) else {
                             return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
                         };
-                        hands[seat as usize].set_cards(hand + cards_to_add);
+                        hands[seat as usize].set_cards(hand.cards + cards_to_add);
                     } else {
-                        hands[seat as usize].set_cards(hand);
+                        hands[seat as usize].set_cards(hand.cards);
                     }
                 } else {
                     hands[seat as usize] = if let Some(cards) = deck.pick(13) {
@@ -736,6 +755,7 @@ impl Deal {
 
     #[must_use]
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn as_lin(&self, board_n: u8) -> String {
         let board_n = if board_n % (MAX_N_OF_BOARDS + 1) == 0 {
             1
@@ -894,11 +914,12 @@ mod test {
     }
     #[test]
     #[should_panic]
+    #[allow(clippy::should_panic_without_expect)]
     fn predealing_twice_should_panic() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
-        builder.predeal(Seat::North, hand);
-        builder.predeal(Seat::West, hand);
+        builder.predeal(Seat::North, hand.try_into().unwrap());
+        builder.predeal(Seat::West, hand.try_into().unwrap());
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
@@ -921,7 +942,7 @@ mod test {
     fn dealer_deals_with_predeal_test() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
-        builder.predeal(Seat::North, hand);
+        builder.predeal(Seat::North, hand.try_into().unwrap());
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
@@ -932,7 +953,7 @@ mod test {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
         builder
-            .predeal(Seat::North, hand)
+            .predeal(Seat::North, hand.try_into().unwrap())
             .with_function(Box::new(|hands: &Hands| {
                 hands.north().slen() + hands.south().slen() > 8
             }));

@@ -3,7 +3,7 @@ mod interpreter;
 mod parser;
 mod scanner;
 pub use interpreter::*;
-use parser::*;
+use parser::{Modifier, ParsingShapeError};
 
 /// A pattern is a shape pattern, which is formed by 4 Lenght tokens.
 /// It represent a set of possible shapes.
@@ -59,8 +59,8 @@ struct PatternsAsShape {
 impl std::fmt::Display for Pattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Suit(len) => write!(f, "Pattern::Suit, with len:\n{}", len),
-            Self::Group(vec) => write!(f, "Pattern::Group, with vec:\n{:#?}", vec),
+            Self::Suit(len) => write!(f, "Pattern::Suit, with len:\n{len}"),
+            Self::Group(vec) => write!(f, "Pattern::Group, with vec:\n{vec:#?}"),
         }
     }
 }
@@ -89,7 +89,7 @@ macro_rules! token_as_int {
 
 impl From<Vec<Length>> for PatternsAsShape {
     fn from(value: Vec<Length>) -> Self {
-        use itertools::*;
+        use itertools::Itertools;
         assert_eq!(value.len(), 4);
         let mut patterns = [Length::at_least(0); 4];
         patterns.iter_mut().set_from(value);
@@ -131,8 +131,8 @@ impl std::fmt::Display for Token {
             f,
             "{}",
             match self {
-                Token::Length(num) => format!("Token::Length({})", num),
-                Token::Modifier(modifier) => format!("Token::Modifier({})", modifier),
+                Token::Length(num) => format!("Token::Length({num})"),
+                Token::Modifier(modifier) => format!("Token::Modifier({modifier})"),
                 Token::Joker => "Token::Joker".to_owned(),
                 Token::OpenParen => "Token::OpenParens".to_owned(),
                 Token::CloseParen => "Token::ClosedParens".to_owned(),
@@ -182,8 +182,8 @@ impl Length {
 
 #[cfg(test)]
 mod test {
+    use super::parser::Parser;
     use super::scanner::Scanner;
-    use super::Parser;
     #[test]
     fn new_parser_test() {
         let scanner = Scanner::from("(4+33)3-");
@@ -193,7 +193,7 @@ mod test {
             .parse()
             .unwrap()
             .into_iter()
-            .for_each(|x| println!("{:#?}", x));
+            .for_each(|x| println!("{x:#?}"));
     }
     #[test]
     fn new_parser_pattern_test() {
@@ -204,7 +204,7 @@ mod test {
             .parse()
             .unwrap()
             .into_iter()
-            .for_each(|x| println!("{:#?}", x));
+            .for_each(|x| println!("{x:#?}"));
     }
     #[test]
     #[should_panic]
