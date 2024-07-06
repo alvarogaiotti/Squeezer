@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::*;
 
 pub trait DdTableCalculator {
@@ -6,24 +8,40 @@ pub trait DdTableCalculator {
     fn calculate_complete_table(
         &self,
         table_deal: DdTableDeal,
-        tablep: &mut DdTableResults,
-    ) -> Result<(), DDSError>;
+        tablep: &mut DdTableResults<NotPopulated>,
+    ) -> Result<&mut DdTableResults<Populated>, DDSError>;
     fn calculate_complete_table_pbn(
         &self,
         table_deal_pbn: DdTableDealPbn,
-        tablep: &mut DdTableResults,
-    ) -> Result<(), DDSError>;
+        tablep: &mut DdTableResults<NotPopulated>,
+    ) -> Result<&mut DdTableResults<Populated>, DDSError>;
     fn calculate_all_complete_tables(
         &self,
-        table_deal: DdTableDeals,
-        mode: Mode,
+        table_deals: DdTableDeals,
+        vulnerability: VulnerabilityEnc,
         trump_filter: TrumpFilter,
-        resp: &mut DdTablesRes,
+        resp: &mut DdTablesRes<NotPopulated>,
         presp: &mut AllParResults,
-    ) -> Result<(), DDSError>;
+    ) -> Result<&mut DdTablesRes<Populated>, DDSError>;
+    fn calculate_all_complete_tables_pbn(
+        &self,
+        table_deals_pbn: DdTableDealsPbn,
+        vulnerability: VulnerabilityEnc,
+        trump_filter: TrumpFilter,
+        resp: &mut DdTablesRes<NotPopulated>,
+        presp: &mut AllParResults,
+    ) -> Result<&mut DdTablesRes<Populated>, DDSError>;
 }
 
-pub enum TrumpFilter {}
+pub enum VulnerabilityEnc {
+    NoPar = -1,
+    None = 0,
+    Both = 1,
+    NS = 2,
+    EW = 3,
+}
+
+pub type TrumpFilter = [c_int; 5];
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -50,14 +68,28 @@ pub struct DdTableDealsPbn {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct DdTableResults {
+pub struct DdTableResults<T: TablePopulated> {
     pub resTable: [[::std::os::raw::c_int; 4usize]; 5usize],
+    state: PhantomData<T>,
 }
+pub trait TablePopulated: populated_private::SealedPopulated {}
+mod populated_private {
+    pub trait SealedPopulated {}
+}
+
+pub struct NotPopulated;
+pub struct Populated;
+
+impl TablePopulated for NotPopulated {}
+impl TablePopulated for Populated {}
+impl populated_private::SealedPopulated for NotPopulated {}
+impl populated_private::SealedPopulated for Populated {}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct DdTablesRes {
+pub struct DdTablesRes<T: TablePopulated> {
     pub noOfBoards: ::std::os::raw::c_int,
-    pub results: [DdTableResults; 200usize],
+    pub results: [DdTableResults<T>; 200usize],
 }
 
 #[repr(C)]
@@ -191,17 +223,20 @@ mod test {
     #[test]
     fn bindgen_test_layout_ddTableResults() {
         assert_eq!(
-            ::std::mem::size_of::<DdTableResults>(),
+            ::std::mem::size_of::<DdTableResults<NotPopulated>>(),
             80usize,
             concat!("Size of: ", stringify!(ddTableResults))
         );
         assert_eq!(
-            ::std::mem::align_of::<DdTableResults>(),
+            ::std::mem::align_of::<DdTableResults<NotPopulated>>(),
             4usize,
             concat!("Alignment of ", stringify!(ddTableResults))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableResults>())).resTable as *const _ as usize },
+            unsafe {
+                &(*(::std::ptr::null::<DdTableResults<NotPopulated>>())).resTable as *const _
+                    as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -214,17 +249,20 @@ mod test {
     #[test]
     fn bindgen_test_layout_ddTablesRes() {
         assert_eq!(
-            ::std::mem::size_of::<DdTablesRes>(),
+            ::std::mem::size_of::<DdTablesRes<NotPopulated>>(),
             16004usize,
             concat!("Size of: ", stringify!(ddTablesRes))
         );
         assert_eq!(
-            ::std::mem::align_of::<DdTablesRes>(),
+            ::std::mem::align_of::<DdTablesRes<NotPopulated>>(),
             4usize,
             concat!("Alignment of ", stringify!(ddTablesRes))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTablesRes>())).noOfBoards as *const _ as usize },
+            unsafe {
+                &(*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).noOfBoards as *const _
+                    as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -234,7 +272,9 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTablesRes>())).results as *const _ as usize },
+            unsafe {
+                &(*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).results as *const _ as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",

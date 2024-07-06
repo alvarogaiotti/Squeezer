@@ -4,29 +4,29 @@ use future_tricks::FutureTricks;
 use super::*;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use crate::{InnerDds, ThreadIndex};
+use crate::{DoubleDummySolver, ThreadIndex};
 
 #[non_exhaustive]
-pub struct DoubleDummySolver {
-    inner: &'static Mutex<InnerDds>,
+pub struct MultiThreadDoubleDummySolver {
+    inner: &'static Mutex<DoubleDummySolver>,
 }
 
-impl Default for DoubleDummySolver {
+impl Default for MultiThreadDoubleDummySolver {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DoubleDummySolver {
+impl MultiThreadDoubleDummySolver {
     #[inline]
     #[must_use]
     /// Creates a new `DDSPlayAnalyzer` ready to be used
     pub fn new() -> Self {
         /// The Singleton instance of the raw DDS library
-        static INSTANCE: OnceLock<Mutex<InnerDds>> = OnceLock::new();
+        static INSTANCE: OnceLock<Mutex<DoubleDummySolver>> = OnceLock::new();
         Self {
-            inner: INSTANCE.get_or_init(|| Mutex::new(InnerDds {})),
+            inner: INSTANCE.get_or_init(|| Mutex::new(DoubleDummySolver {})),
         }
     }
     fn set_max_threads(user_threads: ThreadIndex) {
@@ -38,7 +38,7 @@ impl DoubleDummySolver {
     }
 }
 
-impl BridgeSolver for DoubleDummySolver {
+impl BridgeSolver for MultiThreadDoubleDummySolver {
     #[inline]
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
         &self,
@@ -100,7 +100,7 @@ impl BridgeSolver for DoubleDummySolver {
     }
 }
 
-impl PlayAnalyzer for DoubleDummySolver {
+impl PlayAnalyzer for MultiThreadDoubleDummySolver {
     #[inline]
     fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
         &self,
@@ -136,7 +136,7 @@ impl PlayAnalyzer for DoubleDummySolver {
     }
 }
 
-impl PlayAnalyzer for InnerDds {
+impl PlayAnalyzer for DoubleDummySolver {
     #[allow(clippy::unwrap_in_result, clippy::unwrap_used)]
     #[inline]
     fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
