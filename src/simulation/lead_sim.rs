@@ -1,10 +1,6 @@
+use super::{Simulation, SimulationResult};
 use colored::Colorize;
-use std::{
-    array,
-    collections::{hash_map::Entry, HashMap, HashSet},
-    fmt::Display,
-    hash::Hash,
-};
+use std::{array, collections::HashMap, fmt::Display};
 
 use crate::{
     prelude::{Card, Contract, Dealer, SqueezerError},
@@ -12,16 +8,6 @@ use crate::{
 };
 use dds::MAXNOOFBOARDS;
 use itertools::Itertools;
-
-pub trait SimulationResult {
-    fn report(&self) {}
-}
-
-pub trait Simulation<T: SimulationResult> {
-    /// # Errors
-    /// - `DDSError`
-    fn run(&self) -> Result<T, SqueezerError>;
-}
 
 pub struct LeadSimulation<T: Dealer> {
     num_of_boards: usize,
@@ -48,6 +34,7 @@ impl LeadCard {
         }
     }
 
+    #[allow(clippy::cast_precision_loss)]
     fn update(&mut self, tricks_beating: u8, runs: usize) {
         self.average_tricks = self
             .number_of_tricks
@@ -61,12 +48,6 @@ impl LeadCard {
             .sum::<usize>() as f32
             / runs as f32)
             * 100.0;
-    }
-}
-
-impl Hash for LeadCard {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.card.hash(state);
     }
 }
 
@@ -87,6 +68,7 @@ impl LeadSimulationResult {
         }
     }
 
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     #[inline]
     /// # Panics
     ///
@@ -101,7 +83,7 @@ impl LeadSimulationResult {
                 self.lead_results
                     .entry(card)
                     .and_modify(|lead_card| {
-                        lead_card.number_of_tricks[solved.score[index] as usize] += 1
+                        lead_card.number_of_tricks[solved.score[index] as usize] += 1;
                     })
                     .or_insert_with(|| {
                         let mut lead_card = LeadCard::new(card);
@@ -119,7 +101,7 @@ impl LeadSimulationResult {
                 self.lead_results
                     .entry(card)
                     .and_modify(|lead_card| {
-                        lead_card.number_of_tricks[solved.score[index] as usize] += 1
+                        lead_card.number_of_tricks[solved.score[index] as usize] += 1;
                     })
                     .or_insert_with(|| {
                         let mut lead_card = LeadCard::new(card);
@@ -132,66 +114,61 @@ impl LeadSimulationResult {
 
     fn update(&mut self, tricks_beating: u8, runs: usize) {
         for lead in self.lead_results.values_mut() {
-            lead.update(tricks_beating, runs)
+            lead.update(tricks_beating, runs);
         }
     }
 }
 
 impl SimulationResult for LeadSimulationResult {
     fn report(&self) {
-        let width = self.deals_run.to_string().len();
-        let width = if width < 4 { 4 } else { width };
-        println!("Simulated {} deals:", self.deals_run);
-        println!("{:^1$}", "Frequency of tricks taken", width * 14 + 16);
-        println!(
-            "Ld   Avg  %Set   {:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}",
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-        );
-        let mut res_iter = self
-            .lead_results
-            .iter()
-            .sorted_by(|a, b| b.1.set_percentage.total_cmp(&a.1.set_percentage));
-        let first = res_iter.next().unwrap();
-        println!(
-            "{}",
-            format!(
-                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
-                first.0,
-                first.1.average_tricks,
-                first.1.set_percentage,
-                first.1.number_of_tricks.iter().format("")
-            )
-            .green()
-        );
-        for lead in res_iter {
-            println!(
-                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
-                lead.0,
-                lead.1.average_tricks,
-                lead.1.set_percentage,
-                lead.1.number_of_tricks.iter().format("")
-            );
+        let string = self.to_string();
+        for (index, line) in string.lines().enumerate() {
+            if index == 3 {
+                println!("{}", line.green());
+            } else {
+                println!("{line}");
+            }
         }
     }
 }
 
 impl Display for LeadSimulationResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let single_width = 6;
-        write!(
-            f,
-            "Double Dummy analysis completed for {} deals\n\n",
-            self.deals_run
+        let width = self.deals_run.to_string().len();
+        let width = if width < 4 { 4 } else { width };
+        writeln!(f, "Simulated {} deals:", self.deals_run)?;
+        writeln!(f, "{:^1$}", "Frequency of tricks taken", width * 14 + 16)?;
+        writeln!(f,
+            "Ld   Avg  %Set   {:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}",
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
         )?;
-        write!(f, "Ld   Avg   %Set    ")?;
+        let mut res_iter = self
+            .lead_results
+            .iter()
+            .sorted_by(|a, b| b.1.set_percentage.total_cmp(&a.1.set_percentage));
+        let first = res_iter.next().unwrap();
         writeln!(
             f,
             "{}",
-            (0u8..14u8).format_with(" ", |elem, formatter| formatter(&format_args!(
-                "{elem:>single_width$}",
-            )))
+            format_args!(
+                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
+                first.0,
+                first.1.average_tricks,
+                first.1.set_percentage,
+                first.1.number_of_tricks.iter().format("")
+            )
         )?;
-        todo!()
+        for lead in res_iter {
+            writeln!(
+                f,
+                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
+                lead.0,
+                lead.1.average_tricks,
+                lead.1.set_percentage,
+                lead.1.number_of_tricks.iter().format("")
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -316,7 +293,7 @@ mod test {
         let dealer = builder.build().unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
-            num_of_boards: 1000,
+            num_of_boards: 100,
             dealer,
             contract,
         };

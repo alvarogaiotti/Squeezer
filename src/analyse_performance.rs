@@ -39,9 +39,8 @@ pub struct TrickDifference(u8);
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CardPerformance {
-    Better(Tricks, TrickDifference),
-    Worse(Tricks, TrickDifference),
-    Equal(Tricks),
+    Error(Tricks, TrickDifference),
+    Correct(Tricks),
 }
 
 /// Represents a player's track of card's result played in a board.
@@ -125,13 +124,18 @@ impl From<usize> for TrickPosition {
     }
 }
 
+enum Position {
+    Defender,
+    Declarer,
+}
+
 /// Analyzes the performance of players based on the contract and the result of playing a sequence of cards.
 /// It evaluates the tricks and results of each player's card plays and determines the winner of each trick.
 ///
 /// # Arguments
 ///
-/// * `contract` - The contract being played (e.g., Suit and Level)
-/// * `play_result_trace` - The traced sequence of played cards and their corresponding solver results
+/// - `contract` - The contract being played (e.g., Suit and Level)
+/// - `play_result_trace` - The traced sequence of played cards and their corresponding solver results
 ///
 /// # Returns
 ///
@@ -222,35 +226,28 @@ fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat)
 }
 
 fn performance_difference(previous_result: i32, result: i32) -> CardPerformance {
-    match previous_result - result {
-        x if x < 0i32 => CardPerformance::Better(
-            Tricks(
-                result
-                    .try_into()
-                    .expect("tricks number should always be positive"),
-            ),
-            TrickDifference(
-                x.abs()
-                    .try_into()
-                    .expect("difference beween tricks cannot exceed 13"),
-            ),
-        ),
-        x if x > 0i32 => CardPerformance::Worse(
-            Tricks(
-                result
-                    .try_into()
-                    .expect("tricks number should always be positive"),
-            ),
-            TrickDifference(
-                x.try_into()
-                    .expect("difference beween tricks cannot exceed 13"),
-            ),
-        ),
-        _ => CardPerformance::Equal(Tricks(
+    let delta = previous_result - result;
+    // If opponents played a wrong card and lost 1+ trick(s)
+    if delta == 0i32 {
+        CardPerformance::Correct(Tricks(
             result
                 .try_into()
                 .expect("trick number should always be positive"),
-        )),
+        ))
+    } else {
+        CardPerformance::Error(
+            Tricks(
+                result
+                    .try_into()
+                    .expect("tricks number should always be positive"),
+            ),
+            TrickDifference(
+                delta
+                    .abs()
+                    .try_into()
+                    .expect("difference beween tricks cannot exceed 13"),
+            ),
+        )
     }
 }
 
@@ -282,10 +279,10 @@ mod tests {
 
         assert_eq!(
             better,
-            CardPerformance::Better(Tricks(6), TrickDifference(3))
+            CardPerformance::Error(Tricks(6), TrickDifference(3))
         );
-        assert_eq!(equal, CardPerformance::Equal(Tricks(5)));
-        assert_eq!(worse, CardPerformance::Worse(Tricks(7), TrickDifference(2)));
+        assert_eq!(equal, CardPerformance::Correct(Tricks(5)));
+        assert_eq!(worse, CardPerformance::Error(Tricks(7), TrickDifference(2)));
     }
 
     #[test]
@@ -385,7 +382,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::North as usize].results[0].unwrap(),
-            CardPerformance::Better(Tricks(8), TrickDifference(1))
+            CardPerformance::Error(Tricks(8), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[1].unwrap(),
@@ -397,7 +394,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[2].unwrap(),
-            CardPerformance::Worse(Tricks(7), TrickDifference(1))
+            CardPerformance::Error(Tricks(7), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[4].unwrap(),
@@ -405,7 +402,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[4].unwrap(),
-            CardPerformance::Better(Tricks(8), TrickDifference(1))
+            CardPerformance::Error(Tricks(8), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[5].unwrap(),
@@ -413,7 +410,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[5].unwrap(),
-            CardPerformance::Better(Tricks(9), TrickDifference(1))
+            CardPerformance::Error(Tricks(9), TrickDifference(1))
         );
     }
 }

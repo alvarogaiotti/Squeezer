@@ -36,8 +36,6 @@ mod evaluator;
 mod hand;
 #[cfg(feature = "lin")]
 mod linparser;
-#[cfg(feature = "dds")]
-mod payoff;
 mod shape;
 mod shapeparser;
 #[cfg(feature = "dds")]
@@ -73,8 +71,6 @@ mod prelude {
     pub use crate::hand::*;
     #[cfg(feature = "lin")]
     pub use crate::linparser::*;
-    #[cfg(feature = "dds")]
-    pub use crate::payoff::*;
     pub use crate::shape::*;
     pub use crate::shapeparser::*;
     #[cfg(feature = "dds")]

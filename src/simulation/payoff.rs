@@ -3,6 +3,7 @@
 /// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract, and various scoring functions such as `imps` and `matchpoints`.
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
+use fmt::Display;
 
 pub trait Simulable: sealed::PrivateSimulable {}
 mod sealed {
@@ -108,6 +109,10 @@ where
     }
 }
 
+impl<D: Display, T: Fn(i32, i32) -> i32> SimulationResult for Payoff<T, D> {}
+
+pub struct PayoffSimulation {}
+
 #[allow(clippy::cast_precision_loss)]
 fn mean(data: &[i32]) -> Option<f32> {
     let sum = data.iter().sum::<i32>() as f32;
@@ -160,60 +165,63 @@ pub fn matchpoints(my: i32, other: i32) -> i32 {
 }
 
 #[cfg(test)]
-use dds::ContractScorer;
-#[test]
-fn payoff_report_test() {
-    let contratto1 = Contract::from_str("3CN", Vulnerable::No).unwrap();
-    let contratto2 = Contract::from_str("3DN", Vulnerable::No).unwrap();
-    let contratto3 = Contract::from_str("3NN", Vulnerable::No).unwrap();
-    let contracts = vec![
-        Contract::from_str("3CN", Vulnerable::No).unwrap(),
-        Contract::from_str("3DN", Vulnerable::No).unwrap(),
-        Contract::from_str("3NN", Vulnerable::No).unwrap(),
-    ];
-    let mut matrix = Payoff::new(contracts, imps);
-    let mut data = HashMap::new();
-    let contratto1str = contratto1.to_string();
-    let contratto2str = contratto2.to_string();
-    let contratto3str = contratto3.to_string();
-    for i in 0..14 {
-        data.insert(&contratto1str as &str, contratto1.score(i));
-        data.insert(&contratto2str as &str, contratto2.score(i));
-        data.insert(&contratto3str as &str, contratto3.score(i));
-        matrix.add_data(&data);
+mod test {
+    use crate::prelude::*;
+    use dds::ContractScorer;
+    #[test]
+    fn payoff_report_test() {
+        let contratto1 = Contract::from_str("3CN", Vulnerable::No).unwrap();
+        let contratto2 = Contract::from_str("3DN", Vulnerable::No).unwrap();
+        let contratto3 = Contract::from_str("3NN", Vulnerable::No).unwrap();
+        let contracts = vec![
+            Contract::from_str("3CN", Vulnerable::No).unwrap(),
+            Contract::from_str("3DN", Vulnerable::No).unwrap(),
+            Contract::from_str("3NN", Vulnerable::No).unwrap(),
+        ];
+        let mut matrix = Payoff::new(contracts, imps);
+        let mut data = HashMap::new();
+        let contratto1str = contratto1.to_string();
+        let contratto2str = contratto2.to_string();
+        let contratto3str = contratto3.to_string();
+        for i in 0..14 {
+            data.insert(&contratto1str as &str, contratto1.score(i));
+            data.insert(&contratto2str as &str, contratto2.score(i));
+            data.insert(&contratto3str as &str, contratto3.score(i));
+            matrix.add_data(&data);
+        }
+        matrix.report();
+        assert_eq!(7, matrix.table[2][0][9]);
     }
-    matrix.report();
-    assert_eq!(7, matrix.table[2][0][9]);
-}
-#[test]
-fn can_create_contract_from_str_test() {
-    let contract_c = Contract::from_str("3CN", Vulnerable::No).unwrap();
-    let contract_d = Contract::from_str("3DN", Vulnerable::No).unwrap();
-    let contract_s = Contract::from_str("3SN", Vulnerable::No).unwrap();
-    let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
-    let contract_n = Contract::from_str("3NNXX", Vulnerable::No).unwrap();
-    assert_eq!(contract_c.to_string(), "3♣N");
-    assert_eq!(contract_d.to_string(), "3♦N");
-    assert_eq!(contract_h.to_string(), "3♥N");
-    assert_eq!(contract_s.to_string(), "3♠N");
-    assert_eq!(contract_n.to_string(), "3NTNXX");
-}
-#[test]
-#[should_panic(expected = "Wrong contract level")]
-fn create_contract_wrong_level_test() {
-    let _contract = Contract::from_str("8CS", Vulnerable::No).unwrap();
-}
-#[test]
-fn contract_computes_correct_scores_test() {
-    let contract_c = Contract::from_str("6CN", Vulnerable::No).unwrap();
-    let contract_d = Contract::from_str("5DNX", Vulnerable::Yes).unwrap();
-    let contract_s = Contract::from_str("4SN", Vulnerable::No).unwrap();
-    let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
-    let contract_n = Contract::from_str("3NN", Vulnerable::No).unwrap();
-    assert_eq!(400_i32, contract_n.score(9));
-    assert_eq!(140_i32, contract_h.score(9));
-    assert_eq!(420_i32, contract_s.score(10));
-    assert_eq!(750_i32, contract_d.score(11));
-    assert_eq!(920_i32, contract_c.score(12));
-    assert_eq!(-200, contract_d.score(10));
+    #[test]
+    fn can_create_contract_from_str_test() {
+        let contract_c = Contract::from_str("3CN", Vulnerable::No).unwrap();
+        let contract_d = Contract::from_str("3DN", Vulnerable::No).unwrap();
+        let contract_s = Contract::from_str("3SN", Vulnerable::No).unwrap();
+        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
+        let contract_n = Contract::from_str("3NNXX", Vulnerable::No).unwrap();
+        assert_eq!(contract_c.to_string(), "3♣N");
+        assert_eq!(contract_d.to_string(), "3♦N");
+        assert_eq!(contract_h.to_string(), "3♥N");
+        assert_eq!(contract_s.to_string(), "3♠N");
+        assert_eq!(contract_n.to_string(), "3NTNXX");
+    }
+    #[test]
+    #[should_panic(expected = "Wrong contract level")]
+    fn create_contract_wrong_level_test() {
+        let _contract = Contract::from_str("8CS", Vulnerable::No).unwrap();
+    }
+    #[test]
+    fn contract_computes_correct_scores_test() {
+        let contract_c = Contract::from_str("6CN", Vulnerable::No).unwrap();
+        let contract_d = Contract::from_str("5DNX", Vulnerable::Yes).unwrap();
+        let contract_s = Contract::from_str("4SN", Vulnerable::No).unwrap();
+        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
+        let contract_n = Contract::from_str("3NN", Vulnerable::No).unwrap();
+        assert_eq!(400_i32, contract_n.score(9));
+        assert_eq!(140_i32, contract_h.score(9));
+        assert_eq!(420_i32, contract_s.score(10));
+        assert_eq!(750_i32, contract_d.score(11));
+        assert_eq!(920_i32, contract_c.score(12));
+        assert_eq!(-200, contract_d.score(10));
+    }
 }

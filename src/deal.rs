@@ -144,6 +144,12 @@ impl Seat {
         self + 1
     }
 
+    /// Whether a player is on the same line as another (which might be himself!)
+    #[must_use]
+    #[inline]
+    pub fn is_same_line(&self, other: &Seat) -> bool {
+        *self as u8 % 2 == *other as u8 % 2
+    }
     ///Iteration over seats starting from North
     #[must_use]
     #[inline]
@@ -161,7 +167,6 @@ impl Seat {
             Self::South => "South",
         }
     }
-
     #[inline]
     #[must_use]
     /// Beware, this iterator never stops
