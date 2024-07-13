@@ -2,7 +2,7 @@ use ddsffi::RETURN_UNKNOWN_FAULT;
 use future_tricks::FutureTricks;
 
 use super::*;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 
 use crate::{DoubleDummySolver, ThreadIndex};
 

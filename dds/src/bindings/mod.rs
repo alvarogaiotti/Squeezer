@@ -1,6 +1,5 @@
-use std::sync::Mutex;
 
-use squeezer_macros::{AsRawDDS, RawDDSRef, RawDDSRefMut};
+use squeezer_macros::{AsRawDDS, RawDDSRef};
 
 mod analyseplay;
 mod ddserror;
@@ -19,7 +18,6 @@ pub use ddserror::{DDSError, DDSErrorKind};
 pub use deal::*;
 pub use doubledummy::*;
 pub use ffi::*;
-pub use par::*;
 pub use solver::*;
 pub use traits::*;
 pub use utils::*;
