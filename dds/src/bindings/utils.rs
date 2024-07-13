@@ -1,4 +1,4 @@
-use crate::{BridgeSolver, ContractScorer, DDSDealConstructionError};
+use crate::{BridgeSolver, ContractScorer, DDSDealConstructionError, DDSError};
 
 use super::{
     doubledummy::MultiThreadDoubleDummySolver, AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder,
@@ -381,7 +381,7 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
 pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
     contract: &C,
-) -> Result<i32, Box<dyn std::error::Error>> {
+) -> Result<i32, DDSError> {
     let solver = MultiThreadDoubleDummySolver::new();
     let tricks = solver.dd_tricks(deal, contract)?;
     Ok(contract.score(tricks))

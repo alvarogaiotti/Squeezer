@@ -8,7 +8,7 @@ use super::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS,
 };
-use crate::c_int;
+use crate::{c_int, DDSDealConstructionError};
 
 /// Wrapper around the DDS errors
 #[derive(Debug)]
@@ -29,6 +29,12 @@ impl From<i32> for DDSError {
     fn from(value: i32) -> Self {
         assert_ne!(1i32, value,"If we fail the assertion we didn't check for the return result, since a return result of 1 means success." );
         Self { kind: value.into() }
+    }
+}
+
+impl From<DDSDealConstructionError> for DDSError {
+    fn from(value: DDSDealConstructionError) -> Self {
+        Self::from(DDSErrorKind::from(value))
     }
 }
 
@@ -73,6 +79,7 @@ pub enum DDSErrorKind {
     NoSuit,
     TooManyTables,
     ChunkSize,
+    UnbuildableDeal(DDSDealConstructionError),
 }
 
 #[allow(clippy::unreachable)]
@@ -110,6 +117,12 @@ impl From<c_int> for DDSErrorKind {
     }
 }
 
+impl From<DDSDealConstructionError> for DDSErrorKind {
+    fn from(value: DDSDealConstructionError) -> Self {
+        Self::UnbuildableDeal(value)
+    }
+}
+
 impl fmt::Display for DDSErrorKind {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -138,6 +151,7 @@ impl fmt::Display for DDSErrorKind {
             Self::NoSuit => write!(formatter, "denomination filter vector has no entries"),
             Self::TooManyTables => write!(formatter, "too many tables requested"),
             Self::ChunkSize => write!(formatter, "chunk size is less than 1"),
+            Self::UnbuildableDeal(ref inner) => write!(formatter, "unable to build deal: \n{inner}")
         }
     }
 }

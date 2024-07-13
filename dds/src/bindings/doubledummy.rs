@@ -44,7 +44,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<u8, Box<dyn std::error::Error>> {
+    ) -> Result<u8, DDSError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
         let futp: *mut FutureTricks = &mut future_tricks;

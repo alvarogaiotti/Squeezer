@@ -1,11 +1,7 @@
 use core::ffi::c_int;
 
 use crate::bindings::{
-    deal::AsDDSDeal,
-    ffi::{SolveAllChunksBin, SolveBoard},
-    future_tricks::FutureTricks,
-    utils::build_c_deal,
-    AsDDSContract, Boards, DDSError, Mode, Solutions, Target, ThreadIndex, MAXNOOFBOARDS,
+    deal::AsDDSDeal, future_tricks::FutureTricks, AsDDSContract, DDSError, MAXNOOFBOARDS,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -18,7 +14,7 @@ pub trait BridgeSolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<u8, Box<dyn std::error::Error>>;
+    ) -> Result<u8, DDSError>;
 
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
