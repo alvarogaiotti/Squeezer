@@ -60,7 +60,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
             );
         };
         if result != 1 {
-            return Err(Box::new(DDSError::from(result)));
+            return Err(DDSError::from(result));
         }
         return Ok(13 - future_tricks.score()[0] as u8);
     }
