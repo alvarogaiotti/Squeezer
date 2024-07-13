@@ -7,7 +7,7 @@ pub use lead_sim::*;
 pub use payoff::*;
 
 pub trait SimulationResult {
-    fn report(&self) {}
+    fn report(&self);
 }
 
 pub trait Simulation<T: SimulationResult> {

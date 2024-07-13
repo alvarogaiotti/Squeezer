@@ -4,30 +4,59 @@
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
 use fmt::Display;
+use itertools::Itertools;
 
-pub trait Simulable: sealed::PrivateSimulable {}
-mod sealed {
-    pub trait PrivateSimulable: std::fmt::Display {}
+pub trait DifferenceMaker {}
+impl DifferenceMaker for Card {}
+impl DifferenceMaker for Contract {}
+
+pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> {
+    no_of_runs: usize,
+    dealer: D,
+    to_compare: Vec<P>,
+    diff: E,
+}
+
+impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
+    for PayoffSimulation<E, D, Contract>
+{
+    fn run(&self) -> Result<Payoff<Contract>, SqueezerError> {
+        let mut results = Vec::with_capacity(self.to_compare.len());
+        let mut payoff = Payoff::new(self.to_compare.clone());
+        for _ in 0..(self.no_of_runs) {
+            let deal = self.dealer.deal()?;
+            for contract in &self.to_compare {
+                let score = dds::dd_score(&deal, contract)?;
+                results.push(score);
+            }
+            for i in 0..results.len() {
+                for y in 0..results.len() {
+                    payoff.insert((self.diff)(results[i], results[y]), (i, y));
+                }
+            }
+        }
+
+        Ok(payoff)
+    }
 }
 
 ///Struct that rapresents a payoff matrix which returns performances of contracs based
 ///on scoring. Some sort of expected value of the contracts.
-pub struct Payoff<T, D>
+pub struct Payoff<P>
 where
-    T: Fn(i32, i32) -> i32,
-    D: fmt::Display,
+    P: fmt::Display + DifferenceMaker,
 {
-    entries: Vec<D>,
+    entries: Vec<P>,
+    // TODO: Reduce this to a Vec<Vec<i32>>, storing only the difference and negating it during display
     table: Vec<Vec<Vec<i32>>>,
-    diff: T,
 }
 
-impl<T, D> Payoff<T, D>
+impl<P> Payoff<P>
 where
-    T: Fn(i32, i32) -> i32,
-    D: fmt::Display,
+    P: fmt::Display + DifferenceMaker,
 {
-    pub fn new(entries: Vec<D>, diff: T) -> Self {
+    #[must_use]
+    pub fn new(entries: Vec<P>) -> Self {
         let mut table = Vec::with_capacity(entries.len());
         for i in 0..entries.len() {
             table.push(Vec::with_capacity(entries.len()));
@@ -35,46 +64,33 @@ where
                 table[i].push(Vec::new());
             }
         }
-        Self {
-            entries,
-            table,
-            diff,
-        }
+        Self { entries, table }
     }
 
-    /// Adds data to the payoff matrix based on raw scores and updates the matrix entries.
-    ///
-    /// # Arguments
-    ///
-    /// * `raw_scores` - A reference to a hashmap containing raw scores for each contract entry.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn add_data(&mut self, raw_scores: &HashMap<&str, i32>) {
-        let diff = &self.diff;
-        for (i, ei) in self.entries.iter().enumerate() {
-            for (j, ej) in self.entries.iter().enumerate() {
-                self.table[i][j].push(diff(
-                    *raw_scores.get(&ei.to_string() as &str).unwrap(),
-                    *raw_scores.get(&ej.to_string() as &str).unwrap(),
-                ));
-            }
-        }
+    pub fn insert(&mut self, score: i32, index: (usize, usize)) {
+        self.table[index.0][index.1].push(score);
     }
+}
 
+impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
     /// This function generates a report displaying the Payoff matrix in the terminal.
     /// It compares the expected value of each option with respect to the others.
     #[allow(clippy::missing_panics_doc, clippy::cast_precision_loss)]
-    pub fn report(&self) {
+    fn report(&self) {
         let mut means_stderrs: Vec<Vec<(f32, f32)>> = Vec::new();
         for (i, line) in self.table.iter().enumerate() {
             means_stderrs.push(Vec::new());
             for score in line {
-                means_stderrs[i].push((
-                    mean(score).unwrap(),
-                    std_deviation(score).unwrap() / (score.len() as f32).sqrt(),
-                ));
+                if let Some(mean_value) = mean(score) {
+                    means_stderrs[i].push((
+                        mean_value,
+                        std_deviation(score).unwrap() / (score.len() as f32).sqrt(),
+                    ));
+                }
             }
         }
         println!("\t{:.7}", self.entries.iter().format("\t"));
+
         for (i, (entry, line)) in self.entries.iter().zip(means_stderrs.iter()).enumerate() {
             print!("\n{entry:.7}");
             for (j, (mean, stderr)) in line.iter().enumerate() {
@@ -108,10 +124,6 @@ where
         }
     }
 }
-
-impl<D: Display, T: Fn(i32, i32) -> i32> SimulationResult for Payoff<T, D> {}
-
-pub struct PayoffSimulation {}
 
 #[allow(clippy::cast_precision_loss)]
 fn mean(data: &[i32]) -> Option<f32> {
@@ -170,27 +182,22 @@ mod test {
     use dds::ContractScorer;
     #[test]
     fn payoff_report_test() {
-        let contratto1 = Contract::from_str("3CN", Vulnerable::No).unwrap();
-        let contratto2 = Contract::from_str("3DN", Vulnerable::No).unwrap();
-        let contratto3 = Contract::from_str("3NN", Vulnerable::No).unwrap();
         let contracts = vec![
-            Contract::from_str("3CN", Vulnerable::No).unwrap(),
-            Contract::from_str("3DN", Vulnerable::No).unwrap(),
             Contract::from_str("3NN", Vulnerable::No).unwrap(),
+            Contract::from_str("3HN", Vulnerable::No).unwrap(),
+            Contract::from_str("3DN", Vulnerable::No).unwrap(),
+            Contract::from_str("4HN", Vulnerable::No).unwrap(),
         ];
-        let mut matrix = Payoff::new(contracts, imps);
-        let mut data = HashMap::new();
-        let contratto1str = contratto1.to_string();
-        let contratto2str = contratto2.to_string();
-        let contratto3str = contratto3.to_string();
-        for i in 0..14 {
-            data.insert(&contratto1str as &str, contratto1.score(i));
-            data.insert(&contratto2str as &str, contratto2.score(i));
-            data.insert(&contratto3str as &str, contratto3.score(i));
-            matrix.add_data(&data);
+        let mut matrix = Payoff::new(contracts.clone());
+        for x in 0..14 {
+            for (i, entry) in contracts.iter().enumerate() {
+                for (j, entry1) in contracts.iter().enumerate() {
+                    matrix.insert(imps(entry.score(x), entry1.score(x)), (i, j));
+                }
+            }
         }
         matrix.report();
-        assert_eq!(7, matrix.table[2][0][9]);
+        assert_eq!(6, matrix.table[0][1][9]);
     }
     #[test]
     fn can_create_contract_from_str_test() {
