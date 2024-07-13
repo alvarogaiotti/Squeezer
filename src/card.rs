@@ -556,7 +556,6 @@ impl Iterator for SuitIterator {
     type Item = Card;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let cards = Cards { bits: self.bits };
         if self.bits == 0 {
             None
         } else {
