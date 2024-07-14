@@ -3,7 +3,7 @@ use crate::{DDSError, RankSeq, SuitSeq};
 use core::{ffi::c_int, slice::Iter};
 
 /// Number of consecutive boards in a sequence a thread gets when we call
-/// `AnalyseAllPlaysBin`.
+/// [`super::PlayAnalyzer::analyze_play()`].
 /// 1 means thread1 takes number 1, thread2 takes number 2 and so on
 /// 10 means thread1 takes 1..10, thread2 takes 11..20 etc.
 pub const CHUNK_SIZE: i32 = 10;
@@ -71,7 +71,7 @@ impl SolvedPlay {
         }
     }
 
-    /// Creates a new `solvedPlay` instance
+    /// Creates a new [`SolvedPlay`] instance
     #[inline]
     #[must_use]
     pub(crate) const fn new() -> Self {
@@ -82,7 +82,7 @@ impl SolvedPlay {
     }
 
     #[inline]
-    /// Returns a `core::slice::Iter` over the tricks.
+    /// Returns a [`core::slice::Iter`] over the tricks.
     fn iter(&self) -> Iter<'_, i32> {
         self.tricks[..self
             .number
@@ -157,11 +157,11 @@ impl PlayTraceBin {
     }
     #[inline]
     #[must_use]
-    /// Creates a new `playTraceBin` from data
+    /// Creates a new [`PlayTraceBin`] from data
     const fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
         Self { number, suit, rank }
     }
-    /// Creates a new `playTraceBin`
+    /// Creates a new [`PlayTraceBin`]
     pub const fn new() -> Self {
         Self {
             number: 0,
@@ -207,8 +207,8 @@ pub struct SolvedPlay {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-/// Wrapper around DDS [`playTracesBin`] type.
-/// The `playTraceBin` stores two arrays
+/// Wrapper around DDS [`PlayTracesBin`] type.
+/// The [`PlayTraceBin`] stores two arrays
 /// of 52 element each representing played card's rank
 /// and suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTracesBin {
@@ -225,8 +225,8 @@ pub struct PlayTracesPBN {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-/// Wrapper around DDS [`playTraceBin`] type.
-/// The `playTraceBin` stores two arrays
+/// Wrapper around DDS [`PlayTraceBin`] type.
+/// The [`PlayTraceBin`] stores two arrays
 /// of 52 element each representing played card's rank
 /// and suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
@@ -245,7 +245,6 @@ pub struct PlayTracePBN {
 #[cfg(test)]
 mod test {
     use super::*;
-    use core::mem::size_of;
     #[test]
     fn bindgen_test_layout_solvedPlays() {
         assert_eq!(

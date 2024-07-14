@@ -7,10 +7,10 @@ use core::{
     fmt::Display,
 };
 
-/// A wrapper around the [boards] struct from DDS.
+/// A wrapper around the `boards` struct from DDS.
 /// Consists of a number of boards to be analyzed and
 /// 5 arrays of length 200, representing
-/// the deals, contracts, DDS `target`, `solution` and `mode` parameters
+/// the deals, contracts, DDS [`Target`], [`Solutions`] and [`Mode`] parameters
 /// to be used in the analysis by DDS.
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -158,8 +158,8 @@ fn bindgen_test_layout_boards_pbn() {
 }
 
 /// A wrapper around the `deal` struct from DDS.
-/// A `deal` is composed by a trump (represented with the [`DDSSuitEncoding`]),
-/// the player on lead (representend with the [`DDSHandEncoding`]), the current
+/// A `deal` is composed by a trump (represented with the [`DdsSuitEncoding`]),
+/// the player on lead (representend with the [`DdsHandEncoding`]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
 /// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
 #[repr(C)]
@@ -234,8 +234,8 @@ fn bindgen_test_layout_deal() {
         )
     );
 }
-/// A wrapper around DDS's [`dealPBN`].
-/// See [`deal`] for reference on the fields.
+/// A wrapper around DDS's `dealPbn`.
+/// See [`DdsDeal`] for reference on the fields.
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct DdsDealPbn {
@@ -326,7 +326,7 @@ pub enum DdsSuitEncoding {
 }
 
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
-/// Macro for quick implementation of the `TryFrom` trait for a type
+/// Macro for quick implementation of the [`TryFrom`] trait for a type
 macro_rules! impl_tryfrom_dds_suit {
     ($($from:ty),*) => {
         $(impl core::convert::TryFrom<$from> for DdsSuitEncoding {
@@ -377,7 +377,7 @@ pub enum DdsHandEncoding {
     West = 3,
 }
 
-/// Macro for implementing `TryFrom` from integer to [`DDSHandEncoding`]
+/// Mcro for implementing [`TryFrom`] from integer to [`DdsHandEncoding`]
 macro_rules! impl_tryfrom_dds_hand {
     ($($from:ty),*) => {
         $(impl core::convert::TryFrom<$from> for DdsHandEncoding {
@@ -414,7 +414,7 @@ impl TryFrom<i32> for DdsHandEncoding {
 impl_tryfrom_dds_hand!(u8, u16, u32, usize, i8, i16, isize);
 
 /// This is how DDS represents a "binary deal":
-/// a array of arrays of u32, basing the order on the [`DDSHandEncoding`]
+/// a array of arrays of `u32`, basing the order on the [`DdsHandEncoding`]
 #[derive(Debug, Default, RawDDSRef)]
 pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
@@ -440,7 +440,7 @@ impl DDSDealRepr {
 }
 
 /// This is how DDS represents a PBN deal:
-/// ae array of 80 chars.
+/// an array of 80 chars.
 #[derive(Debug, RawDDSRef)]
 pub struct DDSDealPBNRepr(
     /// All PBN deals are 80 chars strings
@@ -455,7 +455,7 @@ pub trait AsDDSDeal {
     fn as_dds_deal(&self) -> DDSDealRepr;
 }
 
-/// This helps us build a Deal. Rough edges right now, should be refactored or improved
+/// This helps us build a [`DdsDeal`]. Rough edges right now, should be refactored or improved
 /// at least.
 pub struct DDSDealBuilder {
     /// Trump for the deal, `None` when not set
@@ -589,7 +589,7 @@ impl DDSDealBuilder {
 
     #[allow(clippy::question_mark_used, clippy::as_conversions)]
     #[inline]
-    /// Builds the `DDSDeal`.
+    /// Builds the [`DdsDeal`].
     ///
     /// # Errors
     /// This method will return an error when one of the field was not supplied
@@ -633,7 +633,7 @@ impl DdsDeal {
 }
 
 #[allow(clippy::unreachable)]
-/// Converts a tuple of ints to a `String` representing a card
+/// Converts a tuple of ints to a [`String`] representing a card
 fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     let rankstr = match rank {
         0b_100i32 => "2",
@@ -666,7 +666,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 
 impl Boards {
     #[allow(clippy::unwrap_used)]
-    /// Creates a new `boards` struct
+    /// Creates a new [`Boards`] struct
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D; MAXNOOFBOARDS],

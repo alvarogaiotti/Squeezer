@@ -160,7 +160,7 @@ macro_rules! impl_tryfrom_array_for_sequence {
 /// A `SuitSeq` is a sequence of cards' suit.
 /// It's the sequence of suits used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// The suit is represented with the standard suit enconding used
-/// throughout the codebase, which is [`DDSSuitEncoding`](crate::DDSSuitEncoding)
+/// throughout the codebase, which is [`DdsSuitEncoding`](super::DdsSuitEncoding).
 /// - ♠️ => 0
 /// - ♥️ => 1
 /// - ♦️ => 2
@@ -178,7 +178,7 @@ pub struct SuitSeq {
 impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
     type Error = SeqError;
 
-    /// Create a new `SuitSeq`, validating input.
+    /// Create a new [`SuitSeq`], validating input.
     ///
     /// # Errors
     ///
@@ -210,7 +210,7 @@ impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
 impl TryFrom<&[c_int]> for SuitSeq {
     type Error = SeqError;
 
-    /// Create a new `SuitSeq`, validating input.
+    /// Create a new [`SuitSeq`], validating input.
     ///
     /// # Errors
     ///
@@ -278,7 +278,7 @@ impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; RankSeq}
 impl TryFrom<&[c_int]> for RankSeq {
     type Error = SeqError;
 
-    /// Create a new `RankSeq`, validating input.
+    /// Create a new [`RankSeq`], validating input.
     ///
     /// # Errors
     ///
@@ -313,7 +313,7 @@ impl TryFrom<&[c_int]> for RankSeq {
 impl<const N: usize> TryFrom<[c_int; N]> for RankSeq {
     type Error = SeqError;
 
-    /// Create a new `SuitSeq`, validating input.
+    /// Create a new [`RankSeq`], validating input.
     ///
     /// # Errors
     ///
@@ -352,14 +352,15 @@ impl RankSeq {
     }
 }
 
-/// Builds a DDS Deal from its components:
+/// Builds a [`DdsDeal`] from its components:
 /// - Trump
 /// - Leader
 /// - Cards
 ///
 /// # Errors
 /// Will error if the trump or the player are not valid values following
-/// their encodings: [`DDSSuitEncoding`] and [`DDSHandEncoding`]
+/// their encodings: [`DdsSuitEncoding`](super::DdsSuitEncoding) and
+/// [`DdsHandEncoding`](super::DdsHandEncoding)
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     contract_and_deal: (&C, &D),
 ) -> Result<DdsDeal, DDSDealConstructionError> {
