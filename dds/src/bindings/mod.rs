@@ -1,4 +1,3 @@
-
 use squeezer_macros::{AsRawDDS, RawDDSRef};
 
 mod analyseplay;
@@ -19,6 +18,7 @@ pub use deal::*;
 pub use doubledummy::*;
 pub use ffi::*;
 pub use solver::*;
+pub use tables::*;
 pub use traits::*;
 pub use utils::*;
 

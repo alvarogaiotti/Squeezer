@@ -317,7 +317,7 @@ pub struct DDSCurrTrickRank(#[raw] [c_int; 3]);
 
 #[allow(clippy::exhaustive_enums)]
 /// How DDS encodes suits
-pub enum DDSSuitEncoding {
+pub enum DdsSuitEncoding {
     Spades = 0,
     Hearts = 1,
     Diamonds = 2,
@@ -329,7 +329,7 @@ pub enum DDSSuitEncoding {
 /// Macro for quick implementation of the `TryFrom` trait for a type
 macro_rules! impl_tryfrom_dds_suit {
     ($($from:ty),*) => {
-        $(impl core::convert::TryFrom<$from> for DDSSuitEncoding {
+        $(impl core::convert::TryFrom<$from> for DdsSuitEncoding {
             type Error = DDSDealConstructionError;
 
             #[inline]
@@ -347,7 +347,7 @@ macro_rules! impl_tryfrom_dds_suit {
     };
 }
 
-impl TryFrom<i32> for DDSSuitEncoding {
+impl TryFrom<i32> for DdsSuitEncoding {
     type Error = DDSDealConstructionError;
 
     #[inline]
@@ -369,7 +369,7 @@ impl_tryfrom_dds_suit!(i8, i16, isize);
 #[allow(clippy::exhaustive_enums)]
 /// How DDS encodes seat.
 #[derive(Debug, Default)]
-pub enum DDSHandEncoding {
+pub enum DdsHandEncoding {
     #[default]
     North = 0,
     East = 1,
@@ -380,7 +380,7 @@ pub enum DDSHandEncoding {
 /// Macro for implementing `TryFrom` from integer to [`DDSHandEncoding`]
 macro_rules! impl_tryfrom_dds_hand {
     ($($from:ty),*) => {
-        $(impl core::convert::TryFrom<$from> for DDSHandEncoding {
+        $(impl core::convert::TryFrom<$from> for DdsHandEncoding {
             type Error = DDSDealConstructionError;
 
             #[inline]
@@ -397,7 +397,7 @@ macro_rules! impl_tryfrom_dds_hand {
     };
 }
 
-impl TryFrom<i32> for DDSHandEncoding {
+impl TryFrom<i32> for DdsHandEncoding {
     type Error = DDSDealConstructionError;
 
     #[inline]
@@ -459,9 +459,9 @@ pub trait AsDDSDeal {
 /// at least.
 pub struct DDSDealBuilder {
     /// Trump for the deal, `None` when not set
-    trump: Option<DDSSuitEncoding>,
+    trump: Option<DdsSuitEncoding>,
     /// Leader for the deal, `None` when not set
-    first: Option<DDSHandEncoding>,
+    first: Option<DdsHandEncoding>,
     /// Current tricks' suits for the deal, `None` when not set
     current_trick_suit: Option<DDSCurrTrickSuit>,
     /// Current tricks' ranks for the deal, `None` when not set
@@ -554,14 +554,14 @@ impl DDSDealBuilder {
 
     #[inline]
     #[must_use]
-    pub fn trump(mut self, trump: DDSSuitEncoding) -> Self {
+    pub fn trump(mut self, trump: DdsSuitEncoding) -> Self {
         self.trump = Some(trump);
         self
     }
 
     #[inline]
     #[must_use]
-    pub fn first(mut self, first: DDSHandEncoding) -> Self {
+    pub fn first(mut self, first: DdsHandEncoding) -> Self {
         self.first = Some(first);
         self
     }

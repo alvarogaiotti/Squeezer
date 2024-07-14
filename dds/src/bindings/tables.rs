@@ -1,39 +1,109 @@
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    ops::{Index, IndexMut},
+};
+
+use bindings::ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT};
 
 use crate::*;
 
-pub trait DdTableCalculator {
+pub trait DdTableCalculator<T>
+where
+    for<'a> &'a T: Into<DdTableDeal>,
+{
     /// Function to calculate a double dummy table for the given deal
     /// We start specific but the aim is to generalize tha interface
     fn calculate_complete_table(
         &self,
-        table_deal: DdTableDeal,
-        tablep: &mut DdTableResults<NotPopulated>,
-    ) -> Result<&mut DdTableResults<Populated>, DDSError>;
+        table_deal: &T,
+    ) -> Result<DdTableResults<Populated>, DDSError>;
     fn calculate_complete_table_pbn(
         &self,
         table_deal_pbn: DdTableDealPbn,
-        tablep: &mut DdTableResults<NotPopulated>,
-    ) -> Result<&mut DdTableResults<Populated>, DDSError>;
+        tablep: DdTableResults<NotPopulated>,
+    ) -> Result<DdTableResults<Populated>, DDSError>;
     fn calculate_all_complete_tables(
         &self,
-        table_deals: DdTableDeals,
-        vulnerability: VulnerabilityEnc,
+        table_deals: &[T],
+        mode: ParCalcMode,
         trump_filter: TrumpFilter,
-        resp: &mut DdTablesRes<NotPopulated>,
-        presp: &mut AllParResults,
-    ) -> Result<&mut DdTablesRes<Populated>, DDSError>;
+    ) -> Result<DdTablesRes<Populated>, DDSError>;
     fn calculate_all_complete_tables_pbn(
         &self,
         table_deals_pbn: DdTableDealsPbn,
-        vulnerability: VulnerabilityEnc,
+        mode: ParCalcMode,
         trump_filter: TrumpFilter,
-        resp: &mut DdTablesRes<NotPopulated>,
+        resp: DdTablesRes<NotPopulated>,
         presp: &mut AllParResults,
-    ) -> Result<&mut DdTablesRes<Populated>, DDSError>;
+    ) -> Result<DdTablesRes<Populated>, DDSError>;
 }
 
-pub enum VulnerabilityEnc {
+impl<T> DdTableCalculator<T> for DoubleDummySolver
+where
+    for<'a> &'a T: Into<DdTableDeal>,
+{
+    fn calculate_complete_table(
+        &self,
+        table_deal: &T,
+    ) -> Result<DdTableResults<bindings::tables::Populated>, DDSError> {
+        let mut tablep = DdTableResults::new();
+        let result = unsafe {
+            CalcDDtable(
+                table_deal.into(),
+                &mut tablep as *mut DdTableResults<NotPopulated>,
+            )
+        };
+        if result != RETURN_NO_FAULT {
+            Err(result.into())
+        } else {
+            Ok(tablep.populated())
+        }
+    }
+    fn calculate_complete_table_pbn(
+        &self,
+        table_deal_pbn: DdTableDealPbn,
+        tablep: DdTableResults<NotPopulated>,
+    ) -> Result<DdTableResults<Populated>, DDSError> {
+        todo!()
+    }
+    fn calculate_all_complete_tables(
+        &self,
+        table_deals: &[T],
+        mode: ParCalcMode,
+        mut trump_filter: TrumpFilter,
+    ) -> Result<DdTablesRes<Populated>, DDSError> {
+        let mut resp = DdTablesRes::new(table_deals.len() as i32);
+        let mut presp = AllParResults::new();
+        let mut dealsp = DdTableDeals::new(table_deals);
+        let result = unsafe {
+            CalcAllTables(
+                &mut dealsp as *mut DdTableDeals,
+                mode as i32,
+                trump_filter.as_mut_ptr(),
+                &mut resp as *mut DdTablesRes<NotPopulated>,
+                &mut presp as *mut AllParResults,
+            )
+        };
+        if result != RETURN_NO_FAULT {
+            Err(result.into())
+        } else {
+            Ok(resp.populated())
+        }
+    }
+    fn calculate_all_complete_tables_pbn(
+        &self,
+        table_deals_pbn: DdTableDealsPbn,
+        vulnerability: ParCalcMode,
+        trump_filter: TrumpFilter,
+        resp: DdTablesRes<NotPopulated>,
+        presp: &mut AllParResults,
+    ) -> Result<DdTablesRes<Populated>, DDSError> {
+        todo!()
+    }
+}
+
+#[repr(i32)]
+pub enum ParCalcMode {
     NoPar = -1,
     None = 0,
     Both = 1,
@@ -41,19 +111,104 @@ pub enum VulnerabilityEnc {
     EW = 3,
 }
 
+#[repr(i32)]
+pub enum VulnerabilityEncoding {
+    None = 0,
+    Both = 1,
+    NS = 2,
+    EW = 3,
+}
+
+/// Filter which decides which strain should we analyze.
+/// The order of the ints is based on [`DdsSuitEncoding`] encoding.
+/// 0 mean we DO NOT FILTER the suit out, other mean we filter.
+/// So if the filter is `[0,0, -1,2,3]` we'll be analyzing
+/// [`DdsSuitEncoding::Spades`] and [`DdsSuitEncoding::Hearts`].
 pub type TrumpFilter = [c_int; 5];
+
+impl Index<DdsSuitEncoding> for TrumpFilter {
+    type Output = c_int;
+    #[inline]
+    fn index(&self, index: DdsSuitEncoding) -> &Self::Output {
+        self.index(index as usize)
+    }
+}
+
+impl IndexMut<DdsSuitEncoding> for TrumpFilter {
+    #[inline]
+    fn index_mut(&mut self, index: DdsSuitEncoding) -> &mut Self::Output {
+        self.index_mut(index as usize)
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// This struct contains the distribution of the cards, with a particular encoding
+/// First index is [`DdsHandEncoding`], second index is [`DdsSuitEncoding`].
+/// The way we store the fields is a bit set of the rank the hand holds in a particular suit
+/// so, if North has AKQ of Spades, then:
+/// ```
+/// use dds::bindings::DdTableDeal;
+/// let mut table = DdTableDeal::new();
+/// table[0][0] = 0b011100000000000
+///               // SA|SK|SQ
+/// ```
 pub struct DdTableDeal {
-    pub cards: [[::std::os::raw::c_uint; 4usize]; 4usize],
+    pub cards: [[::std::os::raw::c_uint; DDS_SUITS as usize]; DDS_HANDS as usize],
+}
+
+impl Index<usize> for DdTableDeal {
+    type Output = [std::os::raw::c_uint; DDS_SUITS as usize];
+    fn index(&self, index: usize) -> &Self::Output {
+        self.cards.index(index)
+    }
+}
+impl IndexMut<usize> for DdTableDeal {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.cards.index_mut(index)
+    }
+}
+
+impl Index<DdsSuitEncoding> for DdTableDeal {
+    type Output = [std::os::raw::c_uint; DDS_SUITS as usize];
+    fn index(&self, index: DdsSuitEncoding) -> &Self::Output {
+        self.cards.index(index as usize)
+    }
+}
+impl IndexMut<DdsSuitEncoding> for DdTableDeal {
+    fn index_mut(&mut self, index: DdsSuitEncoding) -> &mut Self::Output {
+        self.cards.index_mut(index as usize)
+    }
+}
+
+impl DdTableDeal {
+    #[must_use]
+    pub fn new() -> Self {
+        Self { cards: [[0; 4]; 4] }
+    }
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct DdTableDeals {
     pub noOfTables: ::std::os::raw::c_int,
-    pub deals: [DdTableDeal; 200usize],
+    pub deals: [DdTableDeal; (MAXNOOFTABLES * DDS_STRAINS) as usize],
+}
+
+impl DdTableDeals {
+    #[must_use]
+    pub fn new<T>(deals: &[T]) -> Self
+    where
+        for<'a> &'a T: Into<DdTableDeal>,
+    {
+        let mut deals_vec: Vec<DdTableDeal> = deals.iter().take(200).map(|e| e.into()).collect();
+        let len = deals_vec.len();
+        deals_vec.resize(200, DdTableDeal::new());
+        Self {
+            noOfTables: len as i32,
+            deals: deals_vec.try_into().unwrap(),
+        }
+    }
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -64,20 +219,40 @@ pub struct DdTableDealPbn {
 #[derive(Debug, Copy, Clone)]
 pub struct DdTableDealsPbn {
     pub noOfTables: ::std::os::raw::c_int,
-    pub deals: [DdTableDealPbn; 200usize],
+    pub deals: [DdTableDealPbn; (MAXNOOFTABLES * DDS_STRAINS) as usize],
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct DdTableResults<T: TablePopulated> {
-    pub resTable: [[::std::os::raw::c_int; 4usize]; 5usize],
+    pub res_table: [[::std::os::raw::c_int; DDS_HANDS as usize]; DDS_STRAINS as usize],
     state: PhantomData<T>,
+}
+
+impl DdTableResults<NotPopulated> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            res_table: [[0; 4]; 5],
+            state: PhantomData,
+        }
+    }
+
+    #[must_use]
+    fn populated(self) -> DdTableResults<Populated> {
+        DdTableResults {
+            res_table: self.res_table,
+            state: PhantomData,
+        }
+    }
 }
 pub trait TablePopulated: populated_private::SealedPopulated {}
 mod populated_private {
     pub trait SealedPopulated {}
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct NotPopulated;
+#[derive(Debug, Copy, Clone)]
 pub struct Populated;
 
 impl TablePopulated for NotPopulated {}
@@ -88,8 +263,23 @@ impl populated_private::SealedPopulated for Populated {}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct DdTablesRes<T: TablePopulated> {
-    pub noOfBoards: ::std::os::raw::c_int,
-    pub results: [DdTableResults<T>; 200usize],
+    pub no_of_boards: ::std::os::raw::c_int,
+    pub results: [DdTableResults<T>; (MAXNOOFTABLES * DDS_STRAINS) as usize],
+}
+
+impl DdTablesRes<NotPopulated> {
+    #[must_use]
+    pub fn new(no_of_boards: i32) -> Self {
+        Self {
+            no_of_boards,
+            results: [DdTableResults::new(); 200],
+        }
+    }
+
+    #[must_use]
+    fn populated(self) -> DdTablesRes<Populated> {
+        unsafe { std::mem::transmute::<Self, DdTablesRes<Populated>>(self) }
+    }
 }
 
 #[repr(C)]
@@ -99,10 +289,29 @@ pub struct ParResults {
     pub parContractsString: [[::std::os::raw::c_char; 128usize]; 2usize],
 }
 
+impl ParResults {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            parScore: [[0; 16]; 2],
+            parContractsString: [[1; 128]; 2],
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct AllParResults {
-    pub presults: [ParResults; 40usize],
+    pub presults: [ParResults; MAXNOOFTABLES as usize],
+}
+
+impl AllParResults {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            presults: [ParResults::new(); MAXNOOFTABLES as usize],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -234,7 +443,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<DdTableResults<NotPopulated>>())).resTable as *const _
+                &(*(::std::ptr::null::<DdTableResults<NotPopulated>>())).res_table as *const _
                     as usize
             },
             0usize,
@@ -260,7 +469,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).noOfBoards as *const _
+                &(*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).no_of_boards as *const _
                     as usize
             },
             0usize,
@@ -343,5 +552,126 @@ mod test {
                 stringify!(parContractsString)
             )
         );
+    }
+
+    const HOLDINGS: [[[u32; 4]; 4]; 3] = [
+        [
+            // North       East     South          West
+            [
+                1 << 12 | 1 << 11 | 1 << 6,
+                1 << 8 | 1 << 7 | 1 << 3,
+                1 << 13 | 1 << 5,
+                1 << 14 | 1 << 10 | 1 << 9 | 1 << 4 | 1 << 2,
+            ], // spades
+            [
+                1 << 13 | 1 << 6 | 1 << 5 | 1 << 2,
+                1 << 11 | 1 << 9 | 1 << 7,
+                1 << 10 | 1 << 8 | 1 << 3,
+                1 << 14 | 1 << 12 | 1 << 4,
+            ], // hearts
+            [
+                1 << 11 | 1 << 8 | 1 << 5,
+                1 << 14 | 1 << 10 | 1 << 7 | 1 << 6 | 1 << 4,
+                1 << 13 | 1 << 12 | 1 << 9,
+                1 << 3 | 1 << 2,
+            ], // diamonds
+            [
+                1 << 10 | 1 << 9 | 1 << 8,
+                1 << 12 | 1 << 4,
+                1 << 14 | 1 << 7 | 1 << 6 | 1 << 5 | 1 << 2,
+                1 << 13 | 1 << 11 | 1 << 3,
+            ],
+        ], // clubs
+        [
+            [
+                1 << 14 | 1 << 13 | 1 << 9 | 1 << 6,
+                1 << 12 | 1 << 11 | 1 << 10 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2,
+                0,
+                1 << 8 | 1 << 7,
+            ],
+            [
+                1 << 13 | 1 << 12 | 1 << 8,
+                1 << 10,
+                1 << 11 | 1 << 9 | 1 << 7 | 1 << 5 | 1 << 4 | 1 << 3,
+                1 << 14 | 1 << 6 | 1 << 2,
+            ],
+            [
+                1 << 14 | 1 << 9 | 1 << 8,
+                1 << 6,
+                1 << 13 | 1 << 7 | 1 << 5 | 1 << 3 | 1 << 2,
+                1 << 12 | 1 << 11 | 1 << 10 | 1 << 4,
+            ],
+            [
+                1 << 13 | 1 << 6 | 1 << 3,
+                1 << 12 | 1 << 11 | 1 << 8 | 1 << 2,
+                1 << 9 | 1 << 4,
+                1 << 14 | 1 << 10 | 1 << 7 | 1 << 5,
+            ],
+        ],
+        [
+            [
+                1 << 7 | 1 << 3,
+                1 << 12 | 1 << 10 | 1 << 6,
+                1 << 5,
+                1 << 14 | 1 << 13 | 1 << 11 | 1 << 9 | 1 << 8 | 1 << 4 | 1 << 2,
+            ],
+            [
+                1 << 12 | 1 << 11 | 1 << 10,
+                1 << 8 | 1 << 7 | 1 << 6,
+                1 << 14 | 1 << 9 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2,
+                1 << 13,
+            ],
+            [
+                1 << 14 | 1 << 12 | 1 << 5 | 1 << 4,
+                1 << 13 | 1 << 11 | 1 << 9,
+                1 << 7 | 1 << 6 | 1 << 3 | 1 << 2,
+                1 << 10 | 1 << 8,
+            ],
+            [
+                1 << 10 | 1 << 7 | 1 << 5 | 1 << 2,
+                1 << 14 | 1 << 12 | 1 << 8 | 1 << 4,
+                1 << 13 | 1 << 6,
+                1 << 11 | 1 << 9 | 1 << 3,
+            ],
+        ],
+    ];
+
+    const DDTABLE: [[i32; 20]; 3] = [
+        [5, 8, 5, 8, 6, 6, 6, 6, 5, 7, 5, 7, 7, 5, 7, 5, 6, 6, 6, 6],
+        [4, 9, 4, 9, 10, 2, 10, 2, 8, 3, 8, 3, 6, 7, 6, 7, 9, 3, 9, 3],
+        [3, 10, 3, 10, 9, 4, 9, 4, 8, 4, 8, 4, 3, 9, 3, 9, 4, 8, 4, 8],
+    ];
+
+    #[test]
+    fn test_calculate_table_works() {
+        fn check_table(table: &DdTableResults<Populated>, hand_no: usize) -> bool {
+            for strain in 0..5 {
+                for player in 0..4 {
+                    if table.res_table[strain][player] != DDTABLE[hand_no][4 * strain + player] {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        let mut table_deal = DdTableDeal::new();
+        for deal in 0..3 {
+            for h in 0..4 {
+                for s in 0..4 {
+                    table_deal.cards[h][s] = HOLDINGS[deal][s][h];
+                }
+            }
+            let mut table = DdTableResults::new();
+            let result =
+                unsafe { CalcDDtable(table_deal, &mut table as *mut DdTableResults<NotPopulated>) };
+            let table = unsafe {
+                std::mem::transmute::<DdTableResults<NotPopulated>, DdTableResults<Populated>>(
+                    table,
+                )
+            };
+            assert_eq!(RETURN_NO_FAULT, result);
+            dbg!(&table);
+            assert!(check_table(&table, deal));
+        }
     }
 }
