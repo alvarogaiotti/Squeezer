@@ -7,12 +7,12 @@ use bindings::ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_
 
 use crate::*;
 
+/// Function to calculate a double dummy table for the given deal
+/// We start specific but the aim is to generalize tha interface
 pub trait DdTableCalculator<T>
 where
     for<'a> &'a T: Into<DdTableDeal>,
 {
-    /// Function to calculate a double dummy table for the given deal
-    /// We start specific but the aim is to generalize tha interface
     fn calculate_complete_table(
         &self,
         table_deal: &T,
@@ -670,7 +670,6 @@ mod test {
                 )
             };
             assert_eq!(RETURN_NO_FAULT, result);
-            dbg!(&table);
             assert!(check_table(&table, deal));
         }
     }

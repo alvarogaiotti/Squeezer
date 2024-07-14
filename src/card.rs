@@ -1,5 +1,5 @@
-/// All the code here come from David Roundy's library (<https://github.com/droundy/bridge-cards>),
-/// whom I thank for his precious work. I only slightly modified the code to adapt it to my needs.
+/// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
+/// I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;
 use rand::Rng;
 
