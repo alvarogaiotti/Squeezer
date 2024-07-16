@@ -2,16 +2,9 @@ use squeezer::*;
 
 #[test]
 fn main_to_be() {
-    let mut south_shapes = Shapes::new();
-    south_shapes.add_shape("3262").unwrap();
-    south_shapes.add_shape("2362").unwrap();
-    south_shapes.add_shape("2263").unwrap();
-    south_shapes.add_shape("2272").unwrap();
+    let south_shapes = Shape::new_from_patterns(&["3262", "2362", "2263", "2272"]).unwrap();
 
-    let south_specs = HandDescriptor::new(vec![HandType::new(
-        Shape::Custom(south_shapes),
-        HcpRange::new(18, 20),
-    )]);
+    let south_specs = HandDescriptor::new(vec![HandType::new(south_shapes, HcpRange::new(18, 20))]);
     let mut hand_builder = HandTypeBuilder::new();
     hand_builder
         .with_longest(Suit::Spades)
@@ -33,5 +26,6 @@ fn main_to_be() {
         .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2);
     let dealer = builder.build().unwrap();
     let deal = dealer.deal().unwrap();
+    println!("{deal}");
     assert!(deal.south().diamonds().len() >= 6);
 }

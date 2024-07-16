@@ -31,6 +31,9 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
             }
             for i in 0..results.len() {
                 for y in 0..results.len() {
+                    if i == y {
+                        continue;
+                    };
                     payoff.insert((self.diff)(results[i], results[y]), (i, y));
                 }
             }
@@ -47,7 +50,6 @@ where
     P: fmt::Display + DifferenceMaker,
 {
     entries: Vec<P>,
-    // TODO: Reduce this to a Vec<Vec<i32>>, storing only the difference and negating it during display
     table: Vec<Vec<Vec<i32>>>,
 }
 
