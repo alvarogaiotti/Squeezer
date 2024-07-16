@@ -63,7 +63,7 @@ impl Shape {
 
     /// # Errors
     /// When the pattern is not correct
-    pub fn new_from_patterns(patterns: Vec<&str>) -> Result<Self, DealerError> {
+    pub fn new_from_patterns(patterns: &[&str]) -> Result<Self, DealerError> {
         let mut shape = Shapes::new();
         for pattern in patterns {
             shape.add_shape(pattern)?;
@@ -511,7 +511,7 @@ impl Suit {
 }
 
 mod test {
-    
+    use crate::*;
 
     #[test]
     fn shape_creation_test() {
