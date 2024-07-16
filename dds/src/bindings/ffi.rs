@@ -17,25 +17,25 @@ use super::DdsDeal;
 /// - Board solution
 pub struct DoubleDummySolver;
 
-//NOTE: Ported
+// NOTE: Ported
 extern "C" {
     pub fn SetMaxThreads(userThreads: ::std::os::raw::c_int);
 }
-//NOTE: Ported
+// NOTE: Ported
 extern "C" {
     pub fn SetThreading(code: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Ported
+// NOTE: Ported
 extern "C" {
     pub fn SetResources(maxMemoryMB: ::std::os::raw::c_int, maxThreads: ::std::os::raw::c_int);
 }
-//NOTE: Not ported as irrelevant for our usecase.
+// NOTE: Not ported as irrelevant for our usecase.
 extern "C" {
     pub fn FreeMemory();
 }
 
-//NOTE: Ported
+// NOTE: Ported
 extern "C" {
     pub fn SolveBoard(
         dl: DdsDeal,
@@ -47,7 +47,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Ported
+// NOTE: Ported
 extern "C" {
     pub fn SolveBoardPBN(
         dlpbn: DdsDealPbn,
@@ -59,7 +59,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Not implemented
+// NOTE: Not implemented
 extern "C" {
     pub fn CalcDDtable(
         tableDeal: DdTableDeal,
@@ -67,7 +67,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Not implemented
+// NOTE: Not implemented
 extern "C" {
     pub fn CalcDDtablePBN(
         tableDealPBN: DdTableDealPbn,
@@ -75,7 +75,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Not implemented
+// NOTE: Not implemented
 extern "C" {
     pub fn CalcAllTables(
         dealsp: *mut DdTableDeals,
@@ -86,7 +86,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Not implemented
+// NOTE: Not implemented
 extern "C" {
     pub fn CalcAllTablesPBN(
         dealsp: *mut DdTableDealsPbn,
@@ -97,19 +97,19 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Implemented
+// NOTE: Implemented
 extern "C" {
     pub fn SolveAllBoards(bop: *mut BoardsPbn, solvedp: *mut SolvedBoards)
         -> ::std::os::raw::c_int;
 }
 
-//NOTE: Implemented
+// NOTE: Implemented
 extern "C" {
     pub fn SolveAllBoardsBin(bop: *mut Boards, solvedp: *mut SolvedBoards)
         -> ::std::os::raw::c_int;
 }
 
-//NOTE: Deprecated
+// NOTE: Deprecated
 extern "C" {
     pub fn SolveAllChunks(
         bop: *mut BoardsPbn,
@@ -118,7 +118,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Deprecated
+// NOTE: Deprecated
 extern "C" {
     pub fn SolveAllChunksBin(
         bop: *mut Boards,
@@ -127,7 +127,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//NOTE: Alias of SolveAllChunks
+// NOTE: Alias of SolveAllChunks
 extern "C" {
     pub fn SolveAllChunksPBN(
         bop: *mut BoardsPbn,
@@ -136,7 +136,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+//  NOTE: Not implemented
 extern "C" {
     pub fn Par(
         tablep: *mut DdTableResults<Populated>,
@@ -145,7 +145,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+//  NOTE: Not implemented
 extern "C" {
     pub fn CalcPar(
         tableDeal: DdTableDeal,
@@ -155,7 +155,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+//  NOTE: Not implemented
 extern "C" {
     pub fn CalcParPBN(
         tableDealPBN: DdTableDealPbn,
@@ -165,7 +165,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not Implemented
+//  NOTE: Not Implemented
 extern "C" {
     pub fn SidesPar(
         tablep: *mut DdTableResults<Populated>,
@@ -174,7 +174,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+//  NOTE: Not implemented
 extern "C" {
     pub fn DealerPar(
         tablep: *mut DdTableResults<Populated>,
@@ -184,7 +184,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+//  NOTE: Not implemented
 extern "C" {
     pub fn DealerParBin(
         tablep: *mut DdTableResults<Populated>,
@@ -194,7 +194,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+//  NOTE: Not implemented
 extern "C" {
     pub fn SidesParBin(
         tablep: *mut DdTableResults<Populated>,
@@ -203,7 +203,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not yet ported
+//  NOTE: Not yet ported
 extern "C" {
     pub fn ConvertToDealerTextFormat(
         pres: *mut parResultsMaster,
@@ -211,7 +211,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not yet ported
+//  NOTE: Not yet ported
 extern "C" {
     pub fn ConvertToSidesTextFormat(
         pres: *mut parResultsMaster,
@@ -219,7 +219,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Ported
+//  NOTE: Ported
 extern "C" {
     pub fn AnalysePlayBin(
         dl: DdsDeal,
@@ -229,7 +229,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Ported
+//  NOTE: Ported
 extern "C" {
     pub fn AnalysePlayPBN(
         dlPBN: DdsDealPbn,
@@ -239,7 +239,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Ported
+//  NOTE: Ported
 extern "C" {
     pub fn AnalyseAllPlaysBin(
         bop: *mut Boards,
@@ -249,7 +249,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Ported
+//  NOTE: Ported
 extern "C" {
     pub fn AnalyseAllPlaysPBN(
         bopPBN: *mut BoardsPbn,
