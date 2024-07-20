@@ -11,10 +11,10 @@ This started as  a reimplementation of [redeal](https://github.com/anntzer/redea
 Now... the project grew a bit and I'm now trying to turn this into a full fledged crate that can back some
 decent software.
 
-### Goals&Ideas:
-- [ ] Create safe wrappers for all the DDS library (in progress)
-- [ ] Find a better way to store shapes for a hand:
-- [ ] Implement simulation of bridge situations
+### Goals & Ideas:
+- [x] Create safe wrappers for all the DDS library
+- [x] Find a better way to store shapes for a hand
+- [x] Implement simulation of bridge situations
 - [ ] Implement analysis of player performance
 
-I'll add ideas and goals while I come up with them.
+Now I'm thinking about creating some binaries to do a limited work, like a clone of Leadsolver by Andrew Lee or a performance analysis tool.
