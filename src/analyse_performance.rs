@@ -35,9 +35,55 @@ impl std::ops::IndexMut<usize> for PlayerPlayTrace {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Tricks(u8);
 
+impl Tricks {
+    /// Returns a [`Tricks`] from a `u8`, checking if in the correct range
+    /// # Errors
+    /// Errors when `tricks` is not in the range `0..=13`
+    #[inline]
+    pub fn new(tricks: u8) -> Result<Self, DealerError> {
+        if (0..=13).contains(&tricks) {
+            Ok(Tricks(tricks))
+        } else {
+            Err(DealerError::new(&format!(
+                "trick number can be only in the range 0..=13: got {tricks}"
+            )))
+        }
+    }
+
+    /// Returns a [`Tricks`] from a `u8`, WHITHOUT checking if in the correct range
+    #[must_use]
+    #[inline]
+    pub fn new_unchecked(tricks: u8) -> Self {
+        Self(tricks)
+    }
+}
+
 /// Newtype wrapper for the double dummy difference between before and after the card is played.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TrickDifference(u8);
+
+impl TrickDifference {
+    /// Returns a [`TrickDifference`] from a `u8`, checking if in the correct range
+    /// # Errors
+    /// Errors when `trick_difference` is not in the range `1..=13`
+    #[inline]
+    pub fn new(tricks_difference: u8) -> Result<Self, DealerError> {
+        if (1..=13).contains(&tricks_difference) {
+            Ok(TrickDifference(tricks_difference))
+        } else {
+            Err(DealerError::new(&format!(
+                "trick number can be only in the range 1..=13: got {tricks_difference}"
+            )))
+        }
+    }
+
+    /// Returns a [`TrickDifference`] from a `u8`, WHITHOUT checking if in the correct range
+    #[must_use]
+    #[inline]
+    pub fn new_unchecked(tricks_difference: u8) -> Self {
+        Self(tricks_difference)
+    }
+}
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -46,7 +92,28 @@ pub enum CardPerformance {
     Correct(Tricks),
 }
 
-/// Represents a player's track of card's result played in a board.
+impl CardPerformance {
+    /// Returns the tricks of this [`CardPerformance`].
+    #[inline]
+    #[must_use]
+    pub fn tricks(&self) -> Tricks {
+        match *self {
+            Self::Error(tricks, _) | Self::Correct(tricks) => tricks,
+        }
+    }
+
+    /// Returns the difference of this [`CardPerformance`].
+    #[inline]
+    #[must_use]
+    pub fn difference(&self) -> Option<TrickDifference> {
+        match *self {
+            Self::Error(_, difference) => Some(difference),
+            Self::Correct(_) => None,
+        }
+    }
+}
+
+/// Represents  player's track of card's result played in a board.
 /// We use Option because sometimes we claim and do not play cards.
 /// The u8 represents the double dummy result of the card played.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -82,14 +149,24 @@ impl PlayerResultTrace {
         self.len() == 0
     }
 
-    #[must_use]
+    #[allow(clippy::cast_lossless, clippy::cast_possible_truncation)]
     #[inline]
-    pub fn compute_player_performance(&self) -> PlayerAccuracy {
-        let _performance = PlayerAccuracy {
-            accuracy: 0.0,
-            tricks_lost: 0,
-        };
-        todo!()
+    /// Computes the performance of a player, taking a [`PlayerAccuracy`]
+    /// representing the accuracy of a player since now and updating it with
+    /// the result of the this hand
+    pub fn compute_player_performance(&self, accuracy: &mut PlayerAccuracy) {
+        // The accumulator is (number_of_correct_cards_played, tricks_lost)
+        let result = self.iter().fold((0, 0), |accumulator, difference| {
+            if let CardPerformance::Error(_, TrickDifference(delta)) = difference {
+                (accumulator.0, delta + accumulator.1)
+            } else {
+                (accumulator.0 + 1u32, accumulator.1)
+            }
+        });
+
+        accuracy.tricks_lost += result.1 as u32;
+        accuracy.cards_played += self.len() as u32;
+        accuracy.correct_cards += result.0;
     }
 }
 
@@ -120,9 +197,23 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
+#[derive(Default, Copy, Clone)]
 pub struct PlayerAccuracy {
-    accuracy: f32,
-    tricks_lost: u8,
+    correct_cards: u32,
+    tricks_lost: u32,
+    cards_played: u32,
+}
+
+impl PlayerAccuracy {
+    #[must_use]
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            correct_cards: 0,
+            tricks_lost: 0,
+            cards_played: 0,
+        }
+    }
 }
 
 impl std::ops::Index<usize> for PlayerResultTrace {
@@ -488,5 +579,36 @@ mod tests {
             players_performance[Seat::East as usize].results[5].unwrap(),
             CardPerformance::Error(Tricks(9), TrickDifference(1))
         );
+    }
+
+    #[test]
+    fn test_compute_player_performance() {
+        let p_performance = [
+            PlayerResultTrace([Some(CardPerformance::Correct(Tricks(10))); 12]),
+            PlayerResultTrace([
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Correct(Tricks(10))),
+            ]),
+        ];
+        let mut n_perf = PlayerAccuracy::new();
+        let mut e_perf = PlayerAccuracy::new();
+        p_performance[0].compute_player_performance(&mut n_perf);
+        p_performance[1].compute_player_performance(&mut e_perf);
+        assert_eq!(12, n_perf.cards_played);
+        assert_eq!(0, n_perf.tricks_lost);
+        assert_eq!(12, n_perf.correct_cards);
+        assert_eq!(12, e_perf.cards_played);
+        assert_eq!(4, e_perf.tricks_lost);
+        assert_eq!(8, e_perf.correct_cards);
     }
 }
