@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use crate::{prelude::*, shapeparser::CreationShapeError};
 
 ///Error for wrong Shape pattern passed to `ShapeFactory`.

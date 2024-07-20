@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use super::{
     parser::Parser, scanner::ScanningShapeError, Length, Modifier, ParsingShapeError, Pattern,
 };

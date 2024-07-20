@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 #![allow(dead_code)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]

@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use std::{cell::Cell, num::NonZeroU8};
 
 use crate::prelude::*;

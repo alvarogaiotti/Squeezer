@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use super::ddsffi::{parResultsDealer, parResultsMaster, parTextResults};
 use super::tables::*;
 use crate::{

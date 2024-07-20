@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 fn main() {
     let path = std::env::current_dir().unwrap();
     let path = path.join("libdds.so");

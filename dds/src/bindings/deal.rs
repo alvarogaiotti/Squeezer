@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use crate::SeqError;
 
 use super::{AsDDSContract, Mode, RawDDSRef, Solutions, Target, MAXNOOFBOARDS};

@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 /// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
 /// I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;

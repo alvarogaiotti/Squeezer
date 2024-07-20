@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use crate::prelude::*;
 
 ///Represent a bridge hand: 13 cards, with different and various properties.

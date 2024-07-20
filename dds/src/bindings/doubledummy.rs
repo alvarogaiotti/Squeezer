@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use ddsffi::RETURN_UNKNOWN_FAULT;
 use future_tricks::FutureTricks;
 

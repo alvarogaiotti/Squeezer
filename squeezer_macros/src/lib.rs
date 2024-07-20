@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use proc_macro::TokenStream;
 
 #[proc_macro_derive(SuitIter, attributes(spades, hearts, diamonds, clubs))]

@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use super::{Simulation, SimulationResult};
 use colored::Colorize;
 use std::{array, collections::HashMap, fmt::Display};

@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use super::{ddsffi::RETURN_UNKNOWN_FAULT, AsDDSContract, AsDDSDeal, AsRawDDS, MAXNOOFBOARDS};
 use crate::{DDSError, RankSeq, SuitSeq};
 use core::{ffi::c_int, slice::Iter};

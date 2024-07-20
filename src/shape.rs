@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 use crate::prelude::*;
 use crate::shapeparser::{ShapeCreator, ShapePattern};
 use bitvec::{bitarr, BitArr};

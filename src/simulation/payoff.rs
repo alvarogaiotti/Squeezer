@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
 /// This file contains implementations for simulating and analyzing bridge game scenarios.
 /// It includes structures for handling payoff matrices, bridge contracts, scoring functions, and utility functions.
 /// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract, and various scoring functions such as `imps` and `matchpoints`.
