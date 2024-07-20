@@ -49,6 +49,79 @@ pub enum CardPerformance {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PlayerResultTrace([Option<CardPerformance>; 12]);
 
+impl PlayerResultTrace {
+    #[must_use]
+    #[inline]
+    pub fn iter(&self) -> Iter<'_> {
+        Iter {
+            data: &self.0[..],
+            pointer: 0,
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn len(&self) -> usize {
+        let mut counter = 0;
+        while let Some(option) = self.0.get(counter) {
+            if option.is_some() {
+                counter += 1;
+            } else {
+                break;
+            }
+        }
+        counter
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn compute_player_performance(&self) -> PlayerAccuracy {
+        let _performance = PlayerAccuracy {
+            accuracy: 0.0,
+            tricks_lost: 0,
+        };
+        todo!()
+    }
+}
+
+impl<'a> IntoIterator for &'a PlayerResultTrace {
+    type Item = &'a CardPerformance;
+    type IntoIter = self::Iter<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+pub struct Iter<'a> {
+    data: &'a [Option<CardPerformance>],
+    pointer: usize,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a CardPerformance;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.data.get(self.pointer);
+        self.pointer += 1;
+        if let Some(item) = item {
+            item.as_ref()
+        } else {
+            None
+        }
+    }
+}
+
+pub struct PlayerAccuracy {
+    accuracy: f32,
+    tricks_lost: u8,
+}
+
 impl std::ops::Index<usize> for PlayerResultTrace {
     type Output = Option<CardPerformance>;
     fn index(&self, index: usize) -> &Self::Output {
