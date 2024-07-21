@@ -3,7 +3,8 @@
 
 #![allow(dead_code)]
 use crate::prelude::*;
-use log::{error, warn};
+use fmt::Display;
+use log::error;
 use regex::Regex;
 use std::{
     num::{NonZeroU8, ParseIntError},
@@ -15,11 +16,11 @@ use std::{
 
 /// A struct for parsing lin files.
 /// You can feed a lin file and parse it,
-/// expecting to obtai a `ParsedLin` struct.
+/// expecting to obtai a [`ParsedLin`] struct.
 /// The struct expects a something that can be turn into a
 /// Iterator<Item=char> for parsing it.
 /// You'll interact very rarely with this struct directly.
-/// Instead, you'll use the `LinDeal` struct and its `from_str` method.
+/// Instead, you'll use the [`LinDeal`] struct and its `from_str` method.
 
 struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
@@ -55,6 +56,7 @@ pub struct ParsedLin {
 /// - the dealer
 ///
 /// You can create a lin deal starting from a str with
+#[derive(Debug)]
 pub struct LinDeal {
     players: [String; 4],
     hands: Hands,
@@ -99,27 +101,48 @@ impl LinDeal {
     pub fn contract(&self) -> Option<Contract> {
         let mut contract = None;
         if let Some(ref bidding) = self.bidding {
-            let mut declarer = self.dealer as usize + bidding.len();
+            let mut declarer = None;
+            let mut last_bidder = self.dealer as usize + bidding.len();
             let mut doubled = Doubled::NotDoubled;
+            let mut strain_found = (false, Strain::NoTrumps, 7u8);
             for bid in bidding.iter().rev() {
-                match *bid {
-                    Bid::Double => {
-                        doubled = Doubled::Doubled;
-                        declarer -= 1;
+                if strain_found.0 {
+                    match *bid {
+                        Bid::Contract(_, strain) if strain == strain_found.1 => {
+                            last_bidder -= 1;
+                            declarer = Some(last_bidder);
+                        }
+                        _ => last_bidder -= 1,
                     }
-                    Bid::Pass => declarer -= 1,
-                    Bid::Redouble => {
-                        doubled = Doubled::Redoubled;
-                        declarer -= 1;
-                    }
-                    Bid::Contract(level, strain) => {
-                        let declarer = declarer.into();
-                        let vuln = Vulnerable::from_number_and_seat(self.number, declarer);
-                        contract =
-                            Some(Contract::new(level.into(), strain, declarer, vuln, doubled));
-                        break;
+                } else {
+                    match *bid {
+                        Bid::Double => {
+                            doubled = Doubled::Doubled;
+                            last_bidder -= 1;
+                        }
+                        Bid::Pass => last_bidder -= 1,
+                        Bid::Redouble => {
+                            doubled = Doubled::Redoubled;
+                            last_bidder -= 1;
+                        }
+                        Bid::Contract(level, strain) => {
+                            strain_found = (true, strain, level.into());
+                            last_bidder -= 1;
+                            declarer = Some(last_bidder);
+                        }
                     }
                 }
+            }
+            if let Some(declarer) = declarer {
+                let declarer = declarer.into();
+                let vuln = Vulnerable::from_number_and_seat(self.number, declarer);
+                contract = Some(Contract::new(
+                    strain_found.2,
+                    strain_found.1,
+                    declarer,
+                    vuln,
+                    doubled,
+                ));
             }
         }
         contract
@@ -191,7 +214,7 @@ impl FromStr for LinDeal {
         // Safety: Players always return a Vec of len 4;
         let players: [String; 4] = players.try_into().unwrap();
         let (dealer, hands) = dealer_and_hands(s)?;
-        let number = number(s);
+        let number = number(s)?;
         let bidding = Some(match bidding(s) {
             Ok(value) => value,
             Err(e) => {
@@ -238,6 +261,15 @@ impl IntoIterator for Bidding {
     type IntoIter = <Vec<Bid> as IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
         self.bidding.into_iter()
+    }
+}
+
+impl Display for Bidding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for bid in &self.iter().chunks(4) {
+            writeln!(f, "{}", bid.into_iter().format("-"))?;
+        }
+        Ok(())
     }
 }
 
@@ -320,6 +352,7 @@ impl Bidding {
     /// - If the `Bid` is insufficient
     /// - If we are at the first `Bid` and find a Double or Redouble
     pub fn push(&mut self, bid: Bid) -> Result<(), BiddingError> {
+        // If we have already some bids pushed
         if let Some(last) = self.bidding.last() {
             if bid.can_bid_over(last) {
                 self.bidding.push(bid);
@@ -330,9 +363,11 @@ impl Bidding {
                     kind: BiddingErrorKind::Insufficient,
                 })
             }
+            // If this is the first bid that we push and is a contract or pass go ahead
         } else if bid.is_contract() || bid == Bid::Pass {
             self.bidding.push(bid);
             Ok(())
+            // Else terminate error
         } else {
             Err(BiddingError {
                 bid,
@@ -414,6 +449,10 @@ impl std::fmt::Display for BidError {
 impl Bid {
     #[must_use]
     pub fn can_bid_over(&self, before: &Self) -> bool {
+        // We are not strictly checking if we keep bidding higher
+        // e.g. 1S-p-1H is validated with this implementation since we do not keep track of the
+        // level.
+        // FIX : Implement a builder to enforce state
         match before {
             Bid::Contract(level, strain) => match self {
                 Bid::Contract(self_level, self_strain) => {
@@ -422,9 +461,9 @@ impl Bid {
                 Bid::Pass | Bid::Double => true,
                 Bid::Redouble => false,
             },
-            Bid::Pass => self != &Bid::Redouble,
-            Bid::Double => self == &Bid::Redouble,
-            Bid::Redouble => self.is_contract(),
+            Bid::Pass => true,
+            Bid::Double => self != &Bid::Double,
+            Bid::Redouble => self != &Bid::Double || self != &Bid::Redouble,
         }
     }
 
@@ -449,11 +488,12 @@ fn players(lin: &str) -> Vec<String> {
             data
         },
         |captures| {
-            let vec = captures
+            let mut vec: Vec<String> = captures
                 .iter()
                 .skip(1)
                 .map(|x| x.map_or(String::from("NN"), |m| m.as_str().to_string()))
                 .collect();
+            vec.rotate_left(2);
             vec
         },
     )
@@ -466,27 +506,22 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
     let hands =
         HANDS.get_or_init(|| Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap());
     if let Some(captures) = hands.captures(lin) {
-        let dealer = match captures
-            .name("dealer")
-            .expect("No dealer")
-            .as_str()
-            .parse::<u8>()
-        {
-            Ok(dealer) => Seat::from(dealer),
+        let capture = captures.name("dealer").expect("No dealer").as_str();
+        let dealer = match capture.parse::<u8>() {
+            Ok(dealer) => Seat::from(dealer + 1),
             Err(_e) => {
                 error!("unable to parse dealer");
-                return Err(LinParsingError::new(LinParsingErrorKind::Hands, lin));
+                return Err(LinParsingError::new(LinParsingErrorKind::Hands, capture));
             }
         };
         let mut deck = Cards::ALL;
-        let vec: Vec<_> = captures
-            .name("hands")
-            .expect("No hands")
-            .as_str()
+        let hand_capture = captures.name("hands").expect("No hands").as_str();
+
+        let mut vec = hand_capture
             .split(',')
-            .map(|hand| {
-                let mut hand = Cards::from_str(hand)
-                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, lin))?;
+            .map(|hand_str| {
+                let mut hand = Cards::from_str(hand_str)
+                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, hand_str))?;
                 deck -= hand;
                 // We should get a empty [`Hand`] only at the end of the stream.
                 // Looks really error prone and should be corrected, so:
@@ -495,16 +530,23 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
                     if deck.len() == 13 {
                         hand = deck;
                     } else {
-                        return Err(LinParsingError::new(LinParsingErrorKind::Hands, lin));
+                        return Err(LinParsingError::new(LinParsingErrorKind::Hands, hand_str));
                     }
                 }
                 Hand::try_from(hand)
-                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, lin))
+                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, hand_str))
             })
             .collect::<Result<Vec<Hand>, LinParsingError>>()?;
+        // Lin format has player start from south.
+        vec.rotate_right(2);
         let hands: [Hand; 4] = match vec.try_into() {
             Ok(array) => array,
-            Err(_) => return Err(LinParsingError::new(LinParsingErrorKind::Hands, lin)),
+            Err(_) => {
+                return Err(LinParsingError::new(
+                    LinParsingErrorKind::Hands,
+                    hand_capture,
+                ))
+            }
         };
         Ok((dealer, Hands::new_from(hands)))
     } else {
@@ -512,20 +554,18 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
     }
 }
 
-fn number(lin: &str) -> u8 {
+fn number(lin: &str) -> Result<u8, LinParsingError> {
     static NUMBER: OnceLock<Regex> = OnceLock::new();
-    let number = NUMBER.get_or_init(|| Regex::new(r"ah\|(?P<number>[\w, ]+?)\|").unwrap());
-    number
+    let number = NUMBER.get_or_init(|| Regex::new(r"ah\|\s?Board\s?(?P<number>[\d]+?)\|").unwrap());
+    let number = number
         .captures(lin)
         .expect("No number capture")
         .name("number")
         .expect("No number named match")
-        .as_str()
+        .as_str();
+    number
         .parse::<u8>()
-        .unwrap_or_else(|_| {
-            warn!("unable to parse board number, using default");
-            1
-        })
+        .map_err(|_| LinParsingError::new(LinParsingErrorKind::Number, number))
 }
 
 fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
@@ -574,7 +614,7 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
     Ok(bidding)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PlaySequence {
     sequence: Vec<Card>,
 }
@@ -608,6 +648,15 @@ impl IntoIterator for PlaySequence {
     }
 }
 
+impl Display for PlaySequence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for trick in &self.iter().chunks(4) {
+            writeln!(f, "{}", trick.into_iter().format("-"))?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(feature = "dds")]
 impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
     type Error = dds::SeqError;
@@ -629,6 +678,16 @@ impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
             SuitSeq::try_from(suitseq.as_slice())?,
             RankSeq::try_from(rankseq.as_slice())?,
         ))
+    }
+}
+
+#[cfg(feature = "dds")]
+impl TryFrom<&PlaySequence> for dds::PlayTraceBin {
+    type Error = dds::SeqError;
+
+    fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
+        let sequences = <(dds::SuitSeq, dds::RankSeq)>::try_from(value)?;
+        Ok(Self::from_sequences(sequences.0, sequences.1))
     }
 }
 
@@ -668,9 +727,118 @@ fn claim(lin: &str) -> Option<u8> {
         })
 }
 
-#[test]
-fn parses_lin_test() {
-    let lin = String::from("pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|");
-    let parsed_lin = LinDeal::from_str(&lin).unwrap();
-    println!("{parsed_lin}");
+mod test {
+    use crate::{Contract, Doubled, Seat, Strain, Vulnerable};
+
+    use super::LinDeal;
+    use std::str::FromStr;
+
+    #[test]
+    fn parses_lin_test0() {
+        let lin = String::from("pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|");
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        assert_eq!(
+            parsed_lin.contract().unwrap(),
+            Contract::new(
+                4,
+                Strain::Spades,
+                Seat::East,
+                Vulnerable::No,
+                Doubled::NotDoubled
+            )
+        );
+    }
+    #[test]
+    fn parses_lin_test1() {
+        let lin = String::from("pn|gattochef,sebyx,Inter2018,fede00|st||md|3SAQ432HQJT72DT3CQ,SKJH983D974CT9876,S965HK654DKJ6CAJ5,ST87HADAQ852CK432|rh||ah|Board 1|sv|o|mb|1C|an|2+|mb|1D|mb|1H|an|picche|mb|2D|mb|p|mb|p|mb|3H|mb|p|mb|3S|mb|p|mb|4S|mb|p|mb|p|mb|p|pg||pc|DA|pc|D3|pc|D9|pc|D6|pg||pc|HA|pc|H2|pc|H9|pc|H4|pg||pc|D8|pc|DT|pc|D7|pc|DJ|pg||pc|S5|pc|S7|pc|SA|pc|SJ|pg||pc|CQ|pc|CT|pc|CA|pc|C2|pg||pc|S6|pc|S8|pc|SQ|pc|SK|pg||pc|H8|mc|9|");
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+        assert_eq!(
+            parsed_lin.contract().unwrap(),
+            Contract::new(
+                4,
+                Strain::Spades,
+                Seat::North,
+                Vulnerable::No,
+                Doubled::NotDoubled
+            )
+        );
+    }
+    #[test]
+    fn parses_lin_test2() {
+        let lin = String::from(include_str!("../tests/4207070707.lin"));
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+        assert_eq!(
+            parsed_lin.contract().unwrap(),
+            Contract::new(
+                4,
+                Strain::Spades,
+                Seat::North,
+                Vulnerable::No,
+                Doubled::NotDoubled
+            )
+        );
+    }
+    #[test]
+    fn parses_lin_test3() {
+        let lin = String::from(include_str!("../tests/4207076395.lin"));
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+        assert_eq!(
+            parsed_lin.contract().unwrap(),
+            Contract::new(
+                6,
+                Strain::Diamonds,
+                Seat::North,
+                Vulnerable::Yes,
+                Doubled::NotDoubled
+            )
+        );
+    }
+    #[test]
+    fn parses_lin_test4() {
+        let lin = String::from(include_str!("../tests/4207079732.lin"));
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+        assert_eq!(
+            parsed_lin.contract().unwrap(),
+            Contract::new(
+                3,
+                Strain::NoTrumps,
+                Seat::West,
+                Vulnerable::Yes,
+                Doubled::NotDoubled
+            )
+        );
+    }
+    #[test]
+    fn parses_lin_test6() {
+        let lin = String::from(include_str!("../tests/4207083254.lin"));
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+        assert_eq!(
+            parsed_lin.contract().unwrap(),
+            Contract::new(
+                3,
+                Strain::Clubs,
+                Seat::South,
+                Vulnerable::Yes,
+                Doubled::NotDoubled
+            )
+        );
+    }
+    #[test]
+    fn parses_lin_test7() {
+        let lin = String::from(include_str!("../tests/4207093356.lin"));
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+    }
+    #[test]
+    fn parses_lin_test8() {
+        let lin = String::from(include_str!("../tests/4207094241.lin"));
+        let parsed_lin = LinDeal::from_str(&lin).unwrap();
+        println!("{parsed_lin}");
+        assert_eq!(parsed_lin.contract(), None);
+    }
 }

@@ -236,7 +236,7 @@ impl TryFrom<&[c_int]> for SuitSeq {
             // array.extend_from_slice(value);
             // array.resize(SEQUENCE_LENGTH, -1i32);
             let mut sequence = [-1i32; SEQUENCE_LENGTH];
-            sequence.copy_from_slice(value);
+            sequence[..length].copy_from_slice(value);
             return Ok(Self {
                 sequence,
                 // SAFETY: checks already performed above

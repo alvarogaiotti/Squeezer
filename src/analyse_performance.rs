@@ -44,7 +44,7 @@ impl Tricks {
         if (0..=13).contains(&tricks) {
             Ok(Tricks(tricks))
         } else {
-            Err(DealerError::new(&format!(
+            Err(DealerError::new(format!(
                 "trick number can be only in the range 0..=13: got {tricks}"
             )))
         }
@@ -71,7 +71,7 @@ impl TrickDifference {
         if (1..=13).contains(&tricks_difference) {
             Ok(TrickDifference(tricks_difference))
         } else {
-            Err(DealerError::new(&format!(
+            Err(DealerError::new(format!(
                 "trick number can be only in the range 1..=13: got {tricks_difference}"
             )))
         }
@@ -311,7 +311,6 @@ enum Position {
 /// # Panics
 ///
 /// Panics if there is no specified winner for a trick.
-/// It may also panic when attempting to convert the contract into a trump type if it is not a No Trump contract.
 #[must_use]
 pub fn analyse_players_performance(
     contract: Contract,
@@ -614,5 +613,43 @@ mod tests {
     }
     #[cfg(feature = "dds")]
     #[test]
-    fn test_complete_analysis_pipeline() {}
+    fn test_complete_analysis_pipeline() {
+        use dds::PlayAnalyzer;
+        let lin = "pn|gattochef,sebyx,Inter2018,fede00|st||md|3SAQ432HQJT72DT3CQ,SKJH983D974CT9876,S965HK654DKJ6CAJ5,ST87HADAQ852CK432|rh||ah|Board 1|sv|o|mb|1C|an|2+|mb|1D|mb|1H|an|picche|mb|2D|mb|p|mb|p|mb|3H|mb|p|mb|3S|mb|p|mb|4S|mb|p|mb|p|mb|p|pg||pc|DA|pc|D3|pc|D9|pc|D6|pg||pc|HA|pc|H2|pc|H9|pc|H4|pg||pc|D8|pc|DT|pc|D7|pc|DJ|pg||pc|S5|pc|S7|pc|SA|pc|SJ|pg||pc|CQ|pc|CT|pc|CA|pc|C2|pg||pc|S6|pc|S8|pc|SQ|pc|SK|pg||pc|H8|mc|9|";
+
+        //let lin = "pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|";
+        let deal = crate::LinDeal::from_str(lin).unwrap();
+        let dds_solver = crate::dds::DoubleDummySolver {};
+        let contract = deal.contract().unwrap();
+        let play_sequence = deal.play_sequence().unwrap();
+        let players = deal.players();
+        let hands = deal.hands();
+        let bidding = deal.bidding().unwrap();
+        println!(
+            "Players: {} Dealer: {} Contract: {contract}\n {hands}\nBidding: {bidding}\nPlay sequence:\n{play_sequence}",
+            players.iter().format(", "), deal.dealer(),
+        );
+        let dds_playsequence = play_sequence.try_into().unwrap();
+        println!("{dds_playsequence:?}");
+        let solved = dds_solver
+            .analyze_play(&deal, &contract, dds_playsequence)
+            .unwrap();
+        let p_performance = analyse_players_performance(
+            contract,
+            TraceSolved {
+                tricks: (*deal.play_sequence().unwrap()).clone(),
+                results: solved,
+            },
+        );
+        let mut n_perf = PlayerAccuracy::new();
+        let mut e_perf = PlayerAccuracy::new();
+        p_performance[0]
+            .results
+            .compute_player_performance(&mut n_perf);
+        p_performance[1]
+            .results
+            .compute_player_performance(&mut e_perf);
+        println!("{} {}", n_perf.correct_cards, n_perf.tricks_lost);
+        println!("{} {}", e_perf.correct_cards, e_perf.tricks_lost);
+    }
 }

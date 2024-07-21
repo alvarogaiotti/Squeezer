@@ -290,7 +290,7 @@ impl Vulnerability {
     #[must_use]
     pub const fn is_vulnerable(&self, seat: Seat) -> Vulnerable {
         let seat_position = (seat as usize) % 2;
-        if ((*self as usize) & (1 << seat_position)) == 1 {
+        if ((*self as usize) & (1 << seat_position)) != 0 {
             Vulnerable::Yes
         } else {
             Vulnerable::No
@@ -299,7 +299,7 @@ impl Vulnerability {
     #[inline]
     #[must_use]
     pub const fn from_number(board_number: u8) -> Self {
-        Self::VULNERABILITY_TABLE[(board_number % 16) as usize]
+        Self::VULNERABILITY_TABLE[((board_number - 1) % 16) as usize]
     }
 }
 

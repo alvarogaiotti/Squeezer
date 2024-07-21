@@ -2,6 +2,7 @@
 // See end of file for license information
 
 use core::fmt;
+use std::fmt::Debug;
 
 use super::ddsffi::{
     RETURN_CARD_COUNT, RETURN_CHUNK_SIZE, RETURN_DUPLICATE_CARDS, RETURN_FIRST_WRONG,
@@ -14,10 +15,15 @@ use super::ddsffi::{
 use crate::{c_int, DDSDealConstructionError};
 
 /// Wrapper around the DDS errors
-#[derive(Debug)]
 pub struct DDSError {
     /// Represents what kind of error we got
     kind: DDSErrorKind,
+}
+
+impl Debug for DDSError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <Self as fmt::Display>::fmt(self, f)
+    }
 }
 
 impl From<DDSErrorKind> for DDSError {
@@ -55,7 +61,6 @@ impl fmt::Display for DDSError {
 #[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
 impl std::error::Error for DDSError {}
 
-#[derive(Debug)]
 #[allow(clippy::exhaustive_enums)]
 pub enum DDSErrorKind {
     UnknownFault,
@@ -83,6 +88,12 @@ pub enum DDSErrorKind {
     TooManyTables,
     ChunkSize,
     UnbuildableDeal(DDSDealConstructionError),
+}
+
+impl Debug for DDSErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <Self as fmt::Display>::fmt(self, f)
+    }
 }
 
 #[allow(clippy::unreachable)]
