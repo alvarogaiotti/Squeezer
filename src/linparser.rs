@@ -727,6 +727,7 @@ fn claim(lin: &str) -> Option<u8> {
         })
 }
 
+#[allow(unused_imports)]
 mod test {
     use crate::{Contract, Doubled, Seat, Strain, Vulnerable};
 

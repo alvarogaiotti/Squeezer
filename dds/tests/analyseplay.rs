@@ -2,8 +2,7 @@
 // See end of file for license information
 
 use dds::{
-    MultiThreadDoubleDummySolver, PlayAnalyzer, PlayTraceBin, PlayTracesBin, RankSeq, RawDDSRef,
-    SuitSeq,
+    MultiThreadDoubleDummySolver, PlayAnalyzer, PlayTraceBin, PlayTracesBin, RankSeq, SuitSeq,
 };
 mod setup;
 use setup::*;

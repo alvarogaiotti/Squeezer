@@ -41,6 +41,7 @@ where
     ) -> Result<DdTablesRes<Populated>, DDSError>;
 }
 
+#[allow(unused_variables)]
 impl<T> DdTableCalculator<T> for DoubleDummySolver
 where
     for<'a> &'a T: Into<DdTableDeal>,

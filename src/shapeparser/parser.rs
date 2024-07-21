@@ -3,7 +3,7 @@
 
 use std::cmp::Ordering;
 
-use crate::shapeparser::*;
+use crate::shapeparser::{fmt, Length, Pattern, Token};
 
 use super::{interpreter::CreationShapeError, scanner::Scanner};
 

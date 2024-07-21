@@ -11,7 +11,7 @@ use crate::{
 use log::{debug, error, info, warn};
 use regex::Regex;
 use reqwest::Client;
-use std::cell::OnceLock;
+use std::sync::OnceLock;
 use time::{Duration, OffsetDateTime};
 type Result<T> = std::result::Result<T, ClientError<reqwest::Error>>;
 

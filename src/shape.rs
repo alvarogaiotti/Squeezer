@@ -410,7 +410,7 @@ impl TryFrom<i32> for Suit {
             1 => Ok(Suit::Hearts),
             2 => Ok(Suit::Diamonds),
             3 => Ok(Suit::Clubs),
-            num => Err(DealerError::new(&format!("cannot convert {} to Suit", num))),
+            num => Err(DealerError::new(&format!("cannot convert {num} to Suit"))),
         }
     }
 }
@@ -513,6 +513,7 @@ impl Suit {
     }
 }
 
+#[allow(unused_imports)]
 mod test {
     use crate::*;
 
@@ -556,7 +557,7 @@ mod test {
             Shapes::hash_flatten(&[4, 4, 3, 2]),
             Shapes::hash_flatten(&[4, 3, 4, 2]),
         ];
-        ok_shapes.sort();
+        ok_shapes.sort_unstable();
         assert_eq!(ok_shapes, true_arr);
     }
 
@@ -598,7 +599,7 @@ mod test {
             Shapes::hash_flatten(&[5, 3, 2, 3]),
             Shapes::hash_flatten(&[5, 3, 3, 2]),
         ];
-        ok_shapes.sort();
+        ok_shapes.sort_unstable();
         assert_eq!(ok_shapes, true_arr);
     }
     #[test]

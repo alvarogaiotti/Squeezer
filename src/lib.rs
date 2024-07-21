@@ -3,6 +3,7 @@
 
 #![allow(dead_code)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::should_panic_without_expect)]
 #![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
 #![allow(clippy::single_call_fn)]
 #![allow(clippy::missing_trait_methods)]

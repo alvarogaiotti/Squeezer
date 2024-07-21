@@ -1,10 +1,9 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use dds;
-pub use std::cell::OnceCell;
+use std::sync::OnceLock;
 
-pub const DEAL: OnceCell<DealMock> = OnceCell::new();
+pub static DEAL: OnceLock<DealMock> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct DealMock {

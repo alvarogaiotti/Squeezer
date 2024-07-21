@@ -5,6 +5,7 @@ use dds::*;
 use squeezer::*;
 use std::fs;
 
+#[allow(dead_code)]
 fn complete_deal_analysis_test() {
     let data = fs::read_to_string("tests/resources/test_hand.lin").unwrap();
     let parsed_lin = LinDeal::from_str(&data).expect("should be able to parse lin files");

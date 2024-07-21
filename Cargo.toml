@@ -17,7 +17,7 @@ dds = { path = "dds", optional = true}
 bitvec ={version= "1.0.1", features = ["atomic", "std"]}
 
 [features]
-default = ["lin", "dds"]
+default = ["lin"]
 bbo = ["dep:time", "dep:ureq", "dep:regex",]
 bbo_async = ["dep:time", "dep:regex", "dep:reqwest"]
 lin = ["dep:regex"]

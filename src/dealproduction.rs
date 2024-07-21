@@ -11,7 +11,7 @@ pub struct DealerError {
 
 impl DealerError {
     #[must_use]
-    pub fn new<T: ToString>(msg: T) -> Self {
+    pub fn new<T: ToString + ?Sized>(msg: &T) -> Self {
         Self {
             details: msg.to_string(),
         }
@@ -37,4 +37,3 @@ impl From<CreationShapeError> for DealerError {
         }
     }
 }
-

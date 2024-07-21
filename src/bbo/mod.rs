@@ -5,7 +5,7 @@ use crate::prelude::{
     BBOClient, BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
     BBOLOGIN,
 };
-use std::cell::OnceLock;
+use std::sync::OnceLock;
 
 #[cfg(not(test))]
 use log::{debug, info, warn};
@@ -241,7 +241,6 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             };
             // TODO:
             // For now puppy implementation
-            todo!();
             std::thread::sleep(std::time::Duration::from_secs(5));
         }
         if queue.is_empty() {
@@ -257,17 +256,21 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
 }
 
 #[cfg(test)]
-#[test]
-fn test_working_connection() {
-    use time::macros::datetime;
+mod test {
+    #[test]
+    fn test_working_connection() {
+        use super::*;
+        use time::macros::datetime;
 
-    let mut client = BlockingBBOClient::new(String::from("thevava"), String::from("ekdallebol"));
-    client.login().unwrap();
-    client
-        .get_in_interval(
-            datetime!(2022-04-01 0:00 UTC),
-            datetime!(2022-03-03 0:00 UTC),
-        )
-        .unwrap();
-    client.download().unwrap();
+        let mut client =
+            BlockingBBOClient::new(String::from("thevava"), String::from("ekdallebol"));
+        client.login().unwrap();
+        client
+            .get_in_interval(
+                datetime!(2022-04-01 0:00 UTC),
+                datetime!(2022-03-03 0:00 UTC),
+            )
+            .unwrap();
+        client.download().unwrap();
+    }
 }

@@ -475,7 +475,7 @@ mod test {
         creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
         let mut res: Vec<_> = vec![[3, 2, 7, 1], [3, 2, 1, 7], [2, 3, 1, 7], [2, 3, 7, 1]];
-        res.sort();
+        res.sort_unstable();
         assert_eq!(shapes, res);
     }
 }

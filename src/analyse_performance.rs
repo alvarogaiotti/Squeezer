@@ -44,7 +44,7 @@ impl Tricks {
         if (0..=13).contains(&tricks) {
             Ok(Tricks(tricks))
         } else {
-            Err(DealerError::new(format!(
+            Err(DealerError::new(&format!(
                 "trick number can be only in the range 0..=13: got {tricks}"
             )))
         }
@@ -71,7 +71,7 @@ impl TrickDifference {
         if (1..=13).contains(&tricks_difference) {
             Ok(TrickDifference(tricks_difference))
         } else {
-            Err(DealerError::new(format!(
+            Err(DealerError::new(&format!(
                 "trick number can be only in the range 1..=13: got {tricks_difference}"
             )))
         }
@@ -611,7 +611,6 @@ mod tests {
         assert_eq!(4, e_perf.tricks_lost);
         assert_eq!(8, e_perf.correct_cards);
     }
-    #[cfg(feature = "dds")]
     #[test]
     fn test_complete_analysis_pipeline() {
         use dds::PlayAnalyzer;
