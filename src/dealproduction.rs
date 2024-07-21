@@ -11,9 +11,9 @@ pub struct DealerError {
 
 impl DealerError {
     #[must_use]
-    pub fn new(msg: &str) -> Self {
+    pub fn new<T: ToString>(msg: T) -> Self {
         Self {
-            details: msg.to_owned(),
+            details: msg.to_string(),
         }
     }
 }
@@ -37,3 +37,4 @@ impl From<CreationShapeError> for DealerError {
         }
     }
 }
+

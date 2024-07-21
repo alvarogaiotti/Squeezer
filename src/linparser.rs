@@ -138,7 +138,7 @@ impl std::fmt::Display for LinDeal {
 
 /// Error kind that models possible errors
 /// that could occur while parsing a `.lin` file
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum LinParsingErrorKind {
     Player,
@@ -147,10 +147,19 @@ pub enum LinParsingErrorKind {
     Bidding(BiddingError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LinParsingError {
     lin: String,
     kind: LinParsingErrorKind,
+}
+
+impl LinParsingError {
+    fn new<T: ToString + ?Sized>(kind: LinParsingErrorKind, lin: &T) -> Self {
+        Self {
+            lin: lin.to_string(),
+            kind,
+        }
+    }
 }
 
 impl std::fmt::Display for LinParsingError {
@@ -181,7 +190,7 @@ impl FromStr for LinDeal {
         let players = players(s);
         // Safety: Players always return a Vec of len 4;
         let players: [String; 4] = players.try_into().unwrap();
-        let (dealer, hands) = hands_and_dealer(s);
+        let (dealer, hands) = dealer_and_hands(s)?;
         let number = number(s);
         let bidding = Some(match bidding(s) {
             Ok(value) => value,
@@ -236,7 +245,7 @@ impl IntoIterator for Bidding {
 /// can encounter while parsing a bidding sequence:
 /// either the bid is not a starting bid (e.g. bidding starts with a double),
 /// insufficient, or simply we were unable to parse the last [`Bid`]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum BiddingErrorKind {
     Insufficient,
@@ -257,7 +266,7 @@ impl std::fmt::Display for BiddingErrorKind {
 }
 impl std::error::Error for BiddingErrorKind {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct BiddingError {
     bid: Bid,
@@ -343,7 +352,7 @@ impl<'a> IntoIterator for &'a Bidding {
 
 /// We model bids as an Enum, with possible contracts as tuple
 /// variants containing [`NonZeroU8`] and a [`Strain`]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Bid {
     Pass,
     Double,
@@ -362,7 +371,7 @@ impl std::fmt::Display for Bid {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BidError {
     pub bid: String,
     pub kind: BidErrorKind,
@@ -373,7 +382,7 @@ pub struct BidError {
 /// either we are unable to parse the integer part of the bid
 /// or we are unable to parse the strain of the bid.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BidErrorKind {
     Level(ParseIntError),
     Strain,
@@ -450,7 +459,9 @@ fn players(lin: &str) -> Vec<String> {
     )
 }
 
-fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
+// TODO: Correct error handling of this function and make it return a Result
+// since this operation is clearly fallible and we should not fail silently
+fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
     static HANDS: OnceLock<Regex> = OnceLock::new();
     let hands =
         HANDS.get_or_init(|| Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap());
@@ -464,21 +475,40 @@ fn hands_and_dealer(lin: &str) -> (Seat, Hands) {
             Ok(dealer) => Seat::from(dealer),
             Err(_e) => {
                 error!("unable to parse dealer");
-                Seat::from(0)
+                return Err(LinParsingError::new(LinParsingErrorKind::Hands, lin));
             }
         };
+        let mut deck = Cards::ALL;
         let vec: Vec<_> = captures
             .name("hands")
             .expect("No hands")
             .as_str()
             .split(',')
-            .map(|hand| Hand::from_str(hand).unwrap_or_else(|_| Hand::new_empty()))
-            .collect();
-        let hands: [Hand; 4] = vec.try_into().unwrap_or_else(|_| [Hand::new_empty(); 4]);
-        (dealer, Hands::new_from(hands))
+            .map(|hand| {
+                let mut hand = Cards::from_str(hand)
+                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, lin))?;
+                deck -= hand;
+                // We should get a empty [`Hand`] only at the end of the stream.
+                // Looks really error prone and should be corrected, so:
+                // TODO: FIX ME
+                if hand.is_empty() {
+                    if deck.len() == 13 {
+                        hand = deck;
+                    } else {
+                        return Err(LinParsingError::new(LinParsingErrorKind::Hands, lin));
+                    }
+                }
+                Hand::try_from(hand)
+                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, lin))
+            })
+            .collect::<Result<Vec<Hand>, LinParsingError>>()?;
+        let hands: [Hand; 4] = match vec.try_into() {
+            Ok(array) => array,
+            Err(_) => return Err(LinParsingError::new(LinParsingErrorKind::Hands, lin)),
+        };
+        Ok((dealer, Hands::new_from(hands)))
     } else {
-        error!("unable to extract hands and dealer, returning empty!");
-        (Seat::from(0), Hands::new_from([Hand::new_empty(); 4]))
+        Err(LinParsingError::new(LinParsingErrorKind::Hands, lin))
     }
 }
 

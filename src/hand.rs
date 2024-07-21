@@ -42,7 +42,7 @@ impl Hand {
     /// Set the cards of the Hand to the specified cards.
     /// Parameters:
     /// - `cards`: The new set of cards for the Hand.
-    pub fn set_cards(&mut self, cards: Cards) {
+    pub(crate) fn set_cards(&mut self, cards: Cards) {
         self.cards = cards;
     }
 

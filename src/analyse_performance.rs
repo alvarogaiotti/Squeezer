@@ -322,6 +322,7 @@ pub fn analyse_players_performance(
     let mut players_records: [PlayerPlayRecord; 4] =
         std::array::from_fn(|_| PlayerPlayRecord::new());
     let (winner_notrump, winner_trump);
+
     // Determine the winner based on whether it's a No Trump contract or not
     let winner_function: &dyn Fn(Card, Card, Seat, Seat) -> (Seat, Card) =
         if matches!(contract.strain(), Strain::NoTrumps) {
@@ -611,4 +612,7 @@ mod tests {
         assert_eq!(4, e_perf.tricks_lost);
         assert_eq!(8, e_perf.correct_cards);
     }
+    #[cfg(feature = "dds")]
+    #[test]
+    fn test_complete_analysis_pipeline() {}
 }
