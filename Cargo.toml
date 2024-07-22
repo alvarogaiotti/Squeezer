@@ -15,10 +15,18 @@ ureq = {version = "2.6.2", features = ["cookies",], optional = true}
 squeezer_macros = { path = "squeezer_macros" }
 dds = { path = "dds", optional = true}
 bitvec ={version= "1.0.1", features = ["atomic", "std"]}
+safe_arch = "0.7.2"
 
 [features]
-default = ["lin"]
+default = ["lin", "dds"]
 bbo = ["dep:time", "dep:ureq", "dep:regex",]
 bbo_async = ["dep:time", "dep:regex", "dep:reqwest"]
 lin = ["dep:regex"]
 dds = ["dep:dds"]
+
+[dev-dependencies]
+criterion = { version = "0.4", features = ["html_reports"] }
+
+[[bench]]
+name = "my_benchmark"
+harness = false
