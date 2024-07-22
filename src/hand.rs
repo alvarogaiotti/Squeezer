@@ -183,7 +183,9 @@ impl FromStr for Hand {
     fn from_str(hand: &str) -> Result<Hand, Self::Err> {
         let cards = Cards::from_str(hand)?;
         if cards.len() != 13 {
-            return Err(DealerError::new("Wrong number of cards for a Bridge hand!"));
+            return Err(DealerError::new(&format!(
+                "wrong number of cards for a Bridge hand: {cards}"
+            )));
         }
         Ok(Hand { cards })
     }
