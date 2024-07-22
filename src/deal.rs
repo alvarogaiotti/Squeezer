@@ -415,7 +415,9 @@ impl DealerBuilder {
     }
 
     /// Sets a functions that will be used by the [`Dealer`] to check if the [`Deal`] is to be accepted.
-    /// Do not set your hand types with this method (use the [`DealerBuilder::with_hand_specification`] method istead); but use it to set cross hand constraints.
+    /// Do not set your hand types with this method (use the
+    /// [`DealerBuilder::with_hand_descriptor`] method istead); but use it to set cross hand
+    /// constraints.
     ///
     /// # Example
     /// ```
@@ -441,7 +443,7 @@ impl DealerBuilder {
     /// Method used to set hand specification for a [`Seat`]. See [`HandDescriptor`] for
     /// details.
     #[inline]
-    pub fn with_hand_specification(
+    pub fn with_hand_descriptor(
         &mut self,
         seat: Seat,
         hand_description: HandDescriptor,
