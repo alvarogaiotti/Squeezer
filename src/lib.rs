@@ -10,8 +10,6 @@
 #![allow(clippy::indexing_slicing)]
 #![allow(clippy::as_conversions)]
 #![allow(clippy::question_mark_used)]
-#![allow(clippy::std_instead_of_core)]
-#![allow(clippy::std_instead_of_alloc)]
 #![allow(clippy::absolute_paths)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::arithmetic_side_effects)]

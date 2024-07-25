@@ -59,32 +59,32 @@ impl Hands {
         Self { hands }
     }
 
-    /// Returns the array of `[Hand]`s
+    /// Returns a reference to the array of [`Hand`]'s
     #[must_use]
     #[inline]
     pub fn hands(&self) -> &[Hand; 4] {
         &self.hands
     }
 
-    /// Returns North `[Hand]`
+    /// Returns North [`Hand`]
     #[must_use]
     #[inline]
     pub fn north(&self) -> &Hand {
         &self.hands[Seat::North as usize]
     }
-    /// Returns South `[Hand]`
+    /// Returns South [`Hand`]
     #[must_use]
     #[inline]
     pub fn south(&self) -> &Hand {
         &self.hands[Seat::South as usize]
     }
-    /// Returns East `[Hand]`
+    /// Returns East [`Hand`]
     #[must_use]
     #[inline]
     pub fn east(&self) -> &Hand {
         &self.hands[Seat::East as usize]
     }
-    /// Returns West `[Hand]`
+    /// Returns West [`Hand`]
     #[must_use]
     #[inline]
     pub fn west(&self) -> &Hand {
@@ -267,6 +267,7 @@ pub enum Vulnerability {
 }
 
 impl Vulnerability {
+    /// Vulnerability of the first 16 boards, then it repeats.
     pub const VULNERABILITY_TABLE: [Vulnerability; 16] = [
         Vulnerability::None,
         Vulnerability::NS,
@@ -288,6 +289,7 @@ impl Vulnerability {
 
     #[inline]
     #[must_use]
+    /// Whether or not a seat is vulnerable given a vulnerability.
     pub const fn is_vulnerable(&self, seat: Seat) -> Vulnerable {
         let seat_position = (seat as usize) % 2;
         if ((*self as usize) & (1 << seat_position)) != 0 {
@@ -298,11 +300,13 @@ impl Vulnerability {
     }
     #[inline]
     #[must_use]
+    /// Get the vulnerability state for a given number of board.
     pub const fn from_number(board_number: u8) -> Self {
         Self::VULNERABILITY_TABLE[((board_number - 1) % 16) as usize]
     }
 }
 
+/// Iterator over the Vulnerability state.
 pub struct VulnerabilityIterator {
     board_number: u8,
 }
@@ -317,18 +321,22 @@ impl VulnerabilityIterator {
     #[allow(clippy::missing_panics_doc, clippy::cast_possible_truncation)]
     #[inline]
     #[must_use]
+    /// Create a [`VulnerabilityIterator`] starting from a given state.
+    /// Always starts from the first 4 boards.
     pub fn from_state(state: Vulnerability) -> Self {
         // SAFETY: We'll find the state
-        let board_number = Vulnerability::VULNERABILITY_TABLE
-            .iter()
-            .position(|x| *x == state)
-            .unwrap() as u8;
-
+        let board_number = match state {
+            Vulnerability::None => 1,
+            Vulnerability::NS => 2,
+            Vulnerability::EW => 3,
+            Vulnerability::All => 4,
+        };
         Self { board_number }
     }
 
     #[inline]
     #[must_use]
+    /// Create a [`VulnerabilityIterator`] starting from a given board number.
     pub const fn from_board_number(board_number: u8) -> Self {
         Self { board_number }
     }
@@ -371,11 +379,14 @@ impl IntoIterator for Vulnerability {
 pub struct DealerBuilder {
     // Function that decides if the deal is to be accepted
     // normally used to set things like at least a 9 card
-    // fit in a major, but can still be used to do things like this
+    // fit in a major, but can still be used to do things like this:
+    //
     // if hands.north.spades.len() < 6 && hands.north.hcp() > 13 {
     // do something...
     // }
+    //
     // even with a HandDescriptor:
+    //
     // if some_hand_descriptor.match(hands.north) {
     // do stuff ...
     // }
@@ -383,6 +394,8 @@ pub struct DealerBuilder {
 
     /// Descriptor of the hands we would like, e.g.
     hand_descriptors: HashMap<Seat, HandDescriptor>,
+    // FIX: Use an array for that, and don't use hands but
+    // Cards, so we can predeal less than 13 cards if we want to.
     /// Hands to predeal.
     predealt_hands: HashMap<Seat, Hand>,
     vulnerability: Vulnerability,
@@ -453,6 +466,7 @@ impl DealerBuilder {
     }
 
     #[inline]
+    /// Output just deals with this vulnerability.
     pub fn with_vulnerability(&mut self, vulnerability: Vulnerability) -> &mut Self {
         self.vulnerability = vulnerability;
         self
@@ -486,7 +500,7 @@ impl DealerBuilder {
 
 pub trait Dealer {
     /// # Errors
-    /// Errors if is unable to deal a `Deal`
+    /// Errors if is unable to deal a [`Deal`]
     fn deal(&self) -> Result<Deal, DealerError>;
 }
 
@@ -584,7 +598,7 @@ impl Dealer for StandardDealer {
 }
 
 impl StandardDealer {
-    /// Sets the function that will be used to check if the [`Deal`] is to be accepted.
+    /// Checks if the [`Deal`] to be outputted matches the constraints we set.
     fn constraints_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
         if self.hand_constraints.is_empty() {
             true

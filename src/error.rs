@@ -4,7 +4,8 @@
 use crate::prelude::{CreationShapeError, DealerError, LinParsingError};
 use std::error::Error;
 
-/// Error wrapper for the entire library, so we expose just this one at the highest level
+/// Error wrapper for the entire library, so we expose just this one at the highest level.
+/// Variants are self explanatory.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum SqueezerError {
@@ -41,6 +42,12 @@ impl std::fmt::Display for SqueezerError {
 impl From<DealerError> for SqueezerError {
     fn from(value: DealerError) -> Self {
         Self::DealingError(value)
+    }
+}
+
+impl From<LinParsingError> for SqueezerError {
+    fn from(value: LinParsingError) -> Self {
+        Self::LinParsing(value)
     }
 }
 
