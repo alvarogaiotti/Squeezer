@@ -12,9 +12,10 @@ use crate::*;
 
 /// Function to calculate a double dummy table for the given deal
 /// We start specific but the aim is to generalize tha interface
-pub trait DdTableCalculator<T>
+pub trait DdTableCalculator<T, P>
 where
     for<'a> &'a T: Into<DdTableDeal>,
+    for<'a> &'a P: Into<DdTableDealPbn>,
 {
     fn calculate_complete_table(
         &self,
@@ -22,7 +23,7 @@ where
     ) -> Result<DdTableResults<Populated>, DDSError>;
     fn calculate_complete_table_pbn(
         &self,
-        table_deal_pbn: DdTableDealPbn,
+        table_deal_pbn: &P,
         tablep: DdTableResults<NotPopulated>,
     ) -> Result<DdTableResults<Populated>, DDSError>;
     fn calculate_all_complete_tables(
@@ -33,7 +34,7 @@ where
     ) -> Result<DdTablesRes<Populated>, DDSError>;
     fn calculate_all_complete_tables_pbn(
         &self,
-        table_deals_pbn: DdTableDealsPbn,
+        table_deals_pbn: &[P],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
         resp: DdTablesRes<NotPopulated>,
@@ -42,9 +43,10 @@ where
 }
 
 #[allow(unused_variables)]
-impl<T> DdTableCalculator<T> for DoubleDummySolver
+impl<T, P> DdTableCalculator<T, P> for DoubleDummySolver
 where
     for<'a> &'a T: Into<DdTableDeal>,
+    for<'a> &'a P: Into<DdTableDealPbn>,
 {
     fn calculate_complete_table(
         &self,
@@ -65,10 +67,21 @@ where
     }
     fn calculate_complete_table_pbn(
         &self,
-        table_deal_pbn: DdTableDealPbn,
+        table_deal_pbn: &P,
         tablep: DdTableResults<NotPopulated>,
     ) -> Result<DdTableResults<Populated>, DDSError> {
-        todo!()
+        let mut tablep = DdTableResults::new();
+        let result = unsafe {
+            CalcDDtablePBN(
+                table_deal_pbn.into(),
+                &mut tablep as *mut DdTableResults<NotPopulated>,
+            )
+        };
+        if result != RETURN_NO_FAULT {
+            Err(result.into())
+        } else {
+            Ok(tablep.populated())
+        }
     }
     fn calculate_all_complete_tables(
         &self,
@@ -96,17 +109,35 @@ where
     }
     fn calculate_all_complete_tables_pbn(
         &self,
-        table_deals_pbn: DdTableDealsPbn,
-        vulnerability: ParCalcMode,
-        trump_filter: TrumpFilter,
+        table_deals_pbn: &[P],
+        mode: ParCalcMode,
+        mut trump_filter: TrumpFilter,
         resp: DdTablesRes<NotPopulated>,
         presp: &mut AllParResults,
     ) -> Result<DdTablesRes<Populated>, DDSError> {
-        todo!()
+        let mut resp = DdTablesRes::new(table_deals_pbn.len() as i32);
+        let mut presp = AllParResults::new();
+        let mut dealsp = DdTableDealsPbn::new(table_deals_pbn);
+        let result = unsafe {
+            CalcAllTablesPBN(
+                &mut dealsp as *mut DdTableDealsPbn,
+                mode as i32,
+                trump_filter.as_mut_ptr(),
+                &mut resp as *mut DdTablesRes<NotPopulated>,
+                &mut presp as *mut AllParResults,
+            )
+        };
+        if result != RETURN_NO_FAULT {
+            Err(result.into())
+        } else {
+            Ok(resp.populated())
+        }
     }
 }
 
 #[repr(i32)]
+/// Par Calculation Mode, gives info on the vulnerability.
+/// See DDS docs for informations.
 pub enum ParCalcMode {
     NoPar = -1,
     None = 0,
@@ -116,6 +147,7 @@ pub enum ParCalcMode {
 }
 
 #[repr(i32)]
+/// How DDS encodes vulnerability.
 pub enum VulnerabilityEncoding {
     None = 0,
     Both = 1,
@@ -126,7 +158,7 @@ pub enum VulnerabilityEncoding {
 /// Filter which decides which strain should we analyze.
 /// The order of the ints is based on [`DdsSuitEncoding`] encoding.
 /// 0 mean we DO NOT FILTER the suit out, other mean we filter.
-/// So if the filter is `[0,0, -1,2,3]` we'll be analyzing
+/// So if the filter is `[0, 0, -1, 2, 3]` we'll be analyzing
 /// [`DdsSuitEncoding::Spades`] and [`DdsSuitEncoding::Hearts`].
 pub type TrumpFilter = [c_int; 5];
 
@@ -194,8 +226,10 @@ impl DdTableDeal {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A collection of [`DdTableDeal`]s, contained in a fixed array of 200 elements.
+/// We can provide less, since we keep a counter with the number of deals loaded.
 pub struct DdTableDeals {
-    pub noOfTables: ::std::os::raw::c_int,
+    pub no_of_tables: ::std::os::raw::c_int,
     pub deals: [DdTableDeal; (MAXNOOFTABLES * DDS_STRAINS) as usize],
 }
 
@@ -209,21 +243,49 @@ impl DdTableDeals {
         let len = deals_vec.len();
         deals_vec.resize(200, DdTableDeal::new());
         Self {
-            noOfTables: len as i32,
+            no_of_tables: len as i32,
             deals: deals_vec.try_into().unwrap(),
         }
     }
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A bridge deal represented as an array of chars.
+/// Pbn are basically strings.
 pub struct DdTableDealPbn {
     pub cards: [::std::os::raw::c_char; 80usize],
 }
+
+impl DdTableDealPbn {
+    #[must_use]
+    pub fn new() -> Self {
+        Self { cards: [56; 80] }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A collection of [`DdTableDealPbn`]s, contained in a fixed array of 200 elements.
+/// We can provide less, since we keep a counter with the number of deals loaded.
 pub struct DdTableDealsPbn {
-    pub noOfTables: ::std::os::raw::c_int,
+    pub no_of_tables: ::std::os::raw::c_int,
     pub deals: [DdTableDealPbn; (MAXNOOFTABLES * DDS_STRAINS) as usize],
+}
+
+impl DdTableDealsPbn {
+    #[must_use]
+    pub fn new<T>(deals: &[T]) -> Self
+    where
+        for<'a> &'a T: Into<DdTableDealPbn>,
+    {
+        let mut deals_vec: Vec<DdTableDealPbn> = deals.iter().take(200).map(|e| e.into()).collect();
+        let len = deals_vec.len();
+        deals_vec.resize(200, DdTableDealPbn::new());
+        Self {
+            no_of_tables: len as i32,
+            deals: deals_vec.try_into().unwrap(),
+        }
+    }
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -289,16 +351,16 @@ impl DdTablesRes<NotPopulated> {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ParResults {
-    pub parScore: [[::std::os::raw::c_char; 16usize]; 2usize],
-    pub parContractsString: [[::std::os::raw::c_char; 128usize]; 2usize],
+    pub par_score: [[::std::os::raw::c_char; 16usize]; 2usize],
+    pub par_contracts_string: [[::std::os::raw::c_char; 128usize]; 2usize],
 }
 
 impl ParResults {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            parScore: [[0; 16]; 2],
-            parContractsString: [[1; 128]; 2],
+            par_score: [[0; 16]; 2],
+            par_contracts_string: [[1; 128]; 2],
         }
     }
 }
@@ -306,14 +368,14 @@ impl ParResults {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct AllParResults {
-    pub presults: [ParResults; MAXNOOFTABLES as usize],
+    pub par_results: [ParResults; MAXNOOFTABLES as usize],
 }
 
 impl AllParResults {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            presults: [ParResults::new(); MAXNOOFTABLES as usize],
+            par_results: [ParResults::new(); MAXNOOFTABLES as usize],
         }
     }
 }
@@ -357,7 +419,7 @@ mod test {
             concat!("Alignment of ", stringify!(ddTableDeals))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDeals>())).noOfTables as *const _ as usize },
+            unsafe { &(*(::std::ptr::null::<DdTableDeals>())).no_of_tables as *const _ as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -413,7 +475,9 @@ mod test {
             concat!("Alignment of ", stringify!(ddTableDealsPBN))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDealsPbn>())).noOfTables as *const _ as usize },
+            unsafe {
+                &(*(::std::ptr::null::<DdTableDealsPbn>())).no_of_tables as *const _ as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -511,7 +575,7 @@ mod test {
             concat!("Alignment of ", stringify!(allParResults))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<AllParResults>())).presults as *const _ as usize },
+            unsafe { &(*(::std::ptr::null::<AllParResults>())).par_results as *const _ as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -535,7 +599,7 @@ mod test {
             concat!("Alignment of ", stringify!(parResults))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResults>())).parScore as *const _ as usize },
+            unsafe { &(*(::std::ptr::null::<ParResults>())).par_score as *const _ as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -546,7 +610,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<ParResults>())).parContractsString as *const _ as usize
+                &(*(::std::ptr::null::<ParResults>())).par_contracts_string as *const _ as usize
             },
             32usize,
             concat!(
