@@ -5,7 +5,7 @@ use ddsffi::RETURN_UNKNOWN_FAULT;
 use future_tricks::FutureTricks;
 
 use super::*;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, TryLockError};
 
 use crate::{DoubleDummySolver, ThreadIndex};
 
@@ -100,6 +100,86 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
             .map(|ft| ft.score[0] as u8)
             .take(number_of_deals as usize)
             .collect())
+    }
+}
+
+impl DdTableCalculator for MultiThreadDoubleDummySolver {
+    fn calculate_complete_table<T>(
+        &self,
+        table_deal: &T,
+    ) -> Result<DdTableResults<Populated>, DDSError>
+    where
+        for<'a> &'a T: Into<DdTableDeal>,
+    {
+        loop {
+            match self.inner.try_lock() {
+                Ok(guard) => break guard.calculate_complete_table(table_deal),
+                Err(TryLockError::WouldBlock) => continue,
+                Err(TryLockError::Poisoned(guard)) => {
+                    break guard.into_inner().calculate_complete_table(table_deal)
+                }
+            }
+        }
+    }
+
+    fn calculate_complete_table_pbn<P>(
+        &self,
+        table_deal_pbn: &P,
+    ) -> Result<DdTableResults<Populated>, DDSError>
+    where
+        for<'a> &'a P: Into<DdTableDealPbn>,
+    {
+        loop {
+            match self.inner.try_lock() {
+                Ok(guard) => break guard.calculate_complete_table_pbn(table_deal_pbn),
+                Err(TryLockError::WouldBlock) => continue,
+                Err(TryLockError::Poisoned(guard)) => {
+                    break guard
+                        .into_inner()
+                        .calculate_complete_table_pbn(table_deal_pbn)
+                }
+            }
+        }
+    }
+
+    fn calculate_all_complete_tables<T>(
+        &self,
+        table_deals: &[T],
+        mode: ParCalcMode,
+        trump_filter: TrumpFilter,
+    ) -> Result<DdTablesRes<Populated>, DDSError>
+    where
+        for<'a> &'a T: Into<DdTableDeal>,
+    {
+        match self.inner.lock() {
+            Ok(guard) => guard.calculate_all_complete_tables(table_deals, mode, trump_filter),
+            Err(error) => {
+                error
+                    .into_inner()
+                    .calculate_all_complete_tables(table_deals, mode, trump_filter)
+            }
+        }
+    }
+
+    fn calculate_all_complete_tables_pbn<P>(
+        &self,
+        table_deals_pbn: &[P],
+        mode: ParCalcMode,
+        trump_filter: TrumpFilter,
+    ) -> Result<DdTablesRes<Populated>, DDSError>
+    where
+        for<'a> &'a P: Into<DdTableDealPbn>,
+    {
+        match self.inner.lock() {
+            Ok(guard) => {
+                guard.calculate_all_complete_tables_pbn(table_deals_pbn, mode, trump_filter)
+            }
+            Err(error) => error.into_inner().calculate_all_complete_tables_pbn(
+                table_deals_pbn,
+                mode,
+                trump_filter,
+            ),
+        }
     }
 }
 
@@ -217,5 +297,153 @@ impl PlayAnalyzer for DoubleDummySolver {
             1i32 => Ok(solved_play),
             n => Err(n.into()),
         }
+    }
+}
+
+mod test {
+    use super::*;
+
+    const HOLDINGS: [[[u32; 4]; 4]; 3] = [
+        [
+            // Spades
+            [
+                // North
+                1 << 12 | 1 << 11 | 1 << 6,
+                // East
+                1 << 8 | 1 << 7 | 1 << 3,
+                // South
+                1 << 13 | 1 << 5,
+                // South
+                1 << 14 | 1 << 10 | 1 << 9 | 1 << 4 | 1 << 2,
+            ],
+            // Hearts
+            [
+                1 << 13 | 1 << 6 | 1 << 5 | 1 << 2,
+                1 << 11 | 1 << 9 | 1 << 7,
+                1 << 10 | 1 << 8 | 1 << 3,
+                1 << 14 | 1 << 12 | 1 << 4,
+            ],
+            // Diamonds
+            [
+                1 << 11 | 1 << 8 | 1 << 5,
+                1 << 14 | 1 << 10 | 1 << 7 | 1 << 6 | 1 << 4,
+                1 << 13 | 1 << 12 | 1 << 9,
+                1 << 3 | 1 << 2,
+            ],
+            // Clubs
+            [
+                1 << 10 | 1 << 9 | 1 << 8,
+                1 << 12 | 1 << 4,
+                1 << 14 | 1 << 7 | 1 << 6 | 1 << 5 | 1 << 2,
+                1 << 13 | 1 << 11 | 1 << 3,
+            ],
+        ],
+        [
+            [
+                1 << 14 | 1 << 13 | 1 << 9 | 1 << 6,
+                1 << 12 | 1 << 11 | 1 << 10 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2,
+                0,
+                1 << 8 | 1 << 7,
+            ],
+            [
+                1 << 13 | 1 << 12 | 1 << 8,
+                1 << 10,
+                1 << 11 | 1 << 9 | 1 << 7 | 1 << 5 | 1 << 4 | 1 << 3,
+                1 << 14 | 1 << 6 | 1 << 2,
+            ],
+            [
+                1 << 14 | 1 << 9 | 1 << 8,
+                1 << 6,
+                1 << 13 | 1 << 7 | 1 << 5 | 1 << 3 | 1 << 2,
+                1 << 12 | 1 << 11 | 1 << 10 | 1 << 4,
+            ],
+            [
+                1 << 13 | 1 << 6 | 1 << 3,
+                1 << 12 | 1 << 11 | 1 << 8 | 1 << 2,
+                1 << 9 | 1 << 4,
+                1 << 14 | 1 << 10 | 1 << 7 | 1 << 5,
+            ],
+        ],
+        [
+            [
+                1 << 7 | 1 << 3,
+                1 << 12 | 1 << 10 | 1 << 6,
+                1 << 5,
+                1 << 14 | 1 << 13 | 1 << 11 | 1 << 9 | 1 << 8 | 1 << 4 | 1 << 2,
+            ],
+            [
+                1 << 12 | 1 << 11 | 1 << 10,
+                1 << 8 | 1 << 7 | 1 << 6,
+                1 << 14 | 1 << 9 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2,
+                1 << 13,
+            ],
+            [
+                1 << 14 | 1 << 12 | 1 << 5 | 1 << 4,
+                1 << 13 | 1 << 11 | 1 << 9,
+                1 << 7 | 1 << 6 | 1 << 3 | 1 << 2,
+                1 << 10 | 1 << 8,
+            ],
+            [
+                1 << 10 | 1 << 7 | 1 << 5 | 1 << 2,
+                1 << 14 | 1 << 12 | 1 << 8 | 1 << 4,
+                1 << 13 | 1 << 6,
+                1 << 11 | 1 << 9 | 1 << 3,
+            ],
+        ],
+    ];
+
+    const DDTABLE: [[i32; 20]; 3] = [
+        [5, 8, 5, 8, 6, 6, 6, 6, 5, 7, 5, 7, 7, 5, 7, 5, 6, 6, 6, 6],
+        [4, 9, 4, 9, 10, 2, 10, 2, 8, 3, 8, 3, 6, 7, 6, 7, 9, 3, 9, 3],
+        [3, 10, 3, 10, 9, 4, 9, 4, 8, 4, 8, 4, 3, 9, 3, 9, 4, 8, 4, 8],
+    ];
+
+    fn check_all_tables(table: &DdTablesRes<Populated>) {
+        for index in 0..3 as usize {
+            check_table(&table.results[index], index)
+        }
+    }
+
+    fn check_table(table: &DdTableResults<Populated>, hand_no: usize) {
+        for strain in 0..5 {
+            for player in 0..4 {
+                assert_eq!(
+                    table.res_table[strain][player],
+                    DDTABLE[hand_no][4 * strain + player]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_multithread_calculate_table_works() {
+        let mut table_deal = [[0; 4]; 4];
+        let solver = MultiThreadDoubleDummySolver::new();
+        for deal in 0..3 {
+            for h in 0..4 {
+                for s in 0..4 {
+                    table_deal[h][s] = HOLDINGS[deal][s][h];
+                }
+            }
+            let table = solver.calculate_complete_table(&table_deal).unwrap();
+            check_table(&table, deal);
+        }
+    }
+
+    #[test]
+    fn test_multithread_calculate_all_table_works() {
+        let mut table_deal = [[[0; 4]; 4]; 3];
+        let solver = MultiThreadDoubleDummySolver::new();
+        for deal in 0..3 {
+            for h in 0..4 {
+                for s in 0..4 {
+                    table_deal[deal][h][s] = HOLDINGS[deal][s][h];
+                }
+            }
+        }
+        let table = solver
+            .calculate_all_complete_tables(&table_deal, ParCalcMode::None, [0, 0, 0, 0, 0])
+            .unwrap();
+        check_all_tables(&table);
     }
 }

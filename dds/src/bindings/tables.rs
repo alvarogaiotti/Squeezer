@@ -12,46 +12,45 @@ use crate::*;
 
 /// Function to calculate a double dummy table for the given deal
 /// We start specific but the aim is to generalize tha interface
-pub trait DdTableCalculator<T, P>
-where
-    for<'a> &'a T: Into<DdTableDeal>,
-    for<'a> &'a P: Into<DdTableDealPbn>,
-{
-    fn calculate_complete_table(
+pub trait DdTableCalculator {
+    fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
-    ) -> Result<DdTableResults<Populated>, DDSError>;
-    fn calculate_complete_table_pbn(
+    ) -> Result<DdTableResults<Populated>, DDSError>
+    where
+        for<'a> &'a T: Into<DdTableDeal>;
+    fn calculate_complete_table_pbn<P>(
         &self,
         table_deal_pbn: &P,
-        tablep: DdTableResults<NotPopulated>,
-    ) -> Result<DdTableResults<Populated>, DDSError>;
-    fn calculate_all_complete_tables(
+    ) -> Result<DdTableResults<Populated>, DDSError>
+    where
+        for<'a> &'a P: Into<DdTableDealPbn>;
+    fn calculate_all_complete_tables<T>(
         &self,
         table_deals: &[T],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>;
-    fn calculate_all_complete_tables_pbn(
+    ) -> Result<DdTablesRes<Populated>, DDSError>
+    where
+        for<'a> &'a T: Into<DdTableDeal>;
+    fn calculate_all_complete_tables_pbn<P>(
         &self,
         table_deals_pbn: &[P],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-        resp: DdTablesRes<NotPopulated>,
-        presp: &mut AllParResults,
-    ) -> Result<DdTablesRes<Populated>, DDSError>;
+    ) -> Result<DdTablesRes<Populated>, DDSError>
+    where
+        for<'a> &'a P: Into<DdTableDealPbn>;
 }
 
-#[allow(unused_variables)]
-impl<T, P> DdTableCalculator<T, P> for DoubleDummySolver
-where
-    for<'a> &'a T: Into<DdTableDeal>,
-    for<'a> &'a P: Into<DdTableDealPbn>,
-{
-    fn calculate_complete_table(
+impl DdTableCalculator for DoubleDummySolver {
+    fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
-    ) -> Result<DdTableResults<bindings::tables::Populated>, DDSError> {
+    ) -> Result<DdTableResults<bindings::tables::Populated>, DDSError>
+    where
+        for<'a> &'a T: Into<DdTableDeal>,
+    {
         let mut tablep = DdTableResults::new();
         let result = unsafe {
             CalcDDtable(
@@ -65,11 +64,13 @@ where
             Ok(tablep.populated())
         }
     }
-    fn calculate_complete_table_pbn(
+    fn calculate_complete_table_pbn<P>(
         &self,
         table_deal_pbn: &P,
-        tablep: DdTableResults<NotPopulated>,
-    ) -> Result<DdTableResults<Populated>, DDSError> {
+    ) -> Result<DdTableResults<Populated>, DDSError>
+    where
+        for<'a> &'a P: Into<DdTableDealPbn>,
+    {
         let mut tablep = DdTableResults::new();
         let result = unsafe {
             CalcDDtablePBN(
@@ -83,20 +84,23 @@ where
             Ok(tablep.populated())
         }
     }
-    fn calculate_all_complete_tables(
+    fn calculate_all_complete_tables<T>(
         &self,
         table_deals: &[T],
         mode: ParCalcMode,
         mut trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError> {
+    ) -> Result<DdTablesRes<Populated>, DDSError>
+    where
+        for<'a> &'a T: Into<DdTableDeal>,
+    {
+        let mut dealsp = DdTableDeals::new(table_deals);
         let mut resp = DdTablesRes::new(table_deals.len() as i32);
         let mut presp = AllParResults::new();
-        let mut dealsp = DdTableDeals::new(table_deals);
         let result = unsafe {
             CalcAllTables(
-                &mut dealsp as *mut DdTableDeals,
+                (&mut dealsp) as *mut DdTableDeals,
                 mode as i32,
-                trump_filter.as_mut_ptr(),
+                &mut trump_filter as *mut i32,
                 &mut resp as *mut DdTablesRes<NotPopulated>,
                 &mut presp as *mut AllParResults,
             )
@@ -107,14 +111,15 @@ where
             Ok(resp.populated())
         }
     }
-    fn calculate_all_complete_tables_pbn(
+    fn calculate_all_complete_tables_pbn<P>(
         &self,
         table_deals_pbn: &[P],
         mode: ParCalcMode,
         mut trump_filter: TrumpFilter,
-        resp: DdTablesRes<NotPopulated>,
-        presp: &mut AllParResults,
-    ) -> Result<DdTablesRes<Populated>, DDSError> {
+    ) -> Result<DdTablesRes<Populated>, DDSError>
+    where
+        for<'a> &'a P: Into<DdTableDealPbn>,
+    {
         let mut resp = DdTablesRes::new(table_deals_pbn.len() as i32);
         let mut presp = AllParResults::new();
         let mut dealsp = DdTableDealsPbn::new(table_deals_pbn);
@@ -183,6 +188,7 @@ impl IndexMut<DdsSuitEncoding> for TrumpFilter {
 /// First index is [`DdsHandEncoding`], second index is [`DdsSuitEncoding`].
 /// The way we store the fields is a bit set of the rank the hand holds in a particular suit
 /// so, if North has AKQ of Spades, then:
+///
 /// ```
 /// use dds::bindings::DdTableDeal;
 /// let mut table = DdTableDeal::new();
@@ -359,8 +365,8 @@ impl ParResults {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            par_score: [[0; 16]; 2],
-            par_contracts_string: [[1; 128]; 2],
+            par_score: [[20; 16]; 2],
+            par_contracts_string: [[20; 128]; 2],
         }
     }
 }
@@ -622,34 +628,47 @@ mod test {
         );
     }
 
+    impl Into<DdTableDeal> for &[[u32; 4]; 4] {
+        fn into(self) -> DdTableDeal {
+            DdTableDeal { cards: *self }
+        }
+    }
+
     const HOLDINGS: [[[u32; 4]; 4]; 3] = [
         [
-            // North       East     South          West
+            // Spades
             [
+                // North
                 1 << 12 | 1 << 11 | 1 << 6,
+                // East
                 1 << 8 | 1 << 7 | 1 << 3,
+                // South
                 1 << 13 | 1 << 5,
+                // South
                 1 << 14 | 1 << 10 | 1 << 9 | 1 << 4 | 1 << 2,
-            ], // spades
+            ],
+            // Hearts
             [
                 1 << 13 | 1 << 6 | 1 << 5 | 1 << 2,
                 1 << 11 | 1 << 9 | 1 << 7,
                 1 << 10 | 1 << 8 | 1 << 3,
                 1 << 14 | 1 << 12 | 1 << 4,
-            ], // hearts
+            ],
+            // Diamonds
             [
                 1 << 11 | 1 << 8 | 1 << 5,
                 1 << 14 | 1 << 10 | 1 << 7 | 1 << 6 | 1 << 4,
                 1 << 13 | 1 << 12 | 1 << 9,
                 1 << 3 | 1 << 2,
-            ], // diamonds
+            ],
+            // Clubs
             [
                 1 << 10 | 1 << 9 | 1 << 8,
                 1 << 12 | 1 << 4,
                 1 << 14 | 1 << 7 | 1 << 6 | 1 << 5 | 1 << 2,
                 1 << 13 | 1 << 11 | 1 << 3,
             ],
-        ], // clubs
+        ],
         [
             [
                 1 << 14 | 1 << 13 | 1 << 9 | 1 << 6,
@@ -710,18 +729,36 @@ mod test {
         [3, 10, 3, 10, 9, 4, 9, 4, 8, 4, 8, 4, 3, 9, 3, 9, 4, 8, 4, 8],
     ];
 
+    fn check_table(table: &DdTableResults<Populated>, hand_no: usize) {
+        for strain in 0..5 {
+            for player in 0..4 {
+                assert_eq!(
+                    table.res_table[strain][player],
+                    DDTABLE[hand_no][4 * strain + player]
+                );
+            }
+        }
+    }
+
     #[test]
-    fn test_calculate_table_works() {
-        fn check_table(table: &DdTableResults<Populated>, hand_no: usize) -> bool {
-            for strain in 0..5 {
-                for player in 0..4 {
-                    if table.res_table[strain][player] != DDTABLE[hand_no][4 * strain + player] {
-                        return false;
-                    }
+    fn test_calculate_table_unprotected_worrs() {
+        // Remember to run all this test in one thread, otherwise they'll SEGFAULT
+        let mut table_deal = [[0; 4]; 4];
+        let solver = DoubleDummySolver {};
+        for deal in 0..3 {
+            for h in 0..4 {
+                for s in 0..4 {
+                    table_deal[h][s] = HOLDINGS[deal][s][h];
                 }
             }
-            return true;
+            let table = solver.calculate_complete_table(&table_deal).unwrap();
+            check_table(&table, deal);
         }
+    }
+
+    #[test]
+    fn test_CalcDDTable_unprotected_works() {
+        // Remember to run all this test in one thread, otherwise they'll SEGFAULT
         let mut table_deal = DdTableDeal::new();
         for deal in 0..3 {
             for h in 0..4 {
@@ -738,7 +775,40 @@ mod test {
                 )
             };
             assert_eq!(RETURN_NO_FAULT, result);
-            assert!(check_table(&table, deal));
+            check_table(&table, deal);
         }
+    }
+
+    #[test]
+    fn test_calculate_all_table_unprotected() {
+        // Remember to run all this test in one thread, otherwise they'll SEGFAULT
+        let mut table_deal = [[[0; 4]; 4]; 3];
+
+        for deal in 0..3 {
+            for h in 0..4 {
+                for s in 0..4 {
+                    table_deal[deal][h][s] = HOLDINGS[deal][s][h];
+                }
+            }
+        }
+        let mut table_deal = DdTableDeals::new(&table_deal);
+        let mut table = DdTablesRes::new(3);
+        let mut par_results = AllParResults::new();
+        let result = unsafe {
+            CalcAllTables(
+                (&mut table_deal) as *mut DdTableDeals,
+                ParCalcMode::None as i32,
+                &mut [0, 0, 0, 0, 0] as *mut i32,
+                &mut table as *mut DdTablesRes<NotPopulated>,
+                &mut par_results as *mut AllParResults,
+            )
+        };
+        let table = unsafe {
+            std::mem::transmute::<DdTablesRes<NotPopulated>, DdTablesRes<Populated>>(table)
+        };
+        assert_eq!(RETURN_NO_FAULT, result);
+        check_table(&table.results[0], 0);
+        check_table(&table.results[1], 1);
+        check_table(&table.results[2], 2);
     }
 }
