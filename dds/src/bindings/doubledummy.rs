@@ -40,8 +40,42 @@ impl MultiThreadDoubleDummySolver {
         unsafe { super::ffi::SetResources(max_memory_mb, max_threads.into()) }
     }
 }
-
 impl BridgeSolver for MultiThreadDoubleDummySolver {
+    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+    ) -> Result<u8, DDSError> {
+        match self.inner.lock() {
+            Ok(guard) => guard.dd_tricks(deal, contract),
+            Err(error) => {
+                let guard = error.into_inner();
+                // Try to recover by freeing the memory, hoping to get clean dll slate.
+                guard.free_memory();
+                guard.dd_tricks(deal, contract)
+            }
+        }
+    }
+
+    fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        number_of_deals: i32,
+        deals: &[D; MAXNOOFBOARDS],
+        contract: &[C; MAXNOOFBOARDS],
+    ) -> Result<Vec<u8>, DDSError> {
+        match self.inner.lock() {
+            Ok(guard) => guard.dd_tricks_parallel(number_of_deals, deals, contract),
+            Err(error) => {
+                let guard = error.into_inner();
+                // Try to recover by freeing the memory, hoping to get clean dll slate.
+                guard.free_memory();
+                guard.dd_tricks_parallel(number_of_deals, deals, contract)
+            }
+        }
+    }
+}
+
+impl BridgeSolver for DoubleDummySolver {
     #[inline]
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
         &self,
