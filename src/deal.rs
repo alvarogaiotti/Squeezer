@@ -397,7 +397,7 @@ pub struct DealerBuilder {
     // FIX: Use an array for that, and don't use hands but
     // Cards, so we can predeal less than 13 cards if we want to.
     /// Hands to predeal.
-    predealt_hands: HashMap<Seat, Hand>,
+    predealt_hands: HashMap<Seat, Cards>,
     vulnerability: Vulnerability,
 }
 
@@ -422,7 +422,7 @@ impl DealerBuilder {
     /// Set the cards that a particular [`Seat`] will be dealt. Will not fail right away if same card
     /// is dealt twice, but will fail in the building phase.
     #[inline]
-    pub fn predeal(&mut self, seat: Seat, hand: Hand) -> &mut Self {
+    pub fn predeal(&mut self, seat: Seat, hand: Cards) -> &mut Self {
         self.predealt_hands.insert(seat, hand);
         self
     }
@@ -478,14 +478,14 @@ impl DealerBuilder {
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
-        for &hand in self.predealt_hands.values() {
-            if !hand.cards.difference(deck).is_empty() {
+        for &cards in self.predealt_hands.values() {
+            if !cards.difference(deck).is_empty() {
                 return Err(DealerError::new(
-                    format!("card dealt twice: {}", hand.cards.difference(deck)).as_str(),
+                    format!("card dealt twice: {}", cards.difference(deck)).as_str(),
                 ));
             }
 
-            deck = deck.difference(hand.cards);
+            deck = deck.difference(cards);
         }
         Ok(StandardDealer {
             predeal: self.predealt_hands,
@@ -514,7 +514,7 @@ pub enum BoardNumbering {
 /// You won't interact much with this struct other that call the [`StandardDealer::deal`] method. Use the [`DealerBuilder`] instead to create a [`Dealer`] that
 /// fits your needs.
 pub struct StandardDealer {
-    predeal: HashMap<Seat, Hand>,
+    predeal: HashMap<Seat, Cards>,
     vulnerability: Vulnerability,
     deck_starting_state: Cards,
     hand_constraints: HashMap<Seat, HandDescriptor>,
@@ -556,15 +556,15 @@ impl Dealer for StandardDealer {
         while {
             let mut deck = self.deck_starting_state;
             for seat in Seat::iter() {
-                if let Some(&hand) = self.predeal.get(&seat) {
-                    let predeal_len = hand.cards.len();
+                if let Some(&cards) = self.predeal.get(&seat) {
+                    let predeal_len = cards.len();
                     if predeal_len < 13 {
                         let Some(cards_to_add) = deck.pick(13 - predeal_len as usize) else {
                             return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
                         };
-                        hands[seat as usize].set_cards(hand.cards + cards_to_add);
+                        hands[seat as usize].set_cards(cards + cards_to_add);
                     } else {
-                        hands[seat as usize].set_cards(hand.cards);
+                        hands[seat as usize].set_cards(cards);
                     }
                 } else {
                     hands[seat as usize] = if let Some(cards) = deck.pick(13) {

@@ -21,9 +21,9 @@ fn main_to_be() {
         .unwrap();
     let west_spec = hand_builder.build();
     let mut builder = DealerBuilder::new();
-    let predeal = Cards::from_str("SQ63H542DK42C8763").unwrap();
+    let predeal = Cards::from_str("SQ63H542DK42").unwrap();
     builder
-        .predeal(Seat::North, predeal.try_into().unwrap())
+        .predeal(Seat::North, predeal)
         .with_hand_descriptor(Seat::South, south_specs)
         .with_hand_descriptor(Seat::West, HandDescriptor::new(vec![west_spec]))
         .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2);
