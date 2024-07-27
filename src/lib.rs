@@ -76,7 +76,7 @@
 ///     // If you want a much finer approach, you should use a DealerBuilder:
 ///     let mut dealer_builder = DealerBuilder::new();
 ///     // Note that we are strict on the case of the string for the hand
-///     dealer_builder.predeal(Seat::South, Hand::from_str("AKQ AJT9 T3 AK95").unwrap());
+///     dealer_builder.predeal(Seat::South, Cards::from_str("AKQ AJT9 T3 AK95").unwrap());
 ///
 ///     // Create a HandType with the builder for more ergonomics
 ///     let north_specs1 = HandTypeBuilder::new()
