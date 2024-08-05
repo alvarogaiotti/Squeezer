@@ -3,7 +3,7 @@
 
 pub(crate) mod ddsffi;
 pub(crate) mod ffi;
-pub use ffi::*;
+pub(crate) use ffi::*;
 
 #[allow(clippy::as_conversions)]
 /// Max number of boards set by DDS

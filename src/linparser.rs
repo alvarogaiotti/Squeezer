@@ -3,6 +3,9 @@
 
 #![allow(dead_code)]
 use crate::prelude::*;
+use dds::analyseplay::PlayTraceBin;
+#[cfg(feature = "dds")]
+use dds::utils::{RankSeq, SeqError, SuitSeq, SEQUENCE_LENGTH};
 use fmt::Display;
 use log::error;
 use regex::Regex;
@@ -238,8 +241,8 @@ impl FromStr for LinDeal {
 }
 
 #[cfg(feature = "dds")]
-impl dds::AsDDSDeal for LinDeal {
-    fn as_dds_deal(&self) -> dds::DDSDealRepr {
+impl dds::deal::AsDDSDeal for LinDeal {
+    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.hands.into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {
@@ -658,11 +661,10 @@ impl Display for PlaySequence {
 }
 
 #[cfg(feature = "dds")]
-impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
-    type Error = dds::SeqError;
+impl TryFrom<&PlaySequence> for (SuitSeq, dds::utils::RankSeq) {
+    type Error = SeqError;
 
     fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
-        use dds::{RankSeq, SeqError, SuitSeq, SEQUENCE_LENGTH};
         let len = value.len();
         if len == 0 {
             return Err(SeqError::SequenceTooShort);
@@ -682,11 +684,11 @@ impl TryFrom<&PlaySequence> for (dds::SuitSeq, dds::RankSeq) {
 }
 
 #[cfg(feature = "dds")]
-impl TryFrom<&PlaySequence> for dds::PlayTraceBin {
-    type Error = dds::SeqError;
+impl TryFrom<&PlaySequence> for PlayTraceBin {
+    type Error = SeqError;
 
     fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
-        let sequences = <(dds::SuitSeq, dds::RankSeq)>::try_from(value)?;
+        let sequences = <(SuitSeq, RankSeq)>::try_from(value)?;
         Ok(Self::from_sequences(sequences.0, sequences.1))
     }
 }

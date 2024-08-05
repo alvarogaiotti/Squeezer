@@ -29,7 +29,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
         for _ in 0..(self.no_of_runs) {
             let deal = self.dealer.deal()?;
             for contract in &self.to_compare {
-                let score = dds::dd_score(&deal, contract)?;
+                let score = dds::utils::dd_score(&deal, contract)?;
                 results.push(score);
             }
             for i in 0..results.len() {
@@ -184,7 +184,7 @@ pub fn matchpoints(my: i32, other: i32) -> i32 {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use dds::ContractScorer;
+    use dds::traits::ContractScorer;
     #[test]
     fn payoff_report_test() {
         let contracts = vec![

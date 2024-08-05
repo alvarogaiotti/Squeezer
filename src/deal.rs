@@ -632,8 +632,8 @@ pub struct Deal {
 }
 
 #[cfg(feature = "dds")]
-impl dds::AsDDSDeal for Deal {
-    fn as_dds_deal(&self) -> dds::DDSDealRepr {
+impl dds::deal::AsDDSDeal for Deal {
+    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {

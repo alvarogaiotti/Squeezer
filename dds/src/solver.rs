@@ -19,6 +19,11 @@ pub trait BridgeSolver {
         deal: &D,
         contract: &C,
     ) -> Result<u8, DDSError>;
+    fn dd_tricks_all_cards<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+    ) -> Result<FutureTricks, DDSError>;
 
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
@@ -26,6 +31,13 @@ pub trait BridgeSolver {
         deals: &[D; MAXNOOFBOARDS],
         contract: &[C; MAXNOOFBOARDS],
     ) -> Result<Vec<u8>, DDSError>;
+
+    fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        number_of_deals: i32,
+        deals: &[D; MAXNOOFBOARDS],
+        contract: &[C; MAXNOOFBOARDS],
+    ) -> Result<SolvedBoards, DDSError>;
 }
 
 #[repr(C)]

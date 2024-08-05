@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
+#[allow(unused_imports)]
 use safe_arch::*;
 use squeezer::{Card, Cards, Seat, Suit};
 
@@ -35,8 +36,13 @@ fn wrapping_winner(cards: &mut [Card], trump: Suit) {
     }
 }
 
+#[cfg(not(target_feature = "avx2"))]
+fn simd_trick_win_trump(cards: &mut [Card], trump: Suit) {
+    wrapping_winner(cards, trump)
+}
+
 #[cfg(target_feature = "avx2")]
-fn simd_trick_win_trump(input: &mut [Card], trump: Suit) {
+fn simd_trick_win_trump(cards: &mut [Card], trump: Suit) {
     let len = input.len();
     let new_len = len / 4;
     //let reinterpreted_slice = unsafe {
@@ -67,6 +73,7 @@ fn simd_trick_win_trump(input: &mut [Card], trump: Suit) {
     }
 }
 
+#[allow(const_item_mutation)]
 fn criterion_benchmark(c: &mut Criterion) {
     let mut cards1 = Cards::ALL.pick(32).unwrap().into_iter();
     let mut cards2 = Cards::ALL.pick(32).unwrap().into_iter();

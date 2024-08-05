@@ -27,14 +27,14 @@ pub struct Contract {
 }
 
 #[cfg(feature = "dds")]
-impl dds::AsDDSContract for Contract {
+impl dds::traits::AsDDSContract for Contract {
     fn as_dds_contract(&self) -> (i32, i32) {
         (self.strain as i32, self.declarer.next() as i32)
     }
 }
 
 #[cfg(feature = "dds")]
-impl dds::ContractScorer for Contract {
+impl dds::traits::ContractScorer for Contract {
     fn score(&self, tricks: u8) -> i32 {
         let target: i32 = i32::from(self.level) + 6i32;
         let overtricks: i32 = i32::from(tricks) - target;

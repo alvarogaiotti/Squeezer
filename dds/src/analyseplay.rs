@@ -252,6 +252,8 @@ pub struct PlayTracePBN {
 
 #[cfg(test)]
 mod test {
+    use crate::bindings::ddsffi::DDSInfo;
+
     use super::*;
     #[test]
     fn bindgen_test_layout_solvedPlays() {

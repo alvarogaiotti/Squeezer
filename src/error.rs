@@ -13,9 +13,9 @@ pub enum SqueezerError {
     CreationShape(CreationShapeError),
     DealingError(DealerError),
     #[cfg(feature = "dds")]
-    DDSError(dds::DDSError),
+    DDSError(dds::ddserror::DDSError),
     #[cfg(feature = "dds")]
-    SeqError(dds::SeqError),
+    SeqError(dds::utils::SeqError),
 }
 
 impl Error for SqueezerError {
@@ -52,15 +52,15 @@ impl From<LinParsingError> for SqueezerError {
 }
 
 #[cfg(feature = "dds")]
-impl From<dds::DDSError> for SqueezerError {
-    fn from(value: dds::DDSError) -> Self {
+impl From<dds::ddserror::DDSError> for SqueezerError {
+    fn from(value: dds::ddserror::DDSError) -> Self {
         Self::DDSError(value)
     }
 }
 
 #[cfg(feature = "dds")]
-impl From<dds::SeqError> for SqueezerError {
-    fn from(value: dds::SeqError) -> Self {
+impl From<dds::utils::SeqError> for SqueezerError {
+    fn from(value: dds::utils::SeqError) -> Self {
         Self::SeqError(value)
     }
 }

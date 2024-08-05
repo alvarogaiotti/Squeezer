@@ -9,7 +9,10 @@ use crate::{
     prelude::{Card, Contract, Dealer, SqueezerError},
     Deal, Suit,
 };
-use dds::MAXNOOFBOARDS;
+use dds::{
+    solver::{BridgeSolver, SolvedBoards},
+    MAXNOOFBOARDS,
+};
 use itertools::Itertools;
 
 pub struct LeadSimulation<T: Dealer> {
@@ -76,7 +79,7 @@ impl LeadSimulationResult {
     /// # Panics
     ///
     /// Panics when DDS returns a negative result for the tricks
-    pub fn add_results(&mut self, results: dds::SolvedBoards) {
+    pub fn add_results(&mut self, results: SolvedBoards) {
         let mut results_iter = results.into_iter();
         if let Some(solved) = results_iter.next() {
             for index in 0..solved.cards as usize {
@@ -181,20 +184,16 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
         let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
 
         let contracts = [self.contract; MAXNOOFBOARDS];
-        let targets = [dds::Target::MaxTricks; MAXNOOFBOARDS];
-        let solutions = [dds::Solutions::AllLegal; MAXNOOFBOARDS];
-        let modes = [dds::Mode::Auto; MAXNOOFBOARDS];
-
+        let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
         // For the number of boads, stepped by the number of deals we use per analysis
         for _ in (0..self.num_of_boards).step_by(MAXNOOFBOARDS) {
             // We take from the deal producer the number we need
-            let solvedb =
-                self.solve_boards(MAXNOOFBOARDS, &contracts, &targets, &solutions, &modes)?;
+            let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, &contracts)?;
             sim_result.add_results(solvedb);
         }
 
         let num = self.num_of_boards % MAXNOOFBOARDS;
-        let solvedb = self.solve_boards(num, &contracts, &targets, &solutions, &modes)?;
+        let solvedb = self.solve_boards(num, &solver, &contracts)?;
         sim_result.add_results(solvedb);
 
         sim_result.update(8 - self.contract.level(), self.num_of_boards);
@@ -203,38 +202,18 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
 }
 
 impl<T: Dealer> LeadSimulation<T> {
-    fn solve_boards(
+    fn solve_boards<S: BridgeSolver>(
         &self,
         num: usize,
+        solver: &S,
         contracts: &[Contract; MAXNOOFBOARDS],
-        targets: &[dds::Target; MAXNOOFBOARDS],
-        solutions: &[dds::Solutions; MAXNOOFBOARDS],
-        modes: &[dds::Mode; MAXNOOFBOARDS],
-    ) -> Result<dds::SolvedBoards, SqueezerError> {
+    ) -> Result<SolvedBoards, SqueezerError> {
+        assert!(num <= MAXNOOFBOARDS);
         // We take from the deal producer the number we need
         let deals = array::from_fn(|_| self.dealer.deal().unwrap());
-        let mut boards = dds::Boards::new(
-            i32::try_from(num).unwrap(),
-            &deals,
-            contracts,
-            targets,
-            solutions,
-            modes,
-        );
-        let mut solvedb = dds::SolvedBoards::new(i32::try_from(num).unwrap());
-        // TODO: Implement the right interface on `DoubleDummySolver` for this free
-        // function.
-        if (unsafe {
-            dds::SolveAllBoardsBin(
-                std::ptr::from_mut::<dds::Boards>(&mut boards),
-                std::ptr::from_mut::<dds::SolvedBoards>(&mut solvedb),
-            )
-        } < 0)
-        {
-            Err(SqueezerError::DDSError(21.into()))
-        } else {
-            Ok(solvedb)
-        }
+        solver
+            .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
+            .map_err(Into::into)
     }
 }
 

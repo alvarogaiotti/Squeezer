@@ -1,7 +1,12 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use dds::*;
+use dds::{
+    analyseplay::PlayAnalyzer,
+    analyseplay::PlayTraceBin,
+    doubledummy::DoubleDummySolver,
+    utils::{RankSeq, SuitSeq},
+};
 use squeezer::*;
 use std::fs;
 

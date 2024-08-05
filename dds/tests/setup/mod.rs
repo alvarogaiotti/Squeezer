@@ -3,6 +3,7 @@
 
 use std::sync::OnceLock;
 
+#[allow(dead_code)]
 pub static DEAL: OnceLock<DealMock> = OnceLock::new();
 
 #[derive(Debug, Clone)]

@@ -6,9 +6,10 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+use crate::doubledummy::DoubleDummySolver;
 use bindings::{
     ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT},
-    CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN, DoubleDummySolver,
+    CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
 };
 use ddserror::DDSError;
 use deal::DdsSuitEncoding;
@@ -195,7 +196,7 @@ impl IndexMut<DdsSuitEncoding> for TrumpFilter {
 /// so, if North has AKQ of Spades, then:
 ///
 /// ```
-/// use dds::bindings::DdTableDeal;
+/// use dds::tables::DdTableDeal;
 /// let mut table = DdTableDeal::new();
 /// table[0][0] = 0b011100000000000
 ///               // SA|SK|SQ
