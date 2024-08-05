@@ -1,13 +1,15 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::{BridgeSolver, ContractScorer, DDSDealConstructionError, DDSError};
-
-use super::{
-    doubledummy::MultiThreadDoubleDummySolver, AsDDSContract, AsDDSDeal, AsRawDDS, DDSDealBuilder,
-    DdsDeal,
+use crate::{
+    ddserror::DDSError,
+    deal::{AsDDSDeal, DDSDealBuilder, DDSDealConstructionError, DdsDeal},
+    doubledummy::MultiThreadDoubleDummySolver,
+    solver::BridgeSolver,
+    traits::{AsDDSContract, AsRawDDS, ContractScorer},
 };
 use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
+use squeezer_macros::AsRawDDS;
 
 /// The length of a sequence of suits or ranks
 pub const SEQUENCE_LENGTH: usize = 52;

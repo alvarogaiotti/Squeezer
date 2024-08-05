@@ -18,8 +18,8 @@ impl IntoIterator for DealMock {
     }
 }
 
-impl dds::AsDDSDeal for DealMock {
-    fn as_dds_deal(&self) -> dds::DDSDealRepr {
+impl dds::deal::AsDDSDeal for DealMock {
+    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.clone().into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {
@@ -33,13 +33,13 @@ impl dds::AsDDSDeal for DealMock {
 #[derive(Debug, Copy, Clone)]
 pub struct ContractMock {}
 
-impl dds::ContractScorer for ContractMock {
+impl dds::traits::ContractScorer for ContractMock {
     fn score(&self, _tricks: u8) -> i32 {
         0
     }
 }
 
-impl dds::AsDDSContract for ContractMock {
+impl dds::traits::AsDDSContract for ContractMock {
     fn as_dds_contract(&self) -> (i32, i32) {
         (2, 3)
     }

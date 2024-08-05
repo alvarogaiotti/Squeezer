@@ -2,14 +2,15 @@
 // See end of file for license information
 
 use super::ddsffi::{parResultsDealer, parResultsMaster, parTextResults};
-use super::tables::*;
 use crate::{
-    Boards, BoardsPbn, DdsDealPbn, PlayTraceBin, PlayTracePBN, PlayTracesBin, PlayTracesPBN,
-    SolvedBoards, SolvedPlay, SolvedPlays,
+    analyseplay::{
+        PlayTraceBin, PlayTracePBN, PlayTracesBin, PlayTracesPBN, SolvedPlay, SolvedPlays,
+    },
+    deal::{Boards, BoardsPbn, DdsDeal, DdsDealPbn},
+    future_tricks::FutureTricks,
+    solver::SolvedBoards,
+    tables::*,
 };
-
-use super::future_tricks::FutureTricks;
-use super::DdsDeal;
 
 /// A single threaded double dummy solver.
 /// DO NOT USE this in multithreaded code as it will SEGFAULT.

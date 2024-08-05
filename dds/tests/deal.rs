@@ -1,7 +1,8 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use dds::BridgeSolver;
+use dds::doubledummy::MultiThreadDoubleDummySolver;
+use dds::solver::BridgeSolver;
 mod setup;
 use setup::*;
 
@@ -9,7 +10,7 @@ use setup::*;
 fn test_linkage() {
     let deal = initialize_test();
     let contract = ContractMock {};
-    let solver = dds::MultiThreadDoubleDummySolver::new();
+    let solver = MultiThreadDoubleDummySolver::new();
     println!("{}", solver.dd_tricks(&deal, &contract).unwrap());
-    println!("{}", dds::dd_score(&deal, &contract).unwrap());
+    println!("{}", dds::utils::dd_score(&deal, &contract).unwrap());
 }

@@ -6,7 +6,12 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use bindings::ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT};
+use bindings::{
+    ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT},
+    CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN, DoubleDummySolver,
+};
+use ddserror::DDSError;
+use deal::DdsSuitEncoding;
 
 use crate::*;
 
@@ -47,7 +52,7 @@ impl DdTableCalculator for DoubleDummySolver {
     fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
-    ) -> Result<DdTableResults<bindings::tables::Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DDSError>
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {

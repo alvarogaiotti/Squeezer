@@ -1,8 +1,13 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use super::{ddsffi::RETURN_UNKNOWN_FAULT, AsDDSContract, AsDDSDeal, AsRawDDS, MAXNOOFBOARDS};
-use crate::{DDSError, RankSeq, SuitSeq};
+use crate::{
+    bindings::{ddsffi::RETURN_UNKNOWN_FAULT, MAXNOOFBOARDS},
+    ddserror::DDSError,
+    deal::AsDDSDeal,
+    traits::{AsDDSContract, AsRawDDS},
+    utils::{RankSeq, SuitSeq},
+};
 use core::{ffi::c_int, slice::Iter};
 
 /// Number of consecutive boards in a sequence a thread gets when we call

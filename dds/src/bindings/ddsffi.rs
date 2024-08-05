@@ -12,8 +12,8 @@
 #![allow(clippy::pedantic)]
 #![allow(clippy::restriction)]
 
-use super::Boards;
-use super::SolvedBoards;
+use crate::deal::Boards;
+use crate::solver::SolvedBoards;
 
 pub const R_OK: u32 = 4;
 pub const W_OK: u32 = 2;

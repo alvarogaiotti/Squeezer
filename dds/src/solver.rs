@@ -3,8 +3,9 @@
 
 use core::ffi::c_int;
 
-use crate::bindings::{
-    deal::AsDDSDeal, future_tricks::FutureTricks, AsDDSContract, DDSError, MAXNOOFBOARDS,
+use crate::{
+    bindings::MAXNOOFBOARDS, ddserror::DDSError, deal::AsDDSDeal, future_tricks::FutureTricks,
+    traits::AsDDSContract,
 };
 
 #[allow(clippy::module_name_repetitions)]

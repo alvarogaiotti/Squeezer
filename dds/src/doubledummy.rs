@@ -1,13 +1,25 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use ddsffi::RETURN_UNKNOWN_FAULT;
-use future_tricks::FutureTricks;
-
-use super::*;
 use std::sync::{Mutex, OnceLock, TryLockError};
 
-use crate::{DoubleDummySolver, ThreadIndex};
+use crate::{
+    analyseplay::{PlayAnalyzer, PlayTraceBin, PlayTracesBin, SolvedPlay, SolvedPlays, CHUNK_SIZE},
+    bindings::{
+        ddsffi::RETURN_UNKNOWN_FAULT, AnalyseAllPlaysBin, AnalysePlayBin, DoubleDummySolver,
+        SolveAllChunksBin, SolveBoard, MAXNOOFBOARDS,
+    },
+    ddserror::DDSError,
+    deal::{AsDDSDeal, Boards, DDSDealConstructionError, DdsDeal},
+    future_tricks::FutureTricks,
+    solver::{BridgeSolver, SolvedBoards},
+    tables::{
+        DdTableCalculator, DdTableDeal, DdTableDealPbn, DdTableResults, DdTablesRes, ParCalcMode,
+        Populated, TrumpFilter,
+    },
+    traits::AsDDSContract,
+    utils::{build_c_deal, Mode, Solutions, Target, ThreadIndex},
+};
 
 #[non_exhaustive]
 pub struct MultiThreadDoubleDummySolver {
@@ -33,11 +45,11 @@ impl MultiThreadDoubleDummySolver {
         }
     }
     fn set_max_threads(user_threads: ThreadIndex) {
-        unsafe { super::ffi::SetMaxThreads(user_threads.into()) }
+        unsafe { crate::bindings::ffi::SetMaxThreads(user_threads.into()) }
     }
 
     fn set_resources(max_memory_mb: i32, max_threads: ThreadIndex) {
-        unsafe { super::ffi::SetResources(max_memory_mb, max_threads.into()) }
+        unsafe { crate::bindings::ffi::SetResources(max_memory_mb, max_threads.into()) }
     }
 }
 impl BridgeSolver for MultiThreadDoubleDummySolver {
@@ -335,7 +347,10 @@ impl PlayAnalyzer for DoubleDummySolver {
 }
 
 mod test {
-    use super::*;
+    use doubledummy::MultiThreadDoubleDummySolver;
+    use tables::{DdTableCalculator, DdTableResults, DdTablesRes, ParCalcMode, Populated};
+
+    use crate::*;
 
     const HOLDINGS: [[[u32; 4]; 4]; 3] = [
         [

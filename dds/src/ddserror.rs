@@ -4,7 +4,7 @@
 use core::fmt;
 use std::fmt::Debug;
 
-use super::ddsffi::{
+use crate::bindings::ddsffi::{
     RETURN_CARD_COUNT, RETURN_CHUNK_SIZE, RETURN_DUPLICATE_CARDS, RETURN_FIRST_WRONG,
     RETURN_MODE_WRONG_HI, RETURN_MODE_WRONG_LO, RETURN_NO_SUIT, RETURN_PBN_FAULT,
     RETURN_PLAYED_CARD, RETURN_PLAY_FAULT, RETURN_SOLNS_WRONG_HI, RETURN_SOLNS_WRONG_LO,
@@ -12,7 +12,8 @@ use super::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS,
 };
-use crate::{c_int, DDSDealConstructionError};
+use crate::deal::DDSDealConstructionError;
+use core::ffi::c_int;
 
 /// Wrapper around the DDS errors
 pub struct DDSError {
