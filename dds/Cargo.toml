@@ -8,4 +8,4 @@ edition = "2021"
 
 [dependencies]
 squeezer_macros = {path="../squeezer_macros"}
-itertools = "0.10.3"
+itertools = "*"

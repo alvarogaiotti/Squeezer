@@ -5,17 +5,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 log ={version= "0.4.17"}
-rand = "0.8.5"
-colored = "2.0.0"
-itertools = "0.10.3"
+rand = "*"
+colored = "*"
+itertools = "0.*"
 reqwest = {version = "0.11.16", features = ["cookies", "blocking"], optional = true}
-time = {version= "0.3.20", optional = true}
+time = {version= "*", optional = true}
 regex ={version= "1", optional = true}
 ureq = {version = "2.6.2", features = ["cookies",], optional = true}
 squeezer_macros = { path = "squeezer_macros" }
 dds = { path = "dds", optional = true}
-bitvec ={version= "1.0.1", features = ["atomic", "std"]}
-safe_arch = "0.7.2"
+bitvec ={version= "*", features = ["atomic", "std"]}
+safe_arch = "*"
 
 [features]
 default = ["lin", "dds"]

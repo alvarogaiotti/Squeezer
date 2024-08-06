@@ -38,7 +38,7 @@ use crate::{
 /// Since this crate is just a wrapper around a DLL it is hard to provide a good example,
 /// but the usage is something about like so:
 /// ```
-/// # use dds::solver::Solver;
+/// # use dds::solver::BridgeSolver;
 /// # use dds::doubledummy::DoubleDummySolver;
 /// # #[derive(Debug, Clone)]
 /// # pub struct DealMock {
@@ -52,8 +52,8 @@ use crate::{
 /// #     }
 /// # }
 /// #
-/// # impl dds::AsDDSDeal for DealMock {
-/// #     fn as_dds_deal(&self) -> dds::DDSDealRepr {
+/// # impl dds::deal::AsDDSDeal for DealMock {
+/// #     fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
 /// #         let mut remain_cards = [[0; 4]; 4];
 /// #         for (seat, hand) in self.clone().into_iter().enumerate() {
 /// #             for (index, suit) in hand.into_iter().enumerate() {
@@ -67,13 +67,13 @@ use crate::{
 /// # #[derive(Debug, Copy, Clone)]
 /// # pub struct ContractMock {}
 /// #
-/// # impl dds::ContractScorer for ContractMock {
+/// # impl dds::traits::ContractScorer for ContractMock {
 /// #     fn score(&self, _tricks: u8) -> i32 {
 /// #         0
 /// #     }
 /// # }
 /// #
-/// # impl dds::AsDDSContract for ContractMock {
+/// # impl dds::traits::AsDDSContract for ContractMock {
 /// #     fn as_dds_contract(&self) -> (i32, i32) {
 /// #         (2, 3)
 /// #     }
@@ -116,10 +116,16 @@ impl DoubleDummySolver {
         unsafe { crate::bindings::FreeMemory() }
     }
 
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Get infos from the DLL
+    ///
+    /// # Errors
+    /// When the DLL memory gets corrupted and returns a non UTF-8 string.
     pub fn info(&self) -> Result<String, std::string::FromUtf8Error> {
         let mut info = crate::bindings::ddsffi::DDSInfo {
             major: 0,
@@ -137,9 +143,18 @@ impl DoubleDummySolver {
             threadSizes: [0; 128],
         };
         unsafe {
-            crate::bindings::ddsffi::GetDDSInfo(&mut info as *mut crate::bindings::ddsffi::DDSInfo);
+            crate::bindings::ddsffi::GetDDSInfo(std::ptr::from_mut::<
+                crate::bindings::ddsffi::DDSInfo,
+            >(&mut info));
         }
+        #[allow(clippy::cast_sign_loss)]
         String::from_utf8(info.systemString.iter().map(|x| *x as u8).collect())
+    }
+}
+
+impl Default for DoubleDummySolver {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -248,6 +263,11 @@ impl BridgeSolver for DoubleDummySolver {
         contract: &C,
     ) -> Result<u8, DDSError> {
         let future_tricks = self.dd_tricks_all_cards(deal, contract)?;
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_possible_wrap,
+            clippy::cast_sign_loss
+        )]
         Ok(13 - future_tricks.score()[0] as u8)
     }
 
@@ -271,10 +291,10 @@ impl BridgeSolver for DoubleDummySolver {
                 ThreadIndex::Auto.into(),
             );
         };
-        if result != 1 {
-            Err(DDSError::from(result))
-        } else {
+        if result == 1 {
             Ok(future_tricks)
+        } else {
+            Err(DDSError::from(result))
         }
     }
 
@@ -286,6 +306,11 @@ impl BridgeSolver for DoubleDummySolver {
         contract: &[C; MAXNOOFBOARDS],
     ) -> Result<Vec<u8>, DDSError> {
         let solved_boards = self.dd_tricks_all_cards_parallel(number_of_deals, deals, contract)?;
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_possible_wrap,
+            clippy::cast_sign_loss
+        )]
         Ok(solved_boards
             .into_iter()
             .map(|ft| 13 - ft.score[0] as u8)
@@ -298,7 +323,14 @@ impl BridgeSolver for DoubleDummySolver {
         deals: &[D; MAXNOOFBOARDS],
         contract: &[C; MAXNOOFBOARDS],
     ) -> Result<SolvedBoards, DDSError> {
-        assert!(number_of_deals <= MAXNOOFBOARDS as i32);
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_possible_wrap,
+            clippy::cast_sign_loss
+        )]
+        {
+            assert!(number_of_deals <= MAXNOOFBOARDS as i32);
+        }
         let mut boards = Boards::new(
             number_of_deals,
             deals,
@@ -411,9 +443,7 @@ impl PlayAnalyzer for MultiThreadDoubleDummySolver {
         contract: &C,
         play: PlayTraceBin,
     ) -> Result<SolvedPlay, DDSError> {
-        let inner = if let Ok(guard) = self.inner.lock() {
-            guard
-        } else {
+        let Ok(guard) = self.inner.lock() else {
             #[allow(clippy::print_stderr, clippy::use_debug)]
             {
                 use std::thread;
@@ -421,14 +451,14 @@ impl PlayAnalyzer for MultiThreadDoubleDummySolver {
                 return Err(RETURN_UNKNOWN_FAULT.into());
             }
         };
-        inner.analyze_play(deal, contract, play)
+        guard.analyze_play(deal, contract, play)
     }
 
     #[inline]
     fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
         &self,
-        deals: &Vec<D>,
-        contracts: &Vec<C>,
+        deals: &[D],
+        contracts: &[C],
         plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError> {
         if let Ok(inner) = self.inner.lock() {
@@ -444,12 +474,13 @@ impl PlayAnalyzer for DoubleDummySolver {
     #[inline]
     fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
         &self,
-        deals: &Vec<D>,
-        contracts: &Vec<C>,
+        deals: &[D],
+        contracts: &[C],
         plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError> {
         let deals_len = i32::try_from(deals.len().clamp(0, MAXNOOFBOARDS)).unwrap();
         let contracts_len = i32::try_from(contracts.len().clamp(0, MAXNOOFBOARDS)).unwrap();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         if deals_len != contracts_len
             || deals_len == 0i32
             || contracts_len == 0i32
@@ -503,9 +534,8 @@ impl PlayAnalyzer for DoubleDummySolver {
         contract: &C,
         play: PlayTraceBin,
     ) -> Result<SolvedPlay, DDSError> {
-        let dds_deal = match build_c_deal((contract, deal)) {
-            Ok(dds_deal) => dds_deal,
-            Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
+        let Ok(dds_deal) = build_c_deal((contract, deal)) else {
+            return Err(RETURN_UNKNOWN_FAULT.into());
         };
         let mut solved_play = SolvedPlay::new();
         let solved: *mut SolvedPlay = &mut solved_play;
@@ -520,7 +550,7 @@ impl PlayAnalyzer for DoubleDummySolver {
     }
 }
 
-#[allow(unused_imports)]
+#[allow(unused_imports, clippy::wildcard_imports)]
 mod test {
     use doubledummy::MultiThreadDoubleDummySolver;
     use tables::{DdTableCalculator, DdTableResults, DdTablesRes, ParCalcMode, Populated};
@@ -623,8 +653,8 @@ mod test {
     ];
 
     fn check_all_tables(table: &DdTablesRes<Populated>) {
-        for index in 0..3 as usize {
-            check_table(&table.results[index], index)
+        for index in 0..3 {
+            check_table(&table.results[index], index);
         }
     }
 

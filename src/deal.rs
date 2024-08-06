@@ -942,8 +942,8 @@ mod test {
     fn predealing_twice_should_panic() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
-        builder.predeal(Seat::North, hand.try_into().unwrap());
-        builder.predeal(Seat::West, hand.try_into().unwrap());
+        builder.predeal(Seat::North, hand);
+        builder.predeal(Seat::West, hand);
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
@@ -966,7 +966,7 @@ mod test {
     fn dealer_deals_with_predeal_test() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
-        builder.predeal(Seat::North, hand.try_into().unwrap());
+        builder.predeal(Seat::North, hand);
         let dealer = builder.build().unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
@@ -977,7 +977,7 @@ mod test {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
         let mut builder = DealerBuilder::new();
         builder
-            .predeal(Seat::North, hand.try_into().unwrap())
+            .predeal(Seat::North, hand)
             .with_function(Box::new(|hands: &Hands| {
                 hands.north().slen() + hands.south().slen() > 8
             }));

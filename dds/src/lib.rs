@@ -8,14 +8,17 @@
 #![allow(deref_nullptr)]
 #![allow(clippy::missing_docs_in_private_items)]
 #![allow(clippy::unseparated_literal_suffix)]
-#![allow(clippy::all)]
-#![allow(clippy::pedantic)]
-#![allow(clippy::restriction)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
 #![allow(dead_code)]
-//#![warn(clippy::restriction, clippy::pedantic)]
-#![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
+#![allow(
+    clippy::unseparated_literal_suffix,
+    clippy::implicit_return,
+    clippy::module_name_repetitions
+)]
 
 pub mod analyseplay;
+#[allow(clippy::pedantic)]
 pub(crate) mod bindings;
 pub mod ddserror;
 pub mod deal;

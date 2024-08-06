@@ -36,6 +36,7 @@ impl<'a> IntoIterator for &'a SolvedPlays {
 
 impl SolvedPlays {
     /// Standard iteration
+    #[allow(clippy::cast_sign_loss)]
     fn iter(&self) -> Iter<'_, SolvedPlay> {
         self.solved[..self.no_of_boards as usize].iter()
     }
@@ -58,6 +59,7 @@ impl SolvedPlay {
     }
 
     #[inline]
+    #[must_use]
     pub fn lead_result(&self) -> Option<i32> {
         self.tricks().get(1).copied()
     }
@@ -70,8 +72,10 @@ impl SolvedPlay {
 
     /// Function for testing purposes and should not be used.
     #[must_use]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
     pub fn from_seq(mut seq: Vec<i32>) -> Self {
-        let number = seq.len() as i32;
+        assert!(!seq.is_empty());
+        let number = seq.len().clamp(1, 53) as i32;
         seq.resize(53, -1i32);
         Self {
             number,
@@ -97,6 +101,16 @@ impl SolvedPlay {
             .try_into()
             .expect("it's a lenght so it's always positive")]
             .iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a SolvedPlay {
+    type Item = &'a i32;
+    type IntoIter = Iter<'a, i32>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -133,8 +147,16 @@ impl PlayTracesBin {
         })
     }
     #[inline]
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn len(&self) -> usize {
         self.noOfBoards.try_into().unwrap()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() != 0
     }
 }
 
@@ -169,6 +191,9 @@ impl PlayTraceBin {
     const fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
         Self { number, suit, rank }
     }
+
+    #[inline]
+    #[must_use]
     /// Creates a new [`PlayTraceBin`]
     pub const fn new() -> Self {
         Self {
@@ -200,8 +225,8 @@ pub trait PlayAnalyzer {
     /// different length.
     fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
         &self,
-        deals: &Vec<D>,
-        contracts: &Vec<C>,
+        deals: &[D],
+        contracts: &[C],
         plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError>;
 }
@@ -250,6 +275,7 @@ pub struct PlayTracePBN {
     pub cards: [::std::os::raw::c_char; 106usize],
 }
 
+#[allow(clippy::pedantic, unused_imports)]
 #[cfg(test)]
 mod test {
     use crate::bindings::ddsffi::DDSInfo;

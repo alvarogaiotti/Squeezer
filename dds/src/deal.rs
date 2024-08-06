@@ -28,69 +28,8 @@ pub struct Boards {
     pub solutions: [::std::os::raw::c_int; 200usize],
     pub mode: [::std::os::raw::c_int; 200usize],
 }
-#[test]
-fn bindgen_test_layout_boards() {
-    assert_eq!(
-        ::std::mem::size_of::<Boards>(),
-        21604usize,
-        concat!("Size of: ", stringify!(boards))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<Boards>(),
-        4usize,
-        concat!("Alignment of ", stringify!(boards))
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<Boards>())).no_of_boards as *const _ as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boards),
-            "::",
-            stringify!(noOfBoards)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<Boards>())).deals as *const _ as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boards),
-            "::",
-            stringify!(deals)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<Boards>())).target as *const _ as usize },
-        19204usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boards),
-            "::",
-            stringify!(target)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<Boards>())).solutions as *const _ as usize },
-        20004usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boards),
-            "::",
-            stringify!(solutions)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<Boards>())).mode as *const _ as usize },
-        20804usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boards),
-            "::",
-            stringify!(mode)
-        )
-    );
-}
+
+#[allow(clippy::pedantic)]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct BoardsPbn {
@@ -99,69 +38,6 @@ pub struct BoardsPbn {
     pub target: [::std::os::raw::c_int; 200usize],
     pub solutions: [::std::os::raw::c_int; 200usize],
     pub mode: [::std::os::raw::c_int; 200usize],
-}
-#[test]
-fn bindgen_test_layout_boards_pbn() {
-    assert_eq!(
-        ::std::mem::size_of::<BoardsPbn>(),
-        24804usize,
-        concat!("Size of: ", stringify!(boardsPBN))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<BoardsPbn>(),
-        4usize,
-        concat!("Alignment of ", stringify!(boardsPBN))
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).no_of_boards as *const _ as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boardsPBN),
-            "::",
-            stringify!(noOfBoards)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).deals as *const _ as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boardsPBN),
-            "::",
-            stringify!(deals)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).target as *const _ as usize },
-        22404usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boardsPBN),
-            "::",
-            stringify!(target)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).solutions as *const _ as usize },
-        23204usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boardsPBN),
-            "::",
-            stringify!(solutions)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<BoardsPbn>())).mode as *const _ as usize },
-        24004usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(boardsPBN),
-            "::",
-            stringify!(mode)
-        )
-    );
 }
 
 /// A wrapper around the `deal` struct from DDS.
@@ -178,69 +54,6 @@ pub struct DdsDeal {
     pub current_trick_rank: [::std::os::raw::c_int; 3usize],
     pub remain_cards: [[::std::os::raw::c_uint; 4usize]; 4usize],
 }
-#[test]
-fn bindgen_test_layout_deal() {
-    assert_eq!(
-        ::std::mem::size_of::<DdsDeal>(),
-        96usize,
-        concat!("Size of: ", stringify!(deal))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<DdsDeal>(),
-        4usize,
-        concat!("Alignment of ", stringify!(deal))
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDeal>())).trump as *const _ as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(deal),
-            "::",
-            stringify!(trump)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDeal>())).first as *const _ as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(deal),
-            "::",
-            stringify!(first)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDeal>())).current_trick_suit as *const _ as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(deal),
-            "::",
-            stringify!(currentTrickSuit)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDeal>())).current_trick_rank as *const _ as usize },
-        20usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(deal),
-            "::",
-            stringify!(currentTrickRank)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDeal>())).remain_cards as *const _ as usize },
-        32usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(deal),
-            "::",
-            stringify!(remainCards)
-        )
-    );
-}
 /// A wrapper around DDS's `dealPbn`.
 /// See [`DdsDeal`] for reference on the fields.
 #[repr(C)]
@@ -251,69 +64,6 @@ pub struct DdsDealPbn {
     pub current_trick_suit: [::std::os::raw::c_int; 3usize],
     pub current_trick_rank: [::std::os::raw::c_int; 3usize],
     pub remain_cards: [::std::os::raw::c_char; 80usize],
-}
-#[test]
-fn bindgen_test_layout_dds_deal_pbn() {
-    assert_eq!(
-        ::std::mem::size_of::<DdsDealPbn>(),
-        112usize,
-        concat!("Size of: ", stringify!(dealPBN))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<DdsDealPbn>(),
-        4usize,
-        concat!("Alignment of ", stringify!(dealPBN))
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).trump as *const _ as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(dealPBN),
-            "::",
-            stringify!(trump)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).first as *const _ as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(dealPBN),
-            "::",
-            stringify!(first)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).current_trick_suit as *const _ as usize },
-        8usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(dealPBN),
-            "::",
-            stringify!(currentTrickSuit)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).current_trick_rank as *const _ as usize },
-        20usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(dealPBN),
-            "::",
-            stringify!(currentTrickRank)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).remain_cards as *const _ as usize },
-        32usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(dealPBN),
-            "::",
-            stringify!(remainCards)
-        )
-    );
 }
 
 #[derive(Debug, RawDDSRef, Default)]
@@ -628,6 +378,8 @@ impl DDSDealBuilder {
 }
 
 impl DdsDeal {
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             trump: -1,
@@ -672,8 +424,9 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 }
 
 impl Boards {
-    #[allow(clippy::unwrap_used)]
+    #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
     /// Creates a new [`Boards`] struct
+    /// Number of deals get capped at 200
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D; MAXNOOFBOARDS],
@@ -707,5 +460,270 @@ impl Boards {
             solutions: solution.map(Into::into),
             mode: mode.map(Into::into),
         }
+    }
+}
+
+#[allow(clippy::pedantic)]
+#[allow(dead_code)]
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn bindgen_test_layout_boards() {
+        assert_eq!(
+            ::std::mem::size_of::<Boards>(),
+            21604usize,
+            concat!("Size of: ", stringify!(boards))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<Boards>(),
+            4usize,
+            concat!("Alignment of ", stringify!(boards))
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<Boards>())).no_of_boards as *const _ as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boards),
+                "::",
+                stringify!(noOfBoards)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<Boards>())).deals as *const _ as usize },
+            4usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boards),
+                "::",
+                stringify!(deals)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<Boards>())).target as *const _ as usize },
+            19204usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boards),
+                "::",
+                stringify!(target)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<Boards>())).solutions as *const _ as usize },
+            20004usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boards),
+                "::",
+                stringify!(solutions)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<Boards>())).mode as *const _ as usize },
+            20804usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boards),
+                "::",
+                stringify!(mode)
+            )
+        );
+    }
+
+    #[test]
+    fn bindgen_test_layout_boards_pbn() {
+        assert_eq!(
+            ::std::mem::size_of::<BoardsPbn>(),
+            24804usize,
+            concat!("Size of: ", stringify!(boardsPBN))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<BoardsPbn>(),
+            4usize,
+            concat!("Alignment of ", stringify!(boardsPBN))
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<BoardsPbn>())).no_of_boards as *const _ as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boardsPBN),
+                "::",
+                stringify!(noOfBoards)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<BoardsPbn>())).deals as *const _ as usize },
+            4usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boardsPBN),
+                "::",
+                stringify!(deals)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<BoardsPbn>())).target as *const _ as usize },
+            22404usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boardsPBN),
+                "::",
+                stringify!(target)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<BoardsPbn>())).solutions as *const _ as usize },
+            23204usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boardsPBN),
+                "::",
+                stringify!(solutions)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<BoardsPbn>())).mode as *const _ as usize },
+            24004usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(boardsPBN),
+                "::",
+                stringify!(mode)
+            )
+        );
+    }
+
+    #[test]
+    fn bindgen_test_layout_deal() {
+        assert_eq!(
+            ::std::mem::size_of::<DdsDeal>(),
+            96usize,
+            concat!("Size of: ", stringify!(deal))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<DdsDeal>(),
+            4usize,
+            concat!("Alignment of ", stringify!(deal))
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDeal>())).trump as *const _ as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(deal),
+                "::",
+                stringify!(trump)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDeal>())).first as *const _ as usize },
+            4usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(deal),
+                "::",
+                stringify!(first)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDeal>())).current_trick_suit as *const _ as usize },
+            8usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(deal),
+                "::",
+                stringify!(currentTrickSuit)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDeal>())).current_trick_rank as *const _ as usize },
+            20usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(deal),
+                "::",
+                stringify!(currentTrickRank)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDeal>())).remain_cards as *const _ as usize },
+            32usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(deal),
+                "::",
+                stringify!(remainCards)
+            )
+        );
+    }
+    #[test]
+    fn bindgen_test_layout_dds_deal_pbn() {
+        assert_eq!(
+            ::std::mem::size_of::<DdsDealPbn>(),
+            112usize,
+            concat!("Size of: ", stringify!(dealPBN))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<DdsDealPbn>(),
+            4usize,
+            concat!("Alignment of ", stringify!(dealPBN))
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).trump as *const _ as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(dealPBN),
+                "::",
+                stringify!(trump)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).first as *const _ as usize },
+            4usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(dealPBN),
+                "::",
+                stringify!(first)
+            )
+        );
+        assert_eq!(
+            unsafe {
+                &(*(::std::ptr::null::<DdsDealPbn>())).current_trick_suit as *const _ as usize
+            },
+            8usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(dealPBN),
+                "::",
+                stringify!(currentTrickSuit)
+            )
+        );
+        assert_eq!(
+            unsafe {
+                &(*(::std::ptr::null::<DdsDealPbn>())).current_trick_rank as *const _ as usize
+            },
+            20usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(dealPBN),
+                "::",
+                stringify!(currentTrickRank)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<DdsDealPbn>())).remain_cards as *const _ as usize },
+            32usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(dealPBN),
+                "::",
+                stringify!(remainCards)
+            )
+        );
     }
 }

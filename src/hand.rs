@@ -47,8 +47,6 @@ impl Hand {
     }
 
     /// Check if the Hand contains a specific card.
-    /// Parameters:
-    /// - `card`: The card to check for in the Hand.
     /// Returns true if the Hand contains the card, false otherwise.
     #[must_use]
     pub fn contains(&self, card: Card) -> bool {
@@ -66,10 +64,9 @@ impl Hand {
         [spades, hearts, diamonds, clubs]
     }
 
-    /// Get the number of cards in a specific suit.
+    /// Returns the number of cards in the specified suit.
     /// Parameters:
     /// - `suit`: The suit for which to count the cards.
-    /// Returns the number of cards in the specified suit.
     #[must_use]
     pub fn len_of_suit(&self, suit: Suit) -> u8 {
         match suit {

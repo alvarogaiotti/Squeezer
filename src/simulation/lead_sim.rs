@@ -211,6 +211,7 @@ impl<T: Dealer> LeadSimulation<T> {
         assert!(num <= MAXNOOFBOARDS);
         // We take from the deal producer the number we need
         let deals = array::from_fn(|_| self.dealer.deal().unwrap());
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         solver
             .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
             .map_err(Into::into)
@@ -263,15 +264,13 @@ mod test {
     fn lead_simulation_ok() {
         let mut builder = DealerBuilder::new();
         let hand = Cards::from_str("AQT KQ732 432 43").unwrap();
-        builder
-            .predeal(Seat::South, hand.try_into().unwrap())
-            .with_function(|cards| {
-                let east = cards.east();
-                let west = cards.west();
-                east.hlen() + west.hlen() == 8
-                    && east.hcp() + west.hcp() >= 20
-                    && east.hcp() + west.hcp() <= 24
-            });
+        builder.predeal(Seat::South, hand).with_function(|cards| {
+            let east = cards.east();
+            let west = cards.west();
+            east.hlen() + west.hlen() == 8
+                && east.hcp() + west.hcp() >= 20
+                && east.hcp() + west.hcp() <= 24
+        });
         let dealer = builder.build().unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
