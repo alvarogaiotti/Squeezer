@@ -463,7 +463,7 @@ impl Boards {
     }
 }
 
-#[allow(clippy::pedantic)]
+#[allow(clippy::pedantic, deref_nullptr)]
 #[allow(dead_code)]
 #[cfg(test)]
 mod test {

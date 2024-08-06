@@ -670,6 +670,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn test_multithread_calculate_table_works() {
         let mut table_deal = [[0; 4]; 4];
         let solver = MultiThreadDoubleDummySolver::new();

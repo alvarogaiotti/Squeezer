@@ -1,20 +1,21 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
+use core::ffi::c_int;
 use std::{
     marker::PhantomData,
     ops::{Index, IndexMut},
 };
 
-use crate::doubledummy::DoubleDummySolver;
-use bindings::{
-    ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT},
-    CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
+use crate::{
+    bindings::{
+        ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT},
+        CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
+    },
+    ddserror::DDSError,
+    deal::DdsSuitEncoding,
+    doubledummy::DoubleDummySolver,
 };
-use ddserror::DDSError;
-use deal::DdsSuitEncoding;
-
-use crate::*;
 
 /// Function to calculate a double dummy table for the given deal
 /// We start specific but the aim is to generalize tha interface
@@ -61,13 +62,13 @@ impl DdTableCalculator for DoubleDummySolver {
         let result = unsafe {
             CalcDDtable(
                 table_deal.into(),
-                &mut tablep as *mut DdTableResults<NotPopulated>,
+                std::ptr::from_mut::<DdTableResults<NotPopulated>>(&mut tablep),
             )
         };
-        if result != RETURN_NO_FAULT {
-            Err(result.into())
-        } else {
+        if result == RETURN_NO_FAULT {
             Ok(tablep.populated())
+        } else {
+            Err(result.into())
         }
     }
     fn calculate_complete_table_pbn<P>(
@@ -81,13 +82,13 @@ impl DdTableCalculator for DoubleDummySolver {
         let result = unsafe {
             CalcDDtablePBN(
                 table_deal_pbn.into(),
-                &mut tablep as *mut DdTableResults<NotPopulated>,
+                std::ptr::from_mut::<DdTableResults<NotPopulated>>(&mut tablep),
             )
         };
-        if result != RETURN_NO_FAULT {
-            Err(result.into())
-        } else {
+        if result == RETURN_NO_FAULT {
             Ok(tablep.populated())
+        } else {
+            Err(result.into())
         }
     }
     fn calculate_all_complete_tables<T>(
@@ -99,24 +100,30 @@ impl DdTableCalculator for DoubleDummySolver {
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
-        let mut dealsp = DdTableDeals::new(table_deals);
+        #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
         let mut resp = DdTablesRes::new(table_deals.len() as i32);
+
+        let mut dealsp = DdTableDeals::new(table_deals);
         let mut presp = AllParResults::new();
+
+        #[allow(clippy::ref_as_ptr)]
         let result = unsafe {
             CalcAllTables(
-                (&mut dealsp) as *mut DdTableDeals,
+                std::ptr::from_mut::<DdTableDeals>(&mut dealsp),
                 mode as i32,
                 &mut trump_filter as *mut i32,
-                &mut resp as *mut DdTablesRes<NotPopulated>,
-                &mut presp as *mut AllParResults,
+                std::ptr::from_mut::<DdTablesRes<NotPopulated>>(&mut resp),
+                std::ptr::from_mut::<AllParResults>(&mut presp),
             )
         };
-        if result != RETURN_NO_FAULT {
-            Err(result.into())
-        } else {
+
+        if result == RETURN_NO_FAULT {
             Ok(resp.populated())
+        } else {
+            Err(result.into())
         }
     }
+
     fn calculate_all_complete_tables_pbn<P>(
         &self,
         table_deals_pbn: &[P],
@@ -126,22 +133,24 @@ impl DdTableCalculator for DoubleDummySolver {
     where
         for<'a> &'a P: Into<DdTableDealPbn>,
     {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let mut resp = DdTablesRes::new(table_deals_pbn.len() as i32);
+
         let mut presp = AllParResults::new();
         let mut dealsp = DdTableDealsPbn::new(table_deals_pbn);
         let result = unsafe {
             CalcAllTablesPBN(
-                &mut dealsp as *mut DdTableDealsPbn,
+                std::ptr::from_mut::<DdTableDealsPbn>(&mut dealsp),
                 mode as i32,
                 trump_filter.as_mut_ptr(),
-                &mut resp as *mut DdTablesRes<NotPopulated>,
-                &mut presp as *mut AllParResults,
+                std::ptr::from_mut::<DdTablesRes<NotPopulated>>(&mut resp),
+                std::ptr::from_mut::<AllParResults>(&mut presp),
             )
         };
-        if result != RETURN_NO_FAULT {
-            Err(result.into())
-        } else {
+        if result == RETURN_NO_FAULT {
             Ok(resp.populated())
+        } else {
+            Err(result.into())
         }
     }
 }
@@ -230,9 +239,16 @@ impl IndexMut<DdsSuitEncoding> for DdTableDeal {
 }
 
 impl DdTableDeal {
+    #[inline]
     #[must_use]
     pub fn new() -> Self {
         Self { cards: [[0; 4]; 4] }
+    }
+}
+
+impl Default for DdTableDeal {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -251,9 +267,16 @@ impl DdTableDeals {
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
-        let mut deals_vec: Vec<DdTableDeal> = deals.iter().take(200).map(|e| e.into()).collect();
+        let mut deals_vec: Vec<DdTableDeal> = deals
+            .iter()
+            .take(200)
+            .map(std::convert::Into::into)
+            .collect();
         let len = deals_vec.len();
+
         deals_vec.resize(200, DdTableDeal::new());
+
+        #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
         Self {
             no_of_tables: len as i32,
             deals: deals_vec.try_into().unwrap(),
@@ -275,6 +298,12 @@ impl DdTableDealPbn {
     }
 }
 
+impl Default for DdTableDealPbn {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 /// A collection of [`DdTableDealPbn`]s, contained in a fixed array of 200 elements.
@@ -290,9 +319,16 @@ impl DdTableDealsPbn {
     where
         for<'a> &'a T: Into<DdTableDealPbn>,
     {
-        let mut deals_vec: Vec<DdTableDealPbn> = deals.iter().take(200).map(|e| e.into()).collect();
+        let mut deals_vec: Vec<DdTableDealPbn> = deals
+            .iter()
+            .take(200)
+            .map(std::convert::Into::into)
+            .collect();
         let len = deals_vec.len();
+
         deals_vec.resize(200, DdTableDealPbn::new());
+
+        #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
         Self {
             no_of_tables: len as i32,
             deals: deals_vec.try_into().unwrap(),
@@ -307,6 +343,7 @@ pub struct DdTableResults<T: TablePopulated> {
 }
 
 impl DdTableResults<NotPopulated> {
+    #[inline]
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -321,6 +358,12 @@ impl DdTableResults<NotPopulated> {
             res_table: self.res_table,
             state: PhantomData,
         }
+    }
+}
+
+impl Default for DdTableResults<NotPopulated> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 pub trait TablePopulated: populated_private::SealedPopulated {}
@@ -377,6 +420,12 @@ impl ParResults {
     }
 }
 
+impl Default for ParResults {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct AllParResults {
@@ -385,6 +434,7 @@ pub struct AllParResults {
 
 impl AllParResults {
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self {
             par_results: [ParResults::new(); MAXNOOFTABLES as usize],
@@ -392,7 +442,14 @@ impl AllParResults {
     }
 }
 
+impl Default for AllParResults {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
+#[allow(deref_nullptr, non_snake_case, clippy::ref_as_ptr)]
 mod test {
     use super::*;
     #[test]
@@ -634,9 +691,9 @@ mod test {
         );
     }
 
-    impl Into<DdTableDeal> for &[[u32; 4]; 4] {
-        fn into(self) -> DdTableDeal {
-            DdTableDeal { cards: *self }
+    impl From<&[[u32; 4]; 4]> for DdTableDeal {
+        fn from(val: &[[u32; 4]; 4]) -> Self {
+            DdTableDeal { cards: *val }
         }
     }
 
@@ -747,6 +804,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn test_calculate_table_unprotected_worrs() {
         // Remember to run all this test in one thread, otherwise they'll SEGFAULT
         let mut table_deal = [[0; 4]; 4];
@@ -763,6 +821,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn test_CalcDDTable_unprotected_works() {
         // Remember to run all this test in one thread, otherwise they'll SEGFAULT
         let mut table_deal = DdTableDeal::new();

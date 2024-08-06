@@ -71,6 +71,7 @@ impl SolvedPlay {
     }
 
     /// Function for testing purposes and should not be used.
+    #[inline]
     #[must_use]
     #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
     pub fn from_seq(mut seq: Vec<i32>) -> Self {
@@ -141,16 +142,17 @@ impl PlayTracesBin {
         plays.resize(MAXNOOFBOARDS, PlayTraceBin::new());
         Ok(Self {
             // SAFETY: capped at 200
-            noOfBoards: suits_len.try_into().unwrap(),
+            no_of_boards: suits_len.try_into().unwrap(),
             // SAFETY: We now the length of the Vec
             plays: plays.try_into().unwrap(),
         })
     }
+
     #[inline]
     #[must_use]
     #[allow(clippy::missing_panics_doc)]
     pub fn len(&self) -> usize {
-        self.noOfBoards.try_into().unwrap()
+        self.no_of_boards.try_into().unwrap()
     }
 
     #[inline]
@@ -245,14 +247,14 @@ pub struct SolvedPlay {
 /// of 52 element each representing played card's rank
 /// and suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTracesBin {
-    pub noOfBoards: ::std::os::raw::c_int,
+    pub no_of_boards: ::std::os::raw::c_int,
     pub plays: [PlayTraceBin; 200usize],
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct PlayTracesPBN {
-    pub noOfBoards: ::std::os::raw::c_int,
+    pub no_of_boards: ::std::os::raw::c_int,
     pub plays: [PlayTracePBN; 200usize],
 }
 
@@ -275,14 +277,14 @@ pub struct PlayTracePBN {
     pub cards: [::std::os::raw::c_char; 106usize],
 }
 
-#[allow(clippy::pedantic, unused_imports)]
+#[allow(clippy::pedantic, unused_imports, deref_nullptr)]
 #[cfg(test)]
 mod test {
     use crate::bindings::ddsffi::DDSInfo;
 
     use super::*;
     #[test]
-    fn bindgen_test_layout_solvedPlays() {
+    fn bindgen_test_layout_solved_plays() {
         assert_eq!(
             core::mem::size_of::<SolvedPlays>(),
             43204usize,
@@ -315,7 +317,7 @@ mod test {
         );
     }
     #[test]
-    fn bindgen_test_layout_solvedPlay() {
+    fn bindgen_test_layout_solved_play() {
         assert_eq!(
             ::std::mem::size_of::<SolvedPlay>(),
             216usize,
@@ -348,7 +350,7 @@ mod test {
         );
     }
     #[test]
-    fn bindgen_test_layout_playTracesBin() {
+    fn bindgen_test_layout_play_traces_bin() {
         assert_eq!(
             ::std::mem::size_of::<PlayTracesBin>(),
             84004usize,
@@ -360,7 +362,7 @@ mod test {
             concat!("Alignment of ", stringify!(playTracesBin))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracesBin>())).noOfBoards as *const _ as usize },
+            unsafe { &(*(::std::ptr::null::<PlayTracesBin>())).no_of_boards as *const _ as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -381,7 +383,7 @@ mod test {
         );
     }
     #[test]
-    fn bindgen_test_layout_playTracesPBN() {
+    fn bindgen_test_layout_play_traces_pbn() {
         assert_eq!(
             ::std::mem::size_of::<PlayTracesPBN>(),
             22404usize,
@@ -393,7 +395,7 @@ mod test {
             concat!("Alignment of ", stringify!(playTracesPBN))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracesPBN>())).noOfBoards as *const _ as usize },
+            unsafe { &(*(::std::ptr::null::<PlayTracesPBN>())).no_of_boards as *const _ as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -414,7 +416,7 @@ mod test {
         );
     }
     #[test]
-    fn bindgen_test_layout_playTraceBin() {
+    fn bindgen_test_layout_play_trace_bin() {
         assert_eq!(
             ::std::mem::size_of::<PlayTraceBin>(),
             420usize,
@@ -457,7 +459,7 @@ mod test {
         );
     }
     #[test]
-    fn bindgen_test_layout_playTracePBN() {
+    fn bindgen_test_layout_play_trace_pbn() {
         assert_eq!(
             ::std::mem::size_of::<PlayTracePBN>(),
             112usize,

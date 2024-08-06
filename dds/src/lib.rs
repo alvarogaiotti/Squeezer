@@ -1,24 +1,22 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
 #![allow(dead_code)]
-#![allow(deref_nullptr)]
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(clippy::unseparated_literal_suffix)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
-#![allow(dead_code)]
-#![allow(
-    clippy::unseparated_literal_suffix,
-    clippy::implicit_return,
-    clippy::module_name_repetitions
-)]
+#![allow(clippy::implicit_return, clippy::module_name_repetitions)]
 
 pub mod analyseplay;
-#[allow(clippy::pedantic)]
+#[allow(
+    clippy::unseparated_literal_suffix,
+    clippy::missing_docs_in_private_items,
+    clippy::unseparated_literal_suffix,
+    non_snake_case,
+    non_upper_case_globals,
+    clippy::pedantic,
+    deref_nullptr,
+    non_camel_case_types
+)]
 pub(crate) mod bindings;
 pub mod ddserror;
 pub mod deal;
