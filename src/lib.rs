@@ -1,25 +1,28 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-#![allow(dead_code)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::should_panic_without_expect)]
-#![allow(clippy::unseparated_literal_suffix, clippy::implicit_return)]
-#![allow(clippy::single_call_fn)]
-#![allow(clippy::missing_trait_methods)]
-#![allow(clippy::indexing_slicing)]
-#![allow(clippy::as_conversions)]
-#![allow(clippy::question_mark_used)]
-#![allow(clippy::absolute_paths)]
-#![allow(clippy::expect_used)]
-#![allow(clippy::arithmetic_side_effects)]
-#![allow(clippy::pub_with_shorthand)]
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(clippy::missing_inline_in_public_items)]
-#![allow(clippy::unreachable)]
-#![allow(clippy::unwrap_used)]
-#![allow(clippy::integer_division_remainder_used)]
-#![allow(clippy::module_name_repetitions)]
+#![allow(
+    dead_code,
+    clippy::module_name_repetitions,
+    clippy::integer_division_remainder_used,
+    clippy::unwrap_used,
+    clippy::unreachable,
+    clippy::missing_inline_in_public_items,
+    clippy::missing_docs_in_private_items,
+    clippy::pub_with_shorthand,
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::absolute_paths,
+    clippy::question_mark_used,
+    clippy::as_conversions,
+    clippy::indexing_slicing,
+    clippy::missing_trait_methods,
+    clippy::single_call_fn,
+    clippy::unseparated_literal_suffix,
+    clippy::implicit_return,
+    clippy::should_panic_without_expect
+)]
 
 /// This crate offers you every tool you might need for Bridge (the card game) related stuff.
 /// We support some variegated functionality: random single deal creation (via [`Deal::new()`]),
