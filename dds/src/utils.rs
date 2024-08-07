@@ -6,10 +6,10 @@ use crate::{
     deal::{AsDDSDeal, DDSDealBuilder, DDSDealConstructionError, DdsDeal},
     doubledummy::MultiThreadDoubleDummySolver,
     solver::BridgeSolver,
-    traits::{AsDDSContract, AsRawDDS, ContractScorer},
+    traits::{AsDDSContract, ContractScorer, IntoRawDDS},
 };
 use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
-use squeezer_macros::AsRawDDS;
+use squeezer_macros::IntoRawDDS;
 
 /// The length of a sequence of suits or ranks
 pub const SEQUENCE_LENGTH: usize = 52;
@@ -161,7 +161,7 @@ macro_rules! impl_tryfrom_array_for_sequence {
     };
 }
 
-#[derive(AsRawDDS, Debug, Clone)]
+#[derive(IntoRawDDS, Debug, Clone)]
 /// A `SuitSeq` is a sequence of cards' suit.
 /// It's the sequence of suits used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// The suit is represented with the standard suit enconding used
@@ -259,7 +259,7 @@ impl SuitSeq {
 impl_tryfrom_array_for_sequence! {usize,u8,u16,u32,u64 ; SuitSeq}
 impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; SuitSeq}
 
-#[derive(Debug, Clone, AsRawDDS)]
+#[derive(Debug, Clone, IntoRawDDS)]
 /// A `RankSeq` is a sequence of cards' rank.
 /// It's the sequence of ranks used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// Card are encoded with a incremental integer encoding, unlike in

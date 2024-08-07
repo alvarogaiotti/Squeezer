@@ -1,10 +1,10 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-pub trait AsRawDDS {
+pub trait IntoRawDDS {
     type Raw;
 
-    fn as_raw(self) -> Self::Raw;
+    fn into_raw(self) -> Self::Raw;
 }
 
 pub trait RawDDSRef<'a> {

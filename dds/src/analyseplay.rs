@@ -5,7 +5,7 @@ use crate::{
     bindings::{ddsffi::RETURN_UNKNOWN_FAULT, MAXNOOFBOARDS},
     ddserror::DDSError,
     deal::AsDDSDeal,
-    traits::{AsDDSContract, AsRawDDS},
+    traits::{AsDDSContract, IntoRawDDS},
     utils::{RankSeq, SuitSeq},
 };
 use core::{ffi::c_int, slice::Iter};
@@ -71,6 +71,8 @@ impl SolvedPlay {
     }
 
     /// Function for testing purposes and should not be used.
+    /// # Panics
+    /// Panics when seq is empty
     #[inline]
     #[must_use]
     #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
@@ -183,8 +185,8 @@ impl PlayTraceBin {
         let number = length;
         Self {
             number,
-            suit: suit.as_raw(),
-            rank: rank.as_raw(),
+            suit: suit.into_raw(),
+            rank: rank.into_raw(),
         }
     }
     #[inline]

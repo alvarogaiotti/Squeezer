@@ -11,6 +11,8 @@ use crate::{
 #[allow(clippy::module_name_repetitions)]
 pub trait BridgeSolver {
     /// Returns the number of tricks makable in one contract by one player
+    /// If you have more than a dozen deals to analyse use [`BridgeSolver::dd_tricks_parallel`]
+    /// instead.
     /// # Errors
     /// Returns errors if the deal is impossible to be constructed or if the
     /// solver errors out
@@ -19,12 +21,24 @@ pub trait BridgeSolver {
         deal: &D,
         contract: &C,
     ) -> Result<u8, DDSError>;
+    /// Returns the number of tricks makable in one contract by one player for
+    /// every lead.
+    /// If you have more than a dozen deals to analyse use [`BridgeSolver::dd_tricks_parallel`]
+    /// instead.
+    /// # Errors
+    /// Returns an error if the deal is impossible to be constructed or it the solver gives out an
+    /// error
     fn dd_tricks_all_cards<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         deal: &D,
         contract: &C,
     ) -> Result<FutureTricks, DDSError>;
 
+    /// Same as [`BridgeSolver::dd_tricks`] but computes multiple deals in paralles.
+    /// If you have more than a dozen deals to analyse use this function instead.
+    /// # Errors
+    /// Returns an error if the deal is impossible to be constructed or it the solver gives out an
+    /// error
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
@@ -32,6 +46,11 @@ pub trait BridgeSolver {
         contract: &[C; MAXNOOFBOARDS],
     ) -> Result<Vec<u8>, DDSError>;
 
+    /// Same as [`BridgeSolver::dd_tricks_all_cards`] but computes multiple deals in paralles.
+    /// If you have more than a dozen deals to analyse use this function instead.
+    /// # Errors
+    /// Returns an error if the deal is impossible to be constructed or it the solver gives out an
+    /// error
     fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,

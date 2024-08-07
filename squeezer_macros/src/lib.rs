@@ -97,7 +97,7 @@ fn impl_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(AsRawDDS, attributes(raw))]
+#[proc_macro_derive(IntoRawDDS, attributes(raw))]
 pub fn asrawdds_macro_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
 
@@ -118,11 +118,11 @@ fn impl_as_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
     let ty = field.ty;
     if let Some(field_ident) = field.ident {
         quote::quote! {
-            impl AsRawDDS for #name {
+            impl IntoRawDDS for #name {
                 type Raw = #ty;
 
                 #[inline(always)]
-                fn as_raw(self) -> Self::Raw {
+                fn into_raw(self) -> Self::Raw {
                     self.#field_ident
                 }
             }
@@ -130,11 +130,11 @@ fn impl_as_rawdds_macro(ast: syn::DeriveInput) -> TokenStream {
         .into()
     } else {
         quote::quote! {
-            impl RawDDS for #name {
+            impl IntoRawDDS for #name {
                 type Raw = #ty;
 
                 #[inline(always)]
-                fn as_raw(self) -> Self::Raw {
+                fn into_raw(self) -> Self::Raw {
                     self.0
                 }
             }

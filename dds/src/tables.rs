@@ -17,21 +17,44 @@ use crate::{
     doubledummy::DoubleDummySolver,
 };
 
-/// Function to calculate a double dummy table for the given deal
-/// We start specific but the aim is to generalize tha interface
+/// Trait that abstracts the ability to solve a doubledummy table, or par table,
+/// like the one you see in scores after a tournament.
 pub trait DdTableCalculator {
+    /// Calculates all the table for a given deal, returning the maximum result for every contract
+    /// played by every player. Disregards information about seat, e.g. if both the pairs can make
+    /// 1NT, this function will return 1NT as makable for both.
+    /// Use [`DdTableCalculator::calculate_all_complete_tables`] for parallel calculation of more
+    /// deals, as starting from a couple of dozens deals will get slow using this function.
+    /// # Errors
+    /// Should error only if the underlying solver errors out.
     fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
     ) -> Result<DdTableResults<Populated>, DDSError>
     where
         for<'a> &'a T: Into<DdTableDeal>;
+
+    /// Calculates all the table for a given deal in PBN format (or a deal which can be converted
+    /// in PBN format), returning the maximum result for every contract played by every player.
+    /// Disregards information about seat, e.g. if both the pairs can make 1NT, this function will
+    /// return 1NT as makable for both.
+    /// Use [`DdTableCalculator::calculate_all_complete_tables_pbn`] for parallel calculation of more
+    /// deals, as starting from a couple of dozens deals will get slow using this function.
+    /// # Errors
+    /// Should error only if the underlying solver errors out.
     fn calculate_complete_table_pbn<P>(
         &self,
         table_deal_pbn: &P,
     ) -> Result<DdTableResults<Populated>, DDSError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>;
+    /// Same as [`DdTableCalculator::calculate_complete_table`], but parallel: use this function if
+    /// you have more than a dozen deals.
+    /// Calculates all the table for a given deal, returning the maximum result for every contract
+    /// played by every player. Disregards information about seat, e.g. if both the pairs can make
+    /// 1NT, this function will return 1NT as makable for both.
+    /// # Errors
+    /// Should error only if the underlying solver errors out.
     fn calculate_all_complete_tables<T>(
         &self,
         table_deals: &[T],
@@ -40,6 +63,14 @@ pub trait DdTableCalculator {
     ) -> Result<DdTablesRes<Populated>, DDSError>
     where
         for<'a> &'a T: Into<DdTableDeal>;
+    /// Same as [`DdTableCalculator::calculate_complete_table_pbn`], but parallel: use this
+    /// function if you have more than a couple of dozens deals.
+    /// Calculates all the table for a given deal in PBN format (or a deal which can be converted
+    /// in PBN format), returning the maximum result for every contract played by every player.
+    /// Disregards information about seat, e.g. if both the pairs can make 1NT, this function will
+    /// return 1NT as makable for both.
+    /// # Errors
+    /// Should error only if the underlying solver errors out.
     fn calculate_all_complete_tables_pbn<P>(
         &self,
         table_deals_pbn: &[P],
@@ -262,7 +293,9 @@ pub struct DdTableDeals {
 }
 
 impl DdTableDeals {
+    #[inline]
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn new<T>(deals: &[T]) -> Self
     where
         for<'a> &'a T: Into<DdTableDeal>,
@@ -314,7 +347,9 @@ pub struct DdTableDealsPbn {
 }
 
 impl DdTableDealsPbn {
+    #[inline]
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn new<T>(deals: &[T]) -> Self
     where
         for<'a> &'a T: Into<DdTableDealPbn>,
