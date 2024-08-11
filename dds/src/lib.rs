@@ -1,12 +1,12 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-#![allow(dead_code)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::implicit_return, clippy::module_name_repetitions)]
+#![allow(dead_code, clippy::implicit_return, clippy::module_name_repetitions)]
 
 pub mod analyseplay;
+
 #[allow(
     clippy::unseparated_literal_suffix,
     clippy::missing_docs_in_private_items,
@@ -18,6 +18,7 @@ pub mod analyseplay;
     non_camel_case_types
 )]
 pub(crate) mod bindings;
+
 pub mod ddserror;
 pub mod deal;
 pub mod doubledummy;

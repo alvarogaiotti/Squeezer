@@ -11,7 +11,7 @@ use crate::{
 use core::{ffi::c_int, slice::Iter};
 
 /// Number of consecutive boards in a sequence a thread gets when we call
-/// [`super::PlayAnalyzer::analyze_play()`].
+/// [`PlayAnalyzer::analyze_play()`].
 /// 1 means thread1 takes number 1, thread2 takes number 2 and so on
 /// 10 means thread1 takes 1..10, thread2 takes 11..20 etc.
 pub const CHUNK_SIZE: i32 = 10;
@@ -70,7 +70,8 @@ impl SolvedPlay {
         self.number
     }
 
-    /// Function for testing purposes and should not be used.
+    /// Function for testing purposes. I advise not to use it since you need to provide a Vec of
+    /// valid cards for DDS.
     /// # Panics
     /// Panics when seq is empty
     #[inline]
@@ -124,8 +125,8 @@ impl PlayTracesBin {
         clippy::missing_panics_doc
     )]
     #[inline]
-    /// Provide length of the sequence you want to be analyzed against double dummy, the suit of the
-    /// cards played and their's rank.
+    /// Create a [`PlayTracesBin`] from the length of the sequence you want to be analyzed against
+    /// double dummy, the suit of the cards played and their's rank.
     /// # Errors
     /// Returns an error if suits and ranks have different length
     pub fn from_sequences(suits: Vec<SuitSeq>, ranks: Vec<RankSeq>) -> Result<Self, DDSError> {
@@ -244,10 +245,8 @@ pub struct SolvedPlay {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-/// Wrapper around DDS [`PlayTracesBin`] type.
-/// The [`PlayTraceBin`] stores two arrays
-/// of 52 element each representing played card's rank
-/// and suit, then an integer stating the real lenght of the play sequence.
+/// The [`PlayTracesBin`] is an array of [`PlayTraceBin`]. It can store up to 200 elements,
+/// with the field `no_of_boards` representing the number of initialized boards.
 pub struct PlayTracesBin {
     pub no_of_boards: ::std::os::raw::c_int,
     pub plays: [PlayTraceBin; 200usize],
@@ -255,6 +254,8 @@ pub struct PlayTracesBin {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// The [`PlayTracesPBN`] is an array of [`PlayTracePBN`]. It can store up to 200 elements,
+/// with the field `no_of_boards` representing the number of initialized boards.
 pub struct PlayTracesPBN {
     pub no_of_boards: ::std::os::raw::c_int,
     pub plays: [PlayTracePBN; 200usize],
@@ -262,10 +263,8 @@ pub struct PlayTracesPBN {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-/// Wrapper around DDS [`PlayTraceBin`] type.
-/// The [`PlayTraceBin`] stores two arrays
-/// of 52 element each representing played card's rank
-/// and suit, then an integer stating the real lenght of the play sequence.
+/// The [`PlayTraceBin`] stores two arrays of 52 element each representing played card's rank and
+/// suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
     pub number: ::std::os::raw::c_int,
     pub suit: [::std::os::raw::c_int; 52usize],
@@ -274,6 +273,8 @@ pub struct PlayTraceBin {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// The [`PlayTracePBN`] stores one array of `c_char`, representing the play sequence in PBN format
+/// and the number of cards effectively played.
 pub struct PlayTracePBN {
     pub number: ::std::os::raw::c_int,
     pub cards: [::std::os::raw::c_char; 106usize],

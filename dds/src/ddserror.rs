@@ -37,7 +37,7 @@ impl From<DDSErrorKind> for DDSError {
 impl From<i32> for DDSError {
     #[inline]
     fn from(value: i32) -> Self {
-        assert_ne!(1i32, value,"If we fail the assertion we didn't check for the return result, since a return result of 1 means success." );
+        assert_ne!(1i32, value,"if we fail the assertion we didn't check for the return result from dds, since a return result of 1 means success." );
         Self { kind: value.into() }
     }
 }

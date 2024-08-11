@@ -87,8 +87,11 @@ impl TrickDifference {
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Represents the performance of a card played
 pub enum CardPerformance {
+    /// Played a wrong card, losing [`TrickDifference`] tricks and making [`Tricks`] tricks
     Error(Tricks, TrickDifference),
+    /// Played the correct double dummy card, making [`Tricks`] tricks
     Correct(Tricks),
 }
 
@@ -102,7 +105,7 @@ impl CardPerformance {
         }
     }
 
-    /// Returns the difference of this [`CardPerformance`].
+    /// Returns the difference of tricks (if any) of this [`CardPerformance`].
     #[inline]
     #[must_use]
     pub fn difference(&self) -> Option<TrickDifference> {
@@ -198,6 +201,8 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 #[derive(Default, Copy, Clone)]
+/// Represents the accuracy of a single player, measured in correct cards played and number of
+/// tricks lost
 pub struct PlayerAccuracy {
     correct_cards: u32,
     tricks_lost: u32,
@@ -230,6 +235,8 @@ impl std::ops::IndexMut<usize> for PlayerResultTrace {
 }
 
 /// Represents a player's track of card's result played in a board.
+/// [`PlayerPlayRecord`] are the cards played by this player, [`PlayerResultTrace`] are the number
+/// of double dummy tricks after the corresponding card is played.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PlayerPlayRecord {
     pub tricks: PlayerPlayTrace,
@@ -367,13 +374,17 @@ pub fn analyse_players_performance(
     players_records
 }
 
+/// Curries a function to determine the correct winner based on the trump suit, returning the
+/// curried function. The function returned returns the winner between two cards, making the
+/// function useful for a reduce-style operation on a iterator.
 fn curry_winner_trump(trump: Suit) -> impl Fn(Card, Card, Seat, Seat) -> (Seat, Card) {
     move |previous_card: Card, card: Card, winner: Seat, actual_player: Seat| {
         if previous_card.suit() != card.suit() {
-            if card.suit() == trump {
-                (actual_player, card)
-            } else {
+            // If the second card is a different suit it has to be the only trump
+            if previous_card.suit() == trump {
                 (winner, previous_card)
+            } else {
+                (actual_player, card)
             }
         } else if previous_card.rank() > card.rank() {
             (winner, previous_card)
@@ -383,6 +394,7 @@ fn curry_winner_trump(trump: Suit) -> impl Fn(Card, Card, Seat, Seat) -> (Seat, 
     }
 }
 
+/// The winner of a no trump trick between two cards
 fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat) -> (Seat, Card) {
     // Short circuits.
     if previous_card.suit() != card.suit() || previous_card.rank() > card.rank() {
