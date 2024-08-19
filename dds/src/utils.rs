@@ -364,8 +364,8 @@ impl RankSeq {
 ///
 /// # Errors
 /// Will error if the trump or the player are not valid values following
-/// their encodings: [`DdsSuitEncoding`](super::DdsSuitEncoding) and
-/// [`DdsHandEncoding`](super::DdsHandEncoding)
+/// their encodings: [`DdsSuitEncoding`](crate::deal::DdsSuitEncoding) and
+/// [`super::utlils::DdsHandEncoding`](crate::deal::DdsHandEncoding)
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     contract_and_deal: (&C, &D),
 ) -> Result<DdsDeal, DDSDealConstructionError> {
@@ -379,11 +379,11 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
 }
 
 #[inline]
-/// Some thing
+/// Utility function for score of a contract based on double dummy solved hand.
 ///
 /// # Errors
+/// See [`crate::solver::BridgeSolver`] for errors
 ///
-/// other
 pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
     contract: &C,

@@ -153,9 +153,9 @@ impl PlayTracesBin {
 
     #[inline]
     #[must_use]
-    #[allow(clippy::missing_panics_doc)]
+    #[allow(clippy::cast_sign_loss)]
     pub fn len(&self) -> usize {
-        self.no_of_boards.try_into().unwrap()
+        self.no_of_boards as usize
     }
 
     #[inline]
