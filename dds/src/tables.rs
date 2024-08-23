@@ -13,7 +13,7 @@ use crate::{
         CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
     },
     ddserror::DDSError,
-    deal::DdsSuitEncoding,
+    deal::DdsSuit,
     doubledummy::DoubleDummySolver,
 };
 
@@ -122,6 +122,7 @@ impl DdTableCalculator for DoubleDummySolver {
             Err(result.into())
         }
     }
+    #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
     fn calculate_all_complete_tables<T>(
         &self,
         table_deals: &[T],
@@ -131,18 +132,16 @@ impl DdTableCalculator for DoubleDummySolver {
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
-        #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
         let mut resp = DdTablesRes::new(table_deals.len() as i32);
 
         let mut dealsp = DdTableDeals::new(table_deals);
         let mut presp = AllParResults::new();
 
-        #[allow(clippy::ref_as_ptr)]
         let result = unsafe {
             CalcAllTables(
                 std::ptr::from_mut::<DdTableDeals>(&mut dealsp),
                 mode as i32,
-                &mut trump_filter as *mut i32,
+                trump_filter.as_mut_ptr(),
                 std::ptr::from_mut::<DdTablesRes<NotPopulated>>(&mut resp),
                 std::ptr::from_mut::<AllParResults>(&mut presp),
             )
@@ -155,6 +154,7 @@ impl DdTableCalculator for DoubleDummySolver {
         }
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn calculate_all_complete_tables_pbn<P>(
         &self,
         table_deals_pbn: &[P],
@@ -164,7 +164,6 @@ impl DdTableCalculator for DoubleDummySolver {
     where
         for<'a> &'a P: Into<DdTableDealPbn>,
     {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let mut resp = DdTablesRes::new(table_deals_pbn.len() as i32);
 
         let mut presp = AllParResults::new();
@@ -213,17 +212,17 @@ pub enum VulnerabilityEncoding {
 /// [`DdsSuitEncoding::Spades`] and [`DdsSuitEncoding::Hearts`].
 pub type TrumpFilter = [c_int; 5];
 
-impl Index<DdsSuitEncoding> for TrumpFilter {
+impl Index<DdsSuit> for TrumpFilter {
     type Output = c_int;
     #[inline]
-    fn index(&self, index: DdsSuitEncoding) -> &Self::Output {
+    fn index(&self, index: DdsSuit) -> &Self::Output {
         self.index(index as usize)
     }
 }
 
-impl IndexMut<DdsSuitEncoding> for TrumpFilter {
+impl IndexMut<DdsSuit> for TrumpFilter {
     #[inline]
-    fn index_mut(&mut self, index: DdsSuitEncoding) -> &mut Self::Output {
+    fn index_mut(&mut self, index: DdsSuit) -> &mut Self::Output {
         self.index_mut(index as usize)
     }
 }
@@ -231,9 +230,9 @@ impl IndexMut<DdsSuitEncoding> for TrumpFilter {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 /// This struct contains the distribution of the cards, with a particular encoding
-/// First index is [`DdsHandEncoding`], second index is [`DdsSuitEncoding`].
-/// The way we store the fields is a bit set of the rank the hand holds in a particular suit
-/// so, if North has AKQ of Spades, then:
+/// First index is encoded in [`crate::deal::DdsHandEncoding`], second index is encoded in
+/// [`DdsSuitEncoding`]. The way we store the fields is a bit set of the rank the hand holds in a
+/// particular suit so, if North has AKQ of Spades, then:
 ///
 /// ```
 /// use dds::tables::DdTableDeal;
@@ -257,14 +256,14 @@ impl IndexMut<usize> for DdTableDeal {
     }
 }
 
-impl Index<DdsSuitEncoding> for DdTableDeal {
+impl Index<DdsSuit> for DdTableDeal {
     type Output = [std::os::raw::c_uint; DDS_SUITS as usize];
-    fn index(&self, index: DdsSuitEncoding) -> &Self::Output {
+    fn index(&self, index: DdsSuit) -> &Self::Output {
         self.cards.index(index as usize)
     }
 }
-impl IndexMut<DdsSuitEncoding> for DdTableDeal {
-    fn index_mut(&mut self, index: DdsSuitEncoding) -> &mut Self::Output {
+impl IndexMut<DdsSuit> for DdTableDeal {
+    fn index_mut(&mut self, index: DdsSuit) -> &mut Self::Output {
         self.cards.index_mut(index as usize)
     }
 }
@@ -372,6 +371,9 @@ impl DdTableDealsPbn {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A struct that keeps the result of the double dummy result for a deal, basically saving the
+/// result for every suit for every player. The generic you see is for keeping track of the state
+/// of the table.
 pub struct DdTableResults<T: TablePopulated> {
     pub res_table: [[::std::os::raw::c_int; DDS_HANDS as usize]; DDS_STRAINS as usize],
     state: PhantomData<T>,
@@ -407,7 +409,11 @@ mod populated_private {
 }
 
 #[derive(Debug, Copy, Clone)]
+/// Marker struct for representing a not yet populated [`DdTableResults`]
+/// This is used as a [`PhantomData`] for marking.
 pub struct NotPopulated;
+/// Marker struct for representing a populated [`DdTableResults`].
+/// This is used as a [`PhantomData`] for marking.
 #[derive(Debug, Copy, Clone)]
 pub struct Populated;
 
@@ -418,6 +424,7 @@ impl populated_private::SealedPopulated for Populated {}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A collection of [`DdTableResults`] for multiple deals.
 pub struct DdTablesRes<T: TablePopulated> {
     pub no_of_boards: ::std::os::raw::c_int,
     pub results: [DdTableResults<T>; (MAXNOOFTABLES * DDS_STRAINS) as usize],
@@ -440,6 +447,7 @@ impl DdTablesRes<NotPopulated> {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// This is a struct used by DDS to represent basically the string of the par score.
 pub struct ParResults {
     pub par_score: [[::std::os::raw::c_char; 16usize]; 2usize],
     pub par_contracts_string: [[::std::os::raw::c_char; 128usize]; 2usize],
@@ -463,6 +471,7 @@ impl Default for ParResults {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A DDS struct containing multile [`ParResults`].
 pub struct AllParResults {
     pub par_results: [ParResults; MAXNOOFTABLES as usize],
 }
@@ -843,7 +852,7 @@ mod test {
     fn test_calculate_table_unprotected_worrs() {
         // Remember to run all this test in one thread, otherwise they'll SEGFAULT
         let mut table_deal = [[0; 4]; 4];
-        let solver = DoubleDummySolver {};
+        let solver = DoubleDummySolver::new();
         for deal in 0..3 {
             for h in 0..4 {
                 for s in 0..4 {

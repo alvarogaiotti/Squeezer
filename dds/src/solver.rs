@@ -61,6 +61,8 @@ pub trait BridgeSolver {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// DDS struct that represents a number of solved boards with its [`FutureTricks`] content.
+/// Can hold up to 200 [`FutureTricks`].
 pub struct SolvedBoards {
     pub no_of_boards: ::std::os::raw::c_int,
     pub solved_board: [FutureTricks; 200usize],
@@ -69,6 +71,7 @@ pub struct SolvedBoards {
 impl SolvedBoards {
     #[inline]
     #[must_use]
+    /// Create a new [`SolvedBoards`] for `no_of_boards` boards.
     pub fn new(no_of_boards: c_int) -> Self {
         Self {
             no_of_boards,

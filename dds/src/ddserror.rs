@@ -22,6 +22,7 @@ pub struct DDSError {
 }
 
 impl Debug for DDSError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <Self as fmt::Display>::fmt(self, f)
     }
@@ -43,6 +44,7 @@ impl From<i32> for DDSError {
 }
 
 impl From<DDSDealConstructionError> for DDSError {
+    #[inline]
     fn from(value: DDSDealConstructionError) -> Self {
         Self::from(DDSErrorKind::from(value))
     }
@@ -63,7 +65,7 @@ impl fmt::Display for DDSError {
 impl std::error::Error for DDSError {}
 
 #[allow(clippy::exhaustive_enums)]
-pub enum DDSErrorKind {
+enum DDSErrorKind {
     UnknownFault,
     ZeroCards,
     TargetTooHigh,
@@ -92,6 +94,7 @@ pub enum DDSErrorKind {
 }
 
 impl Debug for DDSErrorKind {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <Self as fmt::Display>::fmt(self, f)
     }
@@ -133,6 +136,7 @@ impl From<c_int> for DDSErrorKind {
 }
 
 impl From<DDSDealConstructionError> for DDSErrorKind {
+    #[inline]
     fn from(value: DDSDealConstructionError) -> Self {
         Self::UnbuildableDeal(value)
     }

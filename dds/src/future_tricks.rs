@@ -5,12 +5,20 @@ use core::ffi::c_int;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// A DDS struct populated by its Solve* functions.
+/// This contains all the data regarding a single situation of play.
+/// It represents the result of every card that a player can play at a specific point of a deal
 pub struct FutureTricks {
+    /// Number of nodes searched
     pub nodes: ::std::os::raw::c_int,
     pub cards: ::std::os::raw::c_int,
+    /// Series of suit of cards played
     pub suit: [::std::os::raw::c_int; 13usize],
+    /// Series of rank of cards played
     pub rank: [::std::os::raw::c_int; 13usize],
+    /// Equivalent cards not used for analysis purposes
     pub equals: [::std::os::raw::c_int; 13usize],
+    /// Score of every single card evaluated
     pub score: [::std::os::raw::c_int; 13usize],
 }
 

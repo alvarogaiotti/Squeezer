@@ -32,6 +32,13 @@ impl From<ThreadIndex> for c_int {
 
 #[allow(clippy::exhaustive_enums)]
 #[derive(Debug, Clone, Copy, Default)]
+/// Target of the analysis of DDS.
+/// DDS works by repeatedly calling its solving function with multiple targets until it fails (see its docs for more details):
+/// this struct tells the solver what solving strategy should it use and works toghether with [`Solutions`] (see DDS docs for a
+/// detailed breakdown):
+/// - [`Target::MaxTricks`]: DDS will run until it finds the maximum number of tricks makable
+/// - [`Target::LegalNoScore`]: DDS will just tell you what cards are legal to play
+/// - [`Target::Goal`]: DDS will run to check if the target is reachable
 pub enum Target {
     #[default]
     MaxTricks,
@@ -45,13 +52,19 @@ impl From<Target> for c_int {
         match value {
             Target::MaxTricks => -1i32,
             Target::LegalNoScore => 0i32,
-            Target::Goal(goal) => c_int::max(13i32, goal.into()),
+            Target::Goal(goal) => std::convert::Into::<i32>::into(goal).clamp(0i32, 13i32),
         }
     }
 }
 
 #[allow(clippy::exhaustive_enums)]
 #[derive(Debug, Default, Clone, Copy)]
+/// This struct serves the purpose of telling DDS what solve mode should it employ when solving a deal.
+/// Works toghether with [`Target`]: check DDS docs for the specifics way those two structs interact.
+/// A general overview is as follows:
+/// - [`Solutions::Best`]: DDS will return just the (or one of) the best solution(s).
+/// - [`Solution::AllOptimal`]: DDS will return all the best solutions.
+/// - [`Solution::AllLegal`]: DDS will return results for all the legal cards to play.
 pub enum Solutions {
     #[default]
     Best,

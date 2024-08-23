@@ -107,7 +107,9 @@ use crate::{
 ///    let contract = ContractMock {};
 ///    let solver = DoubleDummySolver::new();
 ///    println!("{}", solver.dd_tricks(&deal, &contract).unwrap());
-pub struct DoubleDummySolver;
+pub struct DoubleDummySolver {
+    _marker: std::marker::PhantomData<std::cell::Cell<()>>,
+}
 
 impl DoubleDummySolver {
     /// Function to free the dinamically allocated memory of the DDS's DLL.
@@ -119,7 +121,9 @@ impl DoubleDummySolver {
     #[inline]
     #[must_use]
     pub fn new() -> Self {
-        Self {}
+        Self {
+            _marker: std::marker::PhantomData,
+        }
     }
 
     /// Get infos from the DLL
@@ -178,7 +182,7 @@ impl MultiThreadDoubleDummySolver {
         /// The Singleton instance of the raw DDS library
         static INSTANCE: OnceLock<Mutex<DoubleDummySolver>> = OnceLock::new();
         Self {
-            inner: INSTANCE.get_or_init(|| Mutex::new(DoubleDummySolver {})),
+            inner: INSTANCE.get_or_init(|| Mutex::new(DoubleDummySolver::new())),
         }
     }
     fn set_max_threads(user_threads: ThreadIndex) {

@@ -630,7 +630,7 @@ mod tests {
 
         //let lin = "pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|";
         let deal = crate::LinDeal::from_str(lin).unwrap();
-        let dds_solver = dds::doubledummy::DoubleDummySolver {};
+        let dds_solver = dds::doubledummy::DoubleDummySolver::new();
         let contract = deal.contract().unwrap();
         let play_sequence = deal.play_sequence().unwrap();
         let players = deal.players();

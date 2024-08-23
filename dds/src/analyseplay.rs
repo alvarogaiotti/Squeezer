@@ -19,6 +19,7 @@ pub const CHUNK_SIZE: i32 = 10;
 #[non_exhaustive]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// Struct containing at most 200 [`SolvedPlay`], with `no_of_boards` number of them.
 pub struct SolvedPlays {
     pub no_of_boards: c_int,
     pub solved: [SolvedPlay; 200usize],
@@ -35,37 +36,85 @@ impl<'a> IntoIterator for &'a SolvedPlays {
 }
 
 impl SolvedPlays {
-    /// Standard iteration
     #[allow(clippy::cast_sign_loss)]
+    /// Standard iteration
     fn iter(&self) -> Iter<'_, SolvedPlay> {
         self.solved[..self.no_of_boards as usize].iter()
     }
 }
 
-impl IntoIterator for SolvedPlay {
-    type Item = i32;
-    type IntoIter = core::array::IntoIter<Self::Item, 53>;
+pub struct IntoIter {
+    counter: u8,
+    no_of_boards: i32,
+    solved_plays: [SolvedPlay; 200],
+}
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.tricks.into_iter()
+impl Iterator for IntoIter {
+    type Item = SolvedPlay;
+    fn next(&mut self) -> Option<Self::Item> {
+        let value;
+        if i32::from(self.counter) >= self.no_of_boards {
+            value = None;
+        } else {
+            value = Some(self.solved_plays[self.counter as usize]);
+            self.counter += 1;
+        }
+        value
+    }
+}
+
+pub mod solved_play {
+    use super::SolvedPlay;
+    pub struct IntoIter {
+        counter: u8,
+        tricks: [i32; 53],
+    }
+
+    impl IntoIterator for SolvedPlay {
+        type Item = i32;
+        type IntoIter = IntoIter;
+
+        fn into_iter(self) -> Self::IntoIter {
+            IntoIter {
+                counter: 0,
+                tricks: self.tricks,
+            }
+        }
+    }
+
+    impl Iterator for IntoIter {
+        type Item = i32;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let value = self.tricks[self.counter as usize];
+            self.counter += 1;
+            if value == -1 {
+                None
+            } else {
+                Some(value)
+            }
+        }
     }
 }
 
 impl SolvedPlay {
     #[inline]
     #[must_use]
+    /// Get the double dummy values for par + all the 52 cards played
     pub const fn tricks(&self) -> &[i32; 53usize] {
         &self.tricks
     }
 
     #[inline]
     #[must_use]
+    /// Double dummy result after the lead.
     pub fn lead_result(&self) -> Option<i32> {
         self.tricks().get(1).copied()
     }
 
     #[inline]
     #[must_use]
+    /// Number of cards played
     pub const fn number(&self) -> i32 {
         self.number
     }
@@ -263,7 +312,7 @@ pub struct PlayTracesPBN {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-/// The [`PlayTraceBin`] stores two arrays of 52 element each representing played card's rank and
+/// The [`PlayTraceBin`] struct stores two arrays of 52 element each representing played card's rank and
 /// suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
     pub number: ::std::os::raw::c_int,

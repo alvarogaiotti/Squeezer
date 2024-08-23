@@ -5,7 +5,7 @@ use squeezer_macros::RawDDSRef;
 
 use crate::{
     bindings::MAXNOOFBOARDS,
-    traits::{AsDDSContract, RawDDSRef},
+    traits::{AsDDSCard, AsDDSContract, RawDDSRef},
     utils::{Mode, SeqError, Solutions, Target},
 };
 use core::{
@@ -29,9 +29,13 @@ pub struct Boards {
     pub mode: [::std::os::raw::c_int; 200usize],
 }
 
-#[allow(clippy::pedantic)]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// The struct DDS uses for representing a series of at most 200 PBN deals.
+/// Consists of a number of boards to be analyzed and
+/// 4 arrays of length 200, representing
+/// the deals, contracts, DDS [`Target`], [`Solutions`] and [`Mode`] parameters
+/// to be used in the analysis by DDS.
 pub struct BoardsPbn {
     pub no_of_boards: ::std::os::raw::c_int,
     pub deals: [DdsDealPbn; 200usize],
@@ -67,14 +71,24 @@ pub struct DdsDealPbn {
 }
 
 #[derive(Debug, RawDDSRef, Default)]
-pub struct DDSCurrTrickSuit(#[raw] [c_int; 3]);
+/// The suits of the trick going on.
+/// If you want to build a custom deal situation (e.g. we are in the middle of the trick and you
+/// have to play a card while the current trick is 3♥-K♥-?), you should use [`DDSDealBuilder`] and
+/// its methods.
+pub struct DDSCurrTrickSuit(#[raw] [i32; 3]);
 
 #[derive(Debug, RawDDSRef, Default)]
-pub struct DDSCurrTrickRank(#[raw] [c_int; 3]);
+/// The ranks of the trick going on.
+/// If you want to build a custom deal situation (e.g. we are in the middle of the trick and you
+/// have to play a card while the current trick is 3♥-K♥-?), you should use [`DDSDealBuilder`] and
+/// its methods.
+pub struct DDSCurrTrickRank(#[raw] [i32; 3]);
 
 #[allow(clippy::exhaustive_enums)]
+#[derive(Debug, Copy, Clone)]
+#[repr(i32)]
 /// How DDS encodes suits
-pub enum DdsSuitEncoding {
+pub enum DdsSuit {
     Spades = 0,
     Hearts = 1,
     Diamonds = 2,
@@ -82,11 +96,28 @@ pub enum DdsSuitEncoding {
     NoTrump = 4,
 }
 
+/// How DDS encodes ranks
+#[derive(Debug, Copy, Clone)]
+pub struct DdsRank(i32);
+
+impl DdsRank {
+    #[inline]
+    #[must_use]
+    /// Creates a new [`DdsRank`]. Returns None if the rank is not valid.
+    /// Valid ranks are bit from 2 to 143
+    pub fn new(rank: i32) -> Option<Self> {
+        if (rank & 0b0_0011_1111_1111_1110).count_ones() == 1 {
+            Some(Self(rank))
+        } else {
+            None
+        }
+    }
+}
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 /// Macro for quick implementation of the [`TryFrom`] trait for a type
 macro_rules! impl_tryfrom_dds_suit {
     ($($from:ty),*) => {
-        $(impl core::convert::TryFrom<$from> for DdsSuitEncoding {
+        $(impl core::convert::TryFrom<$from> for DdsSuit {
             type Error = DDSDealConstructionError;
 
             #[inline]
@@ -104,7 +135,7 @@ macro_rules! impl_tryfrom_dds_suit {
     };
 }
 
-impl TryFrom<i32> for DdsSuitEncoding {
+impl TryFrom<i32> for DdsSuit {
     type Error = DDSDealConstructionError;
 
     #[inline]
@@ -134,7 +165,7 @@ pub enum DdsHandEncoding {
     West = 3,
 }
 
-/// Mcro for implementing [`TryFrom`] from integer to [`DdsHandEncoding`]
+/// Macro for implementing [`TryFrom`] from integer to [`DdsHandEncoding`]
 macro_rules! impl_tryfrom_dds_hand {
     ($($from:ty),*) => {
         $(impl core::convert::TryFrom<$from> for DdsHandEncoding {
@@ -216,7 +247,7 @@ pub trait AsDDSDeal {
 /// at least.
 pub struct DDSDealBuilder {
     /// Trump for the deal, `None` when not set
-    trump: Option<DdsSuitEncoding>,
+    trump: Option<DdsSuit>,
     /// Leader for the deal, `None` when not set
     first: Option<DdsHandEncoding>,
     /// Current tricks' suits for the deal, `None` when not set
@@ -229,6 +260,8 @@ pub struct DDSDealBuilder {
 
 #[non_exhaustive]
 #[derive(Debug)]
+/// Possible error we can encounter while constructing an error.
+/// The errors are quite self explanatory.
 pub enum DDSDealConstructionError {
     DuplicatedCard(c_int, c_int),
     CurrentTrickRankNotSet,
@@ -311,7 +344,7 @@ impl DDSDealBuilder {
 
     #[inline]
     #[must_use]
-    pub fn trump(mut self, trump: DdsSuitEncoding) -> Self {
+    pub fn trump(mut self, trump: DdsSuit) -> Self {
         self.trump = Some(trump);
         self
     }
@@ -332,15 +365,22 @@ impl DDSDealBuilder {
 
     #[inline]
     #[must_use]
-    pub fn current_trick_suit(mut self, current_trick_suit: DDSCurrTrickSuit) -> Self {
-        self.current_trick_suit = Some(current_trick_suit);
-        self
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn current_trick_rank(mut self, current_trick_rank: DDSCurrTrickRank) -> Self {
-        self.current_trick_rank = Some(current_trick_rank);
+    #[allow(clippy::missing_panics_doc)]
+    pub fn current_trick<T: AsDDSCard>(mut self, current_trick: &[Option<T>; 3]) -> Self {
+        let (ranks, suits): (Vec<_>, Vec<_>) = current_trick
+            .iter()
+            .map(|card| {
+                if let Some(card) = card {
+                    let (rank, suit) = card.as_card();
+                    (rank, suit)
+                } else {
+                    (-1, -1)
+                }
+            })
+            .unzip();
+        // We know we started with no more than 3 elements
+        self.current_trick_rank = Some(DDSCurrTrickRank(ranks.try_into().unwrap()));
+        self.current_trick_suit = Some(DDSCurrTrickSuit(suits.try_into().unwrap()));
         self
     }
 

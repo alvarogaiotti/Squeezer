@@ -1,10 +1,11 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
-
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(dead_code, clippy::implicit_return, clippy::module_name_repetitions)]
 
+/// This crate contains all the bindings to Bo Haglund"s DDS library.
+/// For further documentation regarding the underlying library, head to [DDS Github repository](https://github.com/dds-bridge/dds)
 pub mod analyseplay;
 
 #[allow(
