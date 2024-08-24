@@ -1,13 +1,13 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use super::ddsffi::{parResultsDealer, parResultsMaster, parTextResults};
 use crate::{
     analyseplay::{
         PlayTraceBin, PlayTracePBN, PlayTracesBin, PlayTracesPBN, SolvedPlay, SolvedPlays,
     },
     deal::{Boards, BoardsPbn, DdsDeal, DdsDealPbn},
     future_tricks::FutureTricks,
+    par::{ParResultsDealer, ParResultsMaster, ParTextResults},
     solver::SolvedBoards,
     tables::*,
 };
@@ -138,7 +138,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not implemented
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn Par(
         tablep: *mut DdTableResults<Populated>,
@@ -147,77 +147,57 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not implemented
-extern "C" {
-    pub(crate) fn CalcPar(
-        tableDeal: DdTableDeal,
-        vulnerable: ::std::os::raw::c_int,
-        tablep: *mut DdTableResults<Populated>,
-        presp: *mut ParResults,
-    ) -> ::std::os::raw::c_int;
-}
-
-//  NOTE: Not implemented
-extern "C" {
-    pub(crate) fn CalcParPBN(
-        tableDealPBN: DdTableDealPbn,
-        tablep: *mut DdTableResults<Populated>,
-        vulnerable: ::std::os::raw::c_int,
-        presp: *mut ParResults,
-    ) -> ::std::os::raw::c_int;
-}
-
-//  NOTE: Not Implemented
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn SidesPar(
         tablep: *mut DdTableResults<Populated>,
-        sidesRes: *mut parResultsDealer,
+        sidesRes: *mut ParResultsDealer,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not implemented
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn DealerPar(
         tablep: *mut DdTableResults<Populated>,
-        presp: *mut parResultsDealer,
+        presp: *mut ParResultsDealer,
         dealer: ::std::os::raw::c_int,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not implemented
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn DealerParBin(
         tablep: *mut DdTableResults<Populated>,
-        presp: *mut parResultsMaster,
+        presp: *mut ParResultsMaster,
         dealer: ::std::os::raw::c_int,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not implemented
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn SidesParBin(
         tablep: *mut DdTableResults<Populated>,
-        sidesRes: *mut parResultsMaster,
+        sidesRes: *mut ParResultsMaster,
         vulnerable: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not yet ported
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn ConvertToDealerTextFormat(
-        pres: *mut parResultsMaster,
+        pres: *mut ParResultsMaster,
         resp: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
 
-//  NOTE: Not yet ported
+//  NOTE: Implemented
 extern "C" {
     pub(crate) fn ConvertToSidesTextFormat(
-        pres: *mut parResultsMaster,
-        resp: *mut parTextResults,
+        pres: *mut ParResultsMaster,
+        resp: *mut ParTextResults,
     ) -> ::std::os::raw::c_int;
 }
 

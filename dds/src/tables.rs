@@ -177,8 +177,8 @@ pub enum ParCalcMode {
     NoPar = -1,
     None = 0,
     Both = 1,
-    NS = 2,
-    EW = 3,
+    Ns = 2,
+    Ew = 3,
 }
 
 #[repr(i32)]
@@ -186,8 +186,8 @@ pub enum ParCalcMode {
 pub enum VulnerabilityEncoding {
     None = 0,
     Both = 1,
-    NS = 2,
-    EW = 3,
+    Ns = 2,
+    Ew = 3,
 }
 
 /// Filter which decides which strain should we analyze.
