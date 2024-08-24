@@ -57,7 +57,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+// NOTE: Implemented
 extern "C" {
     pub(crate) fn CalcDDtable(
         tableDeal: DdTableDeal,
@@ -65,7 +65,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+// NOTE: Implemented
 extern "C" {
     pub(crate) fn CalcDDtablePBN(
         tableDealPBN: DdTableDealPbn,
@@ -73,7 +73,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+// NOTE: Implemented
 extern "C" {
     pub(crate) fn CalcAllTables(
         dealsp: *mut DdTableDeals,
@@ -84,7 +84,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-// NOTE: Not implemented
+// NOTE: Implemented
 extern "C" {
     pub(crate) fn CalcAllTablesPBN(
         dealsp: *mut DdTableDealsPbn,

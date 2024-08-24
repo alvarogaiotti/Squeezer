@@ -15,7 +15,7 @@ use crate::bindings::ddsffi::{
 use crate::deal::DDSDealConstructionError;
 use core::ffi::c_int;
 
-/// Wrapper around the DDS errors
+/// Wrapper around the DDS errors. See DDS docs for information about the errors.
 pub struct DDSError {
     /// Represents what kind of error we got
     kind: DDSErrorKind,

@@ -18,7 +18,7 @@ use crate::{
         Populated, TrumpFilter,
     },
     traits::AsDDSContract,
-    utils::{build_c_deal, Mode, Solutions, Target, ThreadIndex},
+    utils::{build_c_deal, if_no_fault_return, Mode, Solutions, Target, ThreadIndex},
 };
 
 /// A single threaded double dummy solver.
@@ -465,11 +465,15 @@ impl PlayAnalyzer for MultiThreadDoubleDummySolver {
         contracts: &[C],
         plays: &mut PlayTracesBin,
     ) -> Result<SolvedPlays, DDSError> {
-        if let Ok(inner) = self.inner.lock() {
-            inner.analyze_all_plays(deals, contracts, plays)
-        } else {
-            Err(RETURN_UNKNOWN_FAULT.into())
-        }
+        let Ok(guard) = self.inner.lock() else {
+            #[allow(clippy::print_stderr, clippy::use_debug)]
+            {
+                use std::thread;
+                eprintln!("Thread {:?} found Mutex poisoned", thread::current().id());
+                return Err(RETURN_UNKNOWN_FAULT.into());
+            }
+        };
+        guard.analyze_all_plays(deals, contracts, plays)
     }
 }
 
@@ -524,11 +528,7 @@ impl PlayAnalyzer for DoubleDummySolver {
 
         //SAFETY: calling C
         let result = unsafe { AnalyseAllPlaysBin(bop, play_trace, solved, CHUNK_SIZE) };
-        match result {
-            // RETURN_NO_FAULT == 1i32
-            1i32 => Ok(solved_plays),
-            n => Err(n.into()),
-        }
+        if_no_fault_return!(result, solved_plays);
     }
 
     #[inline]
@@ -546,11 +546,7 @@ impl PlayAnalyzer for DoubleDummySolver {
         let play_trace = play;
         // SAFETY: calling an external C function
         let result = unsafe { AnalysePlayBin(dds_deal, play_trace, solved, 0) };
-        match result {
-            // RETURN_NO_FAULT == 1i32
-            1i32 => Ok(solved_play),
-            n => Err(n.into()),
-        }
+        if_no_fault_return!(result, solved_play);
     }
 }
 

@@ -9,12 +9,13 @@ use std::{
 
 use crate::{
     bindings::{
-        ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES, RETURN_NO_FAULT},
+        ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES},
         CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
     },
     ddserror::DDSError,
     deal::DdsSuit,
     doubledummy::DoubleDummySolver,
+    utils::if_no_fault_return,
 };
 
 /// Trait that abstracts the ability to solve a doubledummy table, or par table,
@@ -96,11 +97,7 @@ impl DdTableCalculator for DoubleDummySolver {
                 std::ptr::from_mut::<DdTableResults<NotPopulated>>(&mut tablep),
             )
         };
-        if result == RETURN_NO_FAULT {
-            Ok(tablep.populated())
-        } else {
-            Err(result.into())
-        }
+        if_no_fault_return!(result, tablep.populated());
     }
     fn calculate_complete_table_pbn<P>(
         &self,
@@ -116,11 +113,7 @@ impl DdTableCalculator for DoubleDummySolver {
                 std::ptr::from_mut::<DdTableResults<NotPopulated>>(&mut tablep),
             )
         };
-        if result == RETURN_NO_FAULT {
-            Ok(tablep.populated())
-        } else {
-            Err(result.into())
-        }
+        if_no_fault_return!(result, tablep.populated());
     }
     #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
     fn calculate_all_complete_tables<T>(
@@ -147,11 +140,7 @@ impl DdTableCalculator for DoubleDummySolver {
             )
         };
 
-        if result == RETURN_NO_FAULT {
-            Ok(resp.populated())
-        } else {
-            Err(result.into())
-        }
+        if_no_fault_return!(result, resp.populated());
     }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
@@ -177,11 +166,7 @@ impl DdTableCalculator for DoubleDummySolver {
                 std::ptr::from_mut::<AllParResults>(&mut presp),
             )
         };
-        if result == RETURN_NO_FAULT {
-            Ok(resp.populated())
-        } else {
-            Err(result.into())
-        }
+        if_no_fault_return!(result, resp.populated());
     }
 }
 
@@ -883,7 +868,7 @@ mod test {
                     table,
                 )
             };
-            assert_eq!(RETURN_NO_FAULT, result);
+            assert_eq!(crate::bindings::ddsffi::RETURN_NO_FAULT, result);
             check_table(&table, deal);
         }
     }
@@ -915,7 +900,7 @@ mod test {
         let table = unsafe {
             std::mem::transmute::<DdTablesRes<NotPopulated>, DdTablesRes<Populated>>(table)
         };
-        assert_eq!(RETURN_NO_FAULT, result);
+        assert_eq!(crate::bindings::ddsffi::RETURN_NO_FAULT, result);
         check_table(&table.results[0], 0);
         check_table(&table.results[1], 1);
         check_table(&table.results[2], 2);

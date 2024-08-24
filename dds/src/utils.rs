@@ -14,6 +14,18 @@ use squeezer_macros::IntoRawDDS;
 /// The length of a sequence of suits or ranks
 pub const SEQUENCE_LENGTH: usize = 52;
 
+macro_rules! if_no_fault_return {
+    ($result:ident, $ok:expr) => {
+        if $result == crate::bindings::ddsffi::RETURN_NO_FAULT {
+            return Ok($ok);
+        } else {
+            return Err($result.into());
+        }
+    };
+}
+
+pub(crate) use if_no_fault_return;
+
 #[allow(clippy::exhaustive_enums)]
 pub enum ThreadIndex {
     Auto,
