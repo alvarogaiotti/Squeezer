@@ -125,8 +125,8 @@ mod bbo_async;
 #[cfg(any(feature = "bbo", feature = "bbo_async"))]
 mod bbohelpers;
 mod card;
-mod contract;
-mod deal;
+pub mod contract;
+pub mod deal;
 mod dealproduction;
 mod error;
 mod evaluator;
@@ -136,10 +136,10 @@ mod linparser;
 mod shape;
 mod shapeparser;
 #[cfg(feature = "dds")]
-mod simulation;
+pub mod simulation;
 mod utils;
 
-mod prelude {
+pub mod prelude {
     #[cfg(feature = "dds")]
     pub extern crate dds;
     pub const ZERO_LENGTH: u8 = 0;

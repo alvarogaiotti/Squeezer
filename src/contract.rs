@@ -26,10 +26,27 @@ pub struct Contract {
     declarer: Seat,
 }
 
+impl PartialOrd for Contract {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Contract {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        let level_comparison = self.level().cmp(&other.level);
+        match level_comparison {
+            Ordering::Equal => self.strain().cmp(&other.strain()),
+            _ => level_comparison,
+        }
+    }
+}
+
 #[cfg(feature = "dds")]
 impl dds::traits::AsDDSContract for Contract {
-    fn as_dds_contract(&self) -> (i32, i32) {
-        (self.strain as i32, self.declarer.next() as i32)
+    fn as_dds_contract(&self) -> (dds::deal::DdsSuit, dds::deal::DdsHandEncoding) {
+        (self.strain.into(), (self.declarer.next()).into())
     }
 }
 
@@ -169,12 +186,38 @@ impl Ord for Strain {
                 _ => Ordering::Greater,
             }
         } else {
-            let comp = (*self as usize).cmp(&(*other as usize));
+            let comp = (*self as u8).cmp(&(*other as u8));
             match comp {
                 Ordering::Less => Ordering::Greater,
                 Ordering::Greater => Ordering::Less,
                 Ordering::Equal => comp,
             }
+        }
+    }
+}
+
+#[cfg(feature = "dds")]
+impl From<Strain> for dds::deal::DdsSuit {
+    fn from(value: Strain) -> Self {
+        match value {
+            Strain::NoTrumps => Self::NoTrump,
+            Strain::Spades => Self::Spades,
+            Strain::Hearts => Self::Hearts,
+            Strain::Diamonds => Self::Diamonds,
+            Strain::Clubs => Self::Clubs,
+        }
+    }
+}
+
+impl From<u8> for Strain {
+    fn from(value: u8) -> Self {
+        match value % 5 {
+            0 => Self::Spades,
+            1 => Self::Hearts,
+            2 => Self::Diamonds,
+            3 => Self::Clubs,
+            4 => Self::NoTrumps,
+            _ => unreachable!(),
         }
     }
 }
@@ -335,5 +378,22 @@ impl fmt::Display for Strain {
             Self::NoTrumps => write!(f, "NT"),
             Self::Clubs => write!(f, "♣"),
         }
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::{Contract, Vulnerable};
+    #[test]
+    fn can_create_contract_from_str_test() {
+        let contract_c = Contract::from_str("3CN", Vulnerable::No).unwrap();
+        let contract_d = Contract::from_str("3DN", Vulnerable::No).unwrap();
+        let contract_s = Contract::from_str("3SN", Vulnerable::No).unwrap();
+        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
+        let contract_n = Contract::from_str("3NNXX", Vulnerable::No).unwrap();
+        assert_eq!(contract_c.to_string(), "3♣N");
+        assert_eq!(contract_d.to_string(), "3♦N");
+        assert_eq!(contract_h.to_string(), "3♥N");
+        assert_eq!(contract_s.to_string(), "3♠N");
+        assert_eq!(contract_n.to_string(), "3NTNXX");
     }
 }

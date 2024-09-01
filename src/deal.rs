@@ -139,6 +139,17 @@ impl TryFrom<char> for Seat {
     }
 }
 
+#[cfg(feature = "dds")]
+impl From<Seat> for dds::deal::DdsHandEncoding {
+    fn from(value: Seat) -> Self {
+        match value {
+            Seat::North => Self::North,
+            Seat::East => Self::East,
+            Seat::South => Self::South,
+            Seat::West => Self::West,
+        }
+    }
+}
 impl Seat {
     ///Returns the next seat in a cyclic manner in this order: North, East, South, West
     #[must_use]
@@ -533,8 +544,8 @@ impl std::fmt::Debug for StandardDealer {
     }
 }
 
-impl Default for StandardDealer {
-    fn default() -> Self {
+impl StandardDealer {
+    pub fn new() -> Self {
         Self {
             predeal: HashMap::new(),
             vulnerability: Vulnerability::default(),
@@ -543,6 +554,12 @@ impl Default for StandardDealer {
             accept_function: Box::new(|_: &Hands| true),
             output_as_subsequent: BoardNumbering::OutputAlwaysOne,
         }
+    }
+}
+
+impl Default for StandardDealer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
