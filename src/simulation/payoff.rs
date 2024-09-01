@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-/// This file contains implementations for simulating and analyzing bridge game scenarios.
+/// This module contains implementations for simulating and analyzing bridge game scenarios.
 /// It includes structures for handling payoff matrices, bridge contracts, scoring functions, and utility functions.
 /// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract, and various scoring functions such as `imps` and `matchpoints`.
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
@@ -13,6 +13,24 @@ pub trait DifferenceMaker {}
 impl DifferenceMaker for Card {}
 impl DifferenceMaker for Contract {}
 
+/// Struct for running payoff simulation: is it better to risk a 3NT or better to play 4C in
+/// terms of expected value?
+///
+/// # Example
+///
+/// ```
+/// use squeezer::prelude::*;
+/// use squeezer::prelude::imps;
+///
+/// let to_compare = vec![
+///     Contract::from_str("3CN", Vulnerable::No).unwrap(),
+///     Contract::from_str("3HS", Vulnerable::No).unwrap(),
+///     Contract::from_str("3NN", Vulnerable::No).unwrap(),
+///     ];
+/// let simulation = PayoffSimulation::new(100, StandardDealer::new(), to_compare, imps);
+/// let payoff = simulation.run().unwrap();
+/// payoff.report();
+/// ```
 pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> {
     no_of_runs: usize,
     dealer: D,
@@ -20,11 +38,23 @@ pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMake
     diff: E,
 }
 
+impl<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> PayoffSimulation<E, D, P> {
+    pub fn new(no_of_runs: usize, dealer: D, to_compare: Vec<P>, diff: E) -> Self {
+        Self {
+            no_of_runs,
+            dealer,
+            to_compare,
+            diff,
+        }
+    }
+}
+
 impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
     for PayoffSimulation<E, D, Contract>
 {
     fn run(&self) -> Result<Payoff<Contract>, SqueezerError> {
-        let mut results = Vec::with_capacity(self.to_compare.len());
+        let len = self.to_compare.len();
+        let mut results = Vec::with_capacity(len);
         let mut payoff = Payoff::new(self.to_compare.clone());
         for _ in 0..(self.no_of_runs) {
             let deal = self.dealer.deal()?;
@@ -32,22 +62,23 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
                 let score = dds::utils::dd_score(&deal, contract)?;
                 results.push(score);
             }
-            for i in 0..results.len() {
-                for y in 0..results.len() {
-                    if i == y {
+            for i in 0..len {
+                for j in 0..len {
+                    if i == j {
                         continue;
                     };
-                    payoff.insert((self.diff)(results[i], results[y]), (i, y));
+                    payoff.insert((self.diff)(results[i], results[j]), (i, j));
                 }
             }
+            results.clear();
         }
 
         Ok(payoff)
     }
 }
 
-///Struct that rapresents a payoff matrix which returns performances of contracs based
-///on scoring. Some sort of expected value of the contracts.
+/// Struct that rapresents a payoff matrix which returns performances of contracs based
+/// on scoring. Some sort of expected value of the contracts.
 pub struct Payoff<P>
 where
     P: fmt::Display + DifferenceMaker,
@@ -117,10 +148,10 @@ impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
             print!("\n       ");
             for (j, (_mean, stderr)) in line.iter().enumerate() {
                 print!("\t{}", {
-                    let output = format!("{stderr:.2}");
                     if i == j {
                         String::new()
                     } else {
+                        let output = format!("{stderr:.2}");
                         output
                     }
                 });
@@ -204,19 +235,7 @@ mod test {
         matrix.report();
         assert_eq!(6, matrix.table[0][1][9]);
     }
-    #[test]
-    fn can_create_contract_from_str_test() {
-        let contract_c = Contract::from_str("3CN", Vulnerable::No).unwrap();
-        let contract_d = Contract::from_str("3DN", Vulnerable::No).unwrap();
-        let contract_s = Contract::from_str("3SN", Vulnerable::No).unwrap();
-        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
-        let contract_n = Contract::from_str("3NNXX", Vulnerable::No).unwrap();
-        assert_eq!(contract_c.to_string(), "3♣N");
-        assert_eq!(contract_d.to_string(), "3♦N");
-        assert_eq!(contract_h.to_string(), "3♥N");
-        assert_eq!(contract_s.to_string(), "3♠N");
-        assert_eq!(contract_n.to_string(), "3NTNXX");
-    }
+
     #[test]
     #[should_panic(expected = "Wrong contract level")]
     fn create_contract_wrong_level_test() {

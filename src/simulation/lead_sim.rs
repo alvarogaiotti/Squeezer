@@ -15,13 +15,90 @@ use dds::{
 };
 use itertools::Itertools;
 
-pub struct LeadSimulation<T: Dealer> {
+/// The struct you will fire up when you want to run a lead simulation.
+/// You will provide the number of boards you want to run the simulation
+/// for; a structure implementing the [`crate::prelude::Dealer`] trait,
+/// which will handle the deal creation; and a contract to run the simulation over.
+///
+/// This structure implements the [`super::Simulation`] trait, so you can run it and it will
+/// generate `num_of_boards` deals, finding the best lead for every single deal and then computing
+/// some statistics for the whole deals, finding the best lead from a tricks perspective and from the
+/// % of contract setting perspective.
+///
+/// # Example
+///
+/// ```
+/// use squeezer::prelude::*;
+/// let dealer = StandardDealer::default(); // Not very useful but you get the idea
+/// let lead_sim = LeadSimulation::new(
+///     100,
+///     dealer,
+///     Contract::from_str("5CN", Vulnerable::No).unwrap(),
+/// );
+/// let results = lead_sim.run().expect("unable to run simulation");
+/// results.report();
+/// ```
+pub struct LeadSimulation<D: Dealer> {
     num_of_boards: usize,
-    dealer: T,
+    dealer: D,
     contract: Contract,
 }
 
-#[derive(Debug)]
+impl<D: Dealer> LeadSimulation<D> {
+    pub fn new(num_of_boards: usize, dealer: D, contract: Contract) -> Self {
+        Self {
+            num_of_boards,
+            dealer,
+            contract,
+        }
+    }
+
+    fn solve_boards<S: BridgeSolver>(
+        &self,
+        num: usize,
+        solver: &S,
+        contracts: &[Contract; MAXNOOFBOARDS],
+    ) -> Result<SolvedBoards, SqueezerError> {
+        assert!(num <= MAXNOOFBOARDS);
+        // We take from the deal producer the number we need
+        let deals = array::from_fn(|_| self.dealer.deal().unwrap());
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        solver
+            .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
+            .map_err(Into::into)
+    }
+}
+
+impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
+    #[allow(clippy::integer_division)]
+    fn run(&self) -> Result<LeadSimulationResult, SqueezerError> {
+        let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
+        let mut counter = self.num_of_boards;
+
+        let contracts = [self.contract; MAXNOOFBOARDS];
+        let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
+        // For the number of boards, stepped by the number of deals we use per analysis
+        while counter != 0 {
+            if let Some(new_counter) = counter.checked_sub(MAXNOOFBOARDS) {
+                let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, &contracts)?;
+                sim_result.add_results(solvedb);
+                counter = new_counter;
+            } else {
+                let solvedb = self.solve_boards(counter, &solver, &contracts)?;
+                sim_result.add_results(solvedb);
+                counter = 0;
+            }
+        }
+
+        sim_result.finish(8 - self.contract.level(), self.num_of_boards);
+        Ok(sim_result)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+/// A single lead card, storing the number of times it will make
+/// `number_of_tricks` in a array. The `average_tricks` and `set_percentage`
+/// will be calculate at the end of the simulation.
 pub struct LeadCard {
     card: Card,
     number_of_tricks: [usize; 14],
@@ -41,11 +118,19 @@ impl LeadCard {
     }
 
     #[allow(clippy::cast_precision_loss)]
-    fn update(&mut self, tricks_beating: u8, runs: usize) {
+    /// This will compute the statistics for the card.
+    /// You will need to provide the number of tricks able to beat the
+    /// contract (e.g. 5 for a 3 level contract), and the number of runs.
+    fn finish(&mut self, tricks_beating: u8, runs: usize) {
+        // FIXME: Evaluate if providing runs is faster than calculating a running
+        // sum in this loop and using it. I assumed it was but we really have this
+        // information already.
+        // Try to get this to compile in a SIMD friendly way.
         self.average_tricks = self
             .number_of_tricks
             .iter()
             .enumerate()
+            .skip(1) // Skip zero
             .map(|(tricks, times)| tricks * times)
             .sum::<usize>() as f32
             / runs as f32;
@@ -57,6 +142,8 @@ impl LeadCard {
     }
 }
 
+/// The simulation results, containing a `HashMap` from `Card` to `LeadCard` for
+/// storing the result and being able to update the data.
 pub struct LeadSimulationResult {
     lead_results: HashMap<Card, LeadCard>,
     deals_run: usize,
@@ -66,7 +153,7 @@ pub struct LeadSimulationResult {
 impl LeadSimulationResult {
     #[inline]
     #[must_use]
-    pub fn new(contract: Contract, deals_run: usize) -> Self {
+    fn new(contract: Contract, deals_run: usize) -> Self {
         Self {
             lead_results: HashMap::with_capacity(8),
             contract,
@@ -79,48 +166,30 @@ impl LeadSimulationResult {
     /// # Panics
     ///
     /// Panics when DDS returns a negative result for the tricks
-    pub fn add_results(&mut self, results: SolvedBoards) {
-        let mut results_iter = results.into_iter();
-        if let Some(solved) = results_iter.next() {
-            for index in 0..solved.cards as usize {
-                let rank = solved.rank[index];
-                let suit = solved.suit[index];
+    fn add_results(&mut self, results: SolvedBoards) {
+        for future_tricks in results.into_iter() {
+            //dbg!(future_tricks);
+            for index in 0..future_tricks.cards as usize {
+                let rank = future_tricks.rank[index];
+                let suit = future_tricks.suit[index];
                 let card = Card::new(Suit::try_from(suit).unwrap(), rank as u8);
                 self.lead_results
                     .entry(card)
                     .and_modify(|lead_card| {
-                        lead_card.number_of_tricks[solved.score[index] as usize] += 1;
+                        lead_card.number_of_tricks[future_tricks.score[index] as usize] += 1;
                     })
                     .or_insert_with(|| {
                         let mut lead_card = LeadCard::new(card);
-                        let tricks = solved.score[index] as usize;
-                        lead_card.number_of_tricks[tricks] += 1;
-                        lead_card
-                    });
-            }
-        }
-        for solved in results_iter {
-            for index in 0..solved.cards as usize {
-                let rank = solved.rank[index];
-                let suit = solved.suit[index];
-                let card = Card::new(Suit::try_from(suit).unwrap(), rank as u8);
-                self.lead_results
-                    .entry(card)
-                    .and_modify(|lead_card| {
-                        lead_card.number_of_tricks[solved.score[index] as usize] += 1;
-                    })
-                    .or_insert_with(|| {
-                        let mut lead_card = LeadCard::new(card);
-                        lead_card.number_of_tricks[solved.score[index] as usize] += 1;
+                        lead_card.number_of_tricks[future_tricks.score[index] as usize] += 1;
                         lead_card
                     });
             }
         }
     }
 
-    fn update(&mut self, tricks_beating: u8, runs: usize) {
+    fn finish(&mut self, tricks_beating: u8, runs: usize) {
         for lead in self.lead_results.values_mut() {
-            lead.update(tricks_beating, runs);
+            lead.finish(tricks_beating, runs);
         }
     }
 }
@@ -175,46 +244,6 @@ impl Display for LeadSimulationResult {
             )?;
         }
         Ok(())
-    }
-}
-
-impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
-    #[allow(clippy::integer_division)]
-    fn run(&self) -> Result<LeadSimulationResult, SqueezerError> {
-        let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
-
-        let contracts = [self.contract; MAXNOOFBOARDS];
-        let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
-        // For the number of boads, stepped by the number of deals we use per analysis
-        for _ in (0..self.num_of_boards).step_by(MAXNOOFBOARDS) {
-            // We take from the deal producer the number we need
-            let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, &contracts)?;
-            sim_result.add_results(solvedb);
-        }
-
-        let num = self.num_of_boards % MAXNOOFBOARDS;
-        let solvedb = self.solve_boards(num, &solver, &contracts)?;
-        sim_result.add_results(solvedb);
-
-        sim_result.update(8 - self.contract.level(), self.num_of_boards);
-        Ok(sim_result)
-    }
-}
-
-impl<T: Dealer> LeadSimulation<T> {
-    fn solve_boards<S: BridgeSolver>(
-        &self,
-        num: usize,
-        solver: &S,
-        contracts: &[Contract; MAXNOOFBOARDS],
-    ) -> Result<SolvedBoards, SqueezerError> {
-        assert!(num <= MAXNOOFBOARDS);
-        // We take from the deal producer the number we need
-        let deals = array::from_fn(|_| self.dealer.deal().unwrap());
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-        solver
-            .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
-            .map_err(Into::into)
     }
 }
 
