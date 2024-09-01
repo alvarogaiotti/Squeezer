@@ -43,6 +43,7 @@ impl SolvedPlays {
     }
 }
 
+/// [`SolvedPlays`]'s iterator over [`SolvedPlay`] contained within it.
 pub struct IntoIter {
     counter: u8,
     no_of_boards: i32,
@@ -63,6 +64,9 @@ impl Iterator for IntoIter {
     }
 }
 
+/// Module to keep namespace clean. We use it to disambiguate between [`IntoIter`] which iterates
+/// over [`SolvedPlay`] and [`crate::analyseplay::solved_play::IntoIter`], which iterates over
+/// single cards' results.
 pub mod solved_play {
     use super::SolvedPlay;
     pub struct IntoIter {
@@ -287,6 +291,8 @@ pub trait PlayAnalyzer {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// DDS struct, saving the DD result for every card played. `number` stores the actual lenght of
+/// `tricks`, which is the list of DD result for the cards played.
 pub struct SolvedPlay {
     pub number: ::std::os::raw::c_int,
     pub tricks: [::std::os::raw::c_int; 53usize],

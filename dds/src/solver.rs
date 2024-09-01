@@ -9,6 +9,11 @@ use crate::{
 };
 
 #[allow(clippy::module_name_repetitions)]
+/// Trait representing the ability to solve a deal with a determined contract, returning the
+/// number of tricks makable by a declarer in a contract.
+/// Provides parallelized and unparallelized versions of the solving function.
+/// If you have to solve more than a couple dozen of deals, you are better off
+/// using the parallelized versions.
 pub trait BridgeSolver {
     /// Returns the number of tricks makable in one contract by one player
     /// If you have more than a dozen deals to analyse use [`BridgeSolver::dd_tricks_parallel`]

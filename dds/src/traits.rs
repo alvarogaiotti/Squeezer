@@ -1,6 +1,8 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
+use crate::deal::{DdsHandEncoding, DdsRank, DdsSuit};
+
 pub trait IntoRawDDS {
     type Raw;
 
@@ -18,10 +20,10 @@ pub trait RawDDSRefMut<'a> {
 
     fn get_raw_mut(&'a mut self) -> Self::RawMut;
 }
-/// Models a side: either North-South or East-West
 
 pub trait AsDDSContract {
-    fn as_dds_contract(&self) -> (i32, i32);
+    /// This function returns (strain, leader) for the contract
+    fn as_dds_contract(&self) -> (DdsSuit, DdsHandEncoding);
 }
 
 pub trait ContractScorer {
@@ -29,7 +31,7 @@ pub trait ContractScorer {
 }
 
 pub trait AsDDSCard {
-    fn as_card(&self) -> (i32, i32);
+    fn as_card(&self) -> (DdsRank, DdsSuit);
 }
 
 pub trait AsDDSPlayTrace<I, C>

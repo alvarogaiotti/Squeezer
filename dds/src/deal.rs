@@ -266,7 +266,7 @@ pub enum DDSDealConstructionError {
     DuplicatedCard(c_int, c_int),
     CurrentTrickRankNotSet,
     CurrentTrickSuitNotSet,
-    DealNotLoaded,
+    CardsNotProvided,
     TrumpNotDeclared,
     FirstNotDeclared,
     FirstUnconvertable(i32),
@@ -297,7 +297,7 @@ impl Display for DDSDealConstructionError {
                 let card = dds_card_tuple_to_string(suit, rank);
                 write!(formatter, "duplicated card: {card}")
             }
-            Self::DealNotLoaded => write!(formatter, "deal not loaded"),
+            Self::CardsNotProvided => write!(formatter, "deal not loaded"),
             Self::FirstNotDeclared => write!(formatter, "leader not declared"),
             Self::TrumpNotDeclared => write!(formatter, "trump not declared"),
             Self::FirstUnconvertable(value) => {
@@ -372,7 +372,7 @@ impl DDSDealBuilder {
             .map(|card| {
                 if let Some(card) = card {
                     let (rank, suit) = card.as_card();
-                    (rank, suit)
+                    (rank.0, suit as i32)
                 } else {
                     (-1, -1)
                 }
@@ -393,7 +393,7 @@ impl DDSDealBuilder {
     pub fn build(self) -> Result<DdsDeal, DDSDealConstructionError> {
         let remain_cards = self
             .remain_cards
-            .ok_or(DDSDealConstructionError::DealNotLoaded)?;
+            .ok_or(DDSDealConstructionError::CardsNotProvided)?;
         let trump = self
             .trump
             .ok_or(DDSDealConstructionError::TrumpNotDeclared)?;
@@ -481,8 +481,8 @@ impl Boards {
             .map(|(deal, contract)| {
                 let (trump, first) = contract.as_dds_contract();
                 DdsDeal {
-                    trump,
-                    first,
+                    trump: trump as i32,
+                    first: first as i32,
                     current_trick_suit: [0i32; 3],
                     current_trick_rank: [0i32; 3],
                     remain_cards: deal.as_dds_deal().as_slice(),

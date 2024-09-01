@@ -3,100 +3,121 @@
 
 use crate::bindings::{
     ConvertToDealerTextFormat, ConvertToSidesTextFormat, DealerPar, DealerParBin, Par, SidesPar,
+    SidesParBin,
 };
 use crate::ddserror::DDSError;
 use crate::deal::DdsHandEncoding;
 use crate::tables::{DdTableResults, ParResults, Populated, VulnerabilityEncoding};
 use crate::utils::if_no_fault_return;
 
+/// Trait representing the ability to do par calculations for deals.
 pub trait ParCalculator {
+    /// Standard simple par for a deal. Doesn't use dealer information, so both sides might have a 1NT par.
     fn par(
         &self,
         tablep: &mut DdTableResults<Populated>,
-        presp: &mut ParResults,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<(), DDSError> {
+    ) -> Result<ParResults, DDSError> {
+        let mut presp = ParResults::new();
         let result = unsafe {
             Par(
                 std::ptr::from_mut::<DdTableResults<Populated>>(tablep),
-                std::ptr::from_mut::<ParResults>(presp),
+                std::ptr::from_mut::<ParResults>(&mut presp),
                 vulnerable as i32,
             )
         };
-        if_no_fault_return!(result, ());
+        if_no_fault_return!(result, presp);
     }
 
-    fn calc_side_par(
+    /// Calculate par for a specific side.
+    fn side_par(
         tablep: &mut DdTableResults<Populated>,
-        side_res: &mut ParResultsDealer,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<(), DDSError> {
+    ) -> Result<[ParResultsDealer; 2], DDSError> {
+        let mut side_res = [ParResultsDealer::new(), ParResultsDealer::new()];
         let result = unsafe {
             SidesPar(
                 std::ptr::from_mut::<DdTableResults<Populated>>(tablep),
-                std::ptr::from_mut::<ParResultsDealer>(side_res),
+                side_res.as_mut_ptr(),
                 vulnerable as i32,
             )
         };
-        if_no_fault_return!(result, ());
+        if_no_fault_return!(result, side_res);
     }
 
+    /// Calculate par based on dealer information.
+    /// Basically if both sides can make 1NT, only the dealer side will be reported as it can declare 1NT first.
     fn dealer_par(
         tablep: &mut DdTableResults<Populated>,
-        presp: &mut ParResultsDealer,
         dealer: DdsHandEncoding,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<(), DDSError> {
+    ) -> Result<ParResultsDealer, DDSError> {
+        let mut par = ParResultsDealer::new();
         let result = unsafe {
             DealerPar(
                 std::ptr::from_mut::<DdTableResults<Populated>>(tablep),
-                std::ptr::from_mut::<ParResultsDealer>(presp),
+                std::ptr::from_mut::<ParResultsDealer>(&mut par),
                 dealer as i32,
                 vulnerable as i32,
             )
         };
-        if_no_fault_return!(result, ());
+        if_no_fault_return!(result, par);
     }
 
+    /// Same of [`ParCalculator::dealer_par()`], but gives back results in binary format. Easier if you have to use the information obtained from par calculation
+    /// instead of simply displaying it to the end user.
     fn dealer_par_bin(
         tablep: &mut DdTableResults<Populated>,
-        presp: &mut ParResultsMaster,
         dealer: DdsHandEncoding,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<(), DDSError> {
+    ) -> Result<ParResultsMaster, DDSError> {
+        let mut presp = ParResultsMaster::new();
         let result = unsafe {
             DealerParBin(
                 std::ptr::from_mut::<DdTableResults<Populated>>(tablep),
-                std::ptr::from_mut::<ParResultsMaster>(presp),
+                std::ptr::from_mut::<ParResultsMaster>(&mut presp),
                 dealer as i32,
                 vulnerable as i32,
             )
         };
-        if_no_fault_return!(result, ());
+        if_no_fault_return!(result, presp);
     }
 
-    fn calc_side_par_bin(
+    /// Same of [`ParCalculator::side_par()`], but gives back results in binary format. Easier if you have to use the information obtained from par calculation
+    /// instead of simply displaying it to the end user.
+    fn side_par_bin(
         tablep: &mut DdTableResults<Populated>,
-        side_res: &mut ParResultsDealer,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<(), DDSError> {
+    ) -> Result<ParResultsMaster, DDSError> {
+        let mut side_res = ParResultsMaster::new();
         let result = unsafe {
-            SidesPar(
+            SidesParBin(
                 std::ptr::from_mut::<DdTableResults<Populated>>(tablep),
-                std::ptr::from_mut::<ParResultsDealer>(side_res),
+                std::ptr::from_mut::<ParResultsMaster>(&mut side_res),
                 vulnerable as i32,
             )
         };
-        if_no_fault_return!(result, ());
+        if_no_fault_return!(result, side_res);
     }
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+/// Struct used by DDS for storing side oriented par results.
 pub struct ParResultsDealer {
     pub number: ::std::os::raw::c_int,
     pub score: ::std::os::raw::c_int,
     pub contracts: [[::std::os::raw::c_char; 10usize]; 10usize],
+}
+
+impl ParResultsDealer {
+    const fn new() -> Self {
+        Self {
+            number: 0,
+            score: 0,
+            contracts: [[0; 10]; 10],
+        }
+    }
 }
 
 #[repr(C)]
@@ -106,6 +127,17 @@ pub struct ParResultsMaster {
     pub number: ::std::os::raw::c_int,
     pub contracts: [ContractType; 10usize],
 }
+
+impl ParResultsMaster {
+    const fn new() -> Self {
+        Self {
+            score: 0,
+            number: 0,
+            contracts: [ContractType::new(); 10],
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ContractType {
@@ -114,6 +146,18 @@ pub struct ContractType {
     pub level: ::std::os::raw::c_int,
     pub denom: ::std::os::raw::c_int,
     pub seats: ::std::os::raw::c_int,
+}
+
+impl ContractType {
+    const fn new() -> Self {
+        Self {
+            under_tricks: -1,
+            over_tricks: -1,
+            level: -1,
+            denom: -1,
+            seats: -1,
+        }
+    }
 }
 
 pub fn convert_to_dealer_text_format(pres: &mut ParResultsMaster) -> Result<String, DDSError> {

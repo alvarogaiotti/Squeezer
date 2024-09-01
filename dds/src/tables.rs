@@ -367,7 +367,7 @@ pub struct DdTableResults<T: TablePopulated> {
 impl DdTableResults<NotPopulated> {
     #[inline]
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             res_table: [[0; 4]; 5],
             state: PhantomData,
@@ -375,7 +375,7 @@ impl DdTableResults<NotPopulated> {
     }
 
     #[must_use]
-    fn populated(self) -> DdTableResults<Populated> {
+    const fn populated(self) -> DdTableResults<Populated> {
         DdTableResults {
             res_table: self.res_table,
             state: PhantomData,
@@ -417,7 +417,7 @@ pub struct DdTablesRes<T: TablePopulated> {
 
 impl DdTablesRes<NotPopulated> {
     #[must_use]
-    pub fn new(no_of_boards: i32) -> Self {
+    pub(crate) const fn new(no_of_boards: i32) -> Self {
         Self {
             no_of_boards,
             results: [DdTableResults::new(); 200],
@@ -425,7 +425,7 @@ impl DdTablesRes<NotPopulated> {
     }
 
     #[must_use]
-    fn populated(self) -> DdTablesRes<Populated> {
+    const fn populated(self) -> DdTablesRes<Populated> {
         unsafe { std::mem::transmute::<Self, DdTablesRes<Populated>>(self) }
     }
 }
@@ -440,7 +440,7 @@ pub struct ParResults {
 
 impl ParResults {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             par_score: [[20; 16]; 2],
             par_contracts_string: [[20; 128]; 2],
@@ -464,7 +464,7 @@ pub struct AllParResults {
 impl AllParResults {
     #[must_use]
     #[inline]
-    pub fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             par_results: [ParResults::new(); MAXNOOFTABLES as usize],
         }

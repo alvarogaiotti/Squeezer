@@ -64,6 +64,8 @@ impl fmt::Display for DDSError {
 #[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
 impl std::error::Error for DDSError {}
 
+// FIXME:This should be the actual error type, not DDSError, as right now, from the user
+// perspective, we are not providing information as why the error appenend, unless he prints it.
 #[allow(clippy::exhaustive_enums)]
 enum DDSErrorKind {
     UnknownFault,
@@ -90,6 +92,10 @@ enum DDSErrorKind {
     NoSuit,
     TooManyTables,
     ChunkSize,
+    // FIXME: This should be removed and the build_c_deal function should be made public, so people
+    // can first try to build the deal and then pass the deal to DDS.
+    // This will allow us to make errors more trasnparent to the user, providing him with the
+    // ability to take corrective action in a more natural way, since the error are decoupled.
     UnbuildableDeal(DDSDealConstructionError),
 }
 
@@ -129,7 +135,7 @@ impl From<c_int> for DDSErrorKind {
             RETURN_NO_SUIT => Self::NoSuit,
             RETURN_TOO_MANY_TABLES => Self::TooManyTables,
             RETURN_CHUNK_SIZE => Self::ChunkSize,
-            // SAFETY:  return value from DDS cannot be different from its defined constants
+            // SAFETY:  return value from DDS cannot be different from its defined constants.
             _ => unreachable!(),
         }
     }
@@ -161,8 +167,8 @@ impl fmt::Display for DDSErrorKind {
             Self::ThreadIndex => write!(formatter, "thread number is less than 0 or higher than the maximum permitted"),
             Self::ModeWrongLo => write!(formatter, "mode is less than 0"),
             Self::ModeWrongHi => write!(formatter, "mode is greater than 2"),
-            Self::TrumpWrong => write!(formatter, "trump is not one of 0,1,2,3 or 4"),
-            Self::FirstWrong => write!(formatter, "first is not one of 0,1,2 or 3"),
+            Self::TrumpWrong => write!(formatter, "trump is not one of 0, 1, 2, 3 or 4"),
+            Self::FirstWrong => write!(formatter, "first is not one of 0, 1, 2 or 3"),
             Self::PlayFault => write!(formatter, "less than 0 or more than 52 cards supplied, invalid suit or rank supplied or played card is not held by the right player"),
             Self::PbnFault => write!(formatter, "PBN string is malformed"),
             Self::ThreadCreate => write!(formatter, "thread created"),

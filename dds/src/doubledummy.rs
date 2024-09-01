@@ -6,7 +6,7 @@ use std::sync::{Mutex, OnceLock, TryLockError};
 use crate::{
     analyseplay::{PlayAnalyzer, PlayTraceBin, PlayTracesBin, SolvedPlay, SolvedPlays, CHUNK_SIZE},
     bindings::{
-        ddsffi::RETURN_UNKNOWN_FAULT, AnalyseAllPlaysBin, AnalysePlayBin, SolveAllChunksBin,
+        ddsffi::RETURN_UNKNOWN_FAULT, AnalyseAllPlaysBin, AnalysePlayBin, SolveAllBoardsBin,
         SolveBoard, MAXNOOFBOARDS,
     },
     ddserror::DDSError,
@@ -193,6 +193,7 @@ impl MultiThreadDoubleDummySolver {
         unsafe { crate::bindings::ffi::SetResources(max_memory_mb, max_threads.into()) }
     }
 }
+
 impl BridgeSolver for MultiThreadDoubleDummySolver {
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
         &self,
@@ -205,6 +206,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
                 let guard = error.into_inner();
                 // Try to recover by freeing the memory, hoping to get clean dll slate.
                 guard.free_memory();
+                self.inner.clear_poison();
                 guard.dd_tricks(deal, contract)
             }
         }
@@ -221,6 +223,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
                 let guard = error.into_inner();
                 // Try to recover by freeing the memory, hoping to get clean dll slate.
                 guard.free_memory();
+                self.inner.clear_poison();
                 guard.dd_tricks_all_cards(deal, contract)
             }
         }
@@ -259,6 +262,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         }
     }
 }
+
 impl BridgeSolver for DoubleDummySolver {
     #[inline]
     fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
@@ -289,7 +293,7 @@ impl BridgeSolver for DoubleDummySolver {
             result = SolveBoard(
                 c_deal,
                 Target::MaxTricks.into(),
-                Solutions::Best.into(),
+                Solutions::AllLegal.into(),
                 Mode::AutoSearchAlways.into(),
                 futp,
                 ThreadIndex::Auto.into(),
@@ -340,7 +344,7 @@ impl BridgeSolver for DoubleDummySolver {
             deals,
             contract,
             &[Target::MaxTricks; MAXNOOFBOARDS],
-            &[Solutions::Best; MAXNOOFBOARDS],
+            &[Solutions::AllLegal; MAXNOOFBOARDS],
             &[Mode::Auto; MAXNOOFBOARDS],
         );
         let mut solved_boards = SolvedBoards::new(number_of_deals);
@@ -349,7 +353,7 @@ impl BridgeSolver for DoubleDummySolver {
             let bop: *mut Boards = &mut boards;
             let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
             unsafe {
-                result = SolveAllChunksBin(bop, solved_boards_ptr, 1);
+                result = SolveAllBoardsBin(bop, solved_boards_ptr);
             }
         };
         if result != 1 {

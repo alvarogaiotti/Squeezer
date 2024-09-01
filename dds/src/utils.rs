@@ -397,8 +397,8 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     let (contract, deal) = contract_and_deal;
     let (trump, first) = contract.as_dds_contract();
     DDSDealBuilder::new()
-        .trump(trump.try_into()?)
-        .first(first.try_into()?)
+        .trump(trump)
+        .first(first)
         .remain_cards(deal.as_dds_deal())
         .build()
 }
