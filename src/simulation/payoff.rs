@@ -1,13 +1,15 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
+use std::io::Write;
+
 /// This module contains implementations for simulating and analyzing bridge game scenarios.
 /// It includes structures for handling payoff matrices, bridge contracts, scoring functions, and utility functions.
 /// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract, and various scoring functions such as `imps` and `matchpoints`.
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
 use fmt::Display;
-use itertools::Itertools;
+use itertools::{izip, Itertools};
 
 pub trait DifferenceMaker {}
 impl DifferenceMaker for Card {}
@@ -48,32 +50,78 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> PayoffSimu
         }
     }
 }
+fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
+    assert!(!v.is_empty());
+    let len = v[0].len();
+    let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
+    (0..len)
+        .map(|_| {
+            iters
+                .iter_mut()
+                .map(|n| n.next().unwrap())
+                .collect::<Vec<T>>()
+        })
+        .collect()
+}
 
 impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
     for PayoffSimulation<E, D, Contract>
 {
     fn run(&self) -> Result<Payoff<Contract>, SqueezerError> {
-        let len = self.to_compare.len();
-        let mut results = Vec::with_capacity(len);
-        let mut payoff = Payoff::new(self.to_compare.clone());
+        let no_of_entries = self.to_compare.len();
+        // Vec containing no_of_runs vecs, containing the imps difference between every contract
+        let mut scores = Vec::with_capacity(self.no_of_runs);
+
         for _ in 0..(self.no_of_runs) {
             let deal = self.dealer.deal()?;
+            // Buffer of the results of the contracts in THIS deal
+            let mut buffer = Vec::with_capacity(no_of_entries);
             for contract in &self.to_compare {
                 let score = dds::utils::dd_score(&deal, contract)?;
-                results.push(score);
+                buffer.push(score);
             }
-            for i in 0..len {
-                for j in 0..len {
-                    if i == j {
-                        continue;
-                    };
-                    payoff.insert((self.diff)(results[i], results[j]), (i, j));
-                }
+            let mut second_buffer = Vec::with_capacity(6);
+            for (first_result, second_result) in buffer.into_iter().tuple_combinations() {
+                second_buffer.push((self.diff)(first_result, second_result));
             }
-            results.clear();
+            scores.push(second_buffer);
         }
-
+        let scores = transpose(scores);
+        let results = scores
+            .into_iter()
+            .map(|imps| {
+                if let Some((mean_value, std_dev)) = std_deviation_and_mean(&imps) {
+                    (mean_value, std_dev / (self.no_of_runs as f32).sqrt())
+                } else {
+                    (0.0, 0.0)
+                }
+            })
+            .collect_vec();
+        let payoff = Payoff {
+            entries: self.to_compare.clone(),
+            results,
+        };
         Ok(payoff)
+    }
+}
+
+pub struct PayoffEntry<P>
+where
+    P: fmt::Display + DifferenceMaker,
+{
+    difference_maker: P,
+    results: Vec<(f32, f32)>,
+}
+
+impl<P> PayoffEntry<P>
+where
+    P: fmt::Display + DifferenceMaker,
+{
+    pub fn new(difference_maker: P) -> Self {
+        Self {
+            difference_maker,
+            results: Vec::new(),
+        }
     }
 }
 
@@ -84,7 +132,7 @@ where
     P: fmt::Display + DifferenceMaker,
 {
     entries: Vec<P>,
-    table: Vec<Vec<Vec<i32>>>,
+    results: Vec<(f32, f32)>,
 }
 
 impl<P> Payoff<P>
@@ -93,18 +141,10 @@ where
 {
     #[must_use]
     pub fn new(entries: Vec<P>) -> Self {
-        let mut table = Vec::with_capacity(entries.len());
-        for i in 0..entries.len() {
-            table.push(Vec::with_capacity(entries.len()));
-            for _ in 0..entries.len() {
-                table[i].push(Vec::new());
-            }
+        Self {
+            entries,
+            results: Vec::new(),
         }
-        Self { entries, table }
-    }
-
-    pub fn insert(&mut self, score: i32, index: (usize, usize)) {
-        self.table[index.0][index.1].push(score);
     }
 }
 
@@ -113,51 +153,35 @@ impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
     /// It compares the expected value of each option with respect to the others.
     #[allow(clippy::missing_panics_doc, clippy::cast_precision_loss)]
     fn report(&self) {
-        let mut means_stderrs: Vec<Vec<(f32, f32)>> = Vec::new();
-        for (i, line) in self.table.iter().enumerate() {
-            means_stderrs.push(Vec::new());
-            for score in line {
-                if let Some(mean_value) = mean(score) {
-                    means_stderrs[i].push((
-                        mean_value,
-                        std_deviation(score).unwrap() / (score.len() as f32).sqrt(),
-                    ));
+        let mut buffer = Vec::with_capacity(300);
+
+        write!(&mut buffer, "\t{:.7}", self.entries.iter().format("\t")).unwrap();
+        for (index, entry) in self.entries.iter().enumerate() {
+            write!(&mut buffer, "\n{entry:.7}").unwrap();
+            for (second_index, _entry) in self.entries.iter().enumerate() {
+                if second_index == index {
+                    write!(&mut buffer, "\t-").unwrap();
+                } else {
+                    let (mean, stderr) = {
+                        let data = *self.results.get(index + second_index - 1).unwrap();
+                        if index < second_index {
+                            data
+                        } else {
+                            (-data.0, -data.1)
+                        }
+                    };
+                    let output = write!(&mut buffer, "\t{mean:.2}");
+                    //if mean > stderr {
+                    //    output.green()
+                    //} else if mean < &-stderr {
+                    //    output.red()
+                    //} else {
+                    //    output.white()
+                    //}
                 }
             }
         }
-        println!("\t{:.7}", self.entries.iter().format("\t"));
-
-        for (i, (entry, line)) in self.entries.iter().zip(means_stderrs.iter()).enumerate() {
-            print!("\n{entry:.7}");
-            for (j, (mean, stderr)) in line.iter().enumerate() {
-                print!("\t{}", {
-                    if i == j {
-                        "-".blue()
-                    } else {
-                        let output = format!("{mean:.2}");
-                        if mean > stderr {
-                            output.green()
-                        } else if mean < &-stderr {
-                            output.red()
-                        } else {
-                            output.white()
-                        }
-                    }
-                });
-            }
-            print!("\n       ");
-            for (j, (_mean, stderr)) in line.iter().enumerate() {
-                print!("\t{}", {
-                    if i == j {
-                        String::new()
-                    } else {
-                        let output = format!("{stderr:.2}");
-                        output
-                    }
-                });
-            }
-            println!();
-        }
+        println!("{}", String::from_utf8(buffer).unwrap());
     }
 }
 
@@ -172,7 +196,7 @@ fn mean(data: &[i32]) -> Option<f32> {
 }
 
 #[allow(clippy::cast_precision_loss)]
-fn std_deviation(data: &[i32]) -> Option<f32> {
+fn std_deviation_and_mean(data: &[i32]) -> Option<(f32, f32)> {
     match (mean(data), data.len()) {
         (Some(data_mean), count) if count > 0 => {
             let variance = data
@@ -183,7 +207,7 @@ fn std_deviation(data: &[i32]) -> Option<f32> {
                 })
                 .sum::<f32>()
                 / count as f32;
-            Some(variance.sqrt())
+            Some((variance.sqrt(), data_mean))
         }
         _ => None,
     }
@@ -224,16 +248,9 @@ mod test {
             Contract::from_str("3DN", Vulnerable::No).unwrap(),
             Contract::from_str("4HN", Vulnerable::No).unwrap(),
         ];
-        let mut matrix = Payoff::new(contracts.clone());
-        for x in 0..14 {
-            for (i, entry) in contracts.iter().enumerate() {
-                for (j, entry1) in contracts.iter().enumerate() {
-                    matrix.insert(imps(entry.score(x), entry1.score(x)), (i, j));
-                }
-            }
-        }
+        let sim = PayoffSimulation::new(100, StandardDealer::new(), contracts, imps);
+        let matrix = sim.run().unwrap();
         matrix.report();
-        assert_eq!(6, matrix.table[0][1][9]);
     }
 
     #[test]
