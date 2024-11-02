@@ -9,7 +9,7 @@ use std::io::Write;
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
 use fmt::Display;
-use itertools::{izip, Itertools};
+use itertools::Itertools;
 
 pub trait DifferenceMaker {}
 impl DifferenceMaker for Card {}
@@ -50,6 +50,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> PayoffSimu
         }
     }
 }
+
 fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
     assert!(!v.is_empty());
     let len = v[0].len();
@@ -73,14 +74,16 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
         let mut scores = Vec::with_capacity(self.no_of_runs);
 
         for _ in 0..(self.no_of_runs) {
-            let deal = self.dealer.deal()?;
-            // Buffer of the results of the contracts in THIS deal
             let mut buffer = Vec::with_capacity(no_of_entries);
+            let mut second_buffer = Vec::with_capacity(6);
+            let deal = self.dealer.deal()?;
+
+            // Buffer of the results of the contracts in THIS deal
             for contract in &self.to_compare {
                 let score = dds::utils::dd_score(&deal, contract)?;
                 buffer.push(score);
             }
-            let mut second_buffer = Vec::with_capacity(6);
+
             for (first_result, second_result) in buffer.into_iter().tuple_combinations() {
                 second_buffer.push((self.diff)(first_result, second_result));
             }

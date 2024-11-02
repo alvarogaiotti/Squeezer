@@ -294,7 +294,7 @@ impl BridgeSolver for DoubleDummySolver {
                 c_deal,
                 Target::MaxTricks.into(),
                 Solutions::AllLegal.into(),
-                Mode::AutoSearchAlways.into(),
+                Mode::AutoReuseAlwaysSearch.into(),
                 futp,
                 ThreadIndex::Auto.into(),
             );
@@ -345,7 +345,7 @@ impl BridgeSolver for DoubleDummySolver {
             contract,
             &[Target::MaxTricks; MAXNOOFBOARDS],
             &[Solutions::AllLegal; MAXNOOFBOARDS],
-            &[Mode::Auto; MAXNOOFBOARDS],
+            &[Mode::AutoReuseLazySearch; MAXNOOFBOARDS],
         );
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
@@ -519,7 +519,7 @@ impl PlayAnalyzer for DoubleDummySolver {
             },
             target: [Target::MaxTricks.into(); MAXNOOFBOARDS],
             solutions: [Solutions::Best.into(); MAXNOOFBOARDS],
-            mode: [Mode::Auto.into(); MAXNOOFBOARDS],
+            mode: [Mode::AutoReuseLazySearch.into(); MAXNOOFBOARDS],
         };
         let mut solved_plays = SolvedPlays {
             no_of_boards: deals_len,

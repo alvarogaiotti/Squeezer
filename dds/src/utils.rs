@@ -97,20 +97,34 @@ impl From<Solutions> for c_int {
 
 #[allow(clippy::exhaustive_enums)]
 #[derive(Debug, Default, Clone, Copy)]
+/// This struct defines the strategy used by DDS when it comes to
+/// searching and reusing the transposition table.
+/// - `AutoReuseLazySearch`: Automatic reuse of the TT, returns -2 as a card score if it is the only choice, whithout searching its score
+/// - `AutoReuseAlwaysSearch`: Automatic reuse of the TT, searches even if a card is the only choice, returning its score
+/// - `ForceReuseAlwaysSearch`: Force reuse of the TT and always searches. It is the programmer's responsibility to ensure that the deals
+/// are similar and the TT is correct for the deal.
+///
+/// From the DDS docs:
+/// > **Note**: mode no longer always has this effect internally in DDS. We think mode is no longer
+/// > useful, and we may use it for something else in the future. If you think you need it, let us know!
+/// > “Reuse” means “reuse the transposition table from the previous run with the same thread
+/// > number”. For mode = 2 it is the responsibility of the programmer using the DLL to ensure that
+/// > reusing the table is safe in the actual situation. Example: Deal is the same, except for
+/// > deal.first. The trump suit is the same.
 pub enum Mode {
     #[default]
-    Auto,
-    AutoSearchAlways,
-    Always,
+    AutoReuseLazySearch,
+    AutoReuseAlwaysSearch,
+    ForceReuseAlwaysSearch,
 }
 
 impl From<Mode> for c_int {
     #[inline]
     fn from(value: Mode) -> Self {
         match value {
-            Mode::Auto => 0i32,
-            Mode::AutoSearchAlways => 1i32,
-            Mode::Always => 2i32,
+            Mode::AutoReuseLazySearch => 0i32,
+            Mode::AutoReuseAlwaysSearch => 1i32,
+            Mode::ForceReuseAlwaysSearch => 2i32,
         }
     }
 }
