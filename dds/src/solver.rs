@@ -4,8 +4,12 @@
 use core::ffi::c_int;
 
 use crate::{
-    bindings::MAXNOOFBOARDS, ddserror::DDSError, deal::AsDDSDeal, future_tricks::FutureTricks,
+    bindings::MAXNOOFBOARDS,
+    ddserror::DDSError,
+    deal::AsDDSDeal,
+    future_tricks::FutureTricks,
     traits::AsDDSContract,
+    utils::{Mode, Solutions, Target},
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -61,6 +65,26 @@ pub trait BridgeSolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
+    ) -> Result<SolvedBoards, DDSError>;
+
+    /// Customize the behaviour you want from DDS.
+    fn solve_with_params<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+        mode: Mode,
+        solutions: Solutions,
+        target: Target,
+    ) -> Result<FutureTricks, DDSError>;
+
+    fn solve_with_params_parallel<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        number_of_deals: i32,
+        deals: &[D],
+        contracts: &[C],
+        mode: &[Mode],
+        solutions: &[Solutions],
+        target: &[Target],
     ) -> Result<SolvedBoards, DDSError>;
 }
 

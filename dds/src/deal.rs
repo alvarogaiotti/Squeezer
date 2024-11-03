@@ -480,7 +480,7 @@ impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
     /// Creates a new [`Boards`] struct
     /// Number of deals get capped at 200
-    pub fn new<D: AsDDSDeal, C: AsDDSContract>(
+    pub fn new_uniform<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D],
         contracts: &[C],
@@ -518,6 +518,53 @@ impl Boards {
             target,
             solutions,
             mode,
+        }
+    }
+
+    #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
+    /// Creates a new [`Boards`] struct
+    /// Number of deals get capped at 200
+    pub fn new<D: AsDDSDeal, C: AsDDSContract>(
+        no_of_boards: i32,
+        deals: &[D],
+        contracts: &[C],
+        target: &[Target],
+        solutions: &[Solutions],
+        mode: &[Mode],
+    ) -> Self {
+        assert_input_is_within_bounds!(no_of_boards, deals, contracts, target, solutions, mode);
+        let mut target_buffer = [Target::MaxTricks; MAXNOOFBOARDS];
+        target_buffer[0..no_of_boards as usize].copy_from_slice(target);
+        let mut solutions_buffer = [Solutions::Best; MAXNOOFBOARDS];
+        solutions_buffer[0..no_of_boards as usize].copy_from_slice(solutions);
+        let mut mode_buffer = [Mode::AutoReuseLazySearch; MAXNOOFBOARDS];
+        mode_buffer[0..no_of_boards as usize].copy_from_slice(mode);
+        let deals = deals
+            .iter()
+            .zip(contracts.iter())
+            .map(|(deal, contract)| {
+                let (trump, first) = contract.as_dds_contract();
+                DdsDeal {
+                    trump: trump as i32,
+                    first: first as i32,
+                    current_trick_suit: [0i32; 3],
+                    current_trick_rank: [0i32; 3],
+                    remain_cards: deal.as_dds_deal().as_slice(),
+                }
+            })
+            .cycle()
+            .take(MAXNOOFBOARDS)
+            .collect_vec()
+            .try_into()
+            // SAFETY: already now we can fit them
+            .unwrap();
+        Boards {
+            no_of_boards,
+            // SAFETY: Length if 200
+            deals,
+            target: target_buffer.map(Into::into),
+            solutions: solutions_buffer.map(Into::into),
+            mode: mode_buffer.map(Into::into),
         }
     }
 }

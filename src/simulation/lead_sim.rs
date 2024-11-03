@@ -3,7 +3,7 @@
 
 use super::{Simulation, SimulationResult};
 use colored::Colorize;
-use std::{array, collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     prelude::{Card, Contract, Dealer, SqueezerError},

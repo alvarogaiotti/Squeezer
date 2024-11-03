@@ -261,6 +261,59 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
             }
         }
     }
+    fn solve_with_params<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+        mode: Mode,
+        solutions: Solutions,
+        target: Target,
+    ) -> Result<FutureTricks, DDSError> {
+        match self.inner.lock() {
+            Ok(guard) => guard.solve_with_params(deal, contract, mode, solutions, target),
+            Err(error) => {
+                let guard = error.into_inner();
+                // Try to recover by freeing the memory, hoping to get clean dll slate.
+                guard.free_memory();
+                self.inner.clear_poison();
+                guard.solve_with_params(deal, contract, mode, solutions, target)
+            }
+        }
+    }
+    fn solve_with_params_parallel<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        number_of_deals: i32,
+        deals: &[D],
+        contracts: &[C],
+        mode: &[Mode],
+        solutions: &[Solutions],
+        target: &[Target],
+    ) -> Result<SolvedBoards, DDSError> {
+        match self.inner.lock() {
+            Ok(guard) => guard.solve_with_params_parallel(
+                number_of_deals,
+                deals,
+                contracts,
+                mode,
+                solutions,
+                target,
+            ),
+            Err(error) => {
+                let guard = error.into_inner();
+                // Try to recover by freeing the memory, hoping to get clean dll slate.
+                guard.free_memory();
+                self.inner.clear_poison();
+                guard.solve_with_params_parallel(
+                    number_of_deals,
+                    deals,
+                    contracts,
+                    mode,
+                    solutions,
+                    target,
+                )
+            }
+        }
+    }
 }
 
 impl BridgeSolver for DoubleDummySolver {
@@ -279,7 +332,7 @@ impl BridgeSolver for DoubleDummySolver {
                 c_deal,
                 Target::MaxTricks.into(),
                 Solutions::Best.into(),
-                Mode::AutoReuseAlwaysSearch.into(),
+                Mode::AutoReuseLazySearch.into(),
                 futp,
                 ThreadIndex::Auto.into(),
             );
@@ -311,7 +364,7 @@ impl BridgeSolver for DoubleDummySolver {
                 c_deal,
                 Target::MaxTricks.into(),
                 Solutions::AllLegal.into(),
-                Mode::AutoReuseAlwaysSearch.into(),
+                Mode::AutoReuseLazySearch.into(),
                 futp,
                 ThreadIndex::Auto.into(),
             );
@@ -335,7 +388,7 @@ impl BridgeSolver for DoubleDummySolver {
             clippy::cast_possible_wrap,
             clippy::cast_sign_loss
         )]
-        let mut boards = Boards::new(
+        let mut boards = Boards::new_uniform(
             number_of_deals,
             deals,
             contract,
@@ -361,6 +414,7 @@ impl BridgeSolver for DoubleDummySolver {
             .take(number_of_deals as usize)
             .collect())
     }
+    #[inline]
     fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
@@ -372,7 +426,7 @@ impl BridgeSolver for DoubleDummySolver {
             clippy::cast_possible_wrap,
             clippy::cast_sign_loss
         )]
-        let mut boards = Boards::new(
+        let mut boards = Boards::new_uniform(
             number_of_deals,
             deals,
             contract,
@@ -380,6 +434,68 @@ impl BridgeSolver for DoubleDummySolver {
             Solutions::AllLegal,
             Mode::AutoReuseLazySearch,
         );
+        let mut solved_boards = SolvedBoards::new(number_of_deals);
+        let result;
+        {
+            let bop: *mut Boards = &mut boards;
+            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
+            unsafe {
+                result = SolveAllBoardsBin(bop, solved_boards_ptr);
+            }
+        };
+        if result != 1 {
+            return Err(result.into());
+        }
+        Ok(solved_boards)
+    }
+    fn solve_with_params<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        deal: &D,
+        contract: &C,
+        mode: Mode,
+        solutions: Solutions,
+        target: Target,
+    ) -> Result<FutureTricks, DDSError> {
+        let c_deal = build_c_deal((contract, deal))?;
+        let mut future_tricks = FutureTricks::new();
+        let futp: *mut FutureTricks = &mut future_tricks;
+        let result;
+        unsafe {
+            result = SolveBoard(
+                c_deal,
+                target.into(),
+                solutions as i32,
+                mode as i32,
+                futp,
+                ThreadIndex::Auto.into(),
+            );
+        };
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_possible_wrap,
+            clippy::cast_sign_loss
+        )]
+        if result == 1 {
+            Ok(future_tricks)
+        } else {
+            Err(DDSError::from(result))
+        }
+    }
+    fn solve_with_params_parallel<D: AsDDSDeal, C: AsDDSContract>(
+        &self,
+        number_of_deals: i32,
+        deals: &[D],
+        contracts: &[C],
+        mode: &[Mode],
+        solutions: &[Solutions],
+        target: &[Target],
+    ) -> Result<SolvedBoards, DDSError> {
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_possible_wrap,
+            clippy::cast_sign_loss
+        )]
+        let mut boards = Boards::new(number_of_deals, deals, contracts, target, solutions, mode);
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
