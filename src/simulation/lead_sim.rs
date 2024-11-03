@@ -57,11 +57,10 @@ impl<D: Dealer> LeadSimulation<D> {
         &self,
         num: usize,
         solver: &S,
-        contracts: &[Contract; MAXNOOFBOARDS],
+        contracts: &[Contract],
     ) -> Result<SolvedBoards, SqueezerError> {
-        assert!(num <= MAXNOOFBOARDS);
         // We take from the deal producer the number we need
-        let deals = array::from_fn(|_| self.dealer.deal().unwrap());
+        let deals = vec![self.dealer.deal()?; num];
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         solver
             .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
@@ -84,7 +83,7 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
                 sim_result.add_results(solvedb);
                 counter = new_counter;
             } else {
-                let solvedb = self.solve_boards(counter, &solver, &contracts)?;
+                let solvedb = self.solve_boards(counter, &solver, &contracts[0..counter])?;
                 sim_result.add_results(solvedb);
                 counter = 0;
             }

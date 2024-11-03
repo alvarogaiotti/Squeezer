@@ -10,10 +10,7 @@ use crate::{
         SolveBoard, MAXNOOFBOARDS,
     },
     ddserror::DDSError,
-    deal::{
-        AsDDSDeal, Boards, DDSDealConstructionError, DdsDeal, SolutionMode, SolutionTarget,
-        SolutionType,
-    },
+    deal::{AsDDSDeal, Boards, DDSDealConstructionError, DdsDeal},
     future_tricks::FutureTricks,
     solver::{BridgeSolver, SolvedBoards},
     tables::{
@@ -342,9 +339,9 @@ impl BridgeSolver for DoubleDummySolver {
             number_of_deals,
             deals,
             contract,
-            SolutionTarget::MaxTricks,
-            SolutionType::Best,
-            SolutionMode::AutoReuseLazySearch,
+            Target::MaxTricks,
+            Solutions::Best,
+            Mode::AutoReuseLazySearch,
         );
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
@@ -379,9 +376,9 @@ impl BridgeSolver for DoubleDummySolver {
             number_of_deals,
             deals,
             contract,
-            SolutionTarget::MaxTricks,
-            SolutionType::AllLegal,
-            SolutionMode::AutoReuseLazySearch,
+            Target::MaxTricks,
+            Solutions::AllLegal,
+            Mode::AutoReuseLazySearch,
         );
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;

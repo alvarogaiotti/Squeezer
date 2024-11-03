@@ -1,6 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
+use itertools::Itertools;
 use squeezer_macros::RawDDSRef;
 
 use crate::{
@@ -13,7 +14,6 @@ use core::{
     ffi::{c_char, c_int},
     fmt::Display,
 };
-use std::num::NonZeroI32;
 
 /// A wrapper around the `boards` struct from DDS.
 /// Consists of a number of boards to be analyzed and
@@ -465,7 +465,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 }
 
 macro_rules! assert_input_is_within_bounds {
-    ($len: ident $(, $rest: ident)+) => {
+    ($len: expr $(, $rest: ident)+) => {
         $(
             let len = $len as usize;
             assert!(len <= MAXNOOFBOARDS, "max number of boards is 200, but number of boards provided is {len}");
@@ -492,7 +492,7 @@ impl Boards {
         let target = [target.into(); MAXNOOFBOARDS];
         let solutions = [solutions as i32; MAXNOOFBOARDS];
         let mode = [mode as i32; MAXNOOFBOARDS];
-        let c_deals = deals
+        let deals = deals
             .iter()
             .zip(contracts.iter())
             .map(|(deal, contract)| {
@@ -505,14 +505,16 @@ impl Boards {
                     remain_cards: deal.as_dds_deal().as_slice(),
                 }
             })
-            .collect::<Vec<DdsDeal>>()
+            .cycle()
+            .take(MAXNOOFBOARDS)
+            .collect_vec()
             .try_into()
             // SAFETY: already now we can fit them
             .unwrap();
         Boards {
             no_of_boards,
             // SAFETY: Length if 200
-            deals: c_deals,
+            deals,
             target,
             solutions,
             mode,
