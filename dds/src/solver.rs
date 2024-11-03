@@ -47,8 +47,8 @@ pub trait BridgeSolver {
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contract: &[C; MAXNOOFBOARDS],
+        deals: &[D],
+        contract: &[C],
     ) -> Result<Vec<u8>, DDSError>;
 
     /// Same as [`BridgeSolver::dd_tricks_all_cards`] but computes multiple deals in paralles.
@@ -59,8 +59,8 @@ pub trait BridgeSolver {
     fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contract: &[C; MAXNOOFBOARDS],
+        deals: &[D],
+        contract: &[C],
     ) -> Result<SolvedBoards, DDSError>;
 }
 

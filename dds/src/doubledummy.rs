@@ -10,7 +10,10 @@ use crate::{
         SolveBoard, MAXNOOFBOARDS,
     },
     ddserror::DDSError,
-    deal::{AsDDSDeal, Boards, DDSDealConstructionError, DdsDeal},
+    deal::{
+        AsDDSDeal, Boards, DDSDealConstructionError, DdsDeal, SolutionMode, SolutionTarget,
+        SolutionType,
+    },
     future_tricks::FutureTricks,
     solver::{BridgeSolver, SolvedBoards},
     tables::{
@@ -232,8 +235,8 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contract: &[C; MAXNOOFBOARDS],
+        deals: &[D],
+        contract: &[C],
     ) -> Result<Vec<u8>, DDSError> {
         match self.inner.lock() {
             Ok(guard) => guard.dd_tricks_parallel(number_of_deals, deals, contract),
@@ -248,8 +251,8 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
     fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contract: &[C; MAXNOOFBOARDS],
+        deals: &[D],
+        contract: &[C],
     ) -> Result<SolvedBoards, DDSError> {
         match self.inner.lock() {
             Ok(guard) => guard.dd_tricks_all_cards_parallel(number_of_deals, deals, contract),
@@ -270,13 +273,30 @@ impl BridgeSolver for DoubleDummySolver {
         deal: &D,
         contract: &C,
     ) -> Result<u8, DDSError> {
-        let future_tricks = self.dd_tricks_all_cards(deal, contract)?;
+        let c_deal = build_c_deal((contract, deal))?;
+        let mut future_tricks = FutureTricks::new();
+        let futp: *mut FutureTricks = &mut future_tricks;
+        let result;
+        unsafe {
+            result = SolveBoard(
+                c_deal,
+                Target::MaxTricks.into(),
+                Solutions::Best.into(),
+                Mode::AutoReuseAlwaysSearch.into(),
+                futp,
+                ThreadIndex::Auto.into(),
+            );
+        };
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_possible_wrap,
             clippy::cast_sign_loss
         )]
-        Ok(13 - future_tricks.score()[0] as u8)
+        if result == 1 {
+            Ok(13 - future_tricks.score()[0] as u8)
+        } else {
+            Err(DDSError::from(result))
+        }
     }
 
     #[inline]
@@ -310,15 +330,34 @@ impl BridgeSolver for DoubleDummySolver {
     fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contract: &[C; MAXNOOFBOARDS],
+        deals: &[D],
+        contract: &[C],
     ) -> Result<Vec<u8>, DDSError> {
-        let solved_boards = self.dd_tricks_all_cards_parallel(number_of_deals, deals, contract)?;
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_possible_wrap,
             clippy::cast_sign_loss
         )]
+        let mut boards = Boards::new(
+            number_of_deals,
+            deals,
+            contract,
+            SolutionTarget::MaxTricks,
+            SolutionType::Best,
+            SolutionMode::AutoReuseLazySearch,
+        );
+        let mut solved_boards = SolvedBoards::new(number_of_deals);
+        let result;
+        {
+            let bop: *mut Boards = &mut boards;
+            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
+            unsafe {
+                result = SolveAllBoardsBin(bop, solved_boards_ptr);
+            }
+        };
+        if result != 1 {
+            return Err(result.into());
+        }
         Ok(solved_boards
             .into_iter()
             .map(|ft| 13 - ft.score[0] as u8)
@@ -328,24 +367,21 @@ impl BridgeSolver for DoubleDummySolver {
     fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contract: &[C; MAXNOOFBOARDS],
+        deals: &[D],
+        contract: &[C],
     ) -> Result<SolvedBoards, DDSError> {
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_possible_wrap,
             clippy::cast_sign_loss
         )]
-        {
-            assert!(number_of_deals <= MAXNOOFBOARDS as i32);
-        }
         let mut boards = Boards::new(
             number_of_deals,
             deals,
             contract,
-            &[Target::MaxTricks; MAXNOOFBOARDS],
-            &[Solutions::AllLegal; MAXNOOFBOARDS],
-            &[Mode::AutoReuseLazySearch; MAXNOOFBOARDS],
+            SolutionTarget::MaxTricks,
+            SolutionType::AllLegal,
+            SolutionMode::AutoReuseLazySearch,
         );
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;

@@ -13,6 +13,7 @@ use core::{
     ffi::{c_char, c_int},
     fmt::Display,
 };
+use std::num::NonZeroI32;
 
 /// A wrapper around the `boards` struct from DDS.
 /// Consists of a number of boards to be analyzed and
@@ -463,18 +464,34 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     res
 }
 
+macro_rules! assert_input_is_within_bounds {
+    ($len: ident $(, $rest: ident)+) => {
+        $(
+            let len = $len as usize;
+            assert!(len <= MAXNOOFBOARDS, "max number of boards is 200, but number of boards provided is {len}");
+            let other_len = $rest.len();
+            assert_eq!(len as usize, other_len, "lenghts do not match for {}: {} != {}", stringify!($rest), len, other_len);
+        )*
+
+    };
+}
+
 impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
     /// Creates a new [`Boards`] struct
     /// Number of deals get capped at 200
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
-        deals: &[D; MAXNOOFBOARDS],
-        contracts: &[C; MAXNOOFBOARDS],
-        target: &[Target; MAXNOOFBOARDS],
-        solution: &[Solutions; MAXNOOFBOARDS],
-        mode: &[Mode; MAXNOOFBOARDS],
+        deals: &[D],
+        contracts: &[C],
+        target: Target,
+        solutions: Solutions,
+        mode: Mode,
     ) -> Self {
+        assert_input_is_within_bounds!(no_of_boards, deals, contracts);
+        let target = [target.into(); MAXNOOFBOARDS];
+        let solutions = [solutions as i32; MAXNOOFBOARDS];
+        let mode = [mode as i32; MAXNOOFBOARDS];
         let c_deals = deals
             .iter()
             .zip(contracts.iter())
@@ -496,9 +513,9 @@ impl Boards {
             no_of_boards,
             // SAFETY: Length if 200
             deals: c_deals,
-            target: target.map(Into::into),
-            solutions: solution.map(Into::into),
-            mode: mode.map(Into::into),
+            target,
+            solutions,
+            mode,
         }
     }
 }
