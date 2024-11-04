@@ -395,7 +395,7 @@ impl BridgeSolver for DoubleDummySolver {
             Target::MaxTricks,
             Solutions::Best,
             Mode::AutoReuseLazySearch,
-        );
+        )?;
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
@@ -433,7 +433,7 @@ impl BridgeSolver for DoubleDummySolver {
             Target::MaxTricks,
             Solutions::AllLegal,
             Mode::AutoReuseLazySearch,
-        );
+        )?;
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
@@ -495,7 +495,7 @@ impl BridgeSolver for DoubleDummySolver {
             clippy::cast_possible_wrap,
             clippy::cast_sign_loss
         )]
-        let mut boards = Boards::new(number_of_deals, deals, contracts, target, solutions, mode);
+        let mut boards = Boards::new(number_of_deals, deals, contracts, target, solutions, mode)?;
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {

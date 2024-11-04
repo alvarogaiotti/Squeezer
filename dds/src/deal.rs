@@ -6,6 +6,7 @@ use squeezer_macros::RawDDSRef;
 
 use crate::{
     bindings::MAXNOOFBOARDS,
+    ddserror::DDSError,
     traits::{AsDDSCard, AsDDSContract, RawDDSRef},
     utils::{Mode, SeqError, Solutions, Target},
 };
@@ -260,7 +261,7 @@ pub struct DDSDealBuilder {
 }
 
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Hash)]
 /// Possible error we can encounter while constructing an error.
 /// The errors are quite self explanatory.
 pub enum DDSDealConstructionError {
@@ -466,15 +467,44 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 
 macro_rules! assert_input_is_within_bounds {
     ($len: expr $(, $rest: ident)+) => {
+        let len = $len as usize;
+        if len == 0 {
+            return Err(DDSError::from(DdsBoardConstructionError::ZeroLength));
+        }
+        if len > MAXNOOFBOARDS {
+            return Err(DDSError::from(DdsBoardConstructionError::TooManyBoards));
+        }
         $(
-            let len = $len as usize;
-            assert!(len <= MAXNOOFBOARDS, "max number of boards is 200, but number of boards provided is {len}");
             let other_len = $rest.len();
-            assert_eq!(len as usize, other_len, "lenghts do not match for {}: {} != {}", stringify!($rest), len, other_len);
+            if other_len < len {
+                return Err(DDSError::from(DdsBoardConstructionError::ParamLengthTooShort))
+            }
         )*
 
     };
 }
+
+#[derive(Debug, Copy, Clone, Hash)]
+pub(crate) enum DdsBoardConstructionError {
+    TooManyBoards,
+    ParamLengthTooShort,
+    ZeroLength,
+}
+
+impl std::fmt::Display for DdsBoardConstructionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::TooManyBoards => write!(f, "number of boards provided over MAXNOOFBOARDS: 200"),
+            Self::ZeroLength => write!(f, "unable to create Boards with no_of_boards=0"),
+            Self::ParamLengthTooShort => write!(
+                f,
+                "one of the parameter provided was shorter than the number of boards requested"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for DdsBoardConstructionError {}
 
 impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
@@ -487,7 +517,7 @@ impl Boards {
         target: Target,
         solutions: Solutions,
         mode: Mode,
-    ) -> Self {
+    ) -> Result<Self, DDSError> {
         assert_input_is_within_bounds!(no_of_boards, deals, contracts);
         let target = [target.into(); MAXNOOFBOARDS];
         let solutions = [solutions as i32; MAXNOOFBOARDS];
@@ -511,14 +541,14 @@ impl Boards {
             .try_into()
             // SAFETY: already now we can fit them
             .unwrap();
-        Boards {
+        Ok(Boards {
             no_of_boards,
             // SAFETY: Length if 200
             deals,
             target,
             solutions,
             mode,
-        }
+        })
     }
 
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
@@ -531,7 +561,7 @@ impl Boards {
         target: &[Target],
         solutions: &[Solutions],
         mode: &[Mode],
-    ) -> Self {
+    ) -> Result<Self, DDSError> {
         assert_input_is_within_bounds!(no_of_boards, deals, contracts, target, solutions, mode);
         let mut target_buffer = [Target::MaxTricks; MAXNOOFBOARDS];
         target_buffer[0..no_of_boards as usize].copy_from_slice(target);
@@ -558,14 +588,14 @@ impl Boards {
             .try_into()
             // SAFETY: already now we can fit them
             .unwrap();
-        Boards {
+        Ok(Boards {
             no_of_boards,
             // SAFETY: Length if 200
             deals,
             target: target_buffer.map(Into::into),
             solutions: solutions_buffer.map(Into::into),
             mode: mode_buffer.map(Into::into),
-        }
+        })
     }
 }
 

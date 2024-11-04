@@ -12,9 +12,8 @@ use crate::bindings::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS,
 };
-use crate::deal::DDSDealConstructionError;
+use crate::deal::{DDSDealConstructionError, DdsBoardConstructionError, DdsDealPbn};
 use core::ffi::c_int;
-
 /// Wrapper around the DDS errors. See DDS docs for information about the errors.
 pub struct DDSError {
     /// Represents what kind of error we got
@@ -34,11 +33,16 @@ impl From<DDSErrorKind> for DDSError {
         Self { kind: value }
     }
 }
+impl From<DdsBoardConstructionError> for DDSError {
+    fn from(value: DdsBoardConstructionError) -> Self {
+        Self::from(DDSErrorKind::from(value))
+    }
+}
 
-impl From<i32> for DDSError {
+impl From<c_int> for DDSError {
     #[inline]
-    fn from(value: i32) -> Self {
-        assert_ne!(1i32, value,"if we fail the assertion we didn't check for the return result from dds, since a return result of 1 means success." );
+    fn from(value: c_int) -> Self {
+        assert_ne!(1i32, value, "if we fail the assertion we didn't check for the return result from dds, since a return result of 1 means success." );
         Self { kind: value.into() }
     }
 }
@@ -94,9 +98,10 @@ enum DDSErrorKind {
     ChunkSize,
     // FIXME: This should be removed and the build_c_deal function should be made public, so people
     // can first try to build the deal and then pass the deal to DDS.
-    // This will allow us to make errors more trasnparent to the user, providing him with the
+    // This will allow us to make errors more trasnparent to the user, providing them with the
     // ability to take corrective action in a more natural way, since the error are decoupled.
     UnbuildableDeal(DDSDealConstructionError),
+    UnbuildableBoards(DdsBoardConstructionError),
 }
 
 impl Debug for DDSErrorKind {
@@ -148,6 +153,12 @@ impl From<DDSDealConstructionError> for DDSErrorKind {
     }
 }
 
+impl From<DdsBoardConstructionError> for DDSErrorKind {
+    #[inline]
+    fn from(value: DdsBoardConstructionError) -> Self {
+        Self::UnbuildableBoards(value)
+    }
+}
 impl fmt::Display for DDSErrorKind {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -176,7 +187,8 @@ impl fmt::Display for DDSErrorKind {
             Self::NoSuit => write!(formatter, "denomination filter vector has no entries"),
             Self::TooManyTables => write!(formatter, "too many tables requested"),
             Self::ChunkSize => write!(formatter, "chunk size is less than 1"),
-            Self::UnbuildableDeal(ref inner) => write!(formatter, "unable to build deal: \n{inner}")
+            Self::UnbuildableDeal(ref inner) => write!(formatter, "unable to build DdsDeal: \n{inner}"),
+            Self::UnbuildableBoards(ref inner) => write!(formatter, "unable to build Boards: \n{inner}"),
         }
     }
 }
