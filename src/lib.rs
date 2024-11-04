@@ -173,7 +173,6 @@ pub mod prelude {
     #[cfg(feature = "dds")]
     pub use crate::simulation::*;
     pub use crate::utils::*;
-    pub(crate) use colored::Colorize;
     pub(crate) use itertools::Itertools;
     pub use std::str::FromStr;
 

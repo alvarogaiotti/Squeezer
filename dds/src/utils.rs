@@ -136,7 +136,7 @@ pub enum Side {
 }
 
 #[allow(clippy::exhaustive_enums)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub enum SeqError {
     SequenceTooLong,
     SequenceTooShort,
