@@ -12,7 +12,7 @@ use crate::bindings::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS,
 };
-use crate::deal::{DDSDealConstructionError, DdsBoardConstructionError, DdsDealPbn};
+use crate::deal::{DDSDealConstructionError, DdsBoardConstructionError};
 use core::ffi::c_int;
 /// Wrapper around the DDS errors. See DDS docs for information about the errors.
 pub struct DDSError {

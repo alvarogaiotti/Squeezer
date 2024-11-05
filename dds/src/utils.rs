@@ -43,6 +43,7 @@ impl From<ThreadIndex> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
+#[repr(i32)]
 #[derive(Debug, Clone, Copy, Default)]
 /// Target of the analysis of DDS.
 /// DDS works by repeatedly calling its solving function with multiple targets until it fails (see its docs for more details):
@@ -53,8 +54,8 @@ impl From<ThreadIndex> for c_int {
 /// - [`Target::Goal`]: DDS will run to check if the target is reachable
 pub enum Target {
     #[default]
-    MaxTricks,
-    LegalNoScore,
+    MaxTricks = -1,
+    LegalNoScore = 0,
     Goal(NonZeroI32),
 }
 
@@ -79,9 +80,9 @@ impl From<Target> for c_int {
 /// - [`Solution::AllLegal`]: DDS will return results for all the legal cards to play.
 pub enum Solutions {
     #[default]
-    Best,
-    AllOptimal,
-    AllLegal,
+    Best = 1,
+    AllOptimal = 2,
+    AllLegal = 3,
 }
 
 impl From<Solutions> for c_int {

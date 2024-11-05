@@ -543,7 +543,6 @@ impl Boards {
             .unwrap();
         Ok(Boards {
             no_of_boards,
-            // SAFETY: Length if 200
             deals,
             target,
             solutions,
