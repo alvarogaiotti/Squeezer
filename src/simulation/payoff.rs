@@ -1,16 +1,16 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use std::io::Write;
-
 /// This module contains implementations for simulating and analyzing bridge game scenarios.
 /// It includes structures for handling payoff matrices, bridge contracts, scoring functions, and utility functions.
-/// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract, and various scoring functions such as `imps` and `matchpoints`.
+/// Key components include the `Payoff` struct for managing a payoff matrix, `Contract` struct representing a bridge contract,
+/// and various scoring functions such as `imps` and `matchpoints`.
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
 use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver, traits::ContractScorer};
 use fmt::Display;
 use itertools::Itertools;
+use std::io::Write;
 
 pub trait DifferenceMaker {}
 impl DifferenceMaker for Card {}
@@ -120,7 +120,6 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
 
         let mut deal_buffer = Vec::with_capacity(solver_array_len);
         (0..self.no_of_runs)
-            .into_iter()
             .chunks(solver_array_len / no_of_entries)
             .into_iter()
             .for_each(|chunk| {
@@ -128,7 +127,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
                 for _ in 0..len {
                     for _ in 0..no_of_entries {
                         let deal = self.dealer.deal().unwrap();
-                        deal_buffer.push(deal)
+                        deal_buffer.push(deal);
                     }
                 }
                 let solver_results = solver
@@ -139,7 +138,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
                     .zip(contracts.iter())
                     .map(|(n_tricks, contract)| contract.score(n_tricks));
                 for (index, score) in scores.enumerate() {
-                    entries[index % no_of_entries].results.push(score)
+                    entries[index % no_of_entries].results.push(score);
                 }
                 deal_buffer.clear();
             });
@@ -218,7 +217,7 @@ impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
     fn report(&self) {
         let mut buffer = Vec::with_capacity(500);
         let mut stderr_buffer = Vec::with_capacity(self.entries.len());
-        let entries_number = self.entries.len();
+        let entries_length = self.entries.len();
 
         write!(&mut buffer, "\t {}", self.entries.iter().format("\t  ")).unwrap();
         for (index, entry) in self.entries.iter().enumerate() {
@@ -229,15 +228,15 @@ impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
                     stderr_buffer.push(0.0);
                 } else {
                     let (mean, stderr) = {
-                        let data = *self
+                        *self
                             .results
-                            .get(index * entries_number + second_index)
-                            .unwrap();
-                        if index < second_index {
-                            data
-                        } else {
-                            (-data.0, data.1)
-                        }
+                            .get(index * entries_length + second_index)
+                            .unwrap()
+                        //if index < second_index {
+                        //    data
+                        //} else {
+                        //    (-data.0, data.1)
+                        //}
                     };
                     stderr_buffer.push(stderr);
                     write!(&mut buffer, "\t{mean:>5.2}").unwrap();
@@ -301,6 +300,7 @@ fn bisect_right(value: i32, lista: &[i32]) -> i32 {
     lista.len() as i32
 }
 #[must_use]
+#[inline]
 pub fn imps(my: i32, other: i32) -> i32 {
     let imp_table: [i32; 24] = [
         15, 45, 85, 125, 165, 215, 265, 315, 365, 425, 495, 595, 745, 895, 1095, 1295, 1495, 1745,
@@ -309,6 +309,7 @@ pub fn imps(my: i32, other: i32) -> i32 {
     bisect_right((my - other).abs(), &imp_table) * (if my > other { 1 } else { -1 })
 }
 #[must_use]
+#[inline]
 pub fn matchpoints(my: i32, other: i32) -> i32 {
     i32::from(my > other) - i32::from(my < other)
 }
@@ -336,7 +337,7 @@ mod test {
                 )]),
             );
         let dealer = builder.build().unwrap();
-        let sim = PayoffSimulation::new(100, dealer, contracts, imps);
+        let sim = PayoffSimulation::new(10, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();
     }
