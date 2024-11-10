@@ -31,8 +31,8 @@ fn analyse_all_play_test() {
     let rankseq = RankSeq::try_from([4, 3, 12, 2]).unwrap();
     let mut suitseqs = Vec::with_capacity(TRIES);
     let mut rankseqs = Vec::with_capacity(TRIES);
-    suitseqs.resize_with(TRIES, || suitseq.clone());
-    rankseqs.resize_with(TRIES, || rankseq.clone());
+    suitseqs.resize_with(TRIES, || suitseq);
+    rankseqs.resize_with(TRIES, || rankseq);
     let contracts_owner = Vec::from([ContractMock {}; TRIES]);
     let mut plays = PlayTracesBin::from_sequences(suitseqs, rankseqs).unwrap();
     let analyzer = MultiThreadDoubleDummySolver::new();

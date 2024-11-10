@@ -467,6 +467,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
 
 macro_rules! check_inputs_are_within_bounds {
     ($len: expr $(, $rest: ident)+) => {
+        #[allow(clippy::cast_sign_loss)]
         let len = $len as usize;
         if len == 0 {
             return Err(DDSError::from(DdsBoardConstructionError::ZeroLength));
@@ -510,6 +511,13 @@ impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
     /// Creates a new [`Boards`] struct
     /// Number of deals get capped at 200
+    ///
+    /// # Errors
+    ///
+    /// Will errror when:
+    /// - The number of deals asked is 0
+    /// - The number of deals asked is over [`dds::MAXNOOFBOARDS`]
+    /// - The length of all the parameters are less then the number of boards provided
     pub fn new_uniform<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D],
@@ -550,9 +558,20 @@ impl Boards {
         })
     }
 
-    #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
+    #[allow(
+        clippy::cast_sign_loss,
+        clippy::unwrap_used,
+        clippy::missing_panics_doc
+    )]
     /// Creates a new [`Boards`] struct
     /// Number of deals get capped at 200
+    ///
+    /// # Errors
+    ///
+    /// Will errror when:
+    /// - The number of deals asked is 0
+    /// - The number of deals asked is over [`dds::MAXNOOFBOARDS`]
+    /// - The length of all the parameters are less then the number of boards provided
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D],

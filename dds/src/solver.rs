@@ -18,7 +18,7 @@ use crate::{
 /// Provides parallelized and unparallelized versions of the solving function.
 /// If you have to solve more than a couple dozen of deals, you are better off
 /// using the parallelized versions.
-/// See https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf for documentation.
+/// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 pub trait BridgeSolver {
     /// Returns the number of tricks makable in one contract by one player
     /// If you have more than a dozen deals to analyse use [`BridgeSolver::dd_tricks_parallel`]
@@ -72,7 +72,7 @@ pub trait BridgeSolver {
     /// the solving strategy of DDS for a single deal.
     /// You can set the strategy of the searching alorithm ([`Mode`], now seems to be deprecated),
     /// the solution cards returned ([`Solutions`]) and the target of the search ([`Target`]).
-    /// See https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf for documentation.
+    /// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
     ///
     /// # Errors
     /// Errors when DDS errors. See DDS docs for errors.
@@ -92,7 +92,7 @@ pub trait BridgeSolver {
     /// the solution cards returned ([`Solutions`]) and the target of the search ([`Target`]).
     /// Since this function operates on a slice of deals, you can customize the way in which
     /// every deal is solved, one by one, by passing a slice of parameters.
-    /// See https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf for documentation.
+    /// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
     ///
     /// # Errors
     /// Errors when DDS errors. See DDS docs for errors.

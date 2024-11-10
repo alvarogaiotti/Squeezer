@@ -3,6 +3,8 @@
 
 use std::sync::OnceLock;
 
+use dds::deal::{DdsHandEncoding, DdsSuit};
+
 #[allow(dead_code)]
 pub static DEAL: OnceLock<DealMock> = OnceLock::new();
 
@@ -41,8 +43,8 @@ impl dds::traits::ContractScorer for ContractMock {
 }
 
 impl dds::traits::AsDDSContract for ContractMock {
-    fn as_dds_contract(&self) -> (i32, i32) {
-        (2, 3)
+    fn as_dds_contract(&self) -> (DdsSuit, DdsHandEncoding) {
+        (DdsSuit::Diamonds, DdsHandEncoding::West)
     }
 }
 

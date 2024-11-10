@@ -13,6 +13,10 @@ use crate::utils::if_no_fault_return;
 /// Trait representing the ability to do par calculations for deals.
 pub trait ParCalculator {
     /// Standard simple par for a deal. Doesn't use dealer information, so both sides might have a 1NT par.
+    ///
+    /// # Errors
+    ///
+    /// Errors when DDS returns an error
     fn par(
         &self,
         tablep: &mut DdTableResults<Populated>,
@@ -30,6 +34,10 @@ pub trait ParCalculator {
     }
 
     /// Calculate par for a specific side.
+    ///
+    /// # Errors
+    ///
+    /// Errors when DDS returns an error
     fn side_par(
         tablep: &mut DdTableResults<Populated>,
         vulnerable: VulnerabilityEncoding,
@@ -47,6 +55,10 @@ pub trait ParCalculator {
 
     /// Calculate par based on dealer information.
     /// Basically if both sides can make 1NT, only the dealer side will be reported as it can declare 1NT first.
+    ///
+    /// # Errors
+    ///
+    /// Errors when DDS returns an error
     fn dealer_par(
         tablep: &mut DdTableResults<Populated>,
         dealer: DdsHandEncoding,
@@ -66,6 +78,10 @@ pub trait ParCalculator {
 
     /// Same of [`ParCalculator::dealer_par()`], but gives back results in binary format. Easier if you have to use the information obtained from par calculation
     /// instead of simply displaying it to the end user.
+    ///
+    /// # Errors
+    ///
+    /// Errors when DDS returns an error
     fn dealer_par_bin(
         tablep: &mut DdTableResults<Populated>,
         dealer: DdsHandEncoding,
@@ -85,6 +101,10 @@ pub trait ParCalculator {
 
     /// Same of [`ParCalculator::side_par()`], but gives back results in binary format. Easier if you have to use the information obtained from par calculation
     /// instead of simply displaying it to the end user.
+    ///
+    /// # Errors
+    ///
+    /// Errors when DDS returns an error
     fn side_par_bin(
         tablep: &mut DdTableResults<Populated>,
         vulnerable: VulnerabilityEncoding,
@@ -160,17 +180,27 @@ impl ContractType {
     }
 }
 
+/// Utility function provided by DDS to convert a [`ParResultsMaster`] to a string.
+///
+/// # Errors
+///
+/// Errors when DDS returns an error
 pub fn convert_to_dealer_text_format(pres: &mut ParResultsMaster) -> Result<String, DDSError> {
     let mut resp = String::with_capacity(100);
     let result = unsafe {
         ConvertToDealerTextFormat(
             std::ptr::from_mut::<ParResultsMaster>(pres),
-            resp.as_mut_ptr() as *mut i8,
+            resp.as_mut_ptr().cast::<i8>(),
         )
     };
     if_no_fault_return!(result, resp);
 }
 
+/// Utility function provided by DDS to convert a [`ParResultsMaster`] to a [`ParTextResults`].
+///
+/// # Errors
+///
+/// Errors when DDS returns an error
 pub fn convert_to_sides_text_format(
     pres: &mut ParResultsMaster,
     resp: &mut ParTextResults,
@@ -192,7 +222,7 @@ pub struct ParTextResults {
 }
 
 #[cfg(test)]
-#[allow(deref_nullptr)]
+#[allow(deref_nullptr, clippy::ref_as_ptr)]
 mod test {
     use super::*;
 

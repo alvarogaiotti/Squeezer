@@ -16,6 +16,7 @@ pub const SEQUENCE_LENGTH: usize = 52;
 
 macro_rules! if_no_fault_return {
     ($result:ident, $ok:expr) => {
+        #[allow(clippy::redundant_else)]
         if $result == crate::bindings::ddsffi::RETURN_NO_FAULT {
             return Ok($ok);
         } else {
@@ -65,7 +66,7 @@ impl From<Target> for c_int {
         match value {
             Target::MaxTricks => -1i32,
             Target::LegalNoScore => 0i32,
-            Target::Goal(goal) => (goal as i32).clamp(1, 13),
+            Target::Goal(goal) => i32::from(goal).clamp(1, 13),
         }
     }
 }
@@ -103,7 +104,7 @@ impl From<Solutions> for c_int {
 /// - `AutoReuseLazySearch`: Automatic reuse of the TT, returns -2 as a card score if it is the only choice, whithout searching its score
 /// - `AutoReuseAlwaysSearch`: Automatic reuse of the TT, searches even if a card is the only choice, returning its score
 /// - `ForceReuseAlwaysSearch`: Force reuse of the TT and always searches. It is the programmer's responsibility to ensure that the deals
-/// are similar and the TT is correct for the deal.
+///     are similar and the TT is correct for the deal.
 ///
 /// From the DDS docs:
 /// > **Note**: mode no longer always has this effect internally in DDS. We think mode is no longer

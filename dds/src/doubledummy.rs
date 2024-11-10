@@ -408,6 +408,7 @@ impl BridgeSolver for DoubleDummySolver {
         if result != 1 {
             return Err(result.into());
         }
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         Ok(solved_boards
             .into_iter()
             .map(|ft| 13 - ft.score[0] as u8)
@@ -681,7 +682,7 @@ impl PlayAnalyzer for DoubleDummySolver {
 
         //SAFETY: calling C
         let result = unsafe { AnalyseAllPlaysBin(bop, play_trace, solved, CHUNK_SIZE) };
-        if_no_fault_return!(result, solved_plays);
+        if_no_fault_return!(result, solved_plays)
     }
 
     #[inline]
