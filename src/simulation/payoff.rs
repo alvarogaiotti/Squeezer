@@ -13,7 +13,7 @@ use itertools::Itertools;
 use std::io::Write;
 
 pub trait DifferenceMaker {}
-impl DifferenceMaker for Card {}
+impl DifferenceMaker for Cards {}
 impl DifferenceMaker for Contract {}
 
 /// Struct for running payoff simulation: is it better to risk a 3NT or better to play 4C in
@@ -43,6 +43,7 @@ pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMake
 }
 
 impl<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> PayoffSimulation<E, D, P> {
+    /// Creates a new [`PayoffSimulation<E, D, P>`].
     pub fn new(no_of_runs: usize, dealer: D, to_compare: Vec<P>, diff: E) -> Self {
         Self {
             no_of_runs,
@@ -71,39 +72,21 @@ fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
 }
 
 #[derive(Debug, Clone)]
-struct PayoffAccumulator {
-    entry: Contract,
+struct PayoffAccumulator<T: DifferenceMaker> {
+    entry: T,
     results: Vec<i32>,
-}
-
-struct RecurringDealer<D: Dealer> {
-    dealer: D,
-    repetitions: usize,
-    counter: usize,
-    deal: Deal,
-}
-
-impl<D: Dealer> Iterator for RecurringDealer<D> {
-    type Item = Deal;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.counter < self.repetitions {
-            self.counter += 1;
-            Some(self.deal)
-        } else {
-            self.deal = self.dealer.deal().unwrap();
-            self.counter = 1;
-            Some(self.deal)
-        }
-    }
 }
 
 impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
     for PayoffSimulation<E, D, Contract>
 {
+    /// Runs the simulation, providing you with the results in the form
+    /// a [`Payoff<Contract>`], which compares the EV of the contract pair-wise.
+    #[inline]
     fn run(&self) -> Result<Payoff<Contract>, SqueezerError> {
         let no_of_entries = self.to_compare.len();
         let mut payoff = Payoff::new(self.to_compare.clone());
-        let mut entries: Vec<PayoffAccumulator> = self
+        let mut entries: Vec<PayoffAccumulator<Contract>> = self
             .to_compare
             .iter()
             .map(|elem| PayoffAccumulator {
@@ -122,29 +105,32 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
         let solver = DoubleDummySolver::new();
 
         let mut deal_buffer = Vec::with_capacity(solver_array_len);
-        (0..self.no_of_runs)
+        for chunk in (0..self.no_of_runs)
             .chunks(solver_array_len / no_of_entries)
             .into_iter()
-            .for_each(|chunk| {
-                let len = chunk.count();
-                for _ in 0..len {
-                    for _ in 0..no_of_entries {
-                        let deal = self.dealer.deal().unwrap();
-                        deal_buffer.push(deal);
-                    }
+        {
+            let chunk_length = chunk.count();
+            for _ in 0..chunk_length {
+                for _ in 0..no_of_entries {
+                    let deal = self.dealer.deal()?;
+                    deal_buffer.push(deal);
                 }
-                let solver_results = solver
-                    .dd_tricks_parallel(solver_array_len as i32, &deal_buffer, &contracts)
-                    .unwrap();
-                let scores = solver_results
-                    .into_iter()
-                    .zip(contracts.iter())
-                    .map(|(n_tricks, contract)| contract.score(n_tricks));
-                for (index, score) in scores.enumerate() {
-                    entries[index % no_of_entries].results.push(score);
-                }
-                deal_buffer.clear();
-            });
+            }
+            #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
+            let solver_results = solver.dd_tricks_parallel(
+                (chunk_length * no_of_entries) as i32,
+                &deal_buffer,
+                &contracts,
+            )?;
+            let scores = solver_results
+                .into_iter()
+                .zip(contracts.iter())
+                .map(|(n_tricks, contract)| contract.score(n_tricks));
+            for (index, score) in scores.enumerate() {
+                entries[index % no_of_entries].results.push(score);
+            }
+            deal_buffer.clear();
+        }
         for (starting_entry_index, entry) in entries.iter().enumerate() {
             for (next_entry_index, next_entry) in entries.iter().enumerate() {
                 if starting_entry_index == next_entry_index {
@@ -340,7 +326,7 @@ mod test {
                 )]),
             );
         let dealer = builder.build().unwrap();
-        let sim = PayoffSimulation::new(10, dealer, contracts, imps);
+        let sim = PayoffSimulation::new(100, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();
     }

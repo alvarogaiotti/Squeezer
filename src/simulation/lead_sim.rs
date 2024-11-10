@@ -60,7 +60,10 @@ impl<D: Dealer> LeadSimulation<D> {
         contracts: &[Contract],
     ) -> Result<SolvedBoards, SqueezerError> {
         // We take from the deal producer the number we need
-        let deals = vec![self.dealer.deal()?; num];
+        let mut deals: Vec<Deal> = Vec::with_capacity(num);
+        for _ in 0..num {
+            deals.push(self.dealer.deal()?);
+        }
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         solver
             .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
@@ -119,7 +122,7 @@ impl LeadCard {
     #[allow(clippy::cast_precision_loss)]
     /// This will compute the statistics for the card.
     /// You will need to provide the number of tricks able to beat the
-    /// contract (e.g. 5 for a 3 level contract), and the number of runs.
+    /// contract (e.g. 5 for a 3 level contract, formula: 8 - level_of_contract), and the number of runs.
     fn finish(&mut self, tricks_beating: u8, runs: usize) {
         // FIXME: Evaluate if providing runs is faster than calculating a running
         // sum in this loop and using it. I assumed it was but we really have this
@@ -129,8 +132,8 @@ impl LeadCard {
             .number_of_tricks
             .iter()
             .enumerate()
-            .skip(1) // Skip zero
-            .map(|(tricks, times)| tricks * times)
+            .skip(1) // Skip zero since will add up to zero
+            .map(|(times, tricks)| times * tricks)
             .sum::<usize>() as f32
             / runs as f32;
         self.set_percentage = (self.number_of_tricks[tricks_beating as usize..]
@@ -154,7 +157,7 @@ impl LeadSimulationResult {
     #[must_use]
     fn new(contract: Contract, deals_run: usize) -> Self {
         Self {
-            lead_results: HashMap::with_capacity(8),
+            lead_results: HashMap::with_capacity(10),
             contract,
             deals_run,
         }
@@ -164,10 +167,9 @@ impl LeadSimulationResult {
     #[inline]
     /// # Panics
     ///
-    /// Panics when DDS returns a negative result for the tricks
+    /// Panics when DDS is in unstable state and returns a negative numbers for the suit of a card
     fn add_results(&mut self, results: SolvedBoards) {
         for future_tricks in results.into_iter() {
-            //dbg!(future_tricks);
             for index in 0..future_tricks.cards as usize {
                 let rank = future_tricks.rank[index];
                 let suit = future_tricks.suit[index];
@@ -216,28 +218,42 @@ impl Display for LeadSimulationResult {
             "Ld   Avg  %Set   {:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}",
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
         )?;
-        let mut res_iter = self
+        let res_iter = self
             .lead_results
             .iter()
-            .sorted_by(|a, b| b.1.set_percentage.total_cmp(&a.1.set_percentage));
+            .sorted_by(|a, b| b.1.set_percentage.total_cmp(&a.1.set_percentage))
+            .collect_vec();
+        let max_average_tricks_position = res_iter
+            .iter()
+            .position_max_by(|a, b| a.1.average_tricks.total_cmp(&b.1.average_tricks))
+            .unwrap();
+        let mut res_iter = res_iter.into_iter();
         let first = res_iter.next().unwrap();
         writeln!(
             f,
             "{}",
             format_args!(
-                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
+                "{} {} {:>5.2}  [{:>width$} ]",
                 first.0,
-                first.1.average_tricks,
+                if max_average_tricks_position != 0 {
+                    format!("{:>5.2}", first.1.average_tricks)
+                } else {
+                    format!("*{:<4.2}", first.1.average_tricks)
+                },
                 first.1.set_percentage,
                 first.1.number_of_tricks.iter().format("")
             )
         )?;
-        for lead in res_iter {
+        for (index, lead) in res_iter.enumerate() {
             writeln!(
                 f,
-                "{}  {:>4.2} {:>5.2}  [{:>width$} ]",
+                "{} {} {:>5.2}  [{:>width$} ]",
                 lead.0,
-                lead.1.average_tricks,
+                if max_average_tricks_position != index + 1 {
+                    format!("{:>5.2}", lead.1.average_tricks)
+                } else {
+                    format!("*{:<4.2}", lead.1.average_tricks)
+                },
                 lead.1.set_percentage,
                 lead.1.number_of_tricks.iter().format("")
             )?;
@@ -256,16 +272,15 @@ pub struct DealProducer<'simulation, D: Dealer> {
 impl<'simulation, D: Dealer> DealProducer<'simulation, D> {
     #[inline]
     #[must_use]
-    fn new(dealer: &'simulation D, number_repeats: usize) -> Self {
-        let deal = dealer
-            .deal()
-            .expect("unable to deal the first deal inside the simulation.");
-        Self {
+    fn new(dealer: &'simulation D, number_repeats: usize) -> Result<Self, SqueezerError> {
+        let deal = dealer.deal()?;
+
+        Ok(Self {
             number_repeats,
             dealer,
             deal,
             counter: number_repeats,
-        }
+        })
     }
 }
 
@@ -277,7 +292,7 @@ impl<D: Dealer> Iterator for DealProducer<'_, D> {
             self.deal = self
                 .dealer
                 .deal()
-                .expect("error while dealing inside the simulation");
+                .expect("error while dealing inside the simulation: first deal was dealt successfully, then something broke");
             self.counter = 0;
         }
         self.counter += 1;
@@ -302,7 +317,7 @@ mod test {
         let dealer = builder.build().unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
-            num_of_boards: 100,
+            num_of_boards: 1000,
             dealer,
             contract,
         };

@@ -27,6 +27,7 @@ macro_rules! if_no_fault_return {
 pub(crate) use if_no_fault_return;
 
 #[allow(clippy::exhaustive_enums)]
+#[derive(Debug, Copy, Clone, Hash)]
 pub enum ThreadIndex {
     Auto,
     NumThreads(NonZeroI32),
@@ -43,7 +44,6 @@ impl From<ThreadIndex> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
-#[repr(i32)]
 #[derive(Debug, Clone, Copy, Default)]
 /// Target of the analysis of DDS.
 /// DDS works by repeatedly calling its solving function with multiple targets until it fails (see its docs for more details):
@@ -54,9 +54,9 @@ impl From<ThreadIndex> for c_int {
 /// - [`Target::Goal`]: DDS will run to check if the target is reachable
 pub enum Target {
     #[default]
-    MaxTricks = -1,
-    LegalNoScore = 0,
-    Goal(NonZeroI32),
+    MaxTricks,
+    LegalNoScore,
+    Goal(u8),
 }
 
 impl From<Target> for c_int {
@@ -65,7 +65,7 @@ impl From<Target> for c_int {
         match value {
             Target::MaxTricks => -1i32,
             Target::LegalNoScore => 0i32,
-            Target::Goal(goal) => std::convert::Into::<i32>::into(goal).clamp(0i32, 13i32),
+            Target::Goal(goal) => (goal as i32).clamp(1, 13),
         }
     }
 }
@@ -201,7 +201,7 @@ macro_rules! impl_tryfrom_array_for_sequence {
     };
 }
 
-#[derive(IntoRawDDS, Debug, Clone)]
+#[derive(IntoRawDDS, Debug, Clone, Copy)]
 /// A `SuitSeq` is a sequence of cards' suit.
 /// It's the sequence of suits used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// The suit is represented with the standard suit enconding used
@@ -299,7 +299,7 @@ impl SuitSeq {
 impl_tryfrom_array_for_sequence! {usize,u8,u16,u32,u64 ; SuitSeq}
 impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; SuitSeq}
 
-#[derive(Debug, Clone, IntoRawDDS)]
+#[derive(Debug, Copy, Clone, IntoRawDDS)]
 /// A `RankSeq` is a sequence of cards' rank.
 /// It's the sequence of ranks used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// Card are encoded with a incremental integer encoding, unlike in
@@ -406,6 +406,7 @@ impl RankSeq {
 /// Will error if the trump or the player are not valid values following
 /// their encodings: [`DdsSuitEncoding`](crate::deal::DdsSuitEncoding) and
 /// [`super::utlils::DdsHandEncoding`](crate::deal::DdsHandEncoding)
+#[inline]
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     contract_and_deal: (&C, &D),
 ) -> Result<DdsDeal, DDSDealConstructionError> {
@@ -418,12 +419,12 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
         .build()
 }
 
-#[inline]
 /// Utility function for score of a contract based on double dummy solved hand.
 ///
 /// # Errors
 /// See [`crate::solver::BridgeSolver`] for errors
 ///
+#[inline]
 pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
     contract: &C,

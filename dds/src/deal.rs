@@ -465,7 +465,7 @@ fn dds_card_tuple_to_string(suit: c_int, rank: c_int) -> String {
     res
 }
 
-macro_rules! assert_input_is_within_bounds {
+macro_rules! check_inputs_are_within_bounds {
     ($len: expr $(, $rest: ident)+) => {
         let len = $len as usize;
         if len == 0 {
@@ -518,7 +518,7 @@ impl Boards {
         solutions: Solutions,
         mode: Mode,
     ) -> Result<Self, DDSError> {
-        assert_input_is_within_bounds!(no_of_boards, deals, contracts);
+        check_inputs_are_within_bounds!(no_of_boards, deals, contracts);
         let target = [target.into(); MAXNOOFBOARDS];
         let solutions = [solutions as i32; MAXNOOFBOARDS];
         let mode = [mode as i32; MAXNOOFBOARDS];
@@ -561,7 +561,7 @@ impl Boards {
         solutions: &[Solutions],
         mode: &[Mode],
     ) -> Result<Self, DDSError> {
-        assert_input_is_within_bounds!(no_of_boards, deals, contracts, target, solutions, mode);
+        check_inputs_are_within_bounds!(no_of_boards, deals, contracts, target, solutions, mode);
         let mut target_buffer = [Target::MaxTricks; MAXNOOFBOARDS];
         target_buffer[0..no_of_boards as usize].copy_from_slice(target);
         let mut solutions_buffer = [Solutions::Best; MAXNOOFBOARDS];
