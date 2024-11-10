@@ -83,11 +83,11 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
         while counter != 0 {
             if let Some(new_counter) = counter.checked_sub(MAXNOOFBOARDS) {
                 let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, &contracts)?;
-                sim_result.add_results(solvedb);
+                sim_result.add_results(&solvedb);
                 counter = new_counter;
             } else {
                 let solvedb = self.solve_boards(counter, &solver, &contracts[0..counter])?;
-                sim_result.add_results(solvedb);
+                sim_result.add_results(&solvedb);
                 counter = 0;
             }
         }
@@ -122,7 +122,7 @@ impl LeadCard {
     #[allow(clippy::cast_precision_loss)]
     /// This will compute the statistics for the card.
     /// You will need to provide the number of tricks able to beat the
-    /// contract (e.g. 5 for a 3 level contract, formula: 8 - level_of_contract), and the number of runs.
+    /// contract (e.g. 5 for a 3 level contract, formula: 8 - `level_of_contract`), and the number of runs.
     fn finish(&mut self, tricks_beating: u8, runs: usize) {
         // FIXME: Evaluate if providing runs is faster than calculating a running
         // sum in this loop and using it. I assumed it was but we really have this
@@ -168,8 +168,8 @@ impl LeadSimulationResult {
     /// # Panics
     ///
     /// Panics when DDS is in unstable state and returns a negative numbers for the suit of a card
-    fn add_results(&mut self, results: SolvedBoards) {
-        for future_tricks in results.into_iter() {
+    fn add_results(&mut self, results: &SolvedBoards) {
+        for future_tricks in results {
             for index in 0..future_tricks.cards as usize {
                 let rank = future_tricks.rank[index];
                 let suit = future_tricks.suit[index];
@@ -249,10 +249,10 @@ impl Display for LeadSimulationResult {
                 f,
                 "{} {} {:>5.2}  [{:>width$} ]",
                 lead.0,
-                if max_average_tricks_position != index + 1 {
-                    format!("{:>5.2}", lead.1.average_tricks)
-                } else {
+                if max_average_tricks_position == index + 1 {
                     format!("*{:<4.2}", lead.1.average_tricks)
+                } else {
+                    format!("{:>5.2}", lead.1.average_tricks)
                 },
                 lead.1.set_percentage,
                 lead.1.number_of_tricks.iter().format("")
@@ -271,7 +271,6 @@ pub struct DealProducer<'simulation, D: Dealer> {
 
 impl<'simulation, D: Dealer> DealProducer<'simulation, D> {
     #[inline]
-    #[must_use]
     fn new(dealer: &'simulation D, number_repeats: usize) -> Result<Self, SqueezerError> {
         let deal = dealer.deal()?;
 

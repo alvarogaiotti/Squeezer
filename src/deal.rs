@@ -545,7 +545,7 @@ impl std::fmt::Debug for StandardDealer {
 }
 
 impl StandardDealer {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             predeal: HashMap::new(),
             vulnerability: Vulnerability::default(),

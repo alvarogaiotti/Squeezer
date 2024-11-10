@@ -105,9 +105,8 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
         let solver = DoubleDummySolver::new();
 
         let mut deal_buffer = Vec::with_capacity(solver_array_len);
-        for chunk in (0..self.no_of_runs)
+        for chunk in &(0..self.no_of_runs)
             .chunks(solver_array_len / no_of_entries)
-            .into_iter()
         {
             let chunk_length = chunk.count();
             for _ in 0..chunk_length {

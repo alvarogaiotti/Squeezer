@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use squeezer::prelude::*;
 use squeezer::Simulation;

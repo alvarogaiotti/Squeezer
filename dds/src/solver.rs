@@ -127,6 +127,19 @@ impl SolvedBoards {
             solved_board: [FutureTricks::default(); MAXNOOFBOARDS],
         }
     }
+
+    #[inline]
+    pub fn iter(&self) -> std::slice::Iter<'_, FutureTricks> {
+        self.solved_board.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a SolvedBoards {
+    type Item = &'a FutureTricks;
+    type IntoIter = std::slice::Iter<'a, FutureTricks>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
 impl IntoIterator for SolvedBoards {
