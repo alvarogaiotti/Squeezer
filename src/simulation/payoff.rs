@@ -56,7 +56,10 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> PayoffSimu
 fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
     assert!(!v.is_empty());
     let len = v[0].len();
-    let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
+    let mut iters: Vec<_> = v
+        .into_iter()
+        .map(std::iter::IntoIterator::into_iter)
+        .collect();
     (0..len)
         .map(|_| {
             iters
@@ -157,7 +160,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
 
                 payoff
                     .results
-                    .push(mean_and_std_dev(&diffs).or(Some((0.0, 0.0))).unwrap());
+                    .push(mean_and_std_dev(&diffs).unwrap_or((0.0, 0.0)));
             }
         }
         Ok(payoff)
