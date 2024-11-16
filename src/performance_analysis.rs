@@ -60,6 +60,7 @@ impl Tricks {
 }
 
 /// Newtype wrapper for the double dummy difference between before and after the card is played.
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TrickDifference(u8);
 
@@ -91,9 +92,9 @@ impl TrickDifference {
 /// Represents the performance of a card played
 pub enum CardPerformance {
     /// Played a wrong card, losing [`TrickDifference`] tricks and making [`Tricks`] tricks
-    Error(Tricks, TrickDifference),
+    Good(Tricks, TrickDifference),
     /// Played the correct double dummy card, making [`Tricks`] tricks
-    Correct(Tricks),
+    Bad(Tricks),
 }
 
 impl CardPerformance {
@@ -102,7 +103,7 @@ impl CardPerformance {
     #[must_use]
     pub fn tricks(&self) -> Tricks {
         match *self {
-            Self::Error(tricks, _) | Self::Correct(tricks) => tricks,
+            Self::Good(tricks, _) | Self::Bad(tricks) => tricks,
         }
     }
 
@@ -111,8 +112,8 @@ impl CardPerformance {
     #[must_use]
     pub fn difference(&self) -> Option<TrickDifference> {
         match *self {
-            Self::Error(_, difference) => Some(difference),
-            Self::Correct(_) => None,
+            Self::Good(_, difference) => Some(difference),
+            Self::Bad(_) => None,
         }
     }
 }
@@ -161,7 +162,7 @@ impl PlayerResultTrace {
     pub fn compute_player_performance(&self, accuracy: &mut PlayerAccuracy) {
         // The accumulator is (number_of_correct_cards_played, tricks_lost)
         let result = self.iter().fold((0, 0), |accumulator, difference| {
-            if let CardPerformance::Error(_, TrickDifference(delta)) = difference {
+            if let CardPerformance::Good(_, TrickDifference(delta)) = difference {
                 (accumulator.0, delta + accumulator.1)
             } else {
                 (accumulator.0 + 1u32, accumulator.1)
@@ -409,13 +410,13 @@ fn performance_difference(previous_result: i32, result: i32) -> CardPerformance 
     let delta = previous_result - result;
     // If opponents played a wrong card and lost 1+ trick(s)
     if delta == 0i32 {
-        CardPerformance::Correct(Tricks(
+        CardPerformance::Bad(Tricks(
             result
                 .try_into()
                 .expect("trick number should always be positive"),
         ))
     } else {
-        CardPerformance::Error(
+        CardPerformance::Good(
             Tricks(
                 result
                     .try_into()
@@ -457,12 +458,9 @@ mod tests {
         let equal = performance_difference(5, 5);
         let better = performance_difference(3, 6);
 
-        assert_eq!(
-            better,
-            CardPerformance::Error(Tricks(6), TrickDifference(3))
-        );
-        assert_eq!(equal, CardPerformance::Correct(Tricks(5)));
-        assert_eq!(worse, CardPerformance::Error(Tricks(7), TrickDifference(2)));
+        assert_eq!(better, CardPerformance::Good(Tricks(6), TrickDifference(3)));
+        assert_eq!(equal, CardPerformance::Bad(Tricks(5)));
+        assert_eq!(worse, CardPerformance::Good(Tricks(7), TrickDifference(2)));
     }
 
     #[test]
@@ -562,7 +560,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::North as usize].results[0].unwrap(),
-            CardPerformance::Error(Tricks(8), TrickDifference(1))
+            CardPerformance::Good(Tricks(8), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[1].unwrap(),
@@ -574,7 +572,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[2].unwrap(),
-            CardPerformance::Error(Tricks(7), TrickDifference(1))
+            CardPerformance::Good(Tricks(7), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[4].unwrap(),
@@ -582,7 +580,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[4].unwrap(),
-            CardPerformance::Error(Tricks(8), TrickDifference(1))
+            CardPerformance::Good(Tricks(8), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[5].unwrap(),
@@ -590,27 +588,27 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[5].unwrap(),
-            CardPerformance::Error(Tricks(9), TrickDifference(1))
+            CardPerformance::Good(Tricks(9), TrickDifference(1))
         );
     }
 
     #[test]
     fn test_compute_player_performance() {
         let p_performance = [
-            PlayerResultTrace([Some(CardPerformance::Correct(Tricks(10))); 12]),
+            PlayerResultTrace([Some(CardPerformance::Bad(Tricks(10))); 12]),
             PlayerResultTrace([
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Correct(Tricks(10))),
-                Some(CardPerformance::Error(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Correct(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Bad(Tricks(10))),
             ]),
         ];
         let mut n_perf = PlayerAccuracy::new();
