@@ -109,7 +109,7 @@ impl From<Vec<Length>> for PatternsAsShape {
 /// - `CloseParen`: Represents a closing parenthesis token.
 /// - `Empty`: Represents an empty token.
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
-pub enum Token {
+enum Token {
     Length(u8),
     Modifier(Modifier),
     Joker,

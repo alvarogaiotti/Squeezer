@@ -13,8 +13,8 @@ pub type ShapePattern = [u8; 4];
 /// Represents the creator of shapes.
 #[derive(Debug)]
 pub(crate) struct ShapeCreator {
-    /// Number of free places where shapes can be constructed.
-    pub free_places: u8,
+    /// Number of allocated slots for the shape as of now.
+    pub allocated_slots: u8,
     /// Patterns to define the shape construction rules.
     pub patterns: VecDeque<Pattern>,
 }
@@ -41,46 +41,55 @@ impl std::fmt::Display for InterpretationShapeError {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+struct PatternFormationChecker {
+    accumulator: u8,
+    flag_at_least: bool,
+    flag_at_most: bool,
+}
+
+impl PatternFormationChecker {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn check(self) -> Result<(), InterpretationShapeError> {
+        match self.accumulator.cmp(&13) {
+            Ordering::Greater => {
+                if self.flag_at_most {
+                    Ok(())
+                } else {
+                    Err(InterpretationShapeError::TooMany)
+                }
+            }
+            Ordering::Less => {
+                if self.flag_at_least {
+                    Ok(())
+                } else {
+                    Err(InterpretationShapeError::NotEnough)
+                }
+            }
+            Ordering::Equal => Ok(()),
+        }
+    }
+}
+
 impl std::error::Error for InterpretationShapeError {}
 
 impl TryFrom<Vec<Pattern>> for ShapeCreator {
     type Error = InterpretationShapeError;
     fn try_from(value: Vec<Pattern>) -> Result<Self, InterpretationShapeError> {
-        // Define a macro that returns a closure to check if a pattern's modifier matches the provided Modifier
-        macro_rules! check_modifier {
-            ($to_be_checked:path) => {
-                |pattern| match pattern {
-                    Pattern::Suit(Length { modifier, .. }) => modifier == &$to_be_checked,
-                    Pattern::Group(lengths) => lengths.iter().any(|length| {
-                        let Length { modifier, .. } = length;
-                        modifier == &$to_be_checked
-                    }),
-                }
-            };
-        }
-
-        // Calculate the total length of all patterns
-        let allocated_slots = value.iter().fold(0u8, pattern_length_adder);
-        match allocated_slots.cmp(&13) {
-            Ordering::Greater => Err(InterpretationShapeError::TooMany),
-            Ordering::Less => {
-                // Implementation specific detail: we store jokers ('x') as 0 AtLeast.
-                if value.iter().any(check_modifier!(Modifier::AtMost))
-                    && !value.iter().any(check_modifier!(Modifier::AtLeast))
-                {
-                    Err(InterpretationShapeError::NotEnough)
-                } else {
-                    Ok(Self {
-                        free_places: 13 - allocated_slots,
-                        patterns: VecDeque::from(value),
-                    })
-                }
-            }
-            Ordering::Equal => Ok(Self {
-                free_places: 13 - allocated_slots,
-                patterns: VecDeque::from(value),
-            }),
-        }
+        let checker = PatternFormationChecker {
+            accumulator: 0,
+            flag_at_most: false,
+            flag_at_least: false,
+        };
+        let allocated_slots = value.iter().fold(checker, pattern_length_adder);
+        allocated_slots.check()?;
+        Ok(Self {
+            allocated_slots: 0,
+            patterns: VecDeque::from(value),
+        })
     }
 }
 
@@ -171,49 +180,46 @@ impl ShapeCreator {
         length: u8,
         cap: Option<u8>,
     ) {
+        // Base case: we have a shape longer than 13.
+        // We return doing nothing.
+        if self.allocated_slots + length > 13 {
+            return;
+        }
         if let Some(cap) = cap {
             // If we capped the length of an AtMost element, we stop
             if length >= cap {
                 // We push the length we have
                 shape.push(length);
+                self.allocated_slots += length;
                 // We go ahead with the construction of the rest of the shape.
                 self.interpret(shape, shapes);
                 // We backtrack so the function up the call stack can push its length.
+                self.allocated_slots -= length;
                 shape.pop();
                 return;
             }
         }
 
-        // Base case: we have reached the end of the shape.
-        // We push the length we have and keep going on interpreting the rest of the shape.
-        if self.free_places == 0 {
-            shape.push(length);
-            self.interpret(shape, shapes);
-            let _popped = shape.pop();
-            return;
-        }
-
-        // Otherwise we remove one place from the free places and
-        // add one to the length value. Then we recur to try to get
+        // We recur to try to get
         // to the base case.
-        self.free_places -= 1;
         self.recur_adder_helper(shape, shapes, length + 1, cap);
 
-        // We then reset the free places, push the length we were called with
-        // and continue to interpret the rest of the shape.
-        self.free_places += 1;
+        // We retrace our step and try to go ahead with our length:
+        // push the shape, interpret the rest.
+        // pop the shape, remove the slots allocated and go on.
+        self.allocated_slots += length;
         shape.push(length);
         self.interpret(shape, shapes);
-        // Last, we pop the value we were called with, so the function which
-        // called us up the stack can add its own length value to the shape and interpret the rest with its length.
-        let _popped = shape.pop();
+        shape.pop();
+        self.allocated_slots -= length;
     }
 
     /// Interprets the current pattern and constructs shapes accordingly.
     fn interpret(&mut self, shape: &mut Vec<u8>, shapes: &mut Vec<Vec<u8>>) {
+        // If I have still pattern in the queue...
         if let Some(pattern) = self.patterns.pop_front() {
             // If we are dealing with the last pattern
-            if let ControlFlow::Break(candidate) = Self::is_last_pattern(shape, &pattern) {
+            if let ControlFlow::Break(candidate) = Self::next_is_last_pattern(shape, &pattern) {
                 // We check if we can create a shape with the last pattern
                 if let Some(candidate) = candidate {
                     // If so, we push the shape to the shapes vector
@@ -229,25 +235,9 @@ impl ShapeCreator {
             // to backtrack and try the next pattern.
             self.handle_action_based_on_pattern(&pattern, shape, shapes);
             self.patterns.push_front(pattern);
-        } else if self.free_places == 0 {
-            // If we have no more patterns and we have no more free places, we push the shape to the shapes vector
-            shapes.push(shape.clone());
         } else {
             // If we have no more patterns and we still have free places, we simply return as we are in a dead end.
         }
-    }
-
-    /// Ensures that the number of free places is capped at the suit size.
-    fn cap_at_suit_size(free_places: u8, len: u8) -> (u8, u8) {
-        Self::cap_at_custom_size(free_places, len, 13)
-    }
-
-    /// Updates the value of `free_places` based on the provided length and capacity
-    fn cap_at_custom_size(mut free_places: u8, len: u8, cap: u8) -> (u8, u8) {
-        assert!(len < cap);
-        let new_len = (len + free_places).clamp(0, cap);
-        free_places = free_places.checked_sub(cap - len).unwrap_or_default();
-        (free_places, new_len)
     }
 
     /// Handles the action based on the given pattern.
@@ -265,9 +255,13 @@ impl ShapeCreator {
                 length,
                 modifier: Modifier::Exact,
             }) => {
-                shape.push(length);
-                self.interpret(shape, shapes);
-                let _popped = shape.pop();
+                if self.allocated_slots + length < 14 {
+                    self.allocated_slots += length;
+                    shape.push(length);
+                    self.interpret(shape, shapes);
+                    self.allocated_slots -= length;
+                    let _popped = shape.pop();
+                }
             }
             // If the pattern is an AtLeast suit length,
             // we start start the recursion with no upper bound
@@ -315,41 +309,74 @@ impl ShapeCreator {
     }
 
     /// Short circuits if the last element closes the shape and adds it to the list of shapes.
-    fn is_last_pattern(shape: &mut [u8], pattern: &Pattern) -> ControlFlow<Option<u8>> {
+    fn next_is_last_pattern(shape: &mut [u8], pattern: &Pattern) -> ControlFlow<Option<u8>> {
         if shape.len() == 3 {
-            let candidate = 13 - shape.iter().sum::<u8>();
-            if pattern.contains(candidate) {
-                return ControlFlow::Break(Some(candidate));
+            let candidate = 13u8.checked_sub(shape.iter().sum::<u8>());
+            // If we have not owerlowed...
+            if let Some(candidate) = candidate {
+                // And the last pattern contains the residual length of the entire shape as now
+                if pattern.contains(candidate) {
+                    // We return the information that the candidate is valid
+                    return ControlFlow::Break(Some(candidate));
+                }
             }
+            // else we return a None, since the candidate is not valid
             return ControlFlow::Break(None);
         }
         ControlFlow::Continue(())
     }
 }
 
-fn pattern_length_adder(accumulator: u8, element: &Pattern) -> u8 {
-    fn length_adder(accumulator: u8, length: Length) -> u8 {
+fn pattern_length_adder(
+    mut accumulator: PatternFormationChecker,
+    element: &Pattern,
+) -> PatternFormationChecker {
+    fn length_adder(
+        mut accumulator: PatternFormationChecker,
+        length: Length,
+    ) -> PatternFormationChecker {
         match length {
             Length {
                 modifier: Modifier::AtMost,
-                ..
-            } => accumulator,
-            Length { length, .. } => accumulator + length,
+                length,
+            } => {
+                accumulator.accumulator += length;
+                accumulator.flag_at_most = true;
+                accumulator
+            }
+            Length {
+                length,
+                modifier: Modifier::AtLeast,
+            } => {
+                accumulator.accumulator += length;
+                accumulator.flag_at_least = true;
+                accumulator
+            }
+            Length { length, .. } => {
+                accumulator.accumulator += length;
+                accumulator
+            }
         }
     }
     match element {
         Pattern::Suit(length) => length_adder(accumulator, *length),
         Pattern::Group(group) => {
+            let group_acc = (*group)
+                .iter()
+                .fold(PatternFormationChecker::new(), |acc, &value| {
+                    length_adder(acc, value)
+                });
+            accumulator.accumulator += group_acc.accumulator;
+            accumulator.flag_at_least |= group_acc.flag_at_least;
+            accumulator.flag_at_most |= group_acc.flag_at_most;
             accumulator
-                + (*group)
-                    .iter()
-                    .fold(0, |acc, &value| length_adder(acc, value))
         }
     }
 }
 
 #[cfg(test)]
 mod test {
+
     use super::ShapeCreator;
     use super::{Length, Modifier, Pattern};
 
@@ -476,6 +503,55 @@ mod test {
         shapes.sort();
         let mut res: Vec<_> = vec![[3, 2, 7, 1], [3, 2, 1, 7], [2, 3, 1, 7], [2, 3, 7, 1]];
         res.sort_unstable();
+        assert_eq!(shapes, res);
+    }
+    #[test]
+    fn check_strange_shapes() {
+        let patterns = vec![
+            Pattern::Suit(Length {
+                length: 5,
+                modifier: Modifier::Exact,
+            }),
+            Pattern::Suit(Length {
+                length: 5,
+                modifier: Modifier::AtMost,
+            }),
+            Pattern::Suit(Length {
+                length: 4,
+                modifier: Modifier::AtMost,
+            }),
+            Pattern::Suit(Length {
+                length: 4,
+                modifier: Modifier::AtMost,
+            }),
+        ];
+        let mut creator = ShapeCreator::try_from(patterns).unwrap();
+        let mut shapes = Vec::new();
+        let mut shape = Vec::new();
+        creator.interpret(&mut shape, &mut shapes);
+        shapes.sort();
+        let mut res: Vec<_> = vec![
+            [5, 5, 3, 0],
+            [5, 5, 2, 1],
+            [5, 5, 1, 2],
+            [5, 5, 0, 3],
+            [5, 4, 4, 0],
+            [5, 4, 3, 1],
+            [5, 4, 2, 2],
+            [5, 4, 1, 3],
+            [5, 4, 0, 4],
+            [5, 3, 4, 1],
+            [5, 3, 3, 2],
+            [5, 3, 2, 3],
+            [5, 3, 1, 4],
+            [5, 2, 4, 2],
+            [5, 2, 3, 3],
+            [5, 2, 2, 4],
+            [5, 1, 4, 3],
+            [5, 1, 3, 4],
+            [5, 0, 4, 4],
+        ];
+        res.sort();
         assert_eq!(shapes, res);
     }
 }

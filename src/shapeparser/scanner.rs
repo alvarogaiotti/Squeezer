@@ -117,7 +117,7 @@ impl std::fmt::Display for ScanningShapeError {
             f,
             "{}",
             match *self {
-                ScanningShapeError::UnknownChar(char) => format!("unknown char {char}"),
+                ScanningShapeError::UnknownChar(char) => format!("unknown char: {char}"),
                 ScanningShapeError::SuitTooLong(num) => format!("suit is too long: {num}"),
             }
         )
@@ -125,3 +125,45 @@ impl std::fmt::Display for ScanningShapeError {
 }
 
 impl std::error::Error for ScanningShapeError {}
+
+#[cfg(test)]
+mod test {
+    macro_rules! success_tests {
+        ($($name:ident:$test_case:literal),*) => {
+            $(
+            #[test]
+            fn $name() {
+                let scanner = Scanner::from($test_case);
+                scanner.scan_tokens().unwrap();
+            }
+            )*
+        };
+    }
+
+    macro_rules! fail_test {
+        ($($name:ident:$test_case:literal$(=$panic_message:literal)?),*) => {
+            $(
+            #[test]
+            #[should_panic$((expected=$panic_message))?]
+            fn $name() {
+                Scanner::from($test_case).scan_tokens().unwrap();
+            }
+            )*
+        };
+    }
+
+    use super::Scanner;
+    success_tests!(correct_4333:"4333",
+        correct_5332:"5332",
+        correct_5431:"5431",
+        correct_3154:"3154",
+        correct_a154:"A154",
+        correct_54312:"(5431)2",
+        correct_strange:"55-4-4-"
+    );
+    fail_test!(wrong_4e34:"4e34"="SuitTooLong",
+        wrong_qm332:"?332"="UnknownChar",
+        wrong_74dl1:"74$1"="UnknownChar",
+        wrong_f154:"F154"="SuitTooLong"
+    );
+}

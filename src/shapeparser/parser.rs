@@ -191,7 +191,7 @@ impl std::fmt::Display for ParsingShapeError {
                 ParsingShapeError::ShapeTooShort => String::from("shape has less than 13 cards"),
                 ParsingShapeError::NestedScope => String::from("nested grouping not supported"),
                 ParsingShapeError::MalformedGroup =>
-                    String::from("group must contain at least two element"),
+                    String::from("group must contain at least two elements"),
             }
         )
     }
@@ -222,4 +222,61 @@ impl std::fmt::Display for Modifier {
             }
         )
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! success_tests {
+        ($($name:ident:$test_case:literal),*) => {
+            $(
+            #[test]
+            fn $name() {
+                Parser::parse_pattern($test_case).unwrap();
+            }
+            )*
+        };
+    }
+
+    macro_rules! fail_test {
+        ($($name:ident:$test_case:literal$(=$panic_message:literal)?),*) => {
+            $(
+            #[test]
+            #[should_panic$((expected=$panic_message))?]
+            fn $name() {
+                Parser::parse_pattern($test_case).unwrap();
+            }
+            )*
+        };
+    }
+
+    success_tests!(
+        correct_plain:"4333",
+        correct_group:"(54)31",
+        correct_two_groups:"(54)(31)",
+        correct_joker:"x424",
+        correct_two_jokers:"x42x",
+        correct_quantifiers:"2+424-",
+        correct_more_quantifiers:"1+2+24-",
+        correct_complex:"(x4)(3+2)"
+    );
+
+    // ParsingShapeError::UnmatchParenthesis
+    // ParsingShapeError::OrphanModifier
+    // ParsingShapeError::ShapeTooLong
+    // ParsingShapeError::ShapeTooShort
+    // ParsingShapeError::NestedScope
+    // ParsingShapeError::MalformedGroup
+    fail_test!(
+        wrong_open_parens:"(4333"="UnmatchParenthesis",
+        wrong_start_closed_parens:"4)333"="UnmatchParenthesis",
+        wrong_orphan_mod:"43++3"="OrphanModifier",
+        wrong_orphan_mod_start:"-4334"="OrphanModifier",
+        wrong_shape_too_long:"5(503)3"="ShapeTooLong",
+        wrong_nested_scope:"(3(34))3"="NestedScope",
+        wrong_nested_scope_unclosed:"(3(34)3"="NestedScope",
+        wrong_malformed_group:"(4)333"="MalformedGroup",
+        wrong_shape_too_short:"442"="ShapeTooShort"
+    );
 }
