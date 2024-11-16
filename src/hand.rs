@@ -398,90 +398,24 @@ impl HandTypeBuilder {
 
         match suit {
             Suit::Spades => {
-                self.add_shape("5xxx").unwrap();
-                self.remove_shape("x(6xx)").unwrap();
-                self.remove_shape("x(8xx)").unwrap();
-                self.add_shape("6xxx").unwrap();
-                self.remove_shape("x(7xx)").unwrap();
-                self.add_shape("7xxx").unwrap();
-                self.add_shape("8xxx").unwrap();
-                self.add_shape("9xxx").unwrap();
-                self.add_shape("x(300)").unwrap();
-                self.add_shape("x(111)").unwrap();
-                self.add_shape("x(210)").unwrap();
-                self.add_shape("x(110)").unwrap();
-                self.add_shape("x(002)").unwrap();
-                self.add_shape("x(100)").unwrap();
-                self.add_shape("x000").unwrap();
+                self.add_shape("55-4-4-").unwrap();
+                self.add_shape("66-5-5").unwrap();
+                self.add_shape("7+xxx").unwrap();
             }
             Suit::Hearts => {
-                self.add_shape("x5xx").unwrap();
-                self.add_shape("x6xx").unwrap();
-                self.remove_shape("6x(xx)").unwrap();
-                self.remove_shape("xx(6x)").unwrap();
-                self.remove_shape("7x(xx)").unwrap();
-                self.remove_shape("xx(7x)").unwrap();
-                self.remove_shape("8x(xx)").unwrap();
-                self.remove_shape("xx(8x)").unwrap();
-                self.add_shape("x7xx").unwrap();
-                self.add_shape("x8xx").unwrap();
-                self.add_shape("x9xx").unwrap();
-                self.add_shape("0x(30)").unwrap();
-                self.add_shape("3x(00)").unwrap();
-                self.add_shape("2x(01)").unwrap();
-                self.add_shape("0x(21)").unwrap();
-                self.add_shape("1x(20)").unwrap();
-                self.add_shape("1x(11)").unwrap();
-                self.add_shape("0x(02)").unwrap();
-                self.add_shape("2x(00)").unwrap();
-                self.add_shape("0x(11)").unwrap();
-                self.add_shape("1x(10)").unwrap();
-                self.add_shape("1x(00)").unwrap();
-                self.add_shape("0x(01)").unwrap();
-                self.add_shape("0x00").unwrap();
+                self.add_shape("4-55-5-").unwrap();
+                self.add_shape("5-65-5-").unwrap();
+                self.add_shape("x7+xx").unwrap();
             }
             Suit::Diamonds => {
-                self.add_shape("xx5x").unwrap();
-                self.remove_shape("(xx)x6").unwrap();
-                self.add_shape("xx6x").unwrap();
-                self.remove_shape("(6x)xx").unwrap();
-                self.remove_shape("(7x)xx").unwrap();
-                self.remove_shape("xxx7").unwrap();
-                self.remove_shape("(8x)xx").unwrap();
-                self.remove_shape("xxx8").unwrap();
-                self.add_shape("xx7x").unwrap();
-                self.add_shape("xx8x").unwrap();
-                self.add_shape("xx9x").unwrap();
-                self.add_shape("(30)x0").unwrap();
-                self.add_shape("(0x)x3").unwrap();
-                self.add_shape("(01)x2").unwrap();
-                self.add_shape("(21)x0").unwrap();
-                self.add_shape("(20)x1").unwrap();
-                self.add_shape("11x1").unwrap();
-                self.add_shape("(10)x1").unwrap();
-                self.add_shape("11x0").unwrap();
-                self.add_shape("(02)x0").unwrap();
-                self.add_shape("(00)x2").unwrap();
-                self.add_shape("(00)x1").unwrap();
-                self.add_shape("(01)x0").unwrap();
-                self.add_shape("00x0").unwrap();
+                self.add_shape("4-4-55-").unwrap();
+                self.add_shape("5-5-66-").unwrap();
+                self.add_shape("xx7+x").unwrap();
             }
             Suit::Clubs => {
-                self.add_shape("xxx5").unwrap();
-                self.add_shape("xxx6").unwrap();
-                self.remove_shape("(xx6)x").unwrap();
-                self.remove_shape("(7xx)x").unwrap();
-                self.remove_shape("(8xx)x").unwrap();
-                self.add_shape("xxx7").unwrap();
-                self.add_shape("xxx8").unwrap();
-                self.add_shape("xxx9").unwrap();
-                self.add_shape("(300)x").unwrap();
-                self.add_shape("(012)x").unwrap();
-                self.add_shape("111x").unwrap();
-                self.add_shape("(101)x").unwrap();
-                self.add_shape("(020)x").unwrap();
-                self.add_shape("(001)x").unwrap();
-                self.add_shape("000x").unwrap();
+                self.add_shape("4-4-4-5").unwrap();
+                self.add_shape("5-5-5-6").unwrap();
+                self.add_shape("xxx7+").unwrap();
             }
         };
         self
