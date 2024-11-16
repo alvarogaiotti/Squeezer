@@ -15,9 +15,15 @@ pub fn polish_club(hand: Hand) -> bool {
         .unwrap()
         .add_shape("(5332)")
         .unwrap()
-        .remove_shape("(5xx)x")
+        .remove_shape("(5x)(2+2+)")
         .unwrap()
-        .add_shape("(5xxx)")
+        .with_range(11, 14)
+        .build();
+    let unbal_with_clubs = HandTypeBuilder::new()
+        .with_longest(Suit::Clubs)
+        .remove_shape("(4x)x5")
+        .unwrap()
+        .remove_shape("(5-5-5-)6+")
         .unwrap()
         .with_range(11, 14)
         .build();
@@ -26,7 +32,7 @@ pub fn polish_club(hand: Hand) -> bool {
         .unwrap()
         .with_range(18, 37)
         .build();
-    let possible_hands = HandDescriptor::new(vec![weak1n, strong_any]);
+    let possible_hands = HandDescriptor::new(vec![weak1n, strong_any, unbal_with_clubs]);
     /* let hand = hands[seat as usize];
     hand_type.check(&hand) && 10 < hand.hcp() && hand.hcp() < 15
         || hand.clubs().len() == hand.into_iter().map(|x| x.len()).max().unwrap()
@@ -37,21 +43,23 @@ pub fn polish_club(hand: Hand) -> bool {
 }
 
 #[must_use]
+#[allow(clippy::missing_panics_doc)]
 pub fn weak2(hand: Hand) -> bool {
     let w2 = Evaluator::new(&[2, 2, 1, 1, 1]);
     let controls = Evaluator::new(&[2, 1]);
-    let hcp = hand.hcp();
-    (5..=10).contains(&hcp)
-        && hand.clen() <= 4
-        && hand.dlen() <= 4
-        && (hand.slen() == 6
-            && hand.hlen() <= 3
-            && w2.evaluate(hand.as_cards()) > 3
-            && controls.evaluate(hand.as_cards()) < 4
-            || hand.hlen() == 6
-                && hand.slen() <= 3
+
+    let wk2 = HandTypeBuilder::new()
+        .add_shape("(63-)4-4-")
+        .unwrap()
+        .with_range(5, 10)
+        .build();
+    wk2.check(hand)
+        && ((hand.slen() == 6
+            && w2.evaluate(hand.spades()) > 3
+            && controls.evaluate(hand.as_cards()) < 4)
+            || (hand.hlen() == 6
                 && w2.evaluate(hand.hearts()) > 3
-                && controls.evaluate(hand.as_cards()) < 4)
+                && controls.evaluate(hand.as_cards()) < 4))
 }
 
 #[must_use]
@@ -104,7 +112,7 @@ pub fn zar_points(hand: Hand) -> u8 {
 
 #[must_use]
 #[allow(clippy::missing_panics_doc)]
-pub fn dealer_of_3nt_opening(seat: Option<Seat>) -> impl Dealer {
+pub fn dealer_of_lavazza_3nt_opening(seat: Option<Seat>) -> impl Dealer {
     let mut builder = DealerBuilder::new();
     builder.with_function(Box::new(move |hands: &Hands| {
         let hand_type = HandTypeBuilder::new()
