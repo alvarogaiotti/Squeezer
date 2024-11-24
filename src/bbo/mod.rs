@@ -49,6 +49,7 @@ impl NetworkError for ureq::Error {
     }
 }
 
+#[allow(unused_macros)]
 macro_rules! extract_url_ureq {
     ($e:expr) => {
         match $e {
@@ -82,6 +83,8 @@ impl From<BboErrorKind<ureq::Error>> for BboError<ureq::Error> {
 }
 
 impl BlockingBBOClient {
+    #[inline]
+    #[must_use]
     pub fn new(username: String, password: String) -> Self {
         let client = Agent::new();
         Self {
@@ -109,18 +112,19 @@ impl BlockingBBOClient {
             })?
             .into_string()
             .map_err(|e| ClientError::IoError { source: e })?;
-        info!("{}", text);
+        info!("{text}");
         Ok(text)
     }
 }
 impl LinkExtractor for BlockingBBOClient {
     fn get_links(&self, webpage: &str, vec: &mut Vec<String>) {
+        #[allow(non_snake_case)]
         let REGEX: OnceLock<Regex> = OnceLock::new();
         let regex =
             REGEX.get_or_init(|| Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap());
         vec.extend(
             regex
-                .captures_iter(&webpage)
+                .captures_iter(webpage)
                 .map(|matches| matches.name("lin").unwrap().as_str().to_owned()),
         );
     }
@@ -202,7 +206,7 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
                 "swapped times as start_time is less than end_time:\n\tstart_time: {}\n\t end_time: {}",
                 &start_time, &end_time
             );
-            std::mem::swap(&mut start_time, &mut end_time)
+            std::mem::swap(&mut start_time, &mut end_time);
         }
         info!("trying to get hands links");
         let mut vec: Vec<String> = Vec::new();
@@ -228,8 +232,8 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
         for mut hand in self.hands_links.iter().cloned() {
             hand.insert_str(0, BBOBASE);
 
-            info!("downloading from {}", hand);
-            let lin = match self.client.get(&hand).call() {
+            info!("downloading from {hand}");
+            let _lin = match self.client.get(&hand).call() {
                 Err(e) => {
                     warn!("unable to download from {}.\nSee: {}", &hand, e);
                     queue.push(e);

@@ -33,6 +33,8 @@ impl NetworkError for reqwest::Error {
 }
 
 impl ClientError<reqwest::Error> {
+    #[inline]
+    #[must_use]
     pub fn unknown_error(e: reqwest::Error) -> Self {
         Self::ConnectionError {
             source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
@@ -45,6 +47,7 @@ impl From<BboError<reqwest::Error>> for ClientError<reqwest::Error> {
         Self::ConnectionError { source: value }
     }
 }
+#[allow(unused_macros)]
 macro_rules! extract_url_reqwest {
     ($e:expr) => {
         if let Some(url) = $e.url() {
@@ -76,12 +79,13 @@ impl std::fmt::Display for BboError<reqwest::Error> {
         } else {
             BBOBASE
         };
-        write!(f, "unable to connect to {}", url)
+        write!(f, "unable to connect to {url}")
     }
 }
 
 impl LinkExtractor for AsyncBBOClient {
     fn get_links(&self, webpage: &str, vec: &mut Vec<String>) {
+        #[allow(non_snake_case)]
         let REGEX: OnceLock<Regex> = OnceLock::new();
         let regex =
             REGEX.get_or_init(|| Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap());
@@ -94,6 +98,8 @@ impl LinkExtractor for AsyncBBOClient {
 }
 
 impl AsyncBBOClient {
+    #[inline]
+    #[must_use]
     pub fn new(username: String, password: String) -> Self {
         let client = match Client::builder().cookie_store(true).build() {
             Ok(client) => client,
@@ -110,6 +116,8 @@ impl AsyncBBOClient {
         }
     }
     /// Check login status
+    /// # Errors
+    /// Errors when the site is not reachable
     pub async fn is_logged(&self) -> Result<bool> {
         info!("checking if logged in");
         if self
@@ -117,7 +125,7 @@ impl AsyncBBOClient {
             .get(BBOLOGIN)
             .send()
             .await
-            .map_err(|e| ClientError::unknown_error(e))?
+            .map_err(ClientError::unknown_error)?
             .text()
             .await
             .map_err(|_e| ClientError::IoError {
@@ -191,7 +199,7 @@ impl AsyncBBOClient {
                 "swapped times as start_time is less than end_time:\n\tstart_time: {}\n\t end_time: {}",
                 &start_time, &end_time
             );
-            std::mem::swap(&mut start_time, &mut end_time)
+            std::mem::swap(&mut start_time, &mut end_time);
         }
         let mut vec: Vec<String> = Vec::new();
 
@@ -202,10 +210,10 @@ impl AsyncBBOClient {
             let next_start = start_time - Duration::days(28);
             let _text = self.get_hands_in_interval(start_time, next_start).await?;
             start_time = next_start;
-            self.get_links(&String::new(), &mut vec);
+            self.get_links("", &mut vec);
         }
         let _text = self.get_hands_in_interval(start_time, end_time).await?;
-        self.get_links(&String::new(), &mut vec);
+        self.get_links("", &mut vec);
 
         self.hands_links = vec;
         Ok(())
@@ -235,6 +243,8 @@ impl AsyncBBOClient {
         Ok(text)
     }
 
+    /// # Errors
+    /// Errors when the site is not reachable
     pub async fn download(&self) -> Result<()> {
         for mut hand in self.hands_links.iter().cloned() {
             hand.insert_str(0, BBOBASE);

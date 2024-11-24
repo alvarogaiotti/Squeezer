@@ -30,9 +30,17 @@ pub trait NetworkError: std::error::Error {
 }
 
 pub trait BBOClient<E: NetworkError> {
+    /// # Errors
+    /// Errors when the site is not reachable
     fn is_logged(&self) -> Result<bool, ClientError<E>>;
+    /// # Errors
+    /// Errors when the site is not reachable
     fn login(&self) -> Result<(), ClientError<E>>;
+    /// # Errors
+    /// Errors when the site is not reachable
     fn download(&self) -> Result<(), ClientError<E>>;
+    /// # Errors
+    /// Errors when the site is not reachable
     fn get_in_interval(
         &mut self,
         start_time: OffsetDateTime,
@@ -56,9 +64,9 @@ pub enum BboErrorKind<E: NetworkError> {
 impl<E: NetworkError + 'static> std::error::Error for BboErrorKind<E> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            BboErrorKind::UnknownConnectionError(error) => Some(error),
-            BboErrorKind::DownloadError(error) => Some(error),
-            BboErrorKind::HandsRequestError(error) => Some(error),
+            BboErrorKind::DownloadError(error)
+            | BboErrorKind::UnknownConnectionError(error)
+            | BboErrorKind::HandsRequestError(error) => Some(error),
             BboErrorKind::LoginError => None,
         }
     }
