@@ -97,7 +97,7 @@ impl Scanner {
 
                 Some(character)
             }
-            None => None,
+            _ => None,
         }
     }
 }

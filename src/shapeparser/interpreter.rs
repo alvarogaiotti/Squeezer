@@ -551,7 +551,7 @@ mod test {
             [5, 1, 3, 4],
             [5, 0, 4, 4],
         ];
-        res.sort();
+        res.sort_unstable();
         assert_eq!(shapes, res);
     }
 }
