@@ -39,6 +39,7 @@ type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 /// fine tuned later, for now we discriminate just based on whether we need
 /// all the shapes or just some subset of them.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum Shape {
     Custom(Shapes),
     All,

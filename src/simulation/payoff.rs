@@ -105,9 +105,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
         let solver = DoubleDummySolver::new();
 
         let mut deal_buffer = Vec::with_capacity(solver_array_len);
-        for chunk in &(0..self.no_of_runs)
-            .chunks(solver_array_len / no_of_entries)
-        {
+        for chunk in &(0..self.no_of_runs).chunks(solver_array_len / no_of_entries) {
             let chunk_length = chunk.count();
             for _ in 0..chunk_length {
                 for _ in 0..no_of_entries {
@@ -348,5 +346,28 @@ mod test {
         assert_eq!(750_i32, contract_d.score(11));
         assert_eq!(920_i32, contract_c.score(12));
         assert_eq!(-200, contract_d.score(10));
+    }
+    #[test]
+    fn other_payoff_test() {
+        let contracts = vec![
+            Contract::from_str("4SN", Vulnerable::No).unwrap(),
+            Contract::from_str("3NN", Vulnerable::No).unwrap(),
+            Contract::from_str("6SN", Vulnerable::No).unwrap(),
+        ];
+        let mut builder = DealerBuilder::new();
+        let ht = HandTypeBuilder::new()
+            .with_range(14, 14)
+            .add_shape("3(433)")
+            .unwrap()
+            .add_shape("3(442)")
+            .unwrap()
+            .build();
+        builder
+            .predeal(Seat::South, Cards::from_str("AKQJ2 52 AT83 Q2").unwrap())
+            .with_hand_descriptor(Seat::North, HandDescriptor::new(vec![ht]));
+        let dealer = builder.build().unwrap();
+        let sim = PayoffSimulation::new(10, dealer, contracts, imps);
+        let matrix = sim.run().unwrap();
+        matrix.report();
     }
 }

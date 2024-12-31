@@ -27,7 +27,7 @@ fn wrapping_winner(cards: &mut [Card], trump: Suit) {
     let mut seat = Seat::North;
     let ptr = &mut seat;
     for trick in cards.chunks_exact(4) {
-        trick.iter().cloned().reduce(|winner, card| {
+        trick.iter().copied().reduce(|winner, card| {
             let next_player = ptr.next();
             let winner = winner_no_simd(winner, card, *ptr, next_player, trump);
             *ptr = next_player;

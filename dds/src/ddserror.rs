@@ -1,9 +1,8 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use core::fmt;
-use std::fmt::Debug;
-
+/// Module that defines and provides all the error for this crate.
+/// Re-exports some errors from the DDS library: see <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 use crate::bindings::ddsffi::{
     RETURN_CARD_COUNT, RETURN_CHUNK_SIZE, RETURN_DUPLICATE_CARDS, RETURN_FIRST_WRONG,
     RETURN_MODE_WRONG_HI, RETURN_MODE_WRONG_LO, RETURN_NO_SUIT, RETURN_PBN_FAULT,
@@ -14,12 +13,14 @@ use crate::bindings::ddsffi::{
 };
 use crate::deal::{DDSDealConstructionError, DdsBoardConstructionError};
 use core::ffi::c_int;
-/// Wrapper around the DDS errors. See DDS docs for information about the errors.
+use core::fmt;
+use std::fmt::Debug;
+/// Wrapper around the DDS errors.
+/// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 pub struct DDSError {
     /// Represents what kind of error we got
-    kind: DDSErrorKind,
+    pub kind: DDSErrorKind,
 }
-
 impl Debug for DDSError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -68,10 +69,12 @@ impl fmt::Display for DDSError {
 #[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
 impl std::error::Error for DDSError {}
 
-// FIXME:This should be the actual error type, not DDSError, as right now, from the user
-// perspective, we are not providing information as why the error appenend, unless he prints it.
+/// Enum modelling all the way in which we can fail in the DDS related code.
+/// The vast majority of the variants are provided by DDS directly and handled in Rust for a nicer interface.
+/// Some are custom error regarding transformation from Rust types to the types that DDS uses.
+/// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 #[allow(clippy::exhaustive_enums)]
-enum DDSErrorKind {
+pub enum DDSErrorKind {
     UnknownFault,
     ZeroCards,
     TargetTooHigh,

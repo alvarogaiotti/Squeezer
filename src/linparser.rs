@@ -24,7 +24,6 @@ use std::{
 /// Iterator<Item=char> for parsing it.
 /// You'll interact very rarely with this struct directly.
 /// Instead, you'll use the [`LinDeal`] struct and its `from_str` method.
-
 struct LinParser<T: IntoIterator<Item = char>> {
     stream: T,
 }
@@ -39,7 +38,6 @@ struct LinParser<T: IntoIterator<Item = char>> {
 ///
 /// This is a 'low level' struct, and you'll interact with it very rarely.
 /// Instead, you'll use the `LinDeal` struct and its methods.
-
 pub struct ParsedLin {
     players: String,
     hands: String,

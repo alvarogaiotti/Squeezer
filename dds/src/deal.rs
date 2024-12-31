@@ -24,10 +24,15 @@ use core::{
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct Boards {
+    /// Number of boards to be analyzed: capped at [`MAXNOOFBOARDS`]
     pub no_of_boards: ::std::os::raw::c_int,
+    /// Deals provided: capped at [`MAXNOOFBOARDS`]
     pub deals: [DdsDeal; 200usize],
+    /// Target for solution: capped at [`MAXNOOFBOARDS`]
     pub target: [::std::os::raw::c_int; 200usize],
+    /// Solution describes the output we want for solution: capped at [`MAXNOOFBOARDS`]
     pub solutions: [::std::os::raw::c_int; 200usize],
+    /// Strategy for the solution: capped at [`MAXNOOFBOARDS`]
     pub mode: [::std::os::raw::c_int; 200usize],
 }
 
@@ -106,7 +111,7 @@ impl DdsRank {
     #[inline]
     #[must_use]
     /// Creates a new [`DdsRank`]. Returns None if the rank is not valid.
-    /// Valid ranks are bit from 2 to 143
+    /// Valid ranks are bit from 2 to 14.
     pub fn new(rank: i32) -> Option<Self> {
         if (rank & 0b0_0011_1111_1111_1110).count_ones() == 1 {
             Some(Self(rank))
@@ -168,7 +173,7 @@ pub enum DdsHandEncoding {
 }
 
 /// Macro for implementing [`TryFrom`] from integer to [`DdsHandEncoding`]
-macro_rules! impl_tryfrom_dds_hand {
+macro_rules! impl_tryfrom_dds_hand_encoding {
     ($($from:ty),*) => {
         $(impl core::convert::TryFrom<$from> for DdsHandEncoding {
             type Error = DDSDealConstructionError;
@@ -180,7 +185,7 @@ macro_rules! impl_tryfrom_dds_hand {
                     1 => Ok(Self::East),
                     2 => Ok(Self::South),
                     3 => Ok(Self::West),
-                    _ => Err(Self::Error::FirstUnconvertable(value.try_into().unwrap_or(-1i32))),
+                    _ => Err(Self::Error::SeatUnconvertable(value.try_into().unwrap_or(-1i32))),
                 }
             }
         })*
@@ -197,11 +202,11 @@ impl TryFrom<i32> for DdsHandEncoding {
             1i32 => Ok(Self::East),
             2i32 => Ok(Self::South),
             3i32 => Ok(Self::West),
-            _ => Err(Self::Error::FirstUnconvertable(value)),
+            _ => Err(Self::Error::SeatUnconvertable(value)),
         }
     }
 }
-impl_tryfrom_dds_hand!(u8, u16, u32, usize, i8, i16, isize);
+impl_tryfrom_dds_hand_encoding!(u8, u16, u32, usize, i8, i16, isize);
 
 /// This is how DDS represents a "binary deal":
 /// a array of arrays of `u32`, basing the order on the [`DdsHandEncoding`]
@@ -262,7 +267,7 @@ pub struct DDSDealBuilder {
 
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, Hash)]
-/// Possible error we can encounter while constructing an error.
+/// Possible error we can encounter while constructing a [`DdsDeal`]
 /// The errors are quite self explanatory.
 pub enum DDSDealConstructionError {
     DuplicatedCard(c_int, c_int),
@@ -271,7 +276,7 @@ pub enum DDSDealConstructionError {
     CardsNotProvided,
     TrumpNotDeclared,
     FirstNotDeclared,
-    FirstUnconvertable(i32),
+    SeatUnconvertable(i32),
     TrumpUnconvertable(i32),
     IncorrectSequence(SeqError),
 }
@@ -302,10 +307,10 @@ impl Display for DDSDealConstructionError {
             Self::CardsNotProvided => write!(formatter, "deal not loaded"),
             Self::FirstNotDeclared => write!(formatter, "leader not declared"),
             Self::TrumpNotDeclared => write!(formatter, "trump not declared"),
-            Self::FirstUnconvertable(value) => {
+            Self::SeatUnconvertable(value) => {
                 write!(
                     formatter,
-                    "first cannot be converted from the value you provided: {value}",
+                    "seat cannot be converted from the value you provided: {value}",
                 )
             }
             Self::TrumpUnconvertable(value) => {
@@ -486,7 +491,7 @@ macro_rules! check_inputs_are_within_bounds {
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
-pub(crate) enum DdsBoardConstructionError {
+pub enum DdsBoardConstructionError {
     TooManyBoards,
     ParamLengthTooShort,
     ZeroLength,
@@ -509,15 +514,16 @@ impl std::error::Error for DdsBoardConstructionError {}
 
 impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
-    /// Creates a new [`Boards`] struct
-    /// Number of deals get capped at 200
+    /// Creates a new [`Boards`] struct, with just one solution strategy, providing
+    /// a single [`Target`], [`Solutions`] and [`Mode`], reused by all the solutions.
+    /// Number of deals get capped at [`dds::MAXNOOFBOARDS`].
     ///
     /// # Errors
     ///
     /// Will errror when:
-    /// - The number of deals asked is 0
-    /// - The number of deals asked is over [`dds::MAXNOOFBOARDS`]
-    /// - The length of all the parameters are less then the number of boards provided
+    /// - The number of deals asked for is 0
+    /// - The number of deals asked for is over [`dds::MAXNOOFBOARDS`]
+    /// - The length of one of the parameter passed is less then the number of boards provided
     pub fn new_uniform<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D],
@@ -563,15 +569,15 @@ impl Boards {
         clippy::unwrap_used,
         clippy::missing_panics_doc
     )]
-    /// Creates a new [`Boards`] struct
-    /// Number of deals get capped at 200
+    /// Creates a new [`Boards`] struct, with an array of [`Target`], [`Solutions`] and [`Mode`],
+    /// meaning that you can personalize the solution strategy for every deal passed to the solver.
     ///
     /// # Errors
     ///
     /// Will errror when:
-    /// - The number of deals asked is 0
-    /// - The number of deals asked is over [`dds::MAXNOOFBOARDS`]
-    /// - The length of all the parameters are less then the number of boards provided
+    /// - The number of deals asked for is 0
+    /// - The number of deals asked for is over [`dds::MAXNOOFBOARDS`]
+    /// - The length of one of the parameter passed is less then the number of boards provided
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
         deals: &[D],
