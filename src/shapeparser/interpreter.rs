@@ -10,6 +10,135 @@ use std::{cmp::Ordering, collections::VecDeque, ops::ControlFlow};
 /// Represents a single shape description.
 pub type ShapePattern = [u8; 4];
 
+#[derive(Debug, Clone)]
+pub struct CandidateShapePattern {
+    pattern: ShapePattern,
+    cursor: u8,
+}
+
+impl PartialEq for CandidateShapePattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.pattern.eq(&other.pattern)
+    }
+}
+impl Eq for CandidateShapePattern {}
+
+impl PartialOrd for CandidateShapePattern {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for CandidateShapePattern {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.pattern.cmp(&other.pattern)
+    }
+}
+
+impl CandidateShapePattern {
+    #[must_use]
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            pattern: [0; 4],
+            cursor: 0,
+        }
+    }
+
+    /// Pushes a new element into the array.
+    /// # Errors
+    /// Returns a `InterpretationsShapeError` if we try to push more than 4 elements into the array.
+    #[inline]
+    pub fn push(&mut self, value: u8) -> Result<(), InterpretationShapeError> {
+        if self.cursor < 4 {
+            self.pattern[self.cursor as usize] = value;
+            self.cursor += 1;
+            Ok(())
+        } else {
+            Err(InterpretationShapeError::TooMany)
+        }
+    }
+
+    #[inline]
+    pub fn pop(&mut self) -> Option<u8> {
+        if self.cursor > 0 {
+            self.cursor -= 1;
+            Some(self.pattern[self.cursor as usize])
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn len(&self) -> u8 {
+        self.cursor
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.cursor == 0
+    }
+
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &u8> {
+        self.pattern[..self.cursor as usize].iter()
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.pattern.to_vec()
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn as_slice(&self) -> &[u8] {
+        &self.pattern
+    }
+}
+
+impl AsRef<[u8]> for CandidateShapePattern {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl Default for CandidateShapePattern {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl From<Vec<u8>> for CandidateShapePattern {
+    fn from(vec: Vec<u8>) -> Self {
+        let mut pattern = Self::new();
+        for &value in vec.iter().take(4) {
+            pattern
+                .push(value)
+                .expect("error occurred in shape interpretation: tried to push a 5th element");
+        }
+        pattern
+    }
+}
+
+impl From<CandidateShapePattern> for ShapePattern {
+    fn from(value: CandidateShapePattern) -> Self {
+        value.pattern
+    }
+}
+
+impl From<ShapePattern> for CandidateShapePattern {
+    fn from(pattern: ShapePattern) -> Self {
+        Self { pattern, cursor: 0 }
+    }
+}
+impl From<CandidateShapePattern> for Vec<u8> {
+    fn from(pattern: CandidateShapePattern) -> Self {
+        pattern.to_vec()
+    }
+}
+
 /// Represents the creator of shapes.
 #[derive(Debug)]
 pub(crate) struct ShapeCreator {
@@ -163,10 +292,10 @@ impl From<InterpretationShapeError> for CreationShapeError {
 
 impl ShapeCreator {
     /// Builds a shape based on the provided pattern.
-    pub fn build_shape(pattern: &str) -> Result<Vec<Vec<u8>>, CreationShapeError> {
+    pub fn build_shape(pattern: &str) -> Result<Vec<CandidateShapePattern>, CreationShapeError> {
         let parsed_input = Parser::parse_pattern(pattern)?;
         let mut shape_creator = ShapeCreator::try_from(parsed_input)?;
-        let mut shape = Vec::new();
+        let mut shape = CandidateShapePattern::new();
         let mut shapes = Vec::new();
         shape_creator.interpret(&mut shape, &mut shapes);
         Ok(shapes)
@@ -175,8 +304,8 @@ impl ShapeCreator {
     /// Recursive helper function to add elements to the shape based on the provided length and cap values.
     fn recur_adder_helper(
         &mut self,
-        shape: &mut Vec<u8>,
-        shapes: &mut Vec<Vec<u8>>,
+        shape: &mut CandidateShapePattern,
+        shapes: &mut Vec<CandidateShapePattern>,
         length: u8,
         cap: Option<u8>,
     ) {
@@ -189,7 +318,9 @@ impl ShapeCreator {
             // If we capped the length of an AtMost element, we stop
             if length >= cap {
                 // We push the length we have
-                shape.push(length);
+                shape.push(length).expect(
+                    "Error occurred while interpreting shape: tried to push the 5th element",
+                );
                 self.allocated_slots += length;
                 // We go ahead with the construction of the rest of the shape.
                 self.interpret(shape, shapes);
@@ -208,14 +339,20 @@ impl ShapeCreator {
         // push the shape, interpret the rest.
         // pop the shape, remove the slots allocated and go on.
         self.allocated_slots += length;
-        shape.push(length);
+        shape
+            .push(length)
+            .expect("Error occurred while interpreting shape: tried to push the 5th element");
         self.interpret(shape, shapes);
         shape.pop();
         self.allocated_slots -= length;
     }
 
     /// Interprets the current pattern and constructs shapes accordingly.
-    fn interpret(&mut self, shape: &mut Vec<u8>, shapes: &mut Vec<Vec<u8>>) {
+    fn interpret(
+        &mut self,
+        shape: &mut CandidateShapePattern,
+        shapes: &mut Vec<CandidateShapePattern>,
+    ) {
         // If I have still pattern in the queue...
         if let Some(pattern) = self.patterns.pop_front() {
             // If we are dealing with the last pattern
@@ -224,7 +361,9 @@ impl ShapeCreator {
                 if let Some(candidate) = candidate {
                     // If so, we push the shape to the shapes vector
                     let mut clone = shape.clone();
-                    clone.push(candidate);
+                    clone
+                        .push(candidate)
+                        .expect("errro while interpreting shape: tried to push the 5th element");
                     shapes.push(clone);
                 }
                 // Then, we always repush the pattern to the front and return
@@ -244,8 +383,8 @@ impl ShapeCreator {
     fn handle_action_based_on_pattern(
         &mut self,
         pattern: &Pattern,
-        shape: &mut Vec<u8>,
-        shapes: &mut Vec<Vec<u8>>,
+        shape: &mut CandidateShapePattern,
+        shapes: &mut Vec<CandidateShapePattern>,
     ) {
         match *pattern {
             // If the pattern is an Exact suit length,
@@ -257,7 +396,9 @@ impl ShapeCreator {
             }) => {
                 if self.allocated_slots + length < 14 {
                     self.allocated_slots += length;
-                    shape.push(length);
+                    shape
+                        .push(length)
+                        .expect("Error while interpreting shape: tried to push the 5th element");
                     self.interpret(shape, shapes);
                     self.allocated_slots -= length;
                     let _popped = shape.pop();
@@ -291,8 +432,8 @@ impl ShapeCreator {
     fn handle_group_pattern(
         &mut self,
         lengths: &[Length],
-        shape: &mut Vec<u8>,
-        shapes: &mut Vec<Vec<u8>>,
+        shape: &mut CandidateShapePattern,
+        shapes: &mut Vec<CandidateShapePattern>,
     ) {
         let group_len = lengths.len();
         for permutation in lengths.iter().permutations(group_len) {
@@ -309,7 +450,10 @@ impl ShapeCreator {
     }
 
     /// Short circuits if the last element closes the shape and adds it to the list of shapes.
-    fn next_is_last_pattern(shape: &mut [u8], pattern: &Pattern) -> ControlFlow<Option<u8>> {
+    fn next_is_last_pattern(
+        shape: &mut CandidateShapePattern,
+        pattern: &Pattern,
+    ) -> ControlFlow<Option<u8>> {
         if shape.len() == 3 {
             let candidate = 13u8.checked_sub(shape.iter().sum::<u8>());
             // If we have not owerlowed...
@@ -377,6 +521,10 @@ fn pattern_length_adder(
 #[cfg(test)]
 mod test {
 
+    use itertools::Itertools;
+
+    use crate::CandidateShapePattern;
+
     use super::ShapeCreator;
     use super::{Length, Modifier, Pattern};
 
@@ -404,35 +552,38 @@ mod test {
         ];
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
-        let mut shape = Vec::new();
+        let mut shape = CandidateShapePattern::new();
         creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
-        let mut res = vec![
-            vec![3, 6, 0, 4],
-            vec![3, 6, 4, 0],
-            vec![3, 4, 6, 0],
-            vec![3, 4, 0, 6],
-            vec![3, 0, 4, 6],
-            vec![3, 0, 6, 4],
-            vec![3, 5, 1, 4],
-            vec![3, 5, 4, 1],
-            vec![3, 4, 5, 1],
-            vec![3, 4, 1, 5],
-            vec![3, 1, 4, 5],
-            vec![3, 1, 5, 4],
-            vec![3, 4, 2, 4],
-            vec![3, 4, 2, 4],
-            vec![3, 4, 4, 2],
-            vec![3, 4, 4, 2],
-            vec![3, 2, 4, 4],
-            vec![3, 2, 4, 4],
-            vec![3, 3, 3, 4],
-            vec![3, 3, 3, 4],
-            vec![3, 3, 4, 3],
-            vec![3, 3, 4, 3],
-            vec![3, 4, 3, 3],
-            vec![3, 4, 3, 3],
-        ];
+        let mut res = [
+            [3, 6, 0, 4],
+            [3, 6, 4, 0],
+            [3, 4, 6, 0],
+            [3, 4, 0, 6],
+            [3, 0, 4, 6],
+            [3, 0, 6, 4],
+            [3, 5, 1, 4],
+            [3, 5, 4, 1],
+            [3, 4, 5, 1],
+            [3, 4, 1, 5],
+            [3, 1, 4, 5],
+            [3, 1, 5, 4],
+            [3, 4, 2, 4],
+            [3, 4, 2, 4],
+            [3, 4, 4, 2],
+            [3, 4, 4, 2],
+            [3, 2, 4, 4],
+            [3, 2, 4, 4],
+            [3, 3, 3, 4],
+            [3, 3, 3, 4],
+            [3, 3, 4, 3],
+            [3, 3, 4, 3],
+            [3, 4, 3, 3],
+            [3, 4, 3, 3],
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect_vec();
         res.sort();
         assert_eq!(shapes, res);
     }
@@ -460,7 +611,7 @@ mod test {
         ])];
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
-        let mut shape = Vec::new();
+        let mut shape = CandidateShapePattern::new();
         creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
         let mut res: Vec<Vec<u8>> = Vec::new();
@@ -468,6 +619,7 @@ mod test {
         res.extend(vec![3, 5, 1, 4].into_iter().permutations(4));
         res.extend(vec![3, 4, 2, 4].into_iter().permutations(4));
         res.extend(vec![3, 3, 3, 4].into_iter().permutations(4));
+        let mut res: Vec<CandidateShapePattern> = res.into_iter().map(Into::into).collect_vec();
         res.sort();
         assert_eq!(shapes, res);
     }
@@ -498,10 +650,13 @@ mod test {
         ];
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
-        let mut shape = Vec::new();
+        let mut shape = CandidateShapePattern::new();
         creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
-        let mut res: Vec<_> = vec![[3, 2, 7, 1], [3, 2, 1, 7], [2, 3, 1, 7], [2, 3, 7, 1]];
+        let mut res: Vec<_> = [[3, 2, 7, 1], [3, 2, 1, 7], [2, 3, 1, 7], [2, 3, 7, 1]]
+            .into_iter()
+            .map(Into::into)
+            .collect_vec();
         res.sort_unstable();
         assert_eq!(shapes, res);
     }
@@ -527,10 +682,10 @@ mod test {
         ];
         let mut creator = ShapeCreator::try_from(patterns).unwrap();
         let mut shapes = Vec::new();
-        let mut shape = Vec::new();
+        let mut shape = CandidateShapePattern::new();
         creator.interpret(&mut shape, &mut shapes);
         shapes.sort();
-        let mut res: Vec<_> = vec![
+        let mut res = [
             [5, 5, 3, 0],
             [5, 5, 2, 1],
             [5, 5, 1, 2],
@@ -550,7 +705,10 @@ mod test {
             [5, 1, 4, 3],
             [5, 1, 3, 4],
             [5, 0, 4, 4],
-        ];
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect_vec();
         res.sort_unstable();
         assert_eq!(shapes, res);
     }
