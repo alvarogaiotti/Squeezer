@@ -6,7 +6,7 @@ use std::{cell::Cell, num::NonZeroU8};
 use crate::prelude::*;
 
 /// Type of the function that checks if a Deal is to be accepted or not
-pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send + Sync)>;
+pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send)>;
 
 /// Structure that holds 4 `Hand`s of 13 cards
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -404,11 +404,11 @@ pub struct DealerBuilder {
     accept: AcceptFunction,
 
     /// Descriptor of the hands we would like, e.g.
-    hand_descriptors: HashMap<Seat, HandDescriptor>,
+    hand_descriptors: [Option<HandDescriptor>; NUMBER_OF_HANDS],
     // FIX: Use an array for that, and don't use hands but
     // Cards, so we can predeal less than 13 cards if we want to.
     /// Hands to predeal.
-    predealt_hands: HashMap<Seat, Cards>,
+    predealt_hands: [Option<Cards>; NUMBER_OF_HANDS],
     vulnerability: Vulnerability,
 }
 
@@ -424,8 +424,8 @@ impl DealerBuilder {
     pub fn new() -> Self {
         Self {
             accept: Box::new(|_: &Hands| true),
-            hand_descriptors: HashMap::new(),
-            predealt_hands: HashMap::new(),
+            hand_descriptors: [None, None, None, None],
+            predealt_hands: [None; 4],
             vulnerability: Vulnerability::default(),
         }
     }
@@ -434,7 +434,7 @@ impl DealerBuilder {
     /// is dealt twice, but will fail in the building phase.
     #[inline]
     pub fn predeal(&mut self, seat: Seat, hand: Cards) -> &mut Self {
-        self.predealt_hands.insert(seat, hand);
+        self.predealt_hands[seat as usize] = Some(hand);
         self
     }
 
@@ -456,7 +456,7 @@ impl DealerBuilder {
     /// let dealer = builder.build().unwrap();
     /// ```
     #[inline]
-    pub fn with_function<T: Fn(&Hands) -> bool + Send + Sync + 'static>(
+    pub fn with_function<T: Fn(&Hands) -> bool + Send + 'static>(
         &mut self,
         accept_function: T,
     ) -> &mut Self {
@@ -472,7 +472,7 @@ impl DealerBuilder {
         seat: Seat,
         hand_description: HandDescriptor,
     ) -> &mut Self {
-        self.hand_descriptors.insert(seat, hand_description);
+        self.hand_descriptors[seat as usize] = Some(hand_description);
         self
     }
 
@@ -489,14 +489,14 @@ impl DealerBuilder {
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let mut deck = Cards::ALL;
-        for &cards in self.predealt_hands.values() {
+        for cards in self.predealt_hands.iter().flatten() {
             if !cards.difference(deck).is_empty() {
                 return Err(DealerError::new(
                     format!("card dealt twice: {}", cards.difference(deck)).as_str(),
                 ));
             }
 
-            deck = deck.difference(cards);
+            deck = deck.difference(*cards);
         }
         Ok(StandardDealer {
             predeal: self.predealt_hands,
@@ -525,10 +525,10 @@ pub enum BoardNumbering {
 /// You won't interact much with this struct other that call the [`StandardDealer::deal`] method. Use the [`DealerBuilder`] instead to create a [`Dealer`] that
 /// fits your needs.
 pub struct StandardDealer {
-    predeal: HashMap<Seat, Cards>,
+    predeal: [Option<Cards>; NUMBER_OF_HANDS],
     vulnerability: Vulnerability,
     deck_starting_state: Cards,
-    hand_constraints: HashMap<Seat, HandDescriptor>,
+    hand_constraints: [Option<HandDescriptor>; NUMBER_OF_HANDS],
     accept_function: AcceptFunction,
     // needed to print sequentially
     output_as_subsequent: BoardNumbering,
@@ -548,10 +548,10 @@ impl StandardDealer {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            predeal: HashMap::new(),
+            predeal: [None; 4],
             vulnerability: Vulnerability::default(),
             deck_starting_state: Cards::ALL,
-            hand_constraints: HashMap::new(),
+            hand_constraints: [None, None, None, None],
             accept_function: Box::new(|_: &Hands| true),
             output_as_subsequent: BoardNumbering::OutputAlwaysOne,
         }
@@ -574,7 +574,7 @@ impl Dealer for StandardDealer {
         while {
             let mut deck = self.deck_starting_state;
             for seat in Seat::iter() {
-                if let Some(&cards) = self.predeal.get(&seat) {
+                if let Some(&Some(cards)) = self.predeal.get(seat as usize) {
                     let predeal_len = cards.len();
                     if predeal_len < 13 {
                         let Some(cards_to_add) = deck.pick(13 - predeal_len as usize) else {
@@ -618,13 +618,16 @@ impl Dealer for StandardDealer {
 impl StandardDealer {
     /// Checks if the [`Deal`] to be outputted matches the constraints we set.
     fn constraints_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
-        if self.hand_constraints.is_empty() {
-            true
-        } else {
-            self.hand_constraints
-                .iter()
-                .all(|(seat, hand_constraint)| hand_constraint.check(hands[*seat as usize]))
-        }
+        self.hand_constraints
+            .iter()
+            .enumerate()
+            .all(|(seat, hand_constraint)| {
+                if let Some(hand_constraint) = hand_constraint {
+                    hand_constraint.check(hands[seat])
+                } else {
+                    true
+                }
+            })
     }
 }
 

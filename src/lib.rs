@@ -160,7 +160,6 @@ pub mod prelude {
 
     pub(crate) use std::{
         array::IntoIter,
-        collections::HashMap,
         error::Error,
         fmt,
         hash::{Hash, Hasher},
