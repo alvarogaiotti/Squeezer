@@ -5,14 +5,21 @@ use crate::prelude::*;
 use crate::shapeparser::{ShapeCreator, ShapePattern};
 use bitvec::{bitarr, BitArr};
 
-const R: u64 = 14;
-const M: u64 = 1379;
 #[allow(clippy::cast_possible_truncation)]
-const SHAPE_TABLE_BUCKETS: usize = M as usize;
+const SHAPE_TABLE_BUCKETS: usize = ShapeHasher::M as usize;
 
 #[derive(Default)]
 struct ShapeHasher {
     state: u64,
+}
+
+impl ShapeHasher {
+    const fn new() -> Self {
+        Self { state: 0 }
+    }
+
+    const R: u64 = 14;
+    const M: u64 = 1379;
 }
 
 impl std::hash::Hasher for ShapeHasher {
@@ -21,7 +28,7 @@ impl std::hash::Hasher for ShapeHasher {
         // when hashing multiple shapes with the same hasher.
         self.state = 0;
         for &byte in bytes {
-            self.state = (R * self.state + u64::from(byte)) % M;
+            self.state = (Self::R * self.state + u64::from(byte)) % Self::M;
         }
     }
 
@@ -45,140 +52,6 @@ pub enum Shape {
     All,
 }
 
-#[derive(Default, Hash, PartialEq, Eq, Copy, Clone)]
-pub struct SmallShape(u128);
-
-impl SmallShape {
-    const _3424: u128 = 1;
-    const _4324: u128 = 1 << 1;
-    const _2443: u128 = 1 << 2;
-    const _2344: u128 = 1 << 3;
-    const _4234: u128 = 1 << 4;
-    const _3244: u128 = 1 << 5;
-    const _4423: u128 = 1 << 6;
-    const _3442: u128 = 1 << 7;
-    const _4243: u128 = 1 << 8;
-    const _4432: u128 = 1 << 9;
-    const _4342: u128 = 1 << 10;
-    const _2434: u128 = 1 << 11;
-    const _3523: u128 = 1 << 12;
-    const _2353: u128 = 1 << 13;
-    const _5332: u128 = 1 << 14;
-    const _3325: u128 = 1 << 15;
-    const _3253: u128 = 1 << 16;
-    const _2533: u128 = 1 << 17;
-    const _3235: u128 = 1 << 18;
-    const _2335: u128 = 1 << 19;
-    const _5323: u128 = 1 << 20;
-    const _3532: u128 = 1 << 21;
-    const _3352: u128 = 1 << 22;
-    const _5233: u128 = 1 << 23;
-    const _3514: u128 = 1 << 24;
-    const _3145: u128 = 1 << 25;
-    const _5143: u128 = 1 << 26;
-    const _3541: u128 = 1 << 27;
-    const _5341: u128 = 1 << 28;
-    const _1453: u128 = 1 << 29;
-    const _4135: u128 = 1 << 30;
-    const _3415: u128 = 1 << 31;
-    const _3451: u128 = 1 << 32;
-    const _5431: u128 = 1 << 33;
-    const _1354: u128 = 1 << 34;
-    const _4531: u128 = 1 << 35;
-    const _1534: u128 = 1 << 36;
-    const _5413: u128 = 1 << 37;
-    const _4153: u128 = 1 << 38;
-    const _1345: u128 = 1 << 39;
-    const _4513: u128 = 1 << 40;
-    const _5134: u128 = 1 << 41;
-    const _5314: u128 = 1 << 42;
-    const _1435: u128 = 1 << 43;
-    const _1543: u128 = 1 << 44;
-    const _3154: u128 = 1 << 45;
-    const _4315: u128 = 1 << 46;
-    const _4351: u128 = 1 << 47;
-    const _4225: u128 = 1 << 48;
-    const _2524: u128 = 1 << 49;
-    const _2452: u128 = 1 << 50;
-    const _4522: u128 = 1 << 51;
-    const _2425: u128 = 1 << 52;
-    const _2254: u128 = 1 << 53;
-    const _4252: u128 = 1 << 54;
-    const _5224: u128 = 1 << 55;
-    const _5422: u128 = 1 << 56;
-    const _2542: u128 = 1 << 57;
-    const _5242: u128 = 1 << 58;
-    const _2245: u128 = 1 << 59;
-    const _4333: u128 = 1 << 60;
-    const _3343: u128 = 1 << 61;
-    const _3334: u128 = 1 << 62;
-    const _3433: u128 = 1 << 63;
-    const _2632: u128 = 1 << 64;
-    const _2326: u128 = 1 << 65;
-    const _3622: u128 = 1 << 66;
-    const _2263: u128 = 1 << 67;
-    const _2623: u128 = 1 << 68;
-    const _2362: u128 = 1 << 69;
-    const _2236: u128 = 1 << 70;
-    const _6223: u128 = 1 << 71;
-    const _3226: u128 = 1 << 72;
-    const _6322: u128 = 1 << 73;
-    const _6232: u128 = 1 << 74;
-    const _3262: u128 = 1 << 75;
-    const _2461: u128 = 1 << 76;
-    const _4216: u128 = 1 << 77;
-    const _6142: u128 = 1 << 78;
-    const _6241: u128 = 1 << 79;
-    const _6124: u128 = 1 << 80;
-    const _4261: u128 = 1 << 81;
-    const _4162: u128 = 1 << 82;
-    const _1264: u128 = 1 << 83;
-    const _2614: u128 = 1 << 84;
-    const _4126: u128 = 1 << 85;
-    const _1246: u128 = 1 << 86;
-    const _2641: u128 = 1 << 87;
-    const _2164: u128 = 1 << 88;
-    const _2146: u128 = 1 << 89;
-    const _6412: u128 = 1 << 90;
-    const _4612: u128 = 1 << 91;
-    const _6421: u128 = 1 << 92;
-    const _1426: u128 = 1 << 93;
-    const _1642: u128 = 1 << 94;
-    const _1624: u128 = 1 << 95;
-    const _2416: u128 = 1 << 96;
-    const _1462: u128 = 1 << 97;
-    const _6214: u128 = 1 << 98;
-    const _4621: u128 = 1 << 99;
-    const _6331: u128 = 1 << 100;
-    const _3163: u128 = 1 << 101;
-    const _6133: u128 = 1 << 102;
-    const _3613: u128 = 1 << 103;
-    const _6313: u128 = 1 << 104;
-    const _3316: u128 = 1 << 105;
-    const _3631: u128 = 1 << 106;
-    const _1633: u128 = 1 << 107;
-    const _3136: u128 = 1 << 108;
-    const _1336: u128 = 1 << 109;
-    const _3361: u128 = 1 << 110;
-    const _1363: u128 = 1 << 111;
-    const _1525: u128 = 1 << 112;
-    const _2515: u128 = 1 << 113;
-    const _5215: u128 = 1 << 114;
-    const _5125: u128 = 1 << 115;
-    const _5152: u128 = 1 << 116;
-    const _5251: u128 = 1 << 117;
-    const _5521: u128 = 1 << 118;
-    const _2155: u128 = 1 << 119;
-    const _1255: u128 = 1 << 120;
-    const _1552: u128 = 1 << 121;
-    const _5512: u128 = 1 << 122;
-    const _2551: u128 = 1 << 123;
-    const _1444: u128 = 1 << 124;
-    const _4441: u128 = 1 << 125;
-    const _4144: u128 = 1 << 126;
-    const _4414: u128 = 1 << 127;
-}
-
 impl Default for Shape {
     fn default() -> Self {
         Self::All
@@ -200,7 +73,7 @@ impl Shape {
     }
 
     /// # Errors
-    /// When the pattern is not correct
+    /// When one of the pattern is not correct
     pub fn new_from_patterns(patterns: &[&str]) -> Result<Self, DealerError> {
         let mut shape = Shapes::new();
         for pattern in patterns {
@@ -291,17 +164,17 @@ impl Shapes {
         }
     }
 
-    /// Converts a shape pattern to an index.
+    /// Converts a shape pattern to an index. Necessary to avoid the hasher so we can have a `const fn`.
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     pub const fn shape_pattern_to_index(pattern: [u8; 4]) -> usize {
         let mut state = 0;
         let mut index = 0;
         while index < 4 {
-            state = (R * state + pattern[index] as u64) % M;
+            state = (ShapeHasher::R * state + pattern[index] as u64) % ShapeHasher::M;
             index += 1;
         }
-        // We cannot truncate the state because it is modulo M, so smaller than 1379.
+        // We can truncate the state because it is modulo M, so smaller than SHAPE_TABLE_BUCKETS.
         state as usize
     }
 

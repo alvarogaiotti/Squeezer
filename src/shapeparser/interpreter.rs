@@ -10,9 +10,13 @@ use std::{cmp::Ordering, collections::VecDeque, ops::ControlFlow};
 /// Represents a single shape description.
 pub type ShapePattern = [u8; 4];
 
+/// Represents a shape pattern that is being built up incrementally.
+/// Contains an internal fixed-size pattern array and cursor tracking the current position.
 #[derive(Debug, Clone)]
 pub struct CandidateShapePattern {
+    /// The underlying fixed-size pattern array
     pattern: ShapePattern,
+    /// Current position in the pattern array (0-3)
     cursor: u8,
 }
 
@@ -35,6 +39,7 @@ impl Ord for CandidateShapePattern {
 }
 
 impl CandidateShapePattern {
+    /// Creates a new empty [`CandidateShapePattern`] with zeroed pattern and cursor at 0
     #[must_use]
     #[inline]
     pub fn new() -> Self {
@@ -46,7 +51,7 @@ impl CandidateShapePattern {
 
     /// Pushes a new element into the array.
     /// # Errors
-    /// Returns a `InterpretationsShapeError` if we try to push more than 4 elements into the array.
+    /// Returns a [`InterpretationsShapeError`] if we try to push more than 4 elements into the array.
     #[inline]
     pub fn push(&mut self, value: u8) -> Result<(), InterpretationShapeError> {
         if self.cursor < 4 {
@@ -58,6 +63,8 @@ impl CandidateShapePattern {
         }
     }
 
+    /// Removes and returns the last element from the pattern
+    /// Returns `None` if pattern is empty
     #[inline]
     pub fn pop(&mut self) -> Option<u8> {
         if self.cursor > 0 {
@@ -68,29 +75,34 @@ impl CandidateShapePattern {
         }
     }
 
+    /// Returns the current number of elements in the pattern
     #[must_use]
     #[inline]
     pub fn len(&self) -> u8 {
         self.cursor
     }
 
+    /// Returns true if the pattern is empty (cursor at 0)
     #[must_use]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.cursor == 0
     }
 
+    /// Returns an iterator over the elements currently in the pattern
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &u8> {
         self.pattern[..self.cursor as usize].iter()
     }
 
+    /// Converts the pattern to a `Vec<u8>`
     #[must_use]
     #[inline]
     pub fn to_vec(&self) -> Vec<u8> {
         self.pattern.to_vec()
     }
 
+    /// Returns a slice reference to the underlying pattern array
     #[must_use]
     #[inline]
     pub fn as_slice(&self) -> &[u8] {
