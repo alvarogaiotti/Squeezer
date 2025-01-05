@@ -3,7 +3,7 @@
 
 use crate::{
     bindings::{ddsffi::RETURN_UNKNOWN_FAULT, MAXNOOFBOARDS},
-    ddserror::DDSError,
+    ddserror::DdsError,
     deal::AsDDSDeal,
     traits::{AsDDSContract, IntoRawDDS},
     utils::{RankSeq, SuitSeq},
@@ -27,6 +27,12 @@ pub struct SolvedPlays {
     pub solved: [SolvedPlay; 200usize],
 }
 
+impl AsRef<[SolvedPlay]> for SolvedPlays {
+    fn as_ref(&self) -> &[SolvedPlay] {
+        &self.solved[..self.no_of_boards as usize]
+    }
+}
+
 impl<'a> IntoIterator for &'a SolvedPlays {
     type Item = &'a SolvedPlay;
     type IntoIter = Iter<'a, SolvedPlay>;
@@ -39,9 +45,21 @@ impl<'a> IntoIterator for &'a SolvedPlays {
 
 impl SolvedPlays {
     #[allow(clippy::cast_sign_loss)]
-    /// Standard iteration
+    /// Standard iteration, returns a `[std::slice::Iter<'_, SolvedPlay]`.
     fn iter(&self) -> Iter<'_, SolvedPlay> {
         self.solved[..self.no_of_boards as usize].iter()
+    }
+}
+
+impl IntoIterator for SolvedPlays {
+    type Item = SolvedPlay;
+    type IntoIter = IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            counter: 0,
+            no_of_boards: self.no_of_boards,
+            solved_plays: self.solved,
+        }
     }
 }
 
@@ -184,14 +202,11 @@ impl PlayTracesBin {
     /// double dummy, the suit of the cards played and their's rank.
     /// # Errors
     /// Returns an error if suits and ranks have different length
-    pub fn from_sequences(suits: Vec<SuitSeq>, ranks: Vec<RankSeq>) -> Result<Self, DDSError> {
-        let (suits_len, ranks_len) = (
-            suits.len().clamp(0, MAXNOOFBOARDS),
-            ranks.len().clamp(0, MAXNOOFBOARDS),
-        );
-        if suits_len != ranks_len {
+    pub fn from_sequences(suits: Vec<SuitSeq>, ranks: Vec<RankSeq>) -> Result<Self, DdsError> {
+        if suits.len() != ranks.len() {
             return Err(RETURN_UNKNOWN_FAULT.into());
         }
+        let suits_len = suits.len().clamp(0, MAXNOOFBOARDS);
         let mut plays: Vec<PlayTraceBin> = suits
             .into_iter()
             .zip(ranks)
@@ -262,6 +277,51 @@ impl PlayTraceBin {
             rank: [-1i32; 52],
         }
     }
+
+    #[inline]
+    pub fn iter(&self) -> PlayTraceBinIter<'_> {
+        let number = self.number as usize;
+        PlayTraceBinIter {
+            index: 0,
+            suit: &self.suit[..number],
+            rank: &self.suit[..number],
+        }
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct PlayTraceBinIter<'a> {
+    index: usize,
+    suit: &'a [i32],
+    rank: &'a [i32],
+}
+
+impl<'a> PlayTraceBinIter<'a> {
+    pub const fn len(&self) -> usize {
+        self.suit.len()
+    }
+}
+
+impl<'a> Iterator for PlayTraceBinIter<'a> {
+    type Item = (&'a i32, &'a i32);
+    fn next(&mut self) -> Option<Self::Item> {
+        // Guaranteed to have the same length
+        if let Some(suit) = self.suit.get(self.index) {
+            if let Some(rank) = self.rank.get(self.index) {
+                Some((suit, rank))
+            } else {
+                unreachable!()
+            }
+        } else {
+            None
+        }
+    }
+    fn count(self) -> usize
+    where
+        Self: Sized,
+    {
+        self.len()
+    }
 }
 
 /// A trait which can be implemented by any stuct capable of doing
@@ -278,7 +338,7 @@ pub trait PlayAnalyzer {
         deal: &D,
         contract: &C,
         play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DDSError>;
+    ) -> Result<SolvedPlay, DdsError>;
     /// Analyzes a bunch of hands in paraller.
     /// # Errors
     /// Will return an Error when DDS fails in some way or the deals and contracts vecs have
@@ -288,7 +348,7 @@ pub trait PlayAnalyzer {
         deals: &[D],
         contracts: &[C],
         plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DDSError>;
+    ) -> Result<SolvedPlays, DdsError>;
 }
 
 #[repr(C)]
@@ -302,6 +362,12 @@ pub struct SolvedPlay {
     pub tricks: [::std::os::raw::c_int; 53usize],
 }
 
+impl AsRef<[::std::os::raw::c_int]> for SolvedPlay {
+    fn as_ref(&self) -> &[::std::os::raw::c_int] {
+        &self.tricks[..self.number as usize]
+    }
+}
+
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -313,6 +379,12 @@ pub struct PlayTracesBin {
     pub plays: [PlayTraceBin; 200usize],
 }
 
+impl AsRef<[PlayTraceBin]> for PlayTracesBin {
+    fn as_ref(&self) -> &[PlayTraceBin] {
+        &self.plays[..self.no_of_boards as usize]
+    }
+}
+
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -322,6 +394,12 @@ pub struct PlayTracesPBN {
     pub no_of_boards: ::std::os::raw::c_int,
     #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub plays: [PlayTracePBN; 200usize],
+}
+
+impl AsRef<[PlayTracePBN]> for PlayTracesPBN {
+    fn as_ref(&self) -> &[PlayTracePBN] {
+        &self.plays[..self.no_of_boards as usize]
+    }
 }
 
 #[repr(C)]

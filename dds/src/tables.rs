@@ -12,7 +12,7 @@ use crate::{
         ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES},
         CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
     },
-    ddserror::DDSError,
+    ddserror::DdsError,
     deal::DdsSuit,
     doubledummy::DoubleDummySolver,
     utils::if_no_fault_return,
@@ -31,7 +31,7 @@ pub trait DdTableCalculator {
     fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
-    ) -> Result<DdTableResults<Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>;
 
@@ -46,7 +46,7 @@ pub trait DdTableCalculator {
     fn calculate_complete_table_pbn<P>(
         &self,
         table_deal_pbn: &P,
-    ) -> Result<DdTableResults<Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DdsError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>;
     /// Same as [`DdTableCalculator::calculate_complete_table`], but parallel: use this function if
@@ -61,7 +61,7 @@ pub trait DdTableCalculator {
         table_deals: &[T],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>
+    ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>;
     /// Same as [`DdTableCalculator::calculate_complete_table_pbn`], but parallel: use this
@@ -77,7 +77,7 @@ pub trait DdTableCalculator {
         table_deals_pbn: &[P],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>
+    ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>;
 }
@@ -86,7 +86,7 @@ impl DdTableCalculator for DoubleDummySolver {
     fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
-    ) -> Result<DdTableResults<Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
@@ -102,7 +102,7 @@ impl DdTableCalculator for DoubleDummySolver {
     fn calculate_complete_table_pbn<P>(
         &self,
         table_deal_pbn: &P,
-    ) -> Result<DdTableResults<Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DdsError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>,
     {
@@ -121,7 +121,7 @@ impl DdTableCalculator for DoubleDummySolver {
         table_deals: &[T],
         mode: ParCalcMode,
         mut trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>
+    ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
@@ -149,7 +149,7 @@ impl DdTableCalculator for DoubleDummySolver {
         table_deals_pbn: &[P],
         mode: ParCalcMode,
         mut trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>
+    ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>,
     {
@@ -435,6 +435,7 @@ impl populated_private::SealedPopulated for NotPopulated {}
 impl populated_private::SealedPopulated for Populated {}
 
 #[repr(C)]
+#[allow(clippy::unsafe_derive_deserialize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// A collection of [`DdTableResults`] for multiple deals.

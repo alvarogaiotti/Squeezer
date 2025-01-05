@@ -6,9 +6,9 @@ use squeezer_macros::RawDDSRef;
 
 use crate::{
     bindings::MAXNOOFBOARDS,
-    ddserror::DDSError,
+    ddserror::DdsError,
     traits::{AsDDSCard, AsDDSContract, RawDDSRef},
-    utils::{Mode, SeqError, Solutions, Target},
+    utils::{BuildSequenceError, Mode, Solutions, Target},
 };
 use core::{
     convert::{Into, TryFrom},
@@ -142,9 +142,7 @@ impl DdsRank {
 macro_rules! impl_tryfrom_dds_suit {
     ($($from:ty),*) => {
         $(impl core::convert::TryFrom<$from> for DdsSuit {
-            type Error = DDSDealConstructionError;
-
-            #[inline]
+            type Error = ConstructDdsDealError;
             fn try_from(value: $from) -> Result<Self, Self::Error> {
                 match value {
             0 => Ok(Self::Spades),
@@ -160,7 +158,7 @@ macro_rules! impl_tryfrom_dds_suit {
 }
 
 impl TryFrom<i32> for DdsSuit {
-    type Error = DDSDealConstructionError;
+    type Error = ConstructDdsDealError;
 
     #[inline]
     fn try_from(value: i32) -> Result<Self, Self::Error> {
@@ -193,7 +191,7 @@ pub enum DdsHandEncoding {
 macro_rules! impl_tryfrom_dds_hand_encoding {
     ($($from:ty),*) => {
         $(impl core::convert::TryFrom<$from> for DdsHandEncoding {
-            type Error = DDSDealConstructionError;
+            type Error = ConstructDdsDealError;
 
             #[inline]
             fn try_from(value: $from) -> Result<Self, Self::Error> {
@@ -210,7 +208,7 @@ macro_rules! impl_tryfrom_dds_hand_encoding {
 }
 
 impl TryFrom<i32> for DdsHandEncoding {
-    type Error = DDSDealConstructionError;
+    type Error = ConstructDdsDealError;
 
     #[inline]
     fn try_from(value: i32) -> Result<Self, Self::Error> {
@@ -267,7 +265,7 @@ pub struct DDSDealPBNRepr(
 /// Trump: 0 Spades, 1 Hearts, 2 Diamonds, 3 Clubs
 /// Hands: 0 North, 1 East, 2 South, 3 West
 pub trait AsDDSDeal {
-    fn as_dds_deal(&self) -> DDSDealRepr;
+    fn to_dds_deal(&self) -> DDSDealRepr;
 }
 
 /// This helps us build a [`DdsDeal`]. Rough edges right now, should be refactored or improved
@@ -290,7 +288,7 @@ pub struct DDSDealBuilder {
 #[derive(Debug, Copy, Clone, Hash)]
 /// Possible error we can encounter while constructing a [`DdsDeal`]
 /// The errors are quite self explanatory.
-pub enum DDSDealConstructionError {
+pub enum ConstructDdsDealError {
     DuplicatedCard(c_int, c_int),
     CurrentTrickRankNotSet,
     CurrentTrickSuitNotSet,
@@ -299,17 +297,17 @@ pub enum DDSDealConstructionError {
     FirstNotDeclared,
     SeatUnconvertable(i32),
     TrumpUnconvertable(i32),
-    IncorrectSequence(SeqError),
+    IncorrectSequence(BuildSequenceError),
 }
 
-impl From<SeqError> for DDSDealConstructionError {
+impl From<BuildSequenceError> for ConstructDdsDealError {
     #[inline]
-    fn from(value: SeqError) -> Self {
+    fn from(value: BuildSequenceError) -> Self {
         Self::IncorrectSequence(value)
     }
 }
 
-impl Display for DDSDealConstructionError {
+impl Display for ConstructDdsDealError {
     #[inline]
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
@@ -348,7 +346,7 @@ impl Display for DDSDealConstructionError {
 }
 
 #[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
-impl std::error::Error for DDSDealConstructionError {}
+impl std::error::Error for ConstructDdsDealError {}
 
 impl Default for DDSDealBuilder {
     #[inline]
@@ -418,22 +416,18 @@ impl DDSDealBuilder {
     ///
     /// # Errors
     /// This method will return an error when one of the field was not supplied
-    pub fn build(self) -> Result<DdsDeal, DDSDealConstructionError> {
+    pub fn build(self) -> Result<DdsDeal, ConstructDdsDealError> {
         let remain_cards = self
             .remain_cards
-            .ok_or(DDSDealConstructionError::CardsNotProvided)?;
-        let trump = self
-            .trump
-            .ok_or(DDSDealConstructionError::TrumpNotDeclared)?;
-        let first = self
-            .first
-            .ok_or(DDSDealConstructionError::FirstNotDeclared)?;
+            .ok_or(ConstructDdsDealError::CardsNotProvided)?;
+        let trump = self.trump.ok_or(ConstructDdsDealError::TrumpNotDeclared)?;
+        let first = self.first.ok_or(ConstructDdsDealError::FirstNotDeclared)?;
         let (current_trick_suit, current_trick_rank) =
             match (self.current_trick_suit, self.current_trick_rank) {
                 (Some(suits), Some(ranks)) => Ok((suits, ranks)),
                 (None, None) => Ok(Default::default()),
-                (None, _) => Err(DDSDealConstructionError::CurrentTrickSuitNotSet),
-                (_, None) => Err(DDSDealConstructionError::CurrentTrickRankNotSet),
+                (None, _) => Err(ConstructDdsDealError::CurrentTrickSuitNotSet),
+                (_, None) => Err(ConstructDdsDealError::CurrentTrickRankNotSet),
             }?;
         Ok(DdsDeal {
             trump: trump as c_int,
@@ -496,15 +490,15 @@ macro_rules! check_inputs_are_within_bounds {
         #[allow(clippy::cast_sign_loss)]
         let len = $len as usize;
         if len == 0 {
-            return Err(DDSError::from(DdsBoardConstructionError::ZeroLength));
+            return Err(DdsError::from(ConstructDdsBoardError::ZeroLength));
         }
         if len > MAXNOOFBOARDS {
-            return Err(DDSError::from(DdsBoardConstructionError::TooManyBoards));
+            return Err(DdsError::from(ConstructDdsBoardError::TooManyBoards));
         }
         $(
             let other_len = $rest.len();
             if other_len < len {
-                return Err(DDSError::from(DdsBoardConstructionError::ParamLengthTooShort))
+                return Err(DdsError::from(ConstructDdsBoardError::ParamLengthTooShort))
             }
         )*
 
@@ -513,13 +507,13 @@ macro_rules! check_inputs_are_within_bounds {
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash)]
-pub enum DdsBoardConstructionError {
+pub enum ConstructDdsBoardError {
     TooManyBoards,
     ParamLengthTooShort,
     ZeroLength,
 }
 
-impl std::fmt::Display for DdsBoardConstructionError {
+impl std::fmt::Display for ConstructDdsBoardError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Self::TooManyBoards => write!(f, "number of boards provided over MAXNOOFBOARDS: 200"),
@@ -532,7 +526,7 @@ impl std::fmt::Display for DdsBoardConstructionError {
     }
 }
 
-impl std::error::Error for DdsBoardConstructionError {}
+impl std::error::Error for ConstructDdsBoardError {}
 
 impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
@@ -553,7 +547,7 @@ impl Boards {
         target: Target,
         solutions: Solutions,
         mode: Mode,
-    ) -> Result<Self, DDSError> {
+    ) -> Result<Self, DdsError> {
         check_inputs_are_within_bounds!(no_of_boards, deals, contracts);
         let target = [target.into(); MAXNOOFBOARDS];
         let solutions = [solutions as i32; MAXNOOFBOARDS];
@@ -568,7 +562,7 @@ impl Boards {
                     first: first as i32,
                     current_trick_suit: [0i32; 3],
                     current_trick_rank: [0i32; 3],
-                    remain_cards: deal.as_dds_deal().as_slice(),
+                    remain_cards: deal.to_dds_deal().as_slice(),
                 }
             })
             .cycle()
@@ -607,7 +601,7 @@ impl Boards {
         target: &[Target],
         solutions: &[Solutions],
         mode: &[Mode],
-    ) -> Result<Self, DDSError> {
+    ) -> Result<Self, DdsError> {
         check_inputs_are_within_bounds!(no_of_boards, deals, contracts, target, solutions, mode);
         let mut target_buffer = [Target::MaxTricks; MAXNOOFBOARDS];
         target_buffer[0..no_of_boards as usize].copy_from_slice(target);
@@ -625,7 +619,7 @@ impl Boards {
                     first: first as i32,
                     current_trick_suit: [0i32; 3],
                     current_trick_rank: [0i32; 3],
-                    remain_cards: deal.as_dds_deal().as_slice(),
+                    remain_cards: deal.to_dds_deal().as_slice(),
                 }
             })
             .cycle()

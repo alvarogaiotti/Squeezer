@@ -11,7 +11,7 @@ use crate::bindings::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_UNKNOWN_FAULT, RETURN_ZERO_CARDS,
 };
-use crate::deal::{DDSDealConstructionError, DdsBoardConstructionError};
+use crate::deal::{ConstructDdsBoardError, ConstructDdsDealError};
 use core::ffi::c_int;
 use core::fmt;
 use std::fmt::Debug;
@@ -19,30 +19,30 @@ use std::fmt::Debug;
 /// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Hash, Clone, Copy)]
-pub struct DDSError {
+pub struct DdsError {
     /// Represents what kind of error we got
-    pub kind: DDSErrorKind,
+    pub kind: DdsErrorKind,
 }
-impl Debug for DDSError {
+impl Debug for DdsError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <Self as fmt::Display>::fmt(self, f)
     }
 }
 
-impl From<DDSErrorKind> for DDSError {
+impl From<DdsErrorKind> for DdsError {
     #[inline]
-    fn from(value: DDSErrorKind) -> Self {
+    fn from(value: DdsErrorKind) -> Self {
         Self { kind: value }
     }
 }
-impl From<DdsBoardConstructionError> for DDSError {
-    fn from(value: DdsBoardConstructionError) -> Self {
-        Self::from(DDSErrorKind::from(value))
+impl From<ConstructDdsBoardError> for DdsError {
+    fn from(value: ConstructDdsBoardError) -> Self {
+        Self::from(DdsErrorKind::from(value))
     }
 }
 
-impl From<c_int> for DDSError {
+impl From<c_int> for DdsError {
     #[inline]
     fn from(value: c_int) -> Self {
         assert_ne!(1i32, value, "if we fail the assertion we didn't check for the return result from dds, since a return result of 1 means success." );
@@ -50,14 +50,14 @@ impl From<c_int> for DDSError {
     }
 }
 
-impl From<DDSDealConstructionError> for DDSError {
+impl From<ConstructDdsDealError> for DdsError {
     #[inline]
-    fn from(value: DDSDealConstructionError) -> Self {
-        Self::from(DDSErrorKind::from(value))
+    fn from(value: ConstructDdsDealError) -> Self {
+        Self::from(DdsErrorKind::from(value))
     }
 }
 
-impl fmt::Display for DDSError {
+impl fmt::Display for DdsError {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -69,7 +69,7 @@ impl fmt::Display for DDSError {
 }
 
 #[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
-impl std::error::Error for DDSError {}
+impl std::error::Error for DdsError {}
 
 /// Enum modelling all the way in which we can fail in the DDS related code.
 /// The vast majority of the variants are provided by DDS directly and handled in Rust for a nicer interface.
@@ -78,7 +78,7 @@ impl std::error::Error for DDSError {}
 #[allow(clippy::exhaustive_enums)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Hash)]
-pub enum DDSErrorKind {
+pub enum DdsErrorKind {
     UnknownFault,
     ZeroCards,
     TargetTooHigh,
@@ -107,11 +107,11 @@ pub enum DDSErrorKind {
     // can first try to build the deal and then pass the deal to DDS.
     // This will allow us to make errors more trasnparent to the user, providing them with the
     // ability to take corrective action in a more natural way, since the error are decoupled.
-    UnbuildableDeal(DDSDealConstructionError),
-    UnbuildableBoards(DdsBoardConstructionError),
+    UnbuildableDeal(ConstructDdsDealError),
+    UnbuildableBoards(ConstructDdsBoardError),
 }
 
-impl Debug for DDSErrorKind {
+impl Debug for DdsErrorKind {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <Self as fmt::Display>::fmt(self, f)
@@ -119,7 +119,7 @@ impl Debug for DDSErrorKind {
 }
 
 #[allow(clippy::unreachable)]
-impl From<c_int> for DDSErrorKind {
+impl From<c_int> for DdsErrorKind {
     #[inline]
     fn from(value: c_int) -> Self {
         match value {
@@ -153,20 +153,20 @@ impl From<c_int> for DDSErrorKind {
     }
 }
 
-impl From<DDSDealConstructionError> for DDSErrorKind {
+impl From<ConstructDdsDealError> for DdsErrorKind {
     #[inline]
-    fn from(value: DDSDealConstructionError) -> Self {
+    fn from(value: ConstructDdsDealError) -> Self {
         Self::UnbuildableDeal(value)
     }
 }
 
-impl From<DdsBoardConstructionError> for DDSErrorKind {
+impl From<ConstructDdsBoardError> for DdsErrorKind {
     #[inline]
-    fn from(value: DdsBoardConstructionError) -> Self {
+    fn from(value: ConstructDdsBoardError) -> Self {
         Self::UnbuildableBoards(value)
     }
 }
-impl fmt::Display for DDSErrorKind {
+impl fmt::Display for DdsErrorKind {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {

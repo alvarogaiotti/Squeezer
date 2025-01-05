@@ -2,8 +2,8 @@
 // See end of file for license information
 
 use crate::{
-    ddserror::DDSError,
-    deal::{AsDDSDeal, DDSDealBuilder, DDSDealConstructionError, DdsDeal},
+    ddserror::DdsError,
+    deal::{AsDDSDeal, ConstructDdsDealError, DDSDealBuilder, DdsDeal},
     doubledummy::MultiThreadDoubleDummySolver,
     solver::BridgeSolver,
     traits::{AsDDSContract, ContractScorer, IntoRawDDS},
@@ -145,15 +145,15 @@ pub enum Side {
 #[allow(clippy::exhaustive_enums)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, Hash)]
-pub enum SeqError {
+pub enum BuildSequenceError {
     SequenceTooLong,
     SequenceTooShort,
     SequenceNotValid,
 }
 
-impl std::error::Error for SeqError {}
+impl std::error::Error for BuildSequenceError {}
 
-impl Display for SeqError {
+impl Display for BuildSequenceError {
     #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let string = match *self {
@@ -169,7 +169,7 @@ impl Display for SeqError {
 macro_rules! impl_tryfrom_array_for_sequence {
     ($($from:ty),*; $to:ty) => {
         $(impl<const N: usize> TryFrom<[$from; N]> for $to {
-            type Error = SeqError;
+            type Error = BuildSequenceError;
 
             /// Create a new `SuitSeq`, validating input.
             ///
@@ -182,13 +182,13 @@ macro_rules! impl_tryfrom_array_for_sequence {
                 let length = N;
 
                 if value.iter().any(|x| !(2..=14).contains(x)) {
-                    return Err(SeqError::SequenceNotValid);
+                    return Err(BuildSequenceError::SequenceNotValid);
                 }
 
                 if length == 0 {
-                    Err(SeqError::SequenceTooShort)
+                    Err(BuildSequenceError::SequenceTooShort)
                 } else if length > SEQUENCE_LENGTH {
-                    return Err(SeqError::SequenceTooLong);
+                    return Err(BuildSequenceError::SequenceTooLong);
                 } else {
                     let mut array: Vec<i32> = value
                         .into_iter()
@@ -230,7 +230,7 @@ pub struct SuitSeq {
 }
 
 impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
-    type Error = SeqError;
+    type Error = BuildSequenceError;
 
     /// Create a new [`SuitSeq`], validating input.
     ///
@@ -243,13 +243,13 @@ impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
         let length = N;
 
         if value.iter().any(|&x| !(0i32..=3i32).contains(&x)) {
-            return Err(SeqError::SequenceNotValid);
+            return Err(BuildSequenceError::SequenceNotValid);
         }
 
         if length == 0 {
-            Err(SeqError::SequenceTooShort)
+            Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(SeqError::SequenceTooLong);
+            return Err(BuildSequenceError::SequenceTooLong);
         } else {
             let mut sequence = [-1i32; SEQUENCE_LENGTH];
             sequence[0..length].copy_from_slice(&value[0..length]);
@@ -262,7 +262,7 @@ impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
     }
 }
 impl TryFrom<&[c_int]> for SuitSeq {
-    type Error = SeqError;
+    type Error = BuildSequenceError;
 
     /// Create a new [`SuitSeq`], validating input.
     ///
@@ -275,13 +275,13 @@ impl TryFrom<&[c_int]> for SuitSeq {
         let length = value.len();
 
         if value.iter().any(|&x| !(0i32..=3i32).contains(&x)) {
-            return Err(SeqError::SequenceNotValid);
+            return Err(BuildSequenceError::SequenceNotValid);
         }
 
         if length == 0 {
-            Err(SeqError::SequenceTooShort)
+            Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(SeqError::SequenceTooLong);
+            return Err(BuildSequenceError::SequenceTooLong);
         } else {
             // let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
             // array.extend_from_slice(value);
@@ -332,7 +332,7 @@ impl_tryfrom_array_for_sequence! {usize,u8,u16,u32,u64 ; RankSeq}
 impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; RankSeq}
 
 impl TryFrom<&[c_int]> for RankSeq {
-    type Error = SeqError;
+    type Error = BuildSequenceError;
 
     /// Create a new [`RankSeq`], validating input.
     ///
@@ -345,13 +345,13 @@ impl TryFrom<&[c_int]> for RankSeq {
         let length = value.len();
 
         if value.iter().any(|&x| !(2i32..=14i32).contains(&x)) {
-            return Err(SeqError::SequenceNotValid);
+            return Err(BuildSequenceError::SequenceNotValid);
         }
 
         if length == 0 {
-            Err(SeqError::SequenceTooShort)
+            Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(SeqError::SequenceTooLong);
+            return Err(BuildSequenceError::SequenceTooLong);
         } else {
             let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
             array.extend_from_slice(value);
@@ -367,7 +367,7 @@ impl TryFrom<&[c_int]> for RankSeq {
 }
 
 impl<const N: usize> TryFrom<[c_int; N]> for RankSeq {
-    type Error = SeqError;
+    type Error = BuildSequenceError;
 
     /// Create a new [`RankSeq`], validating input.
     ///
@@ -380,13 +380,13 @@ impl<const N: usize> TryFrom<[c_int; N]> for RankSeq {
         let length = N;
 
         if value.iter().any(|x| !(2i32..=14i32).contains(x)) {
-            return Err(SeqError::SequenceNotValid);
+            return Err(BuildSequenceError::SequenceNotValid);
         }
 
         if length == 0 {
-            Err(SeqError::SequenceTooShort)
+            Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(SeqError::SequenceTooLong);
+            return Err(BuildSequenceError::SequenceTooLong);
         } else {
             let mut array = value.to_vec();
             array.resize(SEQUENCE_LENGTH, -1i32);
@@ -420,13 +420,13 @@ impl RankSeq {
 #[inline]
 pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
     contract_and_deal: (&C, &D),
-) -> Result<DdsDeal, DDSDealConstructionError> {
+) -> Result<DdsDeal, ConstructDdsDealError> {
     let (contract, deal) = contract_and_deal;
     let (trump, first) = contract.as_dds_contract();
     DDSDealBuilder::new()
         .trump(trump)
         .first(first)
-        .remain_cards(deal.as_dds_deal())
+        .remain_cards(deal.to_dds_deal())
         .build()
 }
 
@@ -439,7 +439,7 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
 pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     deal: &D,
     contract: &C,
-) -> Result<i32, DDSError> {
+) -> Result<i32, DdsError> {
     let solver = MultiThreadDoubleDummySolver::new();
     let tricks = solver.dd_tricks(deal, contract)?;
     Ok(contract.score(tricks))

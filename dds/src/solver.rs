@@ -5,7 +5,7 @@ use core::ffi::c_int;
 
 use crate::{
     bindings::MAXNOOFBOARDS,
-    ddserror::DDSError,
+    ddserror::DdsError,
     deal::AsDDSDeal,
     future_tricks::FutureTricks,
     traits::AsDDSContract,
@@ -30,7 +30,7 @@ pub trait BridgeSolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<u8, DDSError>;
+    ) -> Result<u8, DdsError>;
     /// Returns the number of tricks makable in one contract by one player for
     /// every lead.
     /// If you have more than a dozen deals to analyse use [`BridgeSolver::dd_tricks_parallel`]
@@ -42,7 +42,7 @@ pub trait BridgeSolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<FutureTricks, DDSError>;
+    ) -> Result<FutureTricks, DdsError>;
 
     /// Same as [`BridgeSolver::dd_tricks`] but computes multiple deals in paralles.
     /// If you have more than a dozen deals to analyse use this function instead.
@@ -54,7 +54,7 @@ pub trait BridgeSolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
-    ) -> Result<Vec<u8>, DDSError>;
+    ) -> Result<Vec<u8>, DdsError>;
 
     /// Same as [`BridgeSolver::dd_tricks_all_cards`] but computes multiple deals in paralles.
     /// If you have more than a dozen deals to analyse use this function instead.
@@ -66,7 +66,7 @@ pub trait BridgeSolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
-    ) -> Result<SolvedBoards, DDSError>;
+    ) -> Result<SolvedBoards, DdsError>;
 
     /// With this function you gain much more flexibility regarding
     /// the solving strategy of DDS for a single deal.
@@ -84,7 +84,7 @@ pub trait BridgeSolver {
         mode: Mode,
         solutions: Solutions,
         target: Target,
-    ) -> Result<FutureTricks, DDSError>;
+    ) -> Result<FutureTricks, DdsError>;
 
     /// With this function you gain much more flexibility regarding
     /// the solving strategy of DDS for multiple deals in parallel.
@@ -105,7 +105,7 @@ pub trait BridgeSolver {
         mode: &[Mode],
         solutions: &[Solutions],
         target: &[Target],
-    ) -> Result<SolvedBoards, DDSError>;
+    ) -> Result<SolvedBoards, DdsError>;
 }
 
 #[repr(C)]

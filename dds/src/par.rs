@@ -5,7 +5,7 @@ use crate::bindings::{
     ConvertToDealerTextFormat, ConvertToSidesTextFormat, DealerPar, DealerParBin, Par, SidesPar,
     SidesParBin,
 };
-use crate::ddserror::DDSError;
+use crate::ddserror::DdsError;
 use crate::deal::DdsHandEncoding;
 use crate::tables::{DdTableResults, ParResults, Populated, VulnerabilityEncoding};
 use crate::utils::if_no_fault_return;
@@ -21,7 +21,7 @@ pub trait ParCalculator {
         &self,
         tablep: &mut DdTableResults<Populated>,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<ParResults, DDSError> {
+    ) -> Result<ParResults, DdsError> {
         let mut presp = ParResults::new();
         let result = unsafe {
             Par(
@@ -41,7 +41,7 @@ pub trait ParCalculator {
     fn side_par(
         tablep: &mut DdTableResults<Populated>,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<[ParResultsDealer; 2], DDSError> {
+    ) -> Result<[ParResultsDealer; 2], DdsError> {
         let mut side_res = [ParResultsDealer::new(), ParResultsDealer::new()];
         let result = unsafe {
             SidesPar(
@@ -63,7 +63,7 @@ pub trait ParCalculator {
         tablep: &mut DdTableResults<Populated>,
         dealer: DdsHandEncoding,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<ParResultsDealer, DDSError> {
+    ) -> Result<ParResultsDealer, DdsError> {
         let mut par = ParResultsDealer::new();
         let result = unsafe {
             DealerPar(
@@ -86,7 +86,7 @@ pub trait ParCalculator {
         tablep: &mut DdTableResults<Populated>,
         dealer: DdsHandEncoding,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<ParResultsMaster, DDSError> {
+    ) -> Result<ParResultsMaster, DdsError> {
         let mut presp = ParResultsMaster::new();
         let result = unsafe {
             DealerParBin(
@@ -108,7 +108,7 @@ pub trait ParCalculator {
     fn side_par_bin(
         tablep: &mut DdTableResults<Populated>,
         vulnerable: VulnerabilityEncoding,
-    ) -> Result<ParResultsMaster, DDSError> {
+    ) -> Result<ParResultsMaster, DdsError> {
         let mut side_res = ParResultsMaster::new();
         let result = unsafe {
             SidesParBin(
@@ -188,7 +188,7 @@ impl ContractType {
 /// # Errors
 ///
 /// Errors when DDS returns an error
-pub fn convert_to_dealer_text_format(pres: &mut ParResultsMaster) -> Result<String, DDSError> {
+pub fn convert_to_dealer_text_format(pres: &mut ParResultsMaster) -> Result<String, DdsError> {
     let mut resp = String::with_capacity(100);
     let result = unsafe {
         ConvertToDealerTextFormat(
@@ -207,7 +207,7 @@ pub fn convert_to_dealer_text_format(pres: &mut ParResultsMaster) -> Result<Stri
 pub fn convert_to_sides_text_format(
     pres: &mut ParResultsMaster,
     resp: &mut ParTextResults,
-) -> Result<(), DDSError> {
+) -> Result<(), DdsError> {
     let result = unsafe {
         ConvertToSidesTextFormat(
             std::ptr::from_mut::<ParResultsMaster>(pres),

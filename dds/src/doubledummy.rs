@@ -9,8 +9,8 @@ use crate::{
         ddsffi::RETURN_UNKNOWN_FAULT, AnalyseAllPlaysBin, AnalysePlayBin, SolveAllBoardsBin,
         SolveBoard, MAXNOOFBOARDS,
     },
-    ddserror::DDSError,
-    deal::{AsDDSDeal, Boards, DDSDealConstructionError, DdsDeal},
+    ddserror::DdsError,
+    deal::{AsDDSDeal, Boards, ConstructDdsDealError, DdsDeal},
     future_tricks::FutureTricks,
     solver::{BridgeSolver, SolvedBoards},
     tables::{
@@ -51,7 +51,7 @@ use crate::{
 /// # }
 /// #
 /// # impl dds::deal::AsDDSDeal for DealMock {
-/// #     fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
+/// #     fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
 /// #         let mut remain_cards = [[0; 4]; 4];
 /// #         for (seat, hand) in self.clone().into_iter().enumerate() {
 /// #             for (index, suit) in hand.into_iter().enumerate() {
@@ -77,7 +77,7 @@ use crate::{
 /// #         (DdsSuit::Diamonds, DdsHandEncoding::West)
 /// #     }
 /// # }
-///
+/// # fn main() -> Result<(), Box<dyn Error>>{
 ///    /*
 ///           ♠K93
 ///           ♡JT9862
@@ -105,7 +105,10 @@ use crate::{
 ///    };
 ///    let contract = ContractMock {};
 ///    let solver = DoubleDummySolver::new();
-///    println!("{}", solver.dd_tricks(&deal, &contract).unwrap());
+///    println!("{}", solver.dd_tricks(&deal, &contract)?);
+/// # Ok()
+/// # }
+/// #```
 pub struct DoubleDummySolver {
     _marker: std::marker::PhantomData<std::cell::Cell<()>>,
 }
@@ -198,7 +201,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<u8, DDSError> {
+    ) -> Result<u8, DdsError> {
         match self.inner.lock() {
             Ok(guard) => guard.dd_tricks(deal, contract),
             Err(error) => {
@@ -215,7 +218,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<FutureTricks, DDSError> {
+    ) -> Result<FutureTricks, DdsError> {
         match self.inner.lock() {
             Ok(guard) => guard.dd_tricks_all_cards(deal, contract),
             Err(error) => {
@@ -233,7 +236,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
-    ) -> Result<Vec<u8>, DDSError> {
+    ) -> Result<Vec<u8>, DdsError> {
         match self.inner.lock() {
             Ok(guard) => guard.dd_tricks_parallel(number_of_deals, deals, contract),
             Err(error) => {
@@ -249,7 +252,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
-    ) -> Result<SolvedBoards, DDSError> {
+    ) -> Result<SolvedBoards, DdsError> {
         match self.inner.lock() {
             Ok(guard) => guard.dd_tricks_all_cards_parallel(number_of_deals, deals, contract),
             Err(error) => {
@@ -267,7 +270,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         mode: Mode,
         solutions: Solutions,
         target: Target,
-    ) -> Result<FutureTricks, DDSError> {
+    ) -> Result<FutureTricks, DdsError> {
         match self.inner.lock() {
             Ok(guard) => guard.solve_with_params(deal, contract, mode, solutions, target),
             Err(error) => {
@@ -287,7 +290,7 @@ impl BridgeSolver for MultiThreadDoubleDummySolver {
         mode: &[Mode],
         solutions: &[Solutions],
         target: &[Target],
-    ) -> Result<SolvedBoards, DDSError> {
+    ) -> Result<SolvedBoards, DdsError> {
         match self.inner.lock() {
             Ok(guard) => guard.solve_with_params_parallel(
                 number_of_deals,
@@ -321,7 +324,7 @@ impl BridgeSolver for DoubleDummySolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<u8, DDSError> {
+    ) -> Result<u8, DdsError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
         let futp: *mut FutureTricks = &mut future_tricks;
@@ -344,7 +347,7 @@ impl BridgeSolver for DoubleDummySolver {
         if result == 1 {
             Ok(13 - future_tricks.score()[0] as u8)
         } else {
-            Err(DDSError::from(result))
+            Err(DdsError::from(result))
         }
     }
 
@@ -353,7 +356,7 @@ impl BridgeSolver for DoubleDummySolver {
         &self,
         deal: &D,
         contract: &C,
-    ) -> Result<FutureTricks, DDSError> {
+    ) -> Result<FutureTricks, DdsError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
         let futp: *mut FutureTricks = &mut future_tricks;
@@ -371,7 +374,7 @@ impl BridgeSolver for DoubleDummySolver {
         if result == 1 {
             Ok(future_tricks)
         } else {
-            Err(DDSError::from(result))
+            Err(DdsError::from(result))
         }
     }
 
@@ -381,7 +384,7 @@ impl BridgeSolver for DoubleDummySolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
-    ) -> Result<Vec<u8>, DDSError> {
+    ) -> Result<Vec<u8>, DdsError> {
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_possible_wrap,
@@ -420,7 +423,7 @@ impl BridgeSolver for DoubleDummySolver {
         number_of_deals: i32,
         deals: &[D],
         contract: &[C],
-    ) -> Result<SolvedBoards, DDSError> {
+    ) -> Result<SolvedBoards, DdsError> {
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_possible_wrap,
@@ -455,7 +458,7 @@ impl BridgeSolver for DoubleDummySolver {
         mode: Mode,
         solutions: Solutions,
         target: Target,
-    ) -> Result<FutureTricks, DDSError> {
+    ) -> Result<FutureTricks, DdsError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
         let futp: *mut FutureTricks = &mut future_tricks;
@@ -478,7 +481,7 @@ impl BridgeSolver for DoubleDummySolver {
         if result == 1 {
             Ok(future_tricks)
         } else {
-            Err(DDSError::from(result))
+            Err(DdsError::from(result))
         }
     }
     fn solve_with_params_parallel<D: AsDDSDeal, C: AsDDSContract>(
@@ -489,7 +492,7 @@ impl BridgeSolver for DoubleDummySolver {
         mode: &[Mode],
         solutions: &[Solutions],
         target: &[Target],
-    ) -> Result<SolvedBoards, DDSError> {
+    ) -> Result<SolvedBoards, DdsError> {
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_possible_wrap,
@@ -516,7 +519,7 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
     fn calculate_complete_table<T>(
         &self,
         table_deal: &T,
-    ) -> Result<DdTableResults<Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
@@ -534,7 +537,7 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
     fn calculate_complete_table_pbn<P>(
         &self,
         table_deal_pbn: &P,
-    ) -> Result<DdTableResults<Populated>, DDSError>
+    ) -> Result<DdTableResults<Populated>, DdsError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>,
     {
@@ -556,7 +559,7 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
         table_deals: &[T],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>
+    ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
@@ -575,7 +578,7 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
         table_deals_pbn: &[P],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DDSError>
+    ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a P: Into<DdTableDealPbn>,
     {
@@ -599,7 +602,7 @@ impl PlayAnalyzer for MultiThreadDoubleDummySolver {
         deal: &D,
         contract: &C,
         play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DDSError> {
+    ) -> Result<SolvedPlay, DdsError> {
         let Ok(guard) = self.inner.lock() else {
             #[allow(clippy::print_stderr, clippy::use_debug)]
             {
@@ -617,7 +620,7 @@ impl PlayAnalyzer for MultiThreadDoubleDummySolver {
         deals: &[D],
         contracts: &[C],
         plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DDSError> {
+    ) -> Result<SolvedPlays, DdsError> {
         let Ok(guard) = self.inner.lock() else {
             #[allow(clippy::print_stderr, clippy::use_debug)]
             {
@@ -638,7 +641,7 @@ impl PlayAnalyzer for DoubleDummySolver {
         deals: &[D],
         contracts: &[C],
         plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DDSError> {
+    ) -> Result<SolvedPlays, DdsError> {
         let deals_len = i32::try_from(deals.len().clamp(0, MAXNOOFBOARDS)).unwrap();
         let contracts_len = i32::try_from(contracts.len().clamp(0, MAXNOOFBOARDS)).unwrap();
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
@@ -653,7 +656,7 @@ impl PlayAnalyzer for DoubleDummySolver {
             .iter()
             .zip(deals.iter())
             .map(build_c_deal)
-            .collect::<Result<Vec<_>, DDSDealConstructionError>>()
+            .collect::<Result<Vec<_>, ConstructDdsDealError>>()
         {
             Ok(vec) => vec,
             Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
@@ -690,7 +693,7 @@ impl PlayAnalyzer for DoubleDummySolver {
         deal: &D,
         contract: &C,
         play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DDSError> {
+    ) -> Result<SolvedPlay, DdsError> {
         let Ok(dds_deal) = build_c_deal((contract, deal)) else {
             return Err(RETURN_UNKNOWN_FAULT.into());
         };

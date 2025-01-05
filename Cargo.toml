@@ -27,6 +27,7 @@ bbo = ["dep:time", "dep:ureq", "dep:regex"]
 bbo_async = ["dep:time", "dep:regex", "dep:reqwest"]
 lin = ["dep:regex"]
 dds = ["dep:dds"]
+serde = ["dep:serde", "dds?/serde", "bitvec/serde"]
 
 [dev-dependencies]
 criterion = { version = "*", features = ["html_reports"] }

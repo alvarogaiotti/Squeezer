@@ -22,7 +22,7 @@ impl IntoIterator for DealMock {
 }
 
 impl dds::deal::AsDDSDeal for DealMock {
-    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
+    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.clone().into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {
