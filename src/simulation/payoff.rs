@@ -315,6 +315,7 @@ mod test {
         let mut builder = DealerBuilder::new();
         builder
             .predeal(Seat::North, Cards::from_str("A AKjt Kqjt KQT9").unwrap())
+            .unwrap()
             .with_hand_descriptor(
                 Seat::South,
                 HandDescriptor::new(vec![HandType::new(
@@ -364,6 +365,7 @@ mod test {
             .build();
         builder
             .predeal(Seat::South, Cards::from_str("AKQJ2 52 AT83 Q2").unwrap())
+            .unwrap()
             .with_hand_descriptor(Seat::North, HandDescriptor::new(vec![ht]));
         let dealer = builder.build().unwrap();
         let sim = PayoffSimulation::new(10, dealer, contracts, imps);

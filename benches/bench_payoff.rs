@@ -12,7 +12,9 @@ fn payoff_report_test(_: ()) {
         Contract::from_str("4HN", Vulnerable::No).unwrap(),
     ];
     let mut builder = DealerBuilder::new();
-    builder.predeal(Seat::North, Cards::from_str("A AKjt Kqjt KQT9").unwrap());
+    builder
+        .predeal(Seat::North, Cards::from_str("A AKjt Kqjt KQT9").unwrap())
+        .unwrap();
     let dealer = builder.build().unwrap();
     let sim = PayoffSimulation::new(100, dealer, contracts, imps);
     sim.run().unwrap();

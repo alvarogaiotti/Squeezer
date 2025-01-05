@@ -5,13 +5,13 @@ use crate::prelude::*;
 
 #[must_use]
 #[allow(clippy::missing_panics_doc)]
-pub fn polish_club(hand: Hand) -> bool {
+pub fn polish_club_hand_descriptor() -> HandDescriptor {
     let weak1n = HandTypeBuilder::new()
         .add_shape("(4432)")
         .unwrap()
         .add_shape("(4333)")
         .unwrap()
-        .add_shape("4414")
+        .add_shape("(4414)")
         .unwrap()
         .add_shape("(5332)")
         .unwrap()
@@ -32,19 +32,18 @@ pub fn polish_club(hand: Hand) -> bool {
         .unwrap()
         .with_range(18, 37)
         .build();
-    let possible_hands = HandDescriptor::new(vec![weak1n, strong_any, unbal_with_clubs]);
+    HandDescriptor::new(vec![weak1n, strong_any, unbal_with_clubs])
     /* let hand = hands[seat as usize];
     hand_type.check(&hand) && 10 < hand.hcp() && hand.hcp() < 15
         || hand.clubs().len() == hand.into_iter().map(|x| x.len()).max().unwrap()
             && !Shapes::new().add_shape("(5xx)5").(&hand, "(5xx)5")
         || factory.is_not_in(&hand, "(144)4") && 14 < hand.hcp()
         || hand.hcp() > 17 */
-    possible_hands.check(hand)
 }
 
 #[must_use]
 #[allow(clippy::missing_panics_doc)]
-pub fn weak2(hand: Hand) -> bool {
+pub fn weak2_hand_descriptor(hand: Hand) -> bool {
     let w2 = Evaluator::new(&[2, 2, 1, 1, 1]);
     let controls = Evaluator::new(&[2, 1]);
 
@@ -63,7 +62,7 @@ pub fn weak2(hand: Hand) -> bool {
 }
 
 #[must_use]
-fn evaluate_short_honors(hand: Hand) -> u8 {
+fn devaluate_short_honors(hand: Hand) -> u8 {
     let mut malus: u8 = 0;
     malus += hand
         .into_iter()
@@ -78,23 +77,23 @@ fn evaluate_short_honors(hand: Hand) -> u8 {
 
 #[must_use]
 fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
-    let mut sorted_suits = hand.into_iter().sorted_by_key(Cards::len).rev();
-    let longest = sorted_suits.next().unwrap();
-    let second_longest = sorted_suits.next().unwrap();
-    let third_longest = sorted_suits.next().unwrap();
+    let mut sorted_suits = hand.into_iter().sorted_by_key(Cards::len);
     let shortest = sorted_suits.next().unwrap();
+    let third_longest = sorted_suits.next().unwrap();
+    let second_longest = sorted_suits.next().unwrap();
+    let longest = sorted_suits.next().unwrap();
     let sum_long = longest.len() + second_longest.len();
     let diff_long_short = longest.len() - shortest.len();
     let mut points = sum_long + diff_long_short;
-    if 10 < hand.hcp()
+    let weak_concentration = 10 < hand.hcp()
         && hand.hcp() < 15
-        && longest.high_card_points() + second_longest.high_card_points() >= hand.hcp() - 1
-        || (14 < hand.hcp()
-            && longest.high_card_points()
-                + second_longest.high_card_points()
-                + third_longest.high_card_points()
-                >= hand.hcp() - 1)
-    {
+        && longest.high_card_points() + second_longest.high_card_points() >= hand.hcp() - 1;
+    let strong_concentration = 14 < hand.hcp()
+        && longest.high_card_points()
+            + second_longest.high_card_points()
+            + third_longest.high_card_points()
+            >= hand.hcp() - 1;
+    if weak_concentration || strong_concentration {
         points += 1;
     }
 
@@ -107,7 +106,7 @@ fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
 pub fn zar_points(hand: Hand) -> u8 {
     let zar_evaluator = Evaluator::new(&[6, 4, 2, 1]);
     zar_evaluator.evaluate(hand.as_cards()) + evaluate_lenght_and_concentration(hand)
-        - evaluate_short_honors(hand)
+        - devaluate_short_honors(hand)
 }
 
 #[must_use]
