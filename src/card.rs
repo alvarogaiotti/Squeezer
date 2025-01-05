@@ -221,6 +221,30 @@ pub struct Cards {
     bits: u64,
 }
 
+impl std::fmt::UpperHex for Cards {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <u64 as std::fmt::UpperHex>::fmt(&self.bits, f)
+    }
+}
+
+impl std::fmt::LowerHex for Cards {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <u64 as std::fmt::LowerHex>::fmt(&self.bits, f)
+    }
+}
+
+impl std::fmt::Octal for Cards {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <u64 as std::fmt::Octal>::fmt(&self.bits, f)
+    }
+}
+
+impl std::fmt::Binary for Cards {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <u64 as std::fmt::Binary>::fmt(&self.bits, f)
+    }
+}
+
 #[allow(clippy::cast_possible_truncation)]
 impl Cards {
     #[must_use]
