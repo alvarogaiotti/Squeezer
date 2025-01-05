@@ -23,21 +23,27 @@ use core::{
 /// to be used in the analysis by DDS.
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Boards {
     /// Number of boards to be analyzed: capped at [`MAXNOOFBOARDS`]
     pub no_of_boards: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     /// Deals provided: capped at [`MAXNOOFBOARDS`]
     pub deals: [DdsDeal; 200usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     /// Target for solution: capped at [`MAXNOOFBOARDS`]
     pub target: [::std::os::raw::c_int; 200usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     /// Solution describes the output we want for solution: capped at [`MAXNOOFBOARDS`]
     pub solutions: [::std::os::raw::c_int; 200usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     /// Strategy for the solution: capped at [`MAXNOOFBOARDS`]
     pub mode: [::std::os::raw::c_int; 200usize],
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// The struct DDS uses for representing a series of at most 200 PBN deals.
 /// Consists of a number of boards to be analyzed and
 /// 4 arrays of length 200, representing
@@ -45,9 +51,13 @@ pub struct Boards {
 /// to be used in the analysis by DDS.
 pub struct BoardsPbn {
     pub no_of_boards: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub deals: [DdsDealPbn; 200usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub target: [::std::os::raw::c_int; 200usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub solutions: [::std::os::raw::c_int; 200usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub mode: [::std::os::raw::c_int; 200usize],
 }
 
@@ -57,7 +67,8 @@ pub struct BoardsPbn {
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
 /// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Default, Hash)]
 pub struct DdsDeal {
     pub trump: ::std::os::raw::c_int,
     pub first: ::std::os::raw::c_int,
@@ -68,23 +79,27 @@ pub struct DdsDeal {
 /// A wrapper around DDS's `dealPbn`.
 /// See [`DdsDeal`] for reference on the fields.
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 pub struct DdsDealPbn {
     pub trump: ::std::os::raw::c_int,
     pub first: ::std::os::raw::c_int,
     pub current_trick_suit: [::std::os::raw::c_int; 3usize],
     pub current_trick_rank: [::std::os::raw::c_int; 3usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub remain_cards: [::std::os::raw::c_char; 80usize],
 }
 
-#[derive(Debug, RawDDSRef, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, RawDDSRef, Default, Copy, Hash, Clone)]
 /// The suits of the trick going on.
 /// If you want to build a custom deal situation (e.g. we are in the middle of the trick and you
 /// have to play a card while the current trick is 3♥-K♥-?), you should use [`DDSDealBuilder`] and
 /// its methods.
 pub struct DDSCurrTrickSuit(#[raw] [i32; 3]);
 
-#[derive(Debug, RawDDSRef, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, RawDDSRef, Default, Copy, Hash, Clone)]
 /// The ranks of the trick going on.
 /// If you want to build a custom deal situation (e.g. we are in the middle of the trick and you
 /// have to play a card while the current trick is 3♥-K♥-?), you should use [`DDSDealBuilder`] and
@@ -92,7 +107,8 @@ pub struct DDSCurrTrickSuit(#[raw] [i32; 3]);
 pub struct DDSCurrTrickRank(#[raw] [i32; 3]);
 
 #[allow(clippy::exhaustive_enums)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(i32)]
 /// How DDS encodes suits
 pub enum DdsSuit {
@@ -103,8 +119,9 @@ pub enum DdsSuit {
     NoTrump = 4,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// How DDS encodes ranks
-#[derive(Debug, Copy, Clone)]
 pub struct DdsRank(i32);
 
 impl DdsRank {
@@ -161,11 +178,11 @@ impl TryFrom<i32> for DdsSuit {
 impl_tryfrom_dds_suit!(u8, u16, u32, usize);
 impl_tryfrom_dds_suit!(i8, i16, isize);
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[allow(clippy::exhaustive_enums)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// How DDS encodes seat.
-#[derive(Debug, Default)]
 pub enum DdsHandEncoding {
-    #[default]
     North = 0,
     East = 1,
     South = 2,
@@ -208,9 +225,10 @@ impl TryFrom<i32> for DdsHandEncoding {
 }
 impl_tryfrom_dds_hand_encoding!(u8, u16, u32, usize, i8, i16, isize);
 
+#[derive(Debug, Default, RawDDSRef)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// This is how DDS represents a "binary deal":
 /// a array of arrays of `u32`, basing the order on the [`DdsHandEncoding`]
-#[derive(Debug, Default, RawDDSRef)]
 pub struct DDSDealRepr(#[raw] [[u32; 4]; 4]);
 
 impl From<[[u32; 4]; 4]> for DDSDealRepr {
@@ -234,11 +252,13 @@ impl DDSDealRepr {
     }
 }
 
+#[derive(Debug, RawDDSRef)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// This is how DDS represents a PBN deal:
 /// an array of 80 chars.
-#[derive(Debug, RawDDSRef)]
 pub struct DDSDealPBNRepr(
     /// All PBN deals are 80 chars strings
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     #[raw]
     [c_char; 80],
 );
@@ -266,6 +286,7 @@ pub struct DDSDealBuilder {
 }
 
 #[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash)]
 /// Possible error we can encounter while constructing a [`DdsDeal`]
 /// The errors are quite self explanatory.
@@ -490,6 +511,7 @@ macro_rules! check_inputs_are_within_bounds {
     };
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum DdsBoardConstructionError {
     TooManyBoards,

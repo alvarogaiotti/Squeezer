@@ -7,6 +7,7 @@ use crate::prelude::*;
 use rand::Rng;
 
 /// A card, represented as a `u8`.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Card {
     offset: u8,
@@ -214,6 +215,7 @@ impl Card {
 }
 
 /// A bunch of [`Card`]s.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Cards {
     bits: u64,

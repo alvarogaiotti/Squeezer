@@ -109,11 +109,13 @@ pub trait BridgeSolver {
 }
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// DDS struct that represents a number of solved boards with its [`FutureTricks`] content.
 /// Can hold up to 200 [`FutureTricks`].
 pub struct SolvedBoards {
     pub no_of_boards: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub solved_board: [FutureTricks; 200usize],
 }
 

@@ -6,6 +6,7 @@ use crate::prelude::*;
 ///Represent a bridge hand: 13 cards, with different and various properties.
 ///The majority of this properties were implemented in the `bridge_deck` crate,
 ///github version.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Hand {
     pub cards: Cards,

@@ -153,7 +153,9 @@ impl Parser {
             }
             Token::OpenParen => Err(ParsingShapeError::NestedScope),
             Token::CloseParen => Err(ParsingShapeError::UnmatchParenthesis),
-            Token::Modifier(modifier) => Err(ParsingShapeError::OrphanModifier(modifier)),
+            Token::Modifier(modifier) => {
+                Err(ParsingShapeError::OrphanModifier(modifier.to_string()))
+            }
             Token::Empty => {
                 unreachable!("Asked to parse an empty token, which should have been checked before")
             }
@@ -162,12 +164,13 @@ impl Parser {
 }
 
 /// Errors that can occur during parsing a shape.
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Hash)]
 pub enum ParsingShapeError {
     /// Indicates there are unmatched parentheses.
     UnmatchParenthesis,
     /// Indicates an orphan modifier is present.
-    OrphanModifier(Modifier),
+    OrphanModifier(String),
     /// Indicates the shape description has more than 13 cards.
     ShapeTooLong,
     /// Indicates the shape description has less than 13 cards.
@@ -185,7 +188,7 @@ impl std::fmt::Display for ParsingShapeError {
             "{}",
             match *self {
                 ParsingShapeError::UnmatchParenthesis => String::from("non matching parentheses"),
-                ParsingShapeError::OrphanModifier(modifier) =>
+                ParsingShapeError::OrphanModifier(ref modifier) =>
                     format!("orphan modifier: {modifier}"),
                 ParsingShapeError::ShapeTooLong => String::from("shape has more than 13 cards"),
                 ParsingShapeError::ShapeTooShort => String::from("shape has less than 13 cards"),
@@ -201,7 +204,7 @@ impl std::error::Error for ParsingShapeError {}
 
 /// Represents modifiers for length in a shape description.
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
-pub enum Modifier {
+pub(crate) enum Modifier {
     /// Indicates the length must be at least a specific value.
     AtLeast,
     /// Indicates the length must be at most a specific value.

@@ -4,6 +4,7 @@
 use core::ffi::c_int;
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// A DDS struct populated by its Solve* functions.
 /// This contains all the data regarding a single situation of play.

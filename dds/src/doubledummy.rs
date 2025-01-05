@@ -41,9 +41,7 @@ use crate::{
 /// # use dds::solver::BridgeSolver;
 /// # use dds::doubledummy::DoubleDummySolver;
 /// # #[derive(Debug, Clone)]
-/// # pub struct DealMock {
-/// #     pub hands: [[usize; 4]; 4],
-/// # }
+/// # pub struct DealMock {pub hands: [[usize; 4]; 4]};
 /// # impl IntoIterator for DealMock {
 /// #     type Item = [usize; 4];
 /// #     type IntoIter = std::array::IntoIter<[usize; 4], 4>;
@@ -74,8 +72,9 @@ use crate::{
 /// # }
 /// #
 /// # impl dds::traits::AsDDSContract for ContractMock {
-/// #     fn as_dds_contract(&self) -> (i32, i32) {
-/// #         (2, 3)
+/// #     fn as_dds_contract(&self) -> (dds::deal::DdsSuit, dds::deal::DdsHandEncoding) {
+/// #     use dds::deal::{DdsSuit, DdsHandEncoding};
+/// #         (DdsSuit::Diamonds, DdsHandEncoding::West)
 /// #     }
 /// # }
 ///

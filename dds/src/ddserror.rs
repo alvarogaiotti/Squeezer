@@ -17,6 +17,8 @@ use core::fmt;
 use std::fmt::Debug;
 /// Wrapper around the DDS errors.
 /// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Hash, Clone, Copy)]
 pub struct DDSError {
     /// Represents what kind of error we got
     pub kind: DDSErrorKind,
@@ -74,6 +76,8 @@ impl std::error::Error for DDSError {}
 /// Some are custom error regarding transformation from Rust types to the types that DDS uses.
 /// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 #[allow(clippy::exhaustive_enums)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Hash)]
 pub enum DDSErrorKind {
     UnknownFault,
     ZeroCards,

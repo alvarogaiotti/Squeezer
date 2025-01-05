@@ -13,7 +13,7 @@ pub type ShapePattern = [u8; 4];
 /// Represents a shape pattern that is being built up incrementally.
 /// Contains an internal fixed-size pattern array and cursor tracking the current position.
 #[derive(Debug, Clone)]
-pub struct CandidateShapePattern {
+pub(super) struct CandidateShapePattern {
     /// The underlying fixed-size pattern array
     pattern: ShapePattern,
     /// Current position in the pattern array (0-3)
@@ -161,7 +161,8 @@ pub(crate) struct ShapeCreator {
 }
 
 /// Represents errors that can occur during the interpretation of shapes.
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Hash, Copy)]
 pub enum InterpretationShapeError {
     /// Indicates that there are too many allocated slots in a shape.
     TooMany,
@@ -235,14 +236,16 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
 }
 
 /// Represents an error that can occur during the creation of shapes.
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Hash)]
 pub struct CreationShapeError {
     /// The origin of the creation error.
     origin: CreationShapeErrorKind,
 }
 
 /// Represents the types of errors that can occur during the creation of shapes.
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Hash)]
 pub enum CreationShapeErrorKind {
     /// Error during the interpretation of shapes.
     Interpretation(InterpretationShapeError),
@@ -304,13 +307,13 @@ impl From<InterpretationShapeError> for CreationShapeError {
 
 impl ShapeCreator {
     /// Builds a shape based on the provided pattern.
-    pub fn build_shape(pattern: &str) -> Result<Vec<CandidateShapePattern>, CreationShapeError> {
+    pub fn build_shape(pattern: &str) -> Result<Vec<ShapePattern>, CreationShapeError> {
         let parsed_input = Parser::parse_pattern(pattern)?;
         let mut shape_creator = ShapeCreator::try_from(parsed_input)?;
         let mut shape = CandidateShapePattern::new();
         let mut shapes = Vec::new();
         shape_creator.interpret(&mut shape, &mut shapes);
-        Ok(shapes)
+        Ok(shapes.into_iter().map(Into::into).collect_vec())
     }
 
     /// Recursive helper function to add elements to the shape based on the provided length and cap values.
@@ -532,10 +535,8 @@ fn pattern_length_adder(
 
 #[cfg(test)]
 mod test {
-
+    use super::CandidateShapePattern;
     use itertools::Itertools;
-
-    use crate::CandidateShapePattern;
 
     use super::ShapeCreator;
     use super::{Length, Modifier, Pattern};

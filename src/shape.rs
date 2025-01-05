@@ -194,7 +194,7 @@ impl Shapes {
 
         // Returns error before panicking
         for pattern in patterns {
-            self.delete_shape(pattern.into());
+            self.delete_shape(pattern);
         }
         Ok(())
     }
@@ -268,7 +268,7 @@ impl Shapes {
         // Implementation can change in the future.
         let patterns = ShapeCreator::build_shape(shape)?;
         for pattern in patterns {
-            self.insert_shape(pattern.into());
+            self.insert_shape(pattern);
         }
         Ok(())
     }

@@ -4,7 +4,8 @@
 use crate::{prelude::*, shapeparser::CreationShapeError};
 
 ///Error for wrong Shape pattern passed to `ShapeFactory`.
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Hash)]
 pub struct DealerError {
     details: String,
 }

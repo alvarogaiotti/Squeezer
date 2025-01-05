@@ -9,6 +9,7 @@ use crate::prelude::*;
 pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send)>;
 
 /// Structure that holds 4 `Hand`s of 13 cards
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Hands {
     hands: [Hand; 4],
@@ -268,6 +269,7 @@ macro_rules! impl_add_and_from_ints_for_seat {
 impl_add_and_from_ints_for_seat!(usize, u64, u32, u16, u8, isize, i64, i32, i16, i8);
 
 ///Models vulnerability as an enum.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum Vulnerability {
     #[default]
@@ -632,11 +634,12 @@ impl StandardDealer {
 }
 
 /// State tracker for the deal print output.
-#[derive(Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 #[non_exhaustive]
 pub enum Printer {
     Pbn,
     Lin,
+    #[default]
     Short,
     Long,
 }
@@ -644,10 +647,12 @@ pub enum Printer {
 ///The central struct of the module: represents a bridge deal, with
 ///cards, vulnerability, ecc.
 /// TODO: Should have a number, a dealer, a contract, ecc.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 pub struct Deal {
     vulnerability: Vulnerability,
     hands: [Hand; NUMBER_OF_HANDS],
+    #[cfg_attr(feature = "serde", serde(skip))]
     printer: Printer,
     number: u8,
 }

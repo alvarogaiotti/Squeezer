@@ -18,10 +18,12 @@ pub const CHUNK_SIZE: i32 = 10;
 
 #[non_exhaustive]
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// Struct containing at most 200 [`SolvedPlay`], with `no_of_boards` number of them.
 pub struct SolvedPlays {
     pub no_of_boards: c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub solved: [SolvedPlay; 200usize],
 }
 
@@ -290,48 +292,59 @@ pub trait PlayAnalyzer {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// DDS struct, saving the DD result for every card played. `number` stores the actual lenght of
 /// `tricks`, which is the list of DD result for the cards played.
 pub struct SolvedPlay {
     pub number: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub tricks: [::std::os::raw::c_int; 53usize],
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// The [`PlayTracesBin`] is an array of [`PlayTraceBin`]. It can store up to 200 elements,
 /// with the field `no_of_boards` representing the number of initialized boards.
 pub struct PlayTracesBin {
     pub no_of_boards: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub plays: [PlayTraceBin; 200usize],
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// The [`PlayTracesPBN`] is an array of [`PlayTracePBN`]. It can store up to 200 elements,
 /// with the field `no_of_boards` representing the number of initialized boards.
 pub struct PlayTracesPBN {
     pub no_of_boards: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub plays: [PlayTracePBN; 200usize],
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// The [`PlayTraceBin`] struct stores two arrays of 52 element each representing played card's rank and
 /// suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
     pub number: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub suit: [::std::os::raw::c_int; 52usize],
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub rank: [::std::os::raw::c_int; 52usize],
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// The [`PlayTracePBN`] stores one array of `c_char`, representing the play sequence in PBN format
 /// and the number of cards effectively played.
 pub struct PlayTracePBN {
     pub number: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub cards: [::std::os::raw::c_char; 106usize],
 }
 

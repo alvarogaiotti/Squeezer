@@ -122,6 +122,7 @@ pub trait ParCalculator {
 }
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// Struct used by DDS for storing side oriented par results.
 pub struct ParResultsDealer {
@@ -141,6 +142,7 @@ impl ParResultsDealer {
 }
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 pub struct ParResultsMaster {
     pub score: ::std::os::raw::c_int,
@@ -159,6 +161,7 @@ impl ParResultsMaster {
 }
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 pub struct ContractType {
     pub under_tricks: ::std::os::raw::c_int,
@@ -214,10 +217,19 @@ pub fn convert_to_sides_text_format(
     if_no_fault_return!(result, ());
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct ParTextResultHalfBuffer(
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
+    pub  [std::os::raw::c_char; 128usize],
+);
+
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 pub struct ParTextResults {
-    pub par_text: [[::std::os::raw::c_char; 128usize]; 2usize],
+    pub par_text: [ParTextResultHalfBuffer; 2usize],
     pub equal: bool,
 }
 

@@ -8,4 +8,6 @@ edition = "2021"
 
 [dependencies]
 squeezer_macros = {path="../squeezer_macros"}
+serde = {version = "1.0", features= ["derive"], optional = true}
 itertools = "*"
+serde-big-array = "0.5.1"

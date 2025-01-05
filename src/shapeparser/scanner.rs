@@ -103,7 +103,8 @@ impl Scanner {
 }
 
 /// Represents errors that can occur during scanning shapes.
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Hash, Copy)]
 pub enum ScanningShapeError {
     /// Indicates an unknown character encountered during scanning.
     UnknownChar(char),

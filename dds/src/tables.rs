@@ -171,6 +171,8 @@ impl DdTableCalculator for DoubleDummySolver {
 }
 
 #[repr(i32)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// Par Calculation Mode, gives info on the vulnerability.
 /// See DDS docs for informations.
 pub enum ParCalcMode {
@@ -182,6 +184,8 @@ pub enum ParCalcMode {
 }
 
 #[repr(i32)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// How DDS encodes vulnerability.
 pub enum VulnerabilityEncoding {
     None = 0,
@@ -213,7 +217,8 @@ impl IndexMut<DdsSuit> for TrumpFilter {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// This struct contains the distribution of the cards, with a particular encoding
 /// First index is encoded in [`crate::deal::DdsHandEncoding`], second index is encoded in
 /// [`DdsSuitEncoding`]. The way we store the fields is a bit set of the rank the hand holds in a
@@ -268,11 +273,13 @@ impl Default for DdTableDeal {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A collection of [`DdTableDeal`]s, contained in a fixed array of 200 elements.
 /// We can provide less, since we keep a counter with the number of deals loaded.
 pub struct DdTableDeals {
     pub no_of_tables: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub deals: [DdTableDeal; (MAXNOOFTABLES * DDS_STRAINS) as usize],
 }
 
@@ -301,10 +308,12 @@ impl DdTableDeals {
     }
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// A bridge deal represented as an array of chars.
 /// Pbn are basically strings.
 pub struct DdTableDealPbn {
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub cards: [::std::os::raw::c_char; 80usize],
 }
 
@@ -322,11 +331,13 @@ impl Default for DdTableDealPbn {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// A collection of [`DdTableDealPbn`]s, contained in a fixed array of 200 elements.
 /// We can provide less, since we keep a counter with the number of deals loaded.
 pub struct DdTableDealsPbn {
     pub no_of_tables: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub deals: [DdTableDealPbn; (MAXNOOFTABLES * DDS_STRAINS) as usize],
 }
 
@@ -355,13 +366,29 @@ impl DdTableDealsPbn {
     }
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// A struct that keeps the result of the double dummy result for a deal, basically saving the
 /// result for every suit for every player. The generic you see is for keeping track of the state
 /// of the table.
 pub struct DdTableResults<T: TablePopulated> {
     pub res_table: [[::std::os::raw::c_int; DDS_HANDS as usize]; DDS_STRAINS as usize],
+    #[cfg_attr(feature = "serde", serde(skip_serializing))]
     state: PhantomData<T>,
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T: TablePopulated> serde::Deserialize<'de> for DdTableResults<T> {
+    fn deserialize<D>(deserializer: D) -> Result<DdTableResults<T>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let res_table = serde::Deserialize::deserialize(deserializer)?;
+        Ok(DdTableResults {
+            res_table,
+            state: PhantomData,
+        })
+    }
 }
 
 impl DdTableResults<NotPopulated> {
@@ -408,10 +435,12 @@ impl populated_private::SealedPopulated for NotPopulated {}
 impl populated_private::SealedPopulated for Populated {}
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// A collection of [`DdTableResults`] for multiple deals.
 pub struct DdTablesRes<T: TablePopulated> {
     pub no_of_boards: ::std::os::raw::c_int,
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub results: [DdTableResults<T>; (MAXNOOFTABLES * DDS_STRAINS) as usize],
 }
 
@@ -431,11 +460,12 @@ impl DdTablesRes<NotPopulated> {
 }
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// This is a struct used by DDS to represent basically the string of the par score.
 pub struct ParResults {
     pub par_score: [[::std::os::raw::c_char; 16usize]; 2usize],
-    pub par_contracts_string: [[::std::os::raw::c_char; 128usize]; 2usize],
+    pub par_contracts_string: [crate::par::ParTextResultHalfBuffer; 2usize],
 }
 
 impl ParResults {
@@ -443,7 +473,7 @@ impl ParResults {
     pub(crate) const fn new() -> Self {
         Self {
             par_score: [[20; 16]; 2],
-            par_contracts_string: [[20; 128]; 2],
+            par_contracts_string: [crate::par::ParTextResultHalfBuffer([20; 128]); 2],
         }
     }
 }
@@ -455,9 +485,11 @@ impl Default for ParResults {
 }
 
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
 /// A DDS struct containing multile [`ParResults`].
 pub struct AllParResults {
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub par_results: [ParResults; MAXNOOFTABLES as usize],
 }
 

@@ -45,6 +45,7 @@ impl From<ThreadIndex> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, Default)]
 /// Target of the analysis of DDS.
 /// DDS works by repeatedly calling its solving function with multiple targets until it fails (see its docs for more details):
@@ -72,6 +73,7 @@ impl From<Target> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy)]
 /// This struct serves the purpose of telling DDS what solve mode should it employ when solving a deal.
 /// Works toghether with [`Target`]: check DDS docs for the specifics way those two structs interact.
@@ -98,6 +100,7 @@ impl From<Solutions> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy)]
 /// This struct defines the strategy used by DDS when it comes to
 /// searching and reusing the transposition table.
@@ -132,12 +135,15 @@ impl From<Mode> for c_int {
 }
 
 #[allow(clippy::exhaustive_enums)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy)]
 pub enum Side {
     NS = 0,
     EW = 1,
 }
 
 #[allow(clippy::exhaustive_enums)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum SeqError {
     SequenceTooLong,
@@ -203,6 +209,7 @@ macro_rules! impl_tryfrom_array_for_sequence {
 }
 
 #[derive(IntoRawDDS, Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A `SuitSeq` is a sequence of cards' suit.
 /// It's the sequence of suits used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// The suit is represented with the standard suit enconding used
@@ -216,6 +223,7 @@ macro_rules! impl_tryfrom_array_for_sequence {
 pub struct SuitSeq {
     #[raw]
     /// The sequence of the suit of the cards played
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     sequence: [c_int; SEQUENCE_LENGTH],
     /// The real length of the suit sequence
     length: c_int,
@@ -301,6 +309,7 @@ impl_tryfrom_array_for_sequence! {usize,u8,u16,u32,u64 ; SuitSeq}
 impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; SuitSeq}
 
 #[derive(Debug, Copy, Clone, IntoRawDDS)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A `RankSeq` is a sequence of cards' rank.
 /// It's the sequence of ranks used in [`PlayTraceBin`](crate::PlayTraceBin).
 /// Card are encoded with a incremental integer encoding, unlike in
@@ -313,6 +322,7 @@ impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; SuitSeq}
 pub struct RankSeq {
     #[raw]
     /// The sequence of the suit of the cards played
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     sequence: [c_int; SEQUENCE_LENGTH],
     /// The real length of the suit sequence
     length: c_int,
