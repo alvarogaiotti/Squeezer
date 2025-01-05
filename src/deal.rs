@@ -454,7 +454,7 @@ impl DealerBuilder {
     /// # Errors
     /// Will return an error if same card is dealt twice.
     #[inline]
-    pub fn predeal(&mut self, seat: Seat, hand: Cards) -> Result<&mut Self, DealerError> {
+    pub fn predeal(mut self, seat: Seat, hand: Cards) -> Result<Self, DealerError> {
         if !hand.difference(self.deck).is_empty() {
             return Err(DealerError::new(
                 format!("card dealt twice: {}", hand.difference(self.deck)).as_str(),
@@ -488,10 +488,11 @@ impl DealerBuilder {
     /// # }
     /// ```
     #[inline]
+    #[must_use]
     pub fn with_function<T: Fn(&Hands) -> bool + Send + 'static>(
-        &mut self,
+        mut self,
         accept_function: T,
-    ) -> &mut Self {
+    ) -> Self {
         self.accept = Box::new(accept_function);
         self
     }
@@ -499,18 +500,16 @@ impl DealerBuilder {
     /// Method used to set hand specification for a [`Seat`]. See [`HandDescriptor`] for
     /// details.
     #[inline]
-    pub fn with_hand_descriptor(
-        &mut self,
-        seat: Seat,
-        hand_description: HandDescriptor,
-    ) -> &mut Self {
+    #[must_use]
+    pub fn with_hand_descriptor(mut self, seat: Seat, hand_description: HandDescriptor) -> Self {
         self.hand_descriptors[seat as usize] = Some(hand_description);
         self
     }
 
     #[inline]
+    #[must_use]
     /// Output just deals with this vulnerability.
-    pub fn with_vulnerability(&mut self, vulnerability: Vulnerability) -> &mut Self {
+    pub fn with_vulnerability(mut self, vulnerability: Vulnerability) -> Self {
         self.vulnerability = vulnerability;
         self
     }
@@ -987,10 +986,13 @@ mod test {
     #[allow(clippy::should_panic_without_expect)]
     fn predealing_twice_should_panic() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
-        let mut builder = DealerBuilder::new();
-        builder.predeal(Seat::North, hand).unwrap();
-        builder.predeal(Seat::West, hand).unwrap();
-        let dealer = builder.build().unwrap();
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, hand)
+            .unwrap()
+            .predeal(Seat::West, hand)
+            .unwrap()
+            .build()
+            .unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
     }
@@ -1011,9 +1013,11 @@ mod test {
     #[test]
     fn dealer_deals_with_predeal_test() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
-        let mut builder = DealerBuilder::new();
-        builder.predeal(Seat::North, hand).unwrap();
-        let dealer = builder.build().unwrap();
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, hand)
+            .unwrap()
+            .build()
+            .unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
     }
@@ -1021,14 +1025,14 @@ mod test {
     #[test]
     fn dealer_deals_with_predeal_and_accept_function_test() {
         let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
-        let mut builder = DealerBuilder::new();
-        builder
+        let dealer = DealerBuilder::new()
             .predeal(Seat::North, hand)
             .unwrap()
             .with_function(Box::new(|hands: &Hands| {
                 hands.north().slen() + hands.south().slen() > 8
-            }));
-        let dealer = builder.build().unwrap();
+            }))
+            .build()
+            .unwrap();
         let deal = dealer.deal().unwrap();
         assert!(deal.north().slen() + deal.south().slen() > 8);
     }

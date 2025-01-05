@@ -315,8 +315,7 @@ mod test {
             Contract::from_str("3DN", Vulnerable::No).unwrap(),
             Contract::from_str("4HN", Vulnerable::No).unwrap(),
         ];
-        let mut builder = DealerBuilder::new();
-        builder
+        let dealer = DealerBuilder::new()
             .predeal(Seat::North, Cards::from_str("A AKjt Kqjt KQT9").unwrap())
             .unwrap()
             .with_hand_descriptor(
@@ -325,8 +324,9 @@ mod test {
                     Shape::new_from_pattern("3433").unwrap(),
                     HcpRange::new(11, 15),
                 )]),
-            );
-        let dealer = builder.build().unwrap();
+            )
+            .build()
+            .unwrap();
         let sim = PayoffSimulation::new(100, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();
@@ -358,7 +358,6 @@ mod test {
             Contract::from_str("3NN", Vulnerable::No).unwrap(),
             Contract::from_str("6SN", Vulnerable::No).unwrap(),
         ];
-        let mut builder = DealerBuilder::new();
         let ht = HandTypeBuilder::new()
             .with_range(14, 14)
             .add_shape("3(433)")
@@ -366,11 +365,12 @@ mod test {
             .add_shape("3(442)")
             .unwrap()
             .build();
-        builder
+        let dealer = DealerBuilder::new()
             .predeal(Seat::South, Cards::from_str("AKQJ2 52 AT83 Q2").unwrap())
             .unwrap()
-            .with_hand_descriptor(Seat::North, HandDescriptor::new(vec![ht]));
-        let dealer = builder.build().unwrap();
+            .with_hand_descriptor(Seat::North, HandDescriptor::new(vec![ht]))
+            .build()
+            .unwrap();
         let sim = PayoffSimulation::new(10, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();

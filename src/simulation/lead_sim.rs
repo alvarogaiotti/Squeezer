@@ -309,9 +309,8 @@ mod test {
 
     #[test]
     fn lead_simulation_ok() {
-        let mut builder = DealerBuilder::new();
         let hand = Cards::from_str("AQT KQ732 432 43").unwrap();
-        builder
+        let dealer = DealerBuilder::new()
             .predeal(Seat::South, hand)
             .unwrap()
             .with_function(|cards| {
@@ -320,8 +319,9 @@ mod test {
                 east.hlen() + west.hlen() == 8
                     && east.hcp() + west.hcp() >= 20
                     && east.hcp() + west.hcp() <= 24
-            });
-        let dealer = builder.build().unwrap();
+            })
+            .build()
+            .unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
             num_of_boards: 1000,

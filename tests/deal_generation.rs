@@ -20,15 +20,15 @@ fn main_to_be() {
         })
         .unwrap();
     let west_spec = hand_builder.build();
-    let mut builder = DealerBuilder::new();
     let predeal = Cards::from_str("SQ63H542DK42").unwrap();
-    builder
+    let dealer = DealerBuilder::new()
         .predeal(Seat::North, predeal)
         .unwrap()
         .with_hand_descriptor(Seat::South, south_specs)
         .with_hand_descriptor(Seat::West, HandDescriptor::new(vec![west_spec]))
-        .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2);
-    let dealer = builder.build().unwrap();
+        .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2)
+        .build()
+        .unwrap();
     let deal = dealer.deal().unwrap();
     println!("{deal}");
     assert!(deal.south().diamonds().len() >= 6);

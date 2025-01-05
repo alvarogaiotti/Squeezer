@@ -112,16 +112,15 @@ pub fn zar_points(hand: Hand) -> u8 {
 #[must_use]
 #[allow(clippy::missing_panics_doc)]
 pub fn dealer_of_lavazza_3nt_opening(seat: Option<Seat>) -> impl Dealer {
-    let mut builder = DealerBuilder::new();
-    builder.with_function(Box::new(move |hands: &Hands| {
-        let hand_type = HandTypeBuilder::new()
-            .add_shape("(8x)xx")
-            .unwrap()
-            .add_shape("(7x)xx")
-            .unwrap()
-            .add_shape("(9x)xx")
-            .unwrap()
-            .build();
+    let hand_type = HandTypeBuilder::new()
+        .add_shape("(8x)xx")
+        .unwrap()
+        .add_shape("(7x)xx")
+        .unwrap()
+        .add_shape("(9x)xx")
+        .unwrap()
+        .build();
+    let builder = DealerBuilder::new().with_function(Box::new(move |hands: &Hands| {
         if let Some(seat) = seat {
             hand_type.check(hands[seat as usize])
                 && (26..33).contains(&zar_points(hands[seat as usize]))
