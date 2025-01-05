@@ -39,9 +39,10 @@ use crate::{
 /// but the usage is something about like so:
 /// ```
 /// # use dds::solver::BridgeSolver;
+/// # use std::error::Error;
 /// # use dds::doubledummy::DoubleDummySolver;
 /// # #[derive(Debug, Clone)]
-/// # pub struct DealMock {pub hands: [[usize; 4]; 4]};
+/// # pub struct DealMock {pub hands: [[usize; 4]; 4]}
 /// # impl IntoIterator for DealMock {
 /// #     type Item = [usize; 4];
 /// #     type IntoIter = std::array::IntoIter<[usize; 4], 4>;
@@ -106,9 +107,9 @@ use crate::{
 ///    let contract = ContractMock {};
 ///    let solver = DoubleDummySolver::new();
 ///    println!("{}", solver.dd_tricks(&deal, &contract)?);
-/// # Ok()
+/// # Ok(())
 /// # }
-/// #```
+/// ```
 pub struct DoubleDummySolver {
     _marker: std::marker::PhantomData<std::cell::Cell<()>>,
 }

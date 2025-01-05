@@ -22,17 +22,20 @@ impl DifferenceMaker for Contract {}
 /// # Example
 ///
 /// ```
-/// use squeezer::prelude::*;
-/// use squeezer::prelude::imps;
+/// # use squeezer::prelude::*;
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>>{
 ///
 /// let to_compare = vec![
-///     Contract::from_str("3CN", Vulnerable::No).unwrap(),
-///     Contract::from_str("3HS", Vulnerable::No).unwrap(),
-///     Contract::from_str("3NN", Vulnerable::No).unwrap(),
+///     Contract::from_str("3CN", Vulnerable::No)?,
+///     Contract::from_str("3HS", Vulnerable::No)?,
+///     Contract::from_str("3NN", Vulnerable::No)?,
 ///     ];
 /// let simulation = PayoffSimulation::new(100, StandardDealer::new(), to_compare, imps);
-/// let payoff = simulation.run().unwrap();
+/// let payoff = simulation.run()?;
 /// payoff.report();
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> {

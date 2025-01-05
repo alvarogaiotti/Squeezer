@@ -46,6 +46,7 @@ type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 /// fine tuned later, for now we discriminate just based on whether we need
 /// all the shapes or just some subset of them.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum Shape {
     Custom(Shapes),
@@ -125,6 +126,8 @@ impl Shape {
 /// for keeping track of the shape we are interested into.
 /// Offers all the necessary methods to manipulate the shapes.
 #[derive(Clone)]
+#[allow(clippy::unsafe_derive_deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Shapes {
     shape_table: Box<ShapeTable>,
     min_ls: [u8; SUITS],
@@ -355,7 +358,8 @@ impl From<&[LenRange; SUITS]> for Shapes {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Hash)]
 /// Represents a range of lengths for shapes.
 pub struct LenRange {
     /// The minimum length in the range.
@@ -402,6 +406,7 @@ impl LenRange {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Enum representing the suits in a standard deck of cards.
 pub enum Suit {
     Spades = 0,

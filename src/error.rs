@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::prelude::{CreationShapeError, DealerError, LinParsingError};
+use crate::prelude::{CreationShapeError, DealerError, ParseLinError};
 use std::error::Error;
 
 /// Error wrapper for the entire library, so we expose just this one at the highest level.
@@ -9,13 +9,13 @@ use std::error::Error;
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum SqueezerError {
-    LinParsing(LinParsingError),
+    LinParsing(ParseLinError),
     CreationShape(CreationShapeError),
     DealingError(DealerError),
     #[cfg(feature = "dds")]
-    DDSError(dds::ddserror::DDSError),
+    DDSError(dds::ddserror::DdsError),
     #[cfg(feature = "dds")]
-    SeqError(dds::utils::SeqError),
+    SeqError(dds::utils::BuildSequenceError),
 }
 
 impl Error for SqueezerError {
@@ -34,8 +34,14 @@ impl Error for SqueezerError {
 
 impl std::fmt::Display for SqueezerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let inner = self.source().unwrap();
-        write!(f, "squeezer encountered an error:\n\t{inner}")
+        if let Some(inner) = self.source() {
+            write!(f, "squeezer encountered an error:\n\t{inner}")
+        } else {
+            write!(
+                f,
+                "squeezer encountered an error:\n\tUnknown: file a issue on github."
+            )
+        }
     }
 }
 
@@ -45,22 +51,22 @@ impl From<DealerError> for SqueezerError {
     }
 }
 
-impl From<LinParsingError> for SqueezerError {
-    fn from(value: LinParsingError) -> Self {
+impl From<ParseLinError> for SqueezerError {
+    fn from(value: ParseLinError) -> Self {
         Self::LinParsing(value)
     }
 }
 
 #[cfg(feature = "dds")]
-impl From<dds::ddserror::DDSError> for SqueezerError {
-    fn from(value: dds::ddserror::DDSError) -> Self {
+impl From<dds::ddserror::DdsError> for SqueezerError {
+    fn from(value: dds::ddserror::DdsError) -> Self {
         Self::DDSError(value)
     }
 }
 
 #[cfg(feature = "dds")]
-impl From<dds::utils::SeqError> for SqueezerError {
-    fn from(value: dds::utils::SeqError) -> Self {
+impl From<dds::utils::BuildSequenceError> for SqueezerError {
+    fn from(value: dds::utils::BuildSequenceError) -> Self {
         Self::SeqError(value)
     }
 }

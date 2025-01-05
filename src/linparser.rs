@@ -5,7 +5,7 @@
 use crate::prelude::*;
 use dds::analyseplay::PlayTraceBin;
 #[cfg(feature = "dds")]
-use dds::utils::{RankSeq, SeqError, SuitSeq, SEQUENCE_LENGTH};
+use dds::utils::{BuildSequenceError, RankSeq, SuitSeq, SEQUENCE_LENGTH};
 use fmt::Display;
 use log::error;
 use regex::Regex;
@@ -164,21 +164,21 @@ impl std::fmt::Display for LinDeal {
 /// that could occur while parsing a `.lin` file
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub enum LinParsingErrorKind {
+pub enum ParseLinErrorKind {
     Player,
     Hands,
     Number,
-    Bidding(BiddingError),
+    Bidding(BuildBiddingError),
 }
 
 #[derive(Debug, Clone)]
-pub struct LinParsingError {
+pub struct ParseLinError {
     lin: String,
-    kind: LinParsingErrorKind,
+    kind: ParseLinErrorKind,
 }
 
-impl LinParsingError {
-    fn new<T: ToString + ?Sized>(kind: LinParsingErrorKind, lin: &T) -> Self {
+impl ParseLinError {
+    fn new<T: ToString + ?Sized>(kind: ParseLinErrorKind, lin: &T) -> Self {
         Self {
             lin: lin.to_string(),
             kind,
@@ -186,30 +186,30 @@ impl LinParsingError {
     }
 }
 
-impl std::fmt::Display for LinParsingError {
+impl std::fmt::Display for ParseLinError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "unable to parse the following lin file:\n{}", self.lin)
     }
 }
 
-impl std::error::Error for LinParsingError {
+impl std::error::Error for ParseLinError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.kind {
-            LinParsingErrorKind::Bidding(ref e) => Some(e),
-            LinParsingErrorKind::Player
-            | LinParsingErrorKind::Hands
-            | LinParsingErrorKind::Number => None,
+            ParseLinErrorKind::Bidding(ref e) => Some(e),
+            ParseLinErrorKind::Player | ParseLinErrorKind::Hands | ParseLinErrorKind::Number => {
+                None
+            }
         }
     }
 }
-impl From<BiddingError> for LinParsingErrorKind {
-    fn from(value: BiddingError) -> Self {
+impl From<BuildBiddingError> for ParseLinErrorKind {
+    fn from(value: BuildBiddingError) -> Self {
         Self::Bidding(value)
     }
 }
 
 impl FromStr for LinDeal {
-    type Err = LinParsingError;
+    type Err = ParseLinError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let players = players(s);
         // Safety: Players always return a Vec of len 4;
@@ -219,7 +219,7 @@ impl FromStr for LinDeal {
         let bidding = Some(match bidding(s) {
             Ok(value) => value,
             Err(e) => {
-                return Err(LinParsingError {
+                return Err(ParseLinError {
                     lin: s.to_owned(),
                     kind: e.into(),
                 })
@@ -240,7 +240,7 @@ impl FromStr for LinDeal {
 
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for LinDeal {
-    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
+    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.hands.into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {
@@ -280,43 +280,43 @@ impl Display for Bidding {
 /// insufficient, or simply we were unable to parse the last [`Bid`]
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub enum BiddingErrorKind {
+pub enum BuildBiddingErrorKind {
     Insufficient,
     NonStarter,
-    NonExistent(BidError),
+    NonExistent(BuildBidError),
 }
 
-impl std::fmt::Display for BiddingErrorKind {
+impl std::fmt::Display for BuildBiddingErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            BiddingErrorKind::Insufficient => write!(f, "bidding is insufficient"),
-            BiddingErrorKind::NonStarter => {
+            BuildBiddingErrorKind::Insufficient => write!(f, "bidding is insufficient"),
+            BuildBiddingErrorKind::NonStarter => {
                 write!(f, "bidding cannot be started with a Double or a Redouble")
             }
-            BiddingErrorKind::NonExistent(ref bid) => write!(f, "{bid}"),
+            BuildBiddingErrorKind::NonExistent(ref bid) => write!(f, "{bid}"),
         }
     }
 }
-impl std::error::Error for BiddingErrorKind {}
+impl std::error::Error for BuildBiddingErrorKind {}
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub struct BiddingError {
+pub struct BuildBiddingError {
     bid: Bid,
-    kind: BiddingErrorKind,
+    kind: BuildBiddingErrorKind,
 }
 
-impl std::fmt::Display for BiddingError {
+impl std::fmt::Display for BuildBiddingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "unable to bid `{}`", self.bid)
     }
 }
 
-impl std::error::Error for BiddingError {
+impl std::error::Error for BuildBiddingError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.kind {
-            BiddingErrorKind::Insufficient | BiddingErrorKind::NonStarter => None,
-            BiddingErrorKind::NonExistent(ref e) => e.source(),
+            BuildBiddingErrorKind::Insufficient | BuildBiddingErrorKind::NonStarter => None,
+            BuildBiddingErrorKind::NonExistent(ref e) => e.source(),
         }
     }
 }
@@ -352,16 +352,16 @@ impl Bidding {
     /// # Errors
     /// - If the `Bid` is insufficient
     /// - If we are at the first `Bid` and find a Double or Redouble
-    pub fn push(&mut self, bid: Bid) -> Result<(), BiddingError> {
+    pub fn push(&mut self, bid: Bid) -> Result<(), BuildBiddingError> {
         // If we have already some bids pushed
         if let Some(last) = self.bidding.last() {
             if bid.can_bid_over(last) {
                 self.bidding.push(bid);
                 Ok(())
             } else {
-                Err(BiddingError {
+                Err(BuildBiddingError {
                     bid,
-                    kind: BiddingErrorKind::Insufficient,
+                    kind: BuildBiddingErrorKind::Insufficient,
                 })
             }
             // If this is the first bid that we push and is a contract or pass go ahead
@@ -370,9 +370,9 @@ impl Bidding {
             Ok(())
             // Else terminate error
         } else {
-            Err(BiddingError {
+            Err(BuildBiddingError {
                 bid,
-                kind: BiddingErrorKind::NonStarter,
+                kind: BuildBiddingErrorKind::NonStarter,
             })
         }
     }
@@ -408,9 +408,9 @@ impl std::fmt::Display for Bid {
 }
 
 #[derive(Debug, Clone)]
-pub struct BidError {
+pub struct BuildBidError {
     pub bid: String,
-    pub kind: BidErrorKind,
+    pub kind: BuildBidErrorKind,
 }
 
 /// Enum representing the various kind of errors
@@ -419,29 +419,29 @@ pub struct BidError {
 /// or we are unable to parse the strain of the bid.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
-pub enum BidErrorKind {
+pub enum BuildBidErrorKind {
     Level(ParseIntError),
     Strain,
 }
-impl std::fmt::Display for BidErrorKind {
+impl std::fmt::Display for BuildBidErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BidErrorKind::Level(_e) => write!(f, "unable to parse level"),
-            BidErrorKind::Strain => write!(f, "unable to parse strain"),
+            BuildBidErrorKind::Level(_e) => write!(f, "unable to parse level"),
+            BuildBidErrorKind::Strain => write!(f, "unable to parse strain"),
         }
     }
 }
 
-impl std::error::Error for BidError {
+impl std::error::Error for BuildBidError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.kind {
-            BidErrorKind::Level(ref e) => Some(e),
-            BidErrorKind::Strain => None,
+            BuildBidErrorKind::Level(ref e) => Some(e),
+            BuildBidErrorKind::Strain => None,
         }
     }
 }
 
-impl std::fmt::Display for BidError {
+impl std::fmt::Display for BuildBidError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "bid: {} cannot be parsed", self.bid)
     }
@@ -502,7 +502,7 @@ fn players(lin: &str) -> Vec<String> {
 
 // TODO: Correct error handling of this function and make it return a Result
 // since this operation is clearly fallible and we should not fail silently
-fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
+fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), ParseLinError> {
     static HANDS: OnceLock<Regex> = OnceLock::new();
     let hands =
         HANDS.get_or_init(|| Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap());
@@ -512,7 +512,7 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
             Ok(dealer) => Seat::from(dealer + 1),
             Err(_e) => {
                 error!("unable to parse dealer");
-                return Err(LinParsingError::new(LinParsingErrorKind::Hands, capture));
+                return Err(ParseLinError::new(ParseLinErrorKind::Hands, capture));
             }
         };
         let mut deck = Cards::ALL;
@@ -522,7 +522,7 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
             .split(',')
             .map(|hand_str| {
                 let mut hand = Cards::from_str(hand_str)
-                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, hand_str))?;
+                    .map_err(|_| ParseLinError::new(ParseLinErrorKind::Hands, hand_str))?;
                 deck -= hand;
                 // We should get a empty [`Hand`] only at the end of the stream.
                 // Looks really error prone and should be corrected, so:
@@ -531,31 +531,26 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), LinParsingError> {
                     if deck.len() == 13 {
                         hand = deck;
                     } else {
-                        return Err(LinParsingError::new(LinParsingErrorKind::Hands, hand_str));
+                        return Err(ParseLinError::new(ParseLinErrorKind::Hands, hand_str));
                     }
                 }
                 Hand::try_from(hand)
-                    .map_err(|_| LinParsingError::new(LinParsingErrorKind::Hands, hand_str))
+                    .map_err(|_| ParseLinError::new(ParseLinErrorKind::Hands, hand_str))
             })
-            .collect::<Result<Vec<Hand>, LinParsingError>>()?;
+            .collect::<Result<Vec<Hand>, ParseLinError>>()?;
         // Lin format has player start from south.
         vec.rotate_right(2);
         let hands: [Hand; 4] = match vec.try_into() {
             Ok(array) => array,
-            Err(_) => {
-                return Err(LinParsingError::new(
-                    LinParsingErrorKind::Hands,
-                    hand_capture,
-                ))
-            }
+            Err(_) => return Err(ParseLinError::new(ParseLinErrorKind::Hands, hand_capture)),
         };
         Ok((dealer, Hands::new_from(hands)))
     } else {
-        Err(LinParsingError::new(LinParsingErrorKind::Hands, lin))
+        Err(ParseLinError::new(ParseLinErrorKind::Hands, lin))
     }
 }
 
-fn number(lin: &str) -> Result<u8, LinParsingError> {
+fn number(lin: &str) -> Result<u8, ParseLinError> {
     static NUMBER: OnceLock<Regex> = OnceLock::new();
     let number = NUMBER.get_or_init(|| Regex::new(r"ah\|\s?Board\s?(?P<number>[\d]+?)\|").unwrap());
     let number = number
@@ -566,10 +561,10 @@ fn number(lin: &str) -> Result<u8, LinParsingError> {
         .as_str();
     number
         .parse::<u8>()
-        .map_err(|_| LinParsingError::new(LinParsingErrorKind::Number, number))
+        .map_err(|_| ParseLinError::new(ParseLinErrorKind::Number, number))
 }
 
-fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
+fn bidding(lin: &str) -> Result<Bidding, BuildBiddingError> {
     static BIDDING: OnceLock<Regex> = OnceLock::new();
     let bids = BIDDING.get_or_init(|| Regex::new(r"(?P<waste>mb\|(?P<bid>\w+?)\|)+?").unwrap());
     let captures = bids.captures_iter(lin);
@@ -583,11 +578,11 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
                 match contract_bid[0..1].parse::<std::num::NonZeroU8>() {
                     Ok(num) => num,
                     Err(e) => {
-                        return Err(BiddingError {
+                        return Err(BuildBiddingError {
                             bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
-                            kind: BiddingErrorKind::NonExistent(BidError {
+                            kind: BuildBiddingErrorKind::NonExistent(BuildBidError {
                                 bid: String::from(contract_bid),
-                                kind: BidErrorKind::Level(e),
+                                kind: BuildBidErrorKind::Level(e),
                             }),
                         });
                     }
@@ -599,11 +594,11 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
                     "s" | "S" => Strain::Spades,
                     "n" | "N" => Strain::NoTrumps,
                     _ => {
-                        return Err(BiddingError {
+                        return Err(BuildBiddingError {
                             bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
-                            kind: BiddingErrorKind::NonExistent(BidError {
+                            kind: BuildBiddingErrorKind::NonExistent(BuildBidError {
                                 bid: String::from(contract_bid),
-                                kind: BidErrorKind::Strain,
+                                kind: BuildBidErrorKind::Strain,
                             }),
                         })
                     }
@@ -616,6 +611,7 @@ fn bidding(lin: &str) -> Result<Bidding, BiddingError> {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlaySequence {
     sequence: Vec<Card>,
 }
@@ -660,14 +656,14 @@ impl Display for PlaySequence {
 
 #[cfg(feature = "dds")]
 impl TryFrom<&PlaySequence> for (SuitSeq, dds::utils::RankSeq) {
-    type Error = SeqError;
+    type Error = BuildSequenceError;
 
     fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
         let len = value.len();
         if len == 0 {
-            return Err(SeqError::SequenceTooShort);
+            return Err(BuildSequenceError::SequenceTooShort);
         } else if len > SEQUENCE_LENGTH {
-            return Err(SeqError::SequenceTooLong);
+            return Err(BuildSequenceError::SequenceTooLong);
         }
 
         let (suitseq, rankseq): (Vec<_>, Vec<_>) = value
@@ -683,7 +679,7 @@ impl TryFrom<&PlaySequence> for (SuitSeq, dds::utils::RankSeq) {
 
 #[cfg(feature = "dds")]
 impl TryFrom<&PlaySequence> for PlayTraceBin {
-    type Error = SeqError;
+    type Error = BuildSequenceError;
 
     fn try_from(value: &PlaySequence) -> Result<Self, Self::Error> {
         let sequences = <(SuitSeq, RankSeq)>::try_from(value)?;

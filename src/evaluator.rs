@@ -11,12 +11,16 @@ use crate::prelude::*;
 /// # Example
 ///
 /// ```
-/// use squeezer::{Evaluator,Cards};
-///
-/// let hcp = Evaluator::new(&[4u8, 3u8, 2u8, 1u8]);
-/// let mut deck = Cards::ALL;
-/// let hand = deck.pick(13).unwrap();
-/// assert_eq!(hcp.evaluate(hand), { hand.high_card_points() });
+/// # use squeezer::{Evaluator,Cards, DealerError};
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+///  //                         A=4, K=3, Q=2, J=1
+///  let hcp = Evaluator::new(&[4u8, 3u8, 2u8, 1u8]);
+///  let mut deck = Cards::ALL;
+///  let hand = deck.pick(13).ok_or(DealerError::new("unable to deal cards"))?;
+///  assert_eq!(hcp.evaluate(hand), hand.high_card_points());
+/// # Ok(())
+/// # }
 /// ```
 pub struct Evaluator {
     evaluator: Box<dyn Fn(Cards) -> u8>,
@@ -28,9 +32,9 @@ impl Evaluator {
         let mut vals = [0u8; 13];
         // Since the iteration starts from the top (e.g. A), we populate in
         // a linear fashion, using enumerate to take the values that comes in when
-        // new is calle with the standard parameters like values: &[4,3,2,1]
+        // new is called with the standard parameters like values: &[4,3,2,1]
         //                                                          A,K,Q,J,...
-        //                                                          [4,3,2,1,0...]
+        //                                                          [8,6,2,1,0...]
 
         vals[..values.len()].copy_from_slice(values);
         Self {

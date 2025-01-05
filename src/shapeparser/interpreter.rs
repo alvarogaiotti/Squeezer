@@ -176,7 +176,7 @@ impl std::fmt::Display for InterpretationShapeError {
             f,
             "{}",
             match *self {
-                Self::TooMany => "shape has too many allocated slots",
+                Self::TooMany => "shape exceeds 13 cards",
                 Self::NotEnough => "shape hasn't enough allocated slots",
             }
         )

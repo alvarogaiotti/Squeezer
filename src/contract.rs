@@ -4,6 +4,7 @@
 use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Vulnerable {
     Yes,
     No,
@@ -18,6 +19,7 @@ impl Vulnerable {
 }
 /// A struct representing a contract
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Contract {
     vuln: Vulnerable,
     level: u8,
@@ -154,6 +156,7 @@ impl dds::traits::ContractScorer for Contract {
 /// Enum modelling whether a [`Contract`] is not doubled,
 /// doubled or redoubled
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Doubled {
     NotDoubled = 0,
     Doubled = 1,
@@ -163,6 +166,7 @@ pub enum Doubled {
 /// The strain of a bridge contract, either some trump or
 /// no trump
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Strain {
     Spades = 0,
     Hearts = 1,

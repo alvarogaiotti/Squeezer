@@ -7,6 +7,7 @@ use itertools::Itertools;
 
 /// A struct that contains the the sequence of cards played
 /// and the dd tricks of every card once played.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct TraceSolved {
@@ -16,6 +17,7 @@ pub struct TraceSolved {
 
 /// Represents a player's track of cards played in a board.
 /// We use Option because sometimes we claim and do not play cards.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct PlayerPlayTrace([Option<Card>; 13]);
 
@@ -33,6 +35,7 @@ impl std::ops::IndexMut<usize> for PlayerPlayTrace {
 }
 
 /// Newtype wrapper for a trick, represented with a u8.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Tricks(u8);
 
@@ -61,6 +64,7 @@ impl Tricks {
 
 /// Newtype wrapper for the double dummy difference between before and after the card is played.
 #[repr(transparent)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TrickDifference(u8);
 
@@ -88,6 +92,7 @@ impl TrickDifference {
 }
 
 #[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Represents the performance of a card played
 pub enum CardPerformance {
@@ -121,6 +126,7 @@ impl CardPerformance {
 /// Represents  player's track of card's result played in a board.
 /// We use Option because sometimes we claim and do not play cards.
 /// The u8 represents the double dummy result of the card played.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
 pub struct PlayerResultTrace([Option<CardPerformance>; 12]);
 
@@ -203,6 +209,7 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 #[derive(Default, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Represents the accuracy of a single player, measured in correct cards played and number of
 /// tricks lost
 pub struct PlayerAccuracy {
@@ -240,6 +247,7 @@ impl std::ops::IndexMut<usize> for PlayerResultTrace {
 /// [`PlayerPlayRecord`] are the cards played by this player, [`PlayerResultTrace`] are the number
 /// of double dummy tricks after the corresponding card is played.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlayerPlayRecord {
     pub tricks: PlayerPlayTrace,
     pub results: PlayerResultTrace,
@@ -268,6 +276,7 @@ impl PlayerPlayRecord {
 
 /// Represents the position of a player for this trick.
 #[repr(u8)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TrickPosition {
     First = 0,

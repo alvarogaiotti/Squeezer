@@ -189,8 +189,8 @@ impl std::fmt::Display for ParsingShapeError {
                 ParsingShapeError::UnmatchParenthesis => String::from("non matching parentheses"),
                 ParsingShapeError::OrphanModifier(ref modifier) =>
                     format!("orphan modifier: {modifier}"),
-                ParsingShapeError::ShapeTooLong => String::from("shape has more than 13 cards"),
-                ParsingShapeError::ShapeTooShort => String::from("shape has less than 13 cards"),
+                ParsingShapeError::ShapeTooLong => String::from("shape has more than 4 suits"),
+                ParsingShapeError::ShapeTooShort => String::from("shape has less than 4 suits"),
                 ParsingShapeError::NestedScope => String::from("nested grouping not supported"),
                 ParsingShapeError::MalformedGroup =>
                     String::from("group must contain at least two elements"),

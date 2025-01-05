@@ -107,6 +107,7 @@ impl<'a> IntoIterator for &'a Hands {
 
 /// Represents a seat in a Bridge game: North, South, East or West
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Seat {
     #[default]
     North = 0,
@@ -473,6 +474,8 @@ impl DealerBuilder {
     /// # Example
     /// ```
     /// # use squeezer::*;
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>>{
     /// let mut builder = DealerBuilder::new();
     /// builder.with_function(Box::new(|hands: &Hands| {
     ///          (hands.north().hearts() + hands.south().hearts()).len() >= 8
@@ -480,7 +483,9 @@ impl DealerBuilder {
     ///      )
     /// );
     /// //This Dealer will only deal Deals in which North and South have a heart fit.
-    /// let dealer = builder.build().unwrap();
+    /// let dealer = builder.build()?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn with_function<T: Fn(&Hands) -> bool + Send + 'static>(
@@ -674,7 +679,7 @@ pub struct Deal {
 
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for Deal {
-    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
+    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {

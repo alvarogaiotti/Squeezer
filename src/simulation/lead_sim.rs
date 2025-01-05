@@ -28,15 +28,20 @@ use itertools::Itertools;
 /// # Example
 ///
 /// ```
-/// use squeezer::prelude::*;
+/// # use squeezer::prelude::*;
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>>{
+///
 /// let dealer = StandardDealer::default(); // Not very useful but you get the idea
 /// let lead_sim = LeadSimulation::new(
 ///     100,
 ///     dealer,
-///     Contract::from_str("5CN", Vulnerable::No).unwrap(),
+///     Contract::from_str("5CN", Vulnerable::No)?,
 /// );
 /// let results = lead_sim.run().expect("unable to run simulation");
 /// results.report();
+/// # Ok(())
+/// # }
 /// ```
 pub struct LeadSimulation<D: Dealer> {
     num_of_boards: usize,
@@ -306,13 +311,16 @@ mod test {
     fn lead_simulation_ok() {
         let mut builder = DealerBuilder::new();
         let hand = Cards::from_str("AQT KQ732 432 43").unwrap();
-        builder.predeal(Seat::South, hand).with_function(|cards| {
-            let east = cards.east();
-            let west = cards.west();
-            east.hlen() + west.hlen() == 8
-                && east.hcp() + west.hcp() >= 20
-                && east.hcp() + west.hcp() <= 24
-        });
+        builder
+            .predeal(Seat::South, hand)
+            .unwrap()
+            .with_function(|cards| {
+                let east = cards.east();
+                let west = cards.west();
+                east.hlen() + west.hlen() == 8
+                    && east.hcp() + west.hcp() >= 20
+                    && east.hcp() + west.hcp() <= 24
+            });
         let dealer = builder.build().unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {

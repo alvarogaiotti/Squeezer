@@ -24,6 +24,7 @@ fn main_to_be() {
     let predeal = Cards::from_str("SQ63H542DK42").unwrap();
     builder
         .predeal(Seat::North, predeal)
+        .unwrap()
         .with_hand_descriptor(Seat::South, south_specs)
         .with_hand_descriptor(Seat::West, HandDescriptor::new(vec![west_spec]))
         .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2);
