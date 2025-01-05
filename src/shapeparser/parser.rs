@@ -11,8 +11,7 @@ use super::{interpreter::CreationShapeError, scanner::Scanner};
 /// Uses the following DSL:
 /// Rough grammar rules:
 ///
-/// primary      -> NUMBER | "x"
-/// unary        -> primary("+" | "-")
+/// unary        -> [0-C]("+" | "-")? | x
 /// group        -> "(" unary (unary)+ ")"
 /// pattern      -> group | unary
 /// shape        -> pattern+
@@ -262,6 +261,8 @@ mod tests {
         correct_two_jokers:"x42x",
         correct_quantifiers:"2+424-",
         correct_more_quantifiers:"1+2+24-",
+        thirteenplus_zero_zero_zero:"C+xxx",
+        thirteenplus_zero_zero_tenminus:"C+xxA-",
         correct_complex:"(x4)(3+2)"
     );
 
@@ -280,6 +281,7 @@ mod tests {
         wrong_nested_scope:"(3(34))3"="NestedScope",
         wrong_nested_scope_unclosed:"(3(34)3"="NestedScope",
         wrong_malformed_group:"(4)333"="MalformedGroup",
+        wrong_joker_with_modifier:"(x+4)(3+2)"="OrphanModifier",
         wrong_shape_too_short:"442"="ShapeTooShort"
     );
 }
