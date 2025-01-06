@@ -892,10 +892,10 @@ impl Deal {
         } else {
             south_len
         };
-        let width = west_len + east_len + ns_len;
-        let mut stringa = String::with_capacity(204);
+        let width = west_len + east_len + ns_len - 2;
+        let mut stringa = String::with_capacity(210);
         for line in self.hands[Seat::North as usize].long_str().split('\n') {
-            stringa = format!("{stringa}{line:^0$}\n", width - ns_len + line.len());
+            stringa = format!("{stringa}{line:^0$}\n", width - 2 - ns_len + line.len());
         }
         for (line_w, line_e) in self.hands[Seat::West as usize]
             .long_str()
@@ -904,11 +904,7 @@ impl Deal {
         {
             stringa = format!(
                 "{stringa}{line_w:<0$}{line_e:<1$}\n",
-                if line_w.is_empty() {
-                    width - east_len - 1
-                } else {
-                    width - east_len
-                },
+                width - east_len,
                 east_len
             );
         }
@@ -917,7 +913,7 @@ impl Deal {
             self.hands[Seat::South as usize]
                 .long_str()
                 .split('\n')
-                .map(|string| format!("{string:^0$}", width - ns_len + string.len()))
+                .map(|string| format!("{string:^0$}", width - ns_len - 2 + string.len()))
                 .format("\n"),
         );
         stringa
