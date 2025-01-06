@@ -1,6 +1,3 @@
-// Copyright (C) 2024 Alvaro Gaiotti
-// See end of file for license information
-
 /// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
 /// I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;
@@ -263,21 +260,23 @@ impl Cards {
 
     #[must_use]
     #[inline]
+    /// True if the instance has no cards.
     pub const fn is_empty(&self) -> bool {
         self.bits == 0
     }
 
     #[must_use]
     #[inline]
+    /// Insert a `card` into the instance.
     pub const fn insert(self, card: Card) -> Self {
         Self {
             bits: self.bits | (1 << card.offset),
         }
     }
 
-    /// NOTE: Removes, does not `pop`.
     #[must_use]
     #[inline]
+    /// NOTE: Removes, does not `pop`.
     pub const fn remove(self, card: Card) -> Self {
         Self {
             bits: self.bits & !(1 << card.offset),
@@ -286,11 +285,12 @@ impl Cards {
 
     #[must_use]
     #[inline]
+    /// Returns true if `card` is contained in the instance.
     pub const fn contains(self, card: Card) -> bool {
         self.bits & (1 << card.offset) != 0
     }
 
-    /// Sum of two `Cards` instances.
+    /// Sum of two [`Cards`] instances.
     #[must_use]
     #[inline]
     pub const fn union(&self, cards: Cards) -> Self {
@@ -299,7 +299,7 @@ impl Cards {
         }
     }
 
-    /// Difference of two `Cards` instances.
+    /// Difference of two [`Cards`] instances.
     #[must_use]
     #[inline]
     pub const fn difference(&self, cards: Cards) -> Self {
@@ -308,7 +308,7 @@ impl Cards {
         }
     }
 
-    /// Cards in common between two `Cards` instances.
+    /// Cards in common between two [`Cards`] instances.
     #[must_use]
     const fn intersection(self, cards: Cards) -> Self {
         Cards {
@@ -376,7 +376,7 @@ impl Cards {
     /// All spades cards.
     pub const SPADES: Cards = Cards { bits: 0x7ffc };
 
-    /// Just the spades from this `Cards` instance.
+    /// Just the spades from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn spades(self) -> Cards {
@@ -386,7 +386,7 @@ impl Cards {
     /// All hearts cards.
     pub const HEARTS: Cards = Cards { bits: 0x7ffc << 16 };
 
-    /// Just the hearts from this `Cards` instance.
+    /// Just the hearts from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn hearts(self) -> Cards {
@@ -396,7 +396,7 @@ impl Cards {
     /// All diamonds cards.
     pub const DIAMONDS: Cards = Cards { bits: 0x7ffc << 32 };
 
-    /// Just the diamonds from this `Cards` instance.
+    /// Just the diamonds from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn diamonds(self) -> Cards {
@@ -406,7 +406,7 @@ impl Cards {
     /// All clubs cards.
     pub const CLUBS: Cards = Cards { bits: 0x7ffc << 48 };
 
-    /// Just the clubs from this `Cards` instance.
+    /// Just the clubs from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn clubs(self) -> Cards {
@@ -423,7 +423,7 @@ impl Cards {
         .insert(Card::HA)
         .insert(Card::SA);
 
-    /// Just the aces from this `Cards` instance.
+    /// Just the aces from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn aces(self) -> Cards {
@@ -435,7 +435,7 @@ impl Cards {
         .insert(Card::DK)
         .insert(Card::HK)
         .insert(Card::SK);
-    /// Just the kins from this `Cards` instance.
+    /// Just the kins from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn kings(self) -> Cards {
@@ -447,7 +447,7 @@ impl Cards {
         .insert(Card::DQ)
         .insert(Card::HQ)
         .insert(Card::SQ);
-    /// Just the queens from this `Cards` instance.
+    /// Just the queens from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn queens(self) -> Cards {
@@ -459,7 +459,7 @@ impl Cards {
         .insert(Card::DJ)
         .insert(Card::HJ)
         .insert(Card::SJ);
-    /// Just the jacks from this `Cards` instance.
+    /// Just the jacks from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn jacks(self) -> Cards {
@@ -471,7 +471,7 @@ impl Cards {
         .insert(Card::D10)
         .insert(Card::H10)
         .insert(Card::S10);
-    /// Just the tens from this `Cards` instance.
+    /// Just the tens from this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn tens(self) -> Cards {
@@ -497,7 +497,7 @@ impl Cards {
                 .len()
     }
 
-    /// Returns the inner u64 type representing this `Cards` instance.
+    /// Returns the inner u64 type representing this [`Cards`] instance.
     #[must_use]
     #[inline]
     pub const fn as_bits(self) -> u64 {
@@ -506,15 +506,28 @@ impl Cards {
 
     #[must_use]
     #[inline]
-    pub fn dedup(self) -> Self {
+    /// Returns an instance of [`Cards`] containing only the head of a sequence of cards.
+    /// ```
+    /// # use std::error::Error;
+    /// # use squeezer::prelude::*;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// let hand = Cards::from_str("KQ986532")?;
+    /// let heads = hand.heads_of_sequences();
+    /// // Prints {"♠K963"}
+    /// println!("{heads}" );
+    ///
+    /// # Ok(())
+    /// # }
+    ///
+    pub fn heads_of_sequences(self) -> Self {
         let mut insert = 2;
-        let mut dedup = Cards::EMPTY;
+        let mut heads = Cards::EMPTY;
         let bits = self.bits;
         for index in (1..64u64).rev() {
-            dedup.bits |= (bits & 1 << index) & insert;
+            heads.bits |= (bits & 1 << index) & insert;
             insert = !(bits & 1 << index) >> 1u8;
         }
-        dedup
+        heads
     }
 }
 
@@ -795,7 +808,9 @@ impl DoubleEndedIterator for SuitIterator {
 }
 
 #[test]
-fn dedup_works() {
+fn heads_of_sequences_works() {
     let cards = Cards::DIAMONDS;
-    assert_eq!(cards.dedup(), Cards::EMPTY.insert(Card::DA));
+    assert_eq!(cards.heads_of_sequences(), Cards::EMPTY.insert(Card::DA));
+    let cards = Cards::from_str("KQ986532").unwrap();
+    assert_eq!(cards.heads_of_sequences(), Cards::from_str("K963").unwrap());
 }

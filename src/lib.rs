@@ -98,6 +98,9 @@
      }
  }
  ```
+
+ DISCLOSURE: The [`crate::card`] module comes from  David Roundy's crate [bridge-cards](https://github.com/droundy/bridge-cards).
+ Only small modifications were made by me on that module.
 */
 
 #[cfg(feature = "bbo")]
