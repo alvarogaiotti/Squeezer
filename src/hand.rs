@@ -365,9 +365,8 @@ impl HandType {
 ///     .build();
 /// // Create the hand descriptor...
 /// let polish_club = HandDescriptor::new(vec![weak1n, strong_any, unbal_with_clubs]);
-/// let mut d_builder = DealerBuilder::new();
 /// // Give it to the dealer and he'll use it to give you what you asked for: a Polish Club 1♣ opening
-/// d_builder.with_hand_descriptor(Seat::South, polish_club);
+/// let mut d_builder = DealerBuilder::new().with_hand_descriptor(Seat::South, polish_club);
 /// let dealer = d_builder.build()?;
 /// println!("Example of a Polish Club 1♣ opening:\n{}",dealer.deal()?);
 /// # Ok(())

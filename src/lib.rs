@@ -67,9 +67,6 @@
      let _deal = Deal::new();
 
      // If you want a much finer approach, you should use a DealerBuilder:
-     let mut dealer_builder = DealerBuilder::new();
-     // Note that we are strict on the case of the string for the hand
-     dealer_builder.predeal(Seat::South, Cards::from_str("AKQ AJT9 T3 AK95").unwrap());
 
      // Create a HandType with the builder for more ergonomics
      let north_specs1 = HandTypeBuilder::new()
@@ -86,10 +83,15 @@
      );
 
      // Give everything to the DealerBuilder, which will craft a brand new impl Dealer for you!
-     dealer_builder.with_hand_descriptor(
-         Seat::North,
-         HandDescriptor::new(vec![north_specs1, north_specs2]),
-     );
+     // Note that we are strict on the case of the string for the predealt hand: ALWAYS UPPERCASE.
+     let dealer_builder = DealerBuilder::new()
+        .predeal(Seat::South, Cards::from_str("AKQ AJT9 T3 AK95")
+        .unwrap())
+        .unwrap()
+        .with_hand_descriptor(
+            Seat::North,
+            HandDescriptor::new(vec![north_specs1, north_specs2])
+        );
      let dealer = dealer_builder.build().unwrap();
 
      for _ in 0..200 {
@@ -99,7 +101,7 @@
  }
  ```
 
- DISCLOSURE: The [`crate::card`] module comes from  David Roundy's crate [bridge-cards](https://github.com/droundy/bridge-cards).
+ DISCLOSURE: The [`crate::card`] module comes from David Roundy's crate [bridge-cards](https://github.com/droundy/bridge-cards).
  Only small modifications were made by me on that module.
 */
 

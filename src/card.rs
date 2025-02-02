@@ -564,6 +564,12 @@ impl std::ops::BitAnd for Cards {
     }
 }
 
+impl std::ops::BitAndAssign for Cards {
+    fn bitand_assign(&mut self, rhs: Self) {
+        *self = self.intersection(rhs);
+    }
+}
+
 impl IntoIterator for Cards {
     type Item = Card;
     type IntoIter = SuitIterator;

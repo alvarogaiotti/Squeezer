@@ -387,8 +387,7 @@ impl IntoIterator for Vulnerability {
 /// # use squeezer::*;
 /// # use std::error::Error;
 /// # fn main()->Result<(), Box<dyn Error>>{
-/// let mut builder = DealerBuilder::new();
-/// builder.predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ")?.try_into()?);
+/// let mut builder = DealerBuilder::new().predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ")?.try_into()?)?;
 /// let dealer = builder.build()?;
 /// //North will have AKQ AKQ AKQ AKQJ.
 /// println!("{}",dealer.deal()?);
@@ -451,6 +450,7 @@ impl DealerBuilder {
     }
 
     /// Set the cards that a particular [`Seat`] will be dealt.
+    /// This method will overwrite previous predeals.
     /// # Errors
     /// Will return an error if same card is dealt twice.
     #[inline]
@@ -461,8 +461,37 @@ impl DealerBuilder {
             ));
         }
 
-        self.deck -= hand;
+        if let Some(cards_already_dealt) = self.predealt_hands[seat as usize] {
+            self.deck += cards_already_dealt;
+        }
         self.predealt_hands[seat as usize] = Some(hand);
+        self.deck -= hand;
+        Ok(self)
+    }
+
+    /// Set the cards that all the seats will be dealt.
+    /// This method will overwrite previous predeals.
+    /// # Errors
+    /// Will return an error if same card is dealt twice.
+    #[inline]
+    pub fn predeal_all(mut self, hands: [Option<Cards>; 4]) -> Result<Self, DealerError> {
+        let mut tmp_deck = self.deck;
+        for already_dealt_hand in self.predealt_hands.iter().flatten() {
+            tmp_deck += *already_dealt_hand;
+        }
+        for hand in hands.iter().flatten() {
+            if hand.difference(tmp_deck).is_empty() {
+                tmp_deck -= *hand;
+            } else {
+                return Err(DealerError::new(format!(
+                    "card dealt twice {}",
+                    hand.difference(tmp_deck)
+                )));
+            }
+        }
+
+        self.predealt_hands = hands;
+        self.deck = tmp_deck;
         Ok(self)
     }
 
@@ -476,8 +505,7 @@ impl DealerBuilder {
     /// # use squeezer::*;
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>>{
-    /// let mut builder = DealerBuilder::new();
-    /// builder.with_function(Box::new(|hands: &Hands| {
+    /// let mut builder = DealerBuilder::new().with_function(Box::new(|hands: &Hands| {
     ///          (hands.north().hearts() + hands.south().hearts()).len() >= 8
     ///          }
     ///      )
@@ -503,6 +531,18 @@ impl DealerBuilder {
     #[must_use]
     pub fn with_hand_descriptor(mut self, seat: Seat, hand_description: HandDescriptor) -> Self {
         self.hand_descriptors[seat as usize] = Some(hand_description);
+        self
+    }
+
+    /// Method used to set hand specification for all the seats.
+    /// See [`HandDescriptor`] for details.
+    #[inline]
+    #[must_use]
+    pub fn with_hand_descriptors_all(
+        mut self,
+        hand_descriptors: [Option<HandDescriptor>; 4],
+    ) -> Self {
+        self.hand_descriptors = hand_descriptors;
         self
     }
 
@@ -1016,6 +1056,44 @@ mod test {
             .unwrap();
         let deal = dealer.deal().unwrap();
         assert_eq!(deal.north().as_cards(), hand);
+    }
+    #[test]
+    fn dealer_deals_with_predeal_all_test() {
+        let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let hands = [Some(hand), None, None, None];
+        let dealer = DealerBuilder::new()
+            .predeal_all(hands)
+            .unwrap()
+            .build()
+            .unwrap();
+        let deal = dealer.deal().unwrap();
+        assert_eq!(deal.north().as_cards(), hand);
+    }
+    #[test]
+    fn dealer_deals_with_predeal_all_twice_test() {
+        let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let hande = Cards::from_str("S432H432D432CT987").unwrap();
+        let hand_2 = Cards::from_str("SAKQHAKQDAKQC6543").unwrap();
+        let predeal_hands = [Some(hand), Some(hande), None, None];
+        let dealer = DealerBuilder::new()
+            .predeal_all(predeal_hands)
+            .unwrap()
+            .predeal_all([Some(hand_2), None, None, None])
+            .unwrap()
+            .build()
+            .unwrap();
+        let deal = dealer.deal().unwrap();
+        assert_eq!(deal.north().as_cards(), hand_2);
+        assert_ne!(deal.east().as_cards(), hande);
+    }
+
+    #[test]
+    #[should_panic]
+    fn dealer_deals_with_predeal_all_test_panic() {
+        let hand = Cards::from_str("SAKQHAKQDAKQCAKQJ").unwrap();
+        let hand_p = Cards::from_str("CQ").unwrap();
+        let hands = [Some(hand), Some(hand_p), None, None];
+        let _ = DealerBuilder::new().predeal_all(hands).unwrap();
     }
 
     #[test]
