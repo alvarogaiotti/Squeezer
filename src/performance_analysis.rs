@@ -48,7 +48,7 @@ impl Tricks {
         if (0..=13).contains(&tricks) {
             Ok(Tricks(tricks))
         } else {
-            Err(DealerError::new(&format!(
+            Err(DealerError::new(format!(
                 "trick number can be only in the range 0..=13: got {tricks}"
             )))
         }
@@ -77,7 +77,7 @@ impl TrickDifference {
         if (1..=13).contains(&tricks_difference) {
             Ok(TrickDifference(tricks_difference))
         } else {
-            Err(DealerError::new(&format!(
+            Err(DealerError::new(format!(
                 "trick number can be only in the range 1..=13: got {tricks_difference}"
             )))
         }

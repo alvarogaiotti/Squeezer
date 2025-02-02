@@ -423,7 +423,7 @@ impl TryFrom<i32> for Suit {
             1 => Ok(Suit::Hearts),
             2 => Ok(Suit::Diamonds),
             3 => Ok(Suit::Clubs),
-            num => Err(DealerError::new(&format!("cannot convert {num} to Suit"))),
+            num => Err(DealerError::new(format!("cannot convert {num} to Suit"))),
         }
     }
 }

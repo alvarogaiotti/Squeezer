@@ -12,9 +12,10 @@ pub struct DealerError {
 
 impl DealerError {
     #[must_use]
-    pub fn new<T: ToString + ?Sized>(msg: &T) -> Self {
+    #[inline]
+    pub(crate) fn new<T: Into<String>>(msg: T) -> Self {
         Self {
-            details: msg.to_string(),
+            details: msg.into(),
         }
     }
 }
