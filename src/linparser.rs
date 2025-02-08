@@ -302,13 +302,20 @@ impl std::error::Error for BuildBiddingErrorKind {}
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct BuildBiddingError {
-    bid: Bid,
+    bid: Option<Bid>,
     kind: BuildBiddingErrorKind,
 }
 
 impl std::fmt::Display for BuildBiddingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unable to bid `{}`", self.bid)
+        if let Some(bid) = self.bid {
+            write!(f, "unable to add to auction `{bid}`")
+        } else {
+            write!(f, "unable to parse bid: {}", match &self.kind {
+                BuildBiddingErrorKind::NonExistent(err) => &err.bid,
+                _=> unreachable!("tried to extract a string for failed bid parsing from a non BuildBiddingErrorKind::NonExistent")
+            })
+        }
     }
 }
 
@@ -360,7 +367,7 @@ impl Bidding {
                 Ok(())
             } else {
                 Err(BuildBiddingError {
-                    bid,
+                    bid: Some(bid),
                     kind: BuildBiddingErrorKind::Insufficient,
                 })
             }
@@ -371,7 +378,7 @@ impl Bidding {
             // Else terminate error
         } else {
             Err(BuildBiddingError {
-                bid,
+                bid: Some(bid),
                 kind: BuildBiddingErrorKind::NonStarter,
             })
         }
@@ -500,8 +507,6 @@ fn players(lin: &str) -> Vec<String> {
     )
 }
 
-// TODO: Correct error handling of this function and make it return a Result
-// since this operation is clearly fallible and we should not fail silently
 fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), ParseLinError> {
     static HANDS: OnceLock<Regex> = OnceLock::new();
     let hands =
@@ -579,7 +584,7 @@ fn bidding(lin: &str) -> Result<Bidding, BuildBiddingError> {
                     Ok(num) => num,
                     Err(e) => {
                         return Err(BuildBiddingError {
-                            bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
+                            bid: None,
                             kind: BuildBiddingErrorKind::NonExistent(BuildBidError {
                                 bid: String::from(contract_bid),
                                 kind: BuildBidErrorKind::Level(e),
@@ -595,7 +600,7 @@ fn bidding(lin: &str) -> Result<Bidding, BuildBiddingError> {
                     "n" | "N" => Strain::NoTrumps,
                     _ => {
                         return Err(BuildBiddingError {
-                            bid: bidding.into_iter().last().unwrap_or(Bid::Pass),
+                            bid: None,
                             kind: BuildBiddingErrorKind::NonExistent(BuildBidError {
                                 bid: String::from(contract_bid),
                                 kind: BuildBidErrorKind::Strain,
