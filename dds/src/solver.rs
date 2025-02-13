@@ -76,7 +76,7 @@ pub trait BridgeSolver {
     ///
     /// # Errors
     /// Errors when DDS errors. See DDS docs for errors.
-    /// Or check the inner workings of [`DDSError`].
+    /// Or check the inner workings of [`DdsError`].
     fn solve_with_params<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         deal: &D,
@@ -96,7 +96,7 @@ pub trait BridgeSolver {
     ///
     /// # Errors
     /// Errors when DDS errors. See DDS docs for errors.
-    /// Or check the inner workings of [`DDSError`].
+    /// Or check the inner workings of [`DdsError`].
     fn solve_with_params_parallel<D: AsDDSDeal, C: AsDDSContract>(
         &self,
         number_of_deals: i32,

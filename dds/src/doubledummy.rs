@@ -24,13 +24,13 @@ use crate::{
 /// A single threaded double dummy solver.
 /// DO NOT USE this in multithreaded code as it will SEGFAULT.
 /// YOU ARE RESPONSIBLE FOR THIS. If you want to be sure and not have to worry,
-/// use the [`crate::MultiThreadDoubleDummySolver`], which manages the DLL's
+/// use the [`MultiThreadDoubleDummySolver`], which manages the DLL's
 /// resources for you.
 /// This struct implements all the needed traits linked to a double dummy analysis
 /// such as:
-/// - Play analysis [`crate::PlayAnalyzer`]
-/// - Par calculation [`crate::DdTableCalculator`]
-/// - Board solution [`crate::BridgeSolver`]
+/// - Play analysis [`PlayAnalyzer`]
+/// - Par calculation [`DdTableCalculator`]
+/// - Board solution [`BridgeSolver`]
 ///
 /// To use it, import the required trait, instantiate this struct and use it.
 ///

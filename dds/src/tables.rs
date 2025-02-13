@@ -195,10 +195,10 @@ pub enum VulnerabilityEncoding {
 }
 
 /// Filter which decides which strain should we analyze.
-/// The order of the ints is based on [`DdsSuitEncoding`] encoding.
+/// The order of the ints is based on [`DdsSuit`] encoding.
 /// 0 mean we DO NOT FILTER the suit out, other mean we filter.
 /// So if the filter is `[0, 0, -1, 2, 3]` we'll be analyzing
-/// [`DdsSuitEncoding::Spades`] and [`DdsSuitEncoding::Hearts`].
+/// [`DdsSuit::Spades`] and [`DdsSuit::Hearts`].
 pub type TrumpFilter = [c_int; 5];
 
 impl Index<DdsSuit> for TrumpFilter {
@@ -221,7 +221,7 @@ impl IndexMut<DdsSuit> for TrumpFilter {
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// This struct contains the distribution of the cards, with a particular encoding
 /// First index is encoded in [`crate::deal::DdsHandEncoding`], second index is encoded in
-/// [`DdsSuitEncoding`]. The way we store the fields is a bit set of the rank the hand holds in a
+/// [`DdsSuit`]. The way we store the fields is a bit set of the rank the hand holds in a
 /// particular suit so, if North has AKQ of Spades, then:
 ///
 /// ```

@@ -79,8 +79,8 @@ impl From<Target> for c_int {
 /// Works toghether with [`Target`]: check DDS docs for the specifics way those two structs interact.
 /// A general overview is as follows:
 /// - [`Solutions::Best`]: DDS will return just the (or one of) the best solution(s).
-/// - [`Solution::AllOptimal`]: DDS will return all the best solutions.
-/// - [`Solution::AllLegal`]: DDS will return results for all the legal cards to play.
+/// - [`Solutions::AllOptimal`]: DDS will return all the best solutions.
+/// - [`Solutions::AllLegal`]: DDS will return results for all the legal cards to play.
 pub enum Solutions {
     #[default]
     Best = 1,
@@ -211,9 +211,9 @@ macro_rules! impl_tryfrom_array_for_sequence {
 #[derive(IntoRawDDS, Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A `SuitSeq` is a sequence of cards' suit.
-/// It's the sequence of suits used in [`PlayTraceBin`](crate::PlayTraceBin).
+/// It's the sequence of suits used in [`PlayTraceBin`](crate::analyseplay::PlayTraceBin).
 /// The suit is represented with the standard suit enconding used
-/// throughout the codebase, which is [`DdsSuitEncoding`](super::DdsSuitEncoding).
+/// throughout the codebase, which is [`DdsSuit`](crate::deal::DdsSuit).
 /// - ♠️ => 0
 /// - ♥️ => 1
 /// - ♦️ => 2
@@ -311,7 +311,7 @@ impl_tryfrom_array_for_sequence! {isize,i8,i16,i64 ; SuitSeq}
 #[derive(Debug, Copy, Clone, IntoRawDDS)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A `RankSeq` is a sequence of cards' rank.
-/// It's the sequence of ranks used in [`PlayTraceBin`](crate::PlayTraceBin).
+/// It's the sequence of ranks used in [`PlayTraceBin`](crate::analyseplay::PlayTraceBin).
 /// Card are encoded with a incremental integer encoding, unlike in
 /// other parts of the codebase:
 /// - 2 => 2;

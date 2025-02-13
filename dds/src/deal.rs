@@ -5,10 +5,10 @@ use itertools::Itertools;
 use squeezer_macros::RawDDSRef;
 
 use crate::{
-    bindings::MAXNOOFBOARDS,
     ddserror::DdsError,
     traits::{AsDDSCard, AsDDSContract, RawDDSRef},
     utils::{BuildSequenceError, Mode, Solutions, Target},
+    MAXNOOFBOARDS,
 };
 use core::{
     convert::{Into, TryFrom},
@@ -62,7 +62,7 @@ pub struct BoardsPbn {
 }
 
 /// A wrapper around the `deal` struct from DDS.
-/// A `deal` is composed by a trump (represented with the [`DdsSuitEncoding`]),
+/// A `deal` is composed by a trump (represented with the [`DdsSuit`]),
 /// the player on lead (representend with the [`DdsHandEncoding`]), the current
 /// trick, represented as a pair of `[c_int;3]`, representing the current trick's card's
 /// suit and rank and the remaining cards, representend with the [`DDSDealRepr`].
@@ -532,13 +532,13 @@ impl Boards {
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
     /// Creates a new [`Boards`] struct, with just one solution strategy, providing
     /// a single [`Target`], [`Solutions`] and [`Mode`], reused by all the solutions.
-    /// Number of deals get capped at [`dds::MAXNOOFBOARDS`].
+    /// Number of deals get capped at [`MAXNOOFBOARDS`].
     ///
     /// # Errors
     ///
     /// Will errror when:
     /// - The number of deals asked for is 0
-    /// - The number of deals asked for is over [`dds::MAXNOOFBOARDS`]
+    /// - The number of deals asked for is over [`MAXNOOFBOARDS`]
     /// - The length of one of the parameter passed is less then the number of boards provided
     pub fn new_uniform<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
@@ -592,7 +592,7 @@ impl Boards {
     ///
     /// Will errror when:
     /// - The number of deals asked for is 0
-    /// - The number of deals asked for is over [`dds::MAXNOOFBOARDS`]
+    /// - The number of deals asked for is over [`MAXNOOFBOARDS`]
     /// - The length of one of the parameter passed is less then the number of boards provided
     pub fn new<D: AsDDSDeal, C: AsDDSContract>(
         no_of_boards: i32,
