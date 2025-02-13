@@ -111,7 +111,7 @@ mod bbo;
 mod bbo_async;
 #[cfg(any(feature = "bbo", feature = "bbo_async"))]
 mod bbohelpers;
-mod card;
+pub mod card;
 mod contract;
 mod deal;
 mod dealproduction;

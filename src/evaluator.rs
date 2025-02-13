@@ -17,7 +17,7 @@ use crate::prelude::*;
 ///  //                         A=4, K=3, Q=2, J=1
 ///  let hcp = Evaluator::new(&[4u8, 3u8, 2u8, 1u8]);
 ///  let mut deck = Cards::ALL;
-///  let hand = deck.pick(13).ok_or(DealerError::new("unable to deal cards"))?;
+///  let hand = deck.pick(13).unwrap();
 ///  assert_eq!(hcp.evaluate(hand), hand.high_card_points());
 /// # Ok(())
 /// # }

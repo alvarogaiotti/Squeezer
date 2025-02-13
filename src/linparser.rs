@@ -10,8 +10,8 @@ use fmt::Display;
 use log::error;
 use regex::Regex;
 use std::{
+    cell::LazyCell,
     num::{NonZeroU8, ParseIntError},
-    sync::OnceLock,
 };
 /* Lin reference:
  pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|
@@ -482,8 +482,7 @@ impl Bid {
 }
 
 fn players(lin: &str) -> Vec<String> {
-    static PLAYERS: OnceLock<Regex> = OnceLock::new();
-    let players = PLAYERS.get_or_init(|| {
+    let players: LazyCell<Regex> = LazyCell::new(|| {
         Regex::new(r"pn\|(?P<south>[\w ]+),(?P<west>[\w ]+),(?P<north>[\w ]+),(?P<east>[\w ]+)\|st")
             .unwrap()
     });
@@ -508,9 +507,7 @@ fn players(lin: &str) -> Vec<String> {
 }
 
 fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), ParseLinError> {
-    static HANDS: OnceLock<Regex> = OnceLock::new();
-    let hands =
-        HANDS.get_or_init(|| Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap());
+    let hands = LazyCell::new(|| Regex::new(r"md\|(?P<dealer>\d)(?P<hands>[\w,]+?)\|").unwrap());
     if let Some(captures) = hands.captures(lin) {
         let capture = captures.name("dealer").expect("No dealer").as_str();
         let dealer = match capture.parse::<u8>() {
@@ -556,8 +553,7 @@ fn dealer_and_hands(lin: &str) -> Result<(Seat, Hands), ParseLinError> {
 }
 
 fn number(lin: &str) -> Result<u8, ParseLinError> {
-    static NUMBER: OnceLock<Regex> = OnceLock::new();
-    let number = NUMBER.get_or_init(|| Regex::new(r"ah\|\s?Board\s?(?P<number>[\d]+?)\|").unwrap());
+    let number = LazyCell::new(|| Regex::new(r"ah\|\s?Board\s?(?P<number>[\d]+?)\|").unwrap());
     let number = number
         .captures(lin)
         .expect("No number capture")
@@ -570,8 +566,7 @@ fn number(lin: &str) -> Result<u8, ParseLinError> {
 }
 
 fn bidding(lin: &str) -> Result<Bidding, BuildBiddingError> {
-    static BIDDING: OnceLock<Regex> = OnceLock::new();
-    let bids = BIDDING.get_or_init(|| Regex::new(r"(?P<waste>mb\|(?P<bid>\w+?)\|)+?").unwrap());
+    let bids = LazyCell::new(|| Regex::new(r"(?P<waste>mb\|(?P<bid>\w+?)\|)+?").unwrap());
     let captures = bids.captures_iter(lin);
     let mut bidding = Bidding::new();
     for cap in captures {
@@ -703,9 +698,7 @@ impl<'a> IntoIterator for &'a PlaySequence {
 // This function does not return an error if it is unable to parse a card, but returns a JOKER, so
 // remember to check for it and maybe try to reconstruct the right card based on the hand.
 fn play_sequence(lin: &str) -> PlaySequence {
-    static PLAY_SEQUENCE: OnceLock<Regex> = OnceLock::new();
-    let play_sequence =
-        PLAY_SEQUENCE.get_or_init(|| Regex::new(r"(?P<waste>pc\|(?P<card>\w+?)\|)+?").unwrap());
+    let play_sequence = LazyCell::new(|| Regex::new(r"(?P<waste>pc\|(?P<card>\w+?)\|)+?").unwrap());
     let captures = play_sequence.captures_iter(lin);
     let mut sequence: Vec<Card> = Vec::new();
     for card in captures {
@@ -717,15 +710,15 @@ fn play_sequence(lin: &str) -> PlaySequence {
     PlaySequence { sequence }
 }
 
+/// Parses a claim line and returns the number of tricks claimed.
+/// Returns None if the claim is absent or invalid.
 fn claim(lin: &str) -> Option<u8> {
-    static CLAIM: OnceLock<Regex> = OnceLock::new();
-    let claim = CLAIM.get_or_init(|| Regex::new(r"(?P<claim>mc\|(?P<tricks>\d+))").unwrap());
-    claim
-        .captures(lin)
-        .map(|capture| match capture.name("tricks") {
-            Some(tricks) => tricks.as_str().parse::<u8>().unwrap_or(0),
-            None => 0,
-        })
+    let claim = LazyCell::new(|| Regex::new(r"(?P<claim>mc\|(?P<tricks>\d+))").unwrap());
+    claim.captures(lin).map(|capture| {
+        capture
+            .name("tricks")
+            .map(|capture| capture.as_str().parse().ok())?
+    })?
 }
 
 #[allow(unused_imports)]
