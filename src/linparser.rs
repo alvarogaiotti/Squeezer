@@ -169,6 +169,7 @@ pub enum ParseLinErrorKind {
     Hands,
     Number,
     Bidding(BuildBiddingError),
+    Card,
 }
 
 #[derive(Debug, Clone)]
@@ -196,9 +197,10 @@ impl std::error::Error for ParseLinError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.kind {
             ParseLinErrorKind::Bidding(ref e) => Some(e),
-            ParseLinErrorKind::Player | ParseLinErrorKind::Hands | ParseLinErrorKind::Number => {
-                None
-            }
+            ParseLinErrorKind::Player
+            | ParseLinErrorKind::Hands
+            | ParseLinErrorKind::Number
+            | ParseLinErrorKind::Card => None,
         }
     }
 }
@@ -225,7 +227,7 @@ impl FromStr for LinDeal {
                 })
             }
         });
-        let play_sequence = Some(play_sequence(s));
+        let play_sequence = Some(play_sequence(s)?);
 
         Ok(Self {
             players,
@@ -697,17 +699,17 @@ impl<'a> IntoIterator for &'a PlaySequence {
 
 // This function does not return an error if it is unable to parse a card, but returns a JOKER, so
 // remember to check for it and maybe try to reconstruct the right card based on the hand.
-fn play_sequence(lin: &str) -> PlaySequence {
+fn play_sequence(lin: &str) -> Result<PlaySequence, ParseLinError> {
     let play_sequence = LazyCell::new(|| Regex::new(r"(?P<waste>pc\|(?P<card>\w+?)\|)+?").unwrap());
     let captures = play_sequence.captures_iter(lin);
     let mut sequence: Vec<Card> = Vec::new();
     for card in captures {
-        sequence.push(Card::from_str(&card["card"]).unwrap_or_else(|_| {
-            error!("cannot parse a card, using joker");
-            Card::JOKER
-        }));
+        sequence.push(
+            Card::from_str(&card["card"])
+                .map_err(|_| ParseLinError::new(ParseLinErrorKind::Card, &card["card"]))?,
+        );
     }
-    PlaySequence { sequence }
+    Ok(PlaySequence { sequence })
 }
 
 /// Parses a claim line and returns the number of tricks claimed.

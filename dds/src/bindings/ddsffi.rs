@@ -259,46 +259,46 @@ fn bindgen_test_layout_DDSInfo() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn GetDDSInfo(info: *mut DDSInfo);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ErrorMessage(code: ::std::os::raw::c_int, line: *mut ::std::os::raw::c_char);
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut lho: [::std::os::raw::c_int; 4usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut rho: [::std::os::raw::c_int; 4usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut partner: [::std::os::raw::c_int; 4usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut bitMapRank: [::std::os::raw::c_ushort; 16usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut cardRank: [::std::os::raw::c_uchar; 16usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut cardSuit: [::std::os::raw::c_uchar; 5usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut cardHand: [::std::os::raw::c_uchar; 4usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut highestRank: [::std::os::raw::c_int; 8192usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut lowestRank: [::std::os::raw::c_int; 8192usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut counttable: [::std::os::raw::c_int; 8192usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut relRank: [[::std::os::raw::c_char; 15usize]; 8192usize];
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut winRanks: [[::std::os::raw::c_ushort; 14usize]; 8192usize];
 }
 #[repr(C)]
@@ -373,7 +373,7 @@ fn bindgen_test_layout_moveGroupType() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut groupData: [moveGroupType; 8192usize];
 }
 #[repr(C)]

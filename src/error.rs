@@ -16,6 +16,7 @@ pub enum SqueezerError {
     DDSError(dds::ddserror::DdsError),
     #[cfg(feature = "dds")]
     SeqError(dds::utils::BuildSequenceError),
+    Generic(String),
 }
 
 impl Error for SqueezerError {
@@ -28,6 +29,7 @@ impl Error for SqueezerError {
             SqueezerError::DDSError(ref err) => Some(err),
             #[cfg(feature = "dds")]
             SqueezerError::SeqError(ref err) => Some(err),
+            SqueezerError::Generic(_) => None,
         }
     }
 }
@@ -37,10 +39,12 @@ impl std::fmt::Display for SqueezerError {
         if let Some(inner) = self.source() {
             write!(f, "squeezer encountered an error:\n\t{inner}")
         } else {
-            write!(
-                f,
-                "squeezer encountered an error:\n\tUnknown: file a issue on github."
-            )
+            match self {
+                SqueezerError::Generic(err) => write!(f, "squeezer encountered an error:\n\t{err}"),
+                _ => unreachable!(
+                    "only SqueezerError::Generic should return None from the source method "
+                ),
+            }
         }
     }
 }

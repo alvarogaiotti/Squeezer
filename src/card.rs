@@ -211,6 +211,21 @@ impl Card {
     pub const JOKER: Card = Card { offset: u8::MAX };
 }
 
+impl TryFrom<&[Card]> for Cards {
+    type Error = SqueezerError;
+
+    fn try_from(card_slice: &[Card]) -> Result<Self, Self::Error> {
+        let mut cards = Cards::EMPTY;
+        for card in card_slice {
+            if cards.contains(*card) {
+                return Err(SqueezerError::Generic("duplicate card".to_string()));
+            }
+            cards = cards.insert(*card);
+        }
+        Ok(cards)
+    }
+}
+
 /// A bunch of [`Card`]s.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -519,13 +534,15 @@ impl Cards {
     /// # Ok(())
     /// # }
     ///
-    pub fn heads_of_sequences(self) -> Self {
+    pub const fn heads_of_sequences(self) -> Self {
         let mut insert = 2;
         let mut heads = Cards::EMPTY;
         let bits = self.bits;
-        for index in (1..64u64).rev() {
-            heads.bits |= (bits & 1 << index) & insert;
-            insert = !(bits & 1 << index) >> 1u8;
+        let mut index = 63;
+        while index > 0 {
+            heads.bits |= (bits & (1 << index)) & insert;
+            insert = !(bits & (1 << index)) >> 1u8;
+            index -= 1;
         }
         heads
     }
@@ -657,8 +674,25 @@ impl std::fmt::Display for Cards {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct InvalidCardError;
+
+impl std::fmt::Debug for InvalidCardError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InvalidCardError")
+    }
+}
+
+impl std::fmt::Display for InvalidCardError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InvalidCardError")
+    }
+}
+
+impl Error for InvalidCardError {}
+
 impl std::str::FromStr for Card {
-    type Err = String;
+    type Err = InvalidCardError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut suit = Suit::Spades;
@@ -716,7 +750,7 @@ impl std::str::FromStr for Card {
                 'A' => {
                     card = Card::new(suit, 14);
                 }
-                _ => (),
+                _ => return Err(InvalidCardError),
             }
         }
         Ok(card)
