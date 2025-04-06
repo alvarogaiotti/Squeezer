@@ -84,17 +84,50 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
 
         let contracts = [self.contract; MAXNOOFBOARDS];
         let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
+        let (sender_deals, recv_deals) = std::sync::mpsc::channel::<Vec<Deal>>();
+        let (sender_solved, recv_solved) = std::sync::mpsc::channel();
+        let dds_handle = std::thread::spawn(move || {
+            while let Ok(deal_generated) = recv_deals.recv() {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+                let solvedb = solver.dd_tricks_all_cards_parallel(
+                    deal_generated.len() as i32,
+                    &deal_generated,
+                    &contracts,
+                );
+                sender_solved.send(solvedb).unwrap();
+            }
+        });
+
         // For the number of boards, stepped by the number of deals we use per analysis
         while counter != 0 {
             if let Some(new_counter) = counter.checked_sub(MAXNOOFBOARDS) {
-                let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, &contracts)?;
-                sim_result.add_results(&solvedb);
+                let mut deals: Vec<Deal> = Vec::with_capacity(MAXNOOFBOARDS);
+                for _ in 0..MAXNOOFBOARDS {
+                    deals.push(self.dealer.deal()?);
+                }
+                sender_deals
+                    .send(deals)
+                    .expect("unexpected failure in DDS thread");
                 counter = new_counter;
             } else {
-                let solvedb = self.solve_boards(counter, &solver, &contracts[0..counter])?;
-                sim_result.add_results(&solvedb);
-                counter = 0;
+                let mut deals: Vec<Deal> = Vec::with_capacity(MAXNOOFBOARDS);
+                for _ in 0..MAXNOOFBOARDS {
+                    deals.push(self.dealer.deal()?);
+                }
+                sender_deals
+                    .send(deals)
+                    .expect("unexpected failure in DDS thread");
+                drop(sender_deals);
+                break;
             }
+            if let Ok(solvedb) = recv_solved.try_recv() {
+                println!("received batch");
+                sim_result.add_results(&solvedb?);
+            }
+        }
+        dds_handle.join().unwrap();
+        while let Ok(solvedb) = recv_solved.recv() {
+            sim_result.add_results(&solvedb?);
         }
 
         sim_result.finish(8 - self.contract.level(), self.num_of_boards);
@@ -324,7 +357,7 @@ mod test {
             .unwrap();
         let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
-            num_of_boards: 1000,
+            num_of_boards: 1001,
             dealer,
             contract,
         };
