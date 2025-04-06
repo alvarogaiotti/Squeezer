@@ -59,6 +59,14 @@ impl Default for Shape {
     }
 }
 
+impl FromStr for Shape {
+    type Err = DealerError;
+
+    fn from_str(pattern: &str) -> Result<Self, Self::Err> {
+        Shape::new_from_pattern(pattern)
+    }
+}
+
 impl Shape {
     /// # Errors
     /// When the pattern is not correct

@@ -777,7 +777,7 @@ impl std::str::FromStr for Cards {
                 '♠' | 'S' | 's' => {
                     suit = Suit::Spades;
                 }
-                ' ' => {
+                ' ' | '.' => {
                     suit = suit.next().ok_or(DealerError::new(
                         "more than 4 suits, check input string for spaces",
                     ))?;

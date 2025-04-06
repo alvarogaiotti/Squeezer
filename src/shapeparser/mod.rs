@@ -6,6 +6,7 @@ mod interpreter;
 mod parser;
 mod scanner;
 pub use interpreter::*;
+pub use parser::validate_shape;
 use parser::{Modifier, ParsingShapeError};
 
 /// A pattern is a shape pattern, which is formed by 4 Lenght tokens.
@@ -181,6 +182,12 @@ impl Length {
         length: 0,
         modifier: Modifier::AtLeast,
     };
+    const fn internal_len(self) -> u8 {
+        match self.modifier {
+            Modifier::AtLeast | Modifier::Exact => self.length,
+            Modifier::AtMost => 0,
+        }
+    }
 }
 
 #[cfg(test)]

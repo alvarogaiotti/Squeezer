@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 
 use crate::shapeparser::{fmt, Length, Pattern, Token};
 
-use super::{interpreter::CreationShapeError, scanner::Scanner};
+use super::{interpreter::CreationShapeError, scanner::Scanner, DealerError};
 
 /// Parser for parsing shape describing strings.
 /// Uses the following DSL:
@@ -27,6 +27,22 @@ use super::{interpreter::CreationShapeError, scanner::Scanner};
 pub(super) struct Parser {
     tokens: Vec<Token>,
     current: usize,
+}
+
+/// Function to validate a string shape pattern.
+///
+/// # Errors
+/// Returns an error when the pattern is not a possible shape pattern.
+pub fn validate_shape(shape: &str) -> Result<(), DealerError> {
+    let scanner = Scanner::from(shape);
+    let tokens = scanner
+        .scan_tokens()
+        .map_err(Into::<CreationShapeError>::into)?;
+    let mut parser = Parser::from(tokens);
+    parser
+        .parse()
+        .map_err(|err| Into::<CreationShapeError>::into(err).into())
+        .map(|_| ())
 }
 
 impl Parser {

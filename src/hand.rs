@@ -240,7 +240,7 @@ impl HcpRange {
     /// i.e. that the `min_hcp` is less than or equal to the `max_hcp`.
     /// and that the `max_hcp` is clamped to 37.
     #[must_use]
-    pub const fn new(min_hcp: u8, max_hcp: u8) -> Self {
+    pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
         let min_hcp = if min_hcp > 37 { 37 } else { min_hcp };
         let max_hcp = if max_hcp > 37 {
             37
@@ -489,9 +489,168 @@ impl HandTypeBuilder {
 }
 
 #[cfg(test)]
-#[test]
-fn test_builder_pattern() {
-    let mut builder = HandTypeBuilder::new();
-    _ = builder.with_range(8, 15).build();
-    _ = builder.add_shape("4333").unwrap().build();
+mod test {
+    use super::*;
+    use std::str::FromStr;
+    #[test]
+    fn test_builder_pattern() {
+        let mut builder = HandTypeBuilder::new();
+        _ = builder.with_range(8, 15).build();
+        _ = builder.add_shape("4333").unwrap().build();
+    }
+
+    #[test]
+    fn test_hand_creation() {
+        let empty_hand = Hand::new_empty();
+        assert_eq!(empty_hand.cards, Cards::EMPTY);
+
+        let random_hand = Hand::new();
+        assert_eq!(random_hand.cards.len(), 13);
+    }
+
+    #[test]
+    fn test_hand_shape() {
+        let hand = Hand::from_str("AKQ2.KQ32.AK2.32").unwrap();
+        assert_eq!(hand.shape(), [4, 4, 3, 2]);
+        assert_eq!(hand.slen(), 4);
+        assert_eq!(hand.hlen(), 4);
+        assert_eq!(hand.dlen(), 3);
+        assert_eq!(hand.clen(), 2);
+    }
+
+    #[test]
+    fn test_hcp_calculation() {
+        let hand = Hand::from_str("AKQJ.KQJ2.AK2.32").unwrap();
+        assert_eq!(hand.hcp(), 23); // A=4, K=3, Q=2, J=1
+    }
+
+    #[test]
+    fn test_hcp_range() {
+        let range = HcpRange::new(12, 15);
+        assert!(range.contains(13));
+        assert!(!range.contains(11));
+        assert!(!range.contains(16));
+
+        // Test clamping
+        let range = HcpRange::new(40, 45);
+        assert_eq!(range.max(), 37);
+    }
+
+    #[test]
+    fn test_hand_type() {
+        let hand_type = HandType::new(Shape::from_str("(4432)").unwrap(), HcpRange::new(12, 14));
+
+        let valid_hand = Hand::from_str("AKQ2.KQ32.32.432").unwrap();
+        assert!(hand_type.check(valid_hand));
+
+        let invalid_hand = Hand::from_str("AKQJ2.KQ32.A2.32").unwrap(); // 5332 shape
+        assert!(!hand_type.check(invalid_hand));
+    }
+
+    #[test]
+    fn test_hand_descriptor() {
+        let weak_nt = HandType::builder()
+            .add_shape("(4432)")
+            .unwrap()
+            .add_shape("(4333)")
+            .unwrap()
+            .with_range(12, 14)
+            .build();
+
+        let strong_hand = HandType::builder().with_range(18, 37).build();
+
+        let descriptor = HandDescriptor::new(vec![weak_nt, strong_hand]);
+
+        let weak_nt_hand = Hand::from_str("AK52.K532.A2.432").unwrap();
+        assert!(descriptor.check(weak_nt_hand));
+
+        let strong_hand = Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap();
+        assert!(descriptor.check(strong_hand));
+
+        let weak_unbalanced = Hand::from_str("AT632.K6432.T2.2").unwrap();
+        assert!(!descriptor.check(weak_unbalanced));
+    }
+
+    #[test]
+    fn test_hand_iterator() {
+        let hand = Hand::from_str("AKQ2.KQ32.AK2.32").unwrap();
+        let suits: Vec<Cards> = hand.into_iter().collect();
+        assert_eq!(suits.len(), 4);
+
+        // Test each suit's cards
+        assert_eq!(suits[0], hand.spades());
+        assert_eq!(suits[1], hand.hearts());
+        assert_eq!(suits[2], hand.diamonds());
+        assert_eq!(suits[3], hand.clubs());
+    }
+
+    #[test]
+    fn test_edge_case_shapes() {
+        // Test void suit
+        let hand = Hand::from_str("AKQJ2.KQJ32.A32.").unwrap();
+        assert_eq!(hand.clen(), 0);
+
+        // Test 7-card suit
+        let hand = Hand::from_str("AKQJ234.K32.A2.2").unwrap();
+        assert_eq!(hand.slen(), 7);
+    }
+
+    #[test]
+    fn test_complex_hand_descriptor() {
+        let weak_two = HandType::builder()
+            .with_longest(Suit::Hearts)
+            .with_range(6, 10)
+            .build();
+
+        let three_level_preempt = HandType::builder()
+            .add_shape("7xxx")
+            .unwrap()
+            .with_range(5, 9)
+            .build();
+
+        let descriptor = HandDescriptor::new(vec![weak_two, three_level_preempt]);
+
+        // Valid weak two hand
+        let weak_two_hand = Hand::from_str("Q2.KQJ432.432.32").unwrap();
+        assert!(descriptor.check(weak_two_hand));
+
+        // Valid three-level preempt
+        let preempt_hand = Hand::from_str("KQJ4321.32.32.32").unwrap();
+        assert!(descriptor.check(preempt_hand));
+
+        // Invalid hand (too strong)
+        let strong_hand = Hand::from_str("AKQJ32.KQ432.A.2").unwrap();
+        assert!(!descriptor.check(strong_hand));
+    }
+
+    #[test]
+    fn test_error_handling() {
+        // Test invalid shape pattern
+        let mut builder = HandType::builder();
+        let result = builder.add_shape("invalid");
+        assert!(result.is_err());
+
+        // Test invalid hand string
+        let result = Hand::from_str("invalid.hand.string");
+        assert!(result.is_err());
+
+        // Test hand with too many cards
+        let result = Hand::from_str("AKQJ2.AKQJ2.AKQJ2.2");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_hcp_edge_cases() {
+        // Test minimum HCP (0)
+        let min_hand = Hand::from_str("2345.2345.23.234").unwrap();
+        assert_eq!(min_hand.hcp(), 0);
+
+        // Test maximum HCP (37)
+        let max_hand = Hand::from_str("AKQJ.AKQ.AKQ.AKQ").unwrap();
+        assert_eq!(max_hand.hcp(), 37);
+
+        // Test HCP range clamping
+        let range = HcpRange::new(0, 40);
+        assert_eq!(range.max(), 37);
+    }
 }
