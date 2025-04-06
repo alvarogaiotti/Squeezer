@@ -345,7 +345,7 @@ impl Cards {
     #[must_use]
     #[inline]
     pub fn pick(&mut self, num: usize) -> Option<Cards> {
-        self.pick_rng(&mut rand::thread_rng(), num)
+        self.pick_rng(&mut rand::rng(), num)
     }
 
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
@@ -363,7 +363,7 @@ impl Cards {
                 kept |= bits;
                 break;
             }
-            let chosen = rng.gen::<u64>() & bits;
+            let chosen = rng.random::<u64>() & bits;
             if chosen != 0 {
                 let num_chosen = chosen.count_ones() as usize;
                 if num_chosen <= num {
