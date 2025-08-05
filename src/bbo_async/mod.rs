@@ -22,15 +22,7 @@ pub struct AsyncBBOClient {
     hands_links: Vec<String>,
 }
 
-impl NetworkError for reqwest::Error {
-    fn extract_url(&self) -> &str {
-        if let Some(url) = self.url() {
-            url.as_str()
-        } else {
-            "{no_url}"
-        }
-    }
-}
+impl NetworkError for reqwest::Error {}
 
 impl ClientError<reqwest::Error> {
     #[inline]
@@ -249,7 +241,7 @@ impl AsyncBBOClient {
         for mut hand in self.hands_links.iter().cloned() {
             hand.insert_str(0, BBOBASE);
 
-            info!("downloading from {}", hand);
+            info!("downloading from {hand}");
             let _lin = match self.client.get(&hand).send().await {
                 Err(e) => {
                     warn!("unable to download from {}.\nSee: {}", &hand, e);

@@ -57,7 +57,7 @@ impl Tricks {
     /// Returns a [`Tricks`] from a `u8`, WITHOUT checking if in the correct range
     #[must_use]
     #[inline]
-    pub fn new_unchecked(tricks: u8) -> Self {
+    fn new_unchecked(tricks: u8) -> Self {
         Self(tricks)
     }
 }
@@ -97,9 +97,9 @@ impl TrickDifference {
 /// Represents the performance of a card played
 pub enum CardPerformance {
     /// Played a wrong card, losing [`TrickDifference`] tricks and making [`Tricks`] tricks
-    Good(Tricks, TrickDifference),
+    Bad(Tricks, TrickDifference),
     /// Played the correct double dummy card, making [`Tricks`] tricks
-    Bad(Tricks),
+    Good(Tricks),
 }
 
 impl CardPerformance {
@@ -108,7 +108,7 @@ impl CardPerformance {
     #[must_use]
     pub fn tricks(&self) -> Tricks {
         match *self {
-            Self::Good(tricks, _) | Self::Bad(tricks) => tricks,
+            Self::Bad(tricks, _) | Self::Good(tricks) => tricks,
         }
     }
 
@@ -117,8 +117,8 @@ impl CardPerformance {
     #[must_use]
     pub fn difference(&self) -> Option<TrickDifference> {
         match *self {
-            Self::Good(_, difference) => Some(difference),
-            Self::Bad(_) => None,
+            Self::Bad(_, difference) => Some(difference),
+            Self::Good(_) => None,
         }
     }
 }
@@ -168,7 +168,7 @@ impl PlayerResultTrace {
     pub fn compute_player_performance(&self, accuracy: &mut PlayerAccuracy) {
         // The accumulator is (number_of_correct_cards_played, tricks_lost)
         let result = self.iter().fold((0, 0), |accumulator, difference| {
-            if let CardPerformance::Good(_, TrickDifference(delta)) = difference {
+            if let CardPerformance::Bad(_, TrickDifference(delta)) = difference {
                 (accumulator.0, delta + accumulator.1)
             } else {
                 (accumulator.0 + 1u32, accumulator.1)
@@ -319,7 +319,7 @@ enum Position {
 ///
 /// # Arguments
 ///
-/// - `contract` - The contract being played (e.g., Suit and Level)
+/// - `contract` - The contract being played
 /// - `play_result_trace` - The traced sequence of played cards and their corresponding solver results
 ///
 /// # Returns
@@ -419,13 +419,13 @@ fn performance_difference(previous_result: i32, result: i32) -> CardPerformance 
     let delta = previous_result - result;
     // If opponents played a wrong card and lost 1+ trick(s)
     if delta == 0i32 {
-        CardPerformance::Bad(Tricks(
+        CardPerformance::Good(Tricks(
             result
                 .try_into()
                 .expect("trick number should always be positive"),
         ))
     } else {
-        CardPerformance::Good(
+        CardPerformance::Bad(
             Tricks(
                 result
                     .try_into()
@@ -467,9 +467,9 @@ mod tests {
         let equal = performance_difference(5, 5);
         let better = performance_difference(3, 6);
 
-        assert_eq!(better, CardPerformance::Good(Tricks(6), TrickDifference(3)));
-        assert_eq!(equal, CardPerformance::Bad(Tricks(5)));
-        assert_eq!(worse, CardPerformance::Good(Tricks(7), TrickDifference(2)));
+        assert_eq!(better, CardPerformance::Bad(Tricks(6), TrickDifference(3)));
+        assert_eq!(equal, CardPerformance::Good(Tricks(5)));
+        assert_eq!(worse, CardPerformance::Bad(Tricks(7), TrickDifference(2)));
     }
 
     #[test]
@@ -528,6 +528,9 @@ mod tests {
             Vulnerable::No,
             Doubled::NotDoubled,
         );
+        //  N   E   S   W
+        //  S2  S3  S4  SA
+        //  H5
         let play_seq = PlaySequence::new(vec![
             Card::new(Suit::Spades, 2), // N
             Card::new(Suit::Spades, 3),
@@ -569,7 +572,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::North as usize].results[0].unwrap(),
-            CardPerformance::Good(Tricks(8), TrickDifference(1))
+            CardPerformance::Bad(Tricks(8), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[1].unwrap(),
@@ -581,7 +584,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[2].unwrap(),
-            CardPerformance::Good(Tricks(7), TrickDifference(1))
+            CardPerformance::Bad(Tricks(7), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[4].unwrap(),
@@ -589,7 +592,7 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[4].unwrap(),
-            CardPerformance::Good(Tricks(8), TrickDifference(1))
+            CardPerformance::Bad(Tricks(8), TrickDifference(1))
         );
         assert_eq!(
             players_performance[Seat::East as usize].tricks[5].unwrap(),
@@ -597,27 +600,27 @@ mod tests {
         );
         assert_eq!(
             players_performance[Seat::East as usize].results[5].unwrap(),
-            CardPerformance::Good(Tricks(9), TrickDifference(1))
+            CardPerformance::Bad(Tricks(9), TrickDifference(1))
         );
     }
 
     #[test]
     fn test_compute_player_performance() {
         let p_performance = [
-            PlayerResultTrace([Some(CardPerformance::Bad(Tricks(10))); 12]),
+            PlayerResultTrace([Some(CardPerformance::Good(Tricks(10))); 12]),
             PlayerResultTrace([
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Bad(Tricks(10))),
-                Some(CardPerformance::Good(Tricks(9), TrickDifference(1))),
-                Some(CardPerformance::Bad(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Good(Tricks(10))),
+                Some(CardPerformance::Bad(Tricks(9), TrickDifference(1))),
+                Some(CardPerformance::Good(Tricks(10))),
             ]),
         ];
         let mut n_perf = PlayerAccuracy::new();
@@ -634,9 +637,12 @@ mod tests {
     #[test]
     fn test_complete_analysis_pipeline() {
         use dds::analyseplay::PlayAnalyzer;
-        let lin = "pn|gattochef,sebyx,Inter2018,fede00|st||md|3SAQ432HQJT72DT3CQ,SKJH983D974CT9876,S965HK654DKJ6CAJ5,ST87HADAQ852CK432|rh||ah|Board 1|sv|o|mb|1C|an|2+|mb|1D|mb|1H|an|picche|mb|2D|mb|p|mb|p|mb|3H|mb|p|mb|3S|mb|p|mb|4S|mb|p|mb|p|mb|p|pg||pc|DA|pc|D3|pc|D9|pc|D6|pg||pc|HA|pc|H2|pc|H9|pc|H4|pg||pc|D8|pc|DT|pc|D7|pc|DJ|pg||pc|S5|pc|S7|pc|SA|pc|SJ|pg||pc|CQ|pc|CT|pc|CA|pc|C2|pg||pc|S6|pc|S8|pc|SQ|pc|SK|pg||pc|H8|mc|9|";
+        //let lin = "pn|gattochef,sebyx,Inter2018,fede00|st||md|3SAQ432HQJT72DT3CQ,SKJH983D974CT9876,S965HK654DKJ6CAJ5,ST87HADAQ852CK432|rh||ah|Board 1|sv|o|mb|1C|an|2+|mb|1D|mb|1H|an|picche|mb|2D|mb|p|mb|p|mb|3H|mb|p|mb|3S|mb|p|mb|4S|mb|p|mb|p|mb|p|pg||pc|DA|pc|D3|pc|D9|pc|D6|pg||pc|HA|pc|H2|pc|H9|pc|H4|pg||pc|D8|pc|DT|pc|D7|pc|DJ|pg||pc|S5|pc|S7|pc|SA|pc|SJ|pg||pc|CQ|pc|CT|pc|CA|pc|C2|pg||pc|S6|pc|S8|pc|SQ|pc|SK|pg||pc|H8|mc|9|";
 
         //let lin = "pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|";
+        //let lin = "st||md|3SK5HJ84DJT852CJT8,SAHAT9753DA93C752,SJ876432HQDK76CK9,SQT9HK62DQ4CAQ643|rh||ah|Board 1|sv|o|mb|2S|mb|p|mb|p|mb|3H|mb|p|mb|4H|mb|p|mb|p|mb|p|pc|cK|pc|cA|pc|c8|pc|c2|pg||";
+        //let lin = "qx|c37|st||md|3SKJT2HK84DA6CAT75,S54HJT7532DK97C84,SAQ763H96DQJ54CKJ,S98HAQDT832CQ9632|rh||ah|Board 1|sv|n|mb|1S|mb|p|mb|2N|mb|p|mb|3C|mb|p|mb|3D|mb|p|mb|3S|mb|p|mb|3N|mb|p|mb|4D|mb|p|mb|4H|mb|p|mb|4S|mb|p|mb|p|mb|p|pc|c2";
+        let lin = "qx|o47|st||md|1SJ852HADKT742CJT5,SAT96HJ6D3CAK8743,SK743HK8543DQJ5CQ,SQHQT972DA986C962|rh||ah|Board 1|sv|n|mb|p|mb|1C|mb|d|mb|1H|mb|d|an|t/o|mb|2C|mb|2S|mb|3C|mb|3S|mb|p|mb|p|mb|p|pc|c2|pc|c5|pc|cA|pc|cQ|pg||pc|c3|pc|s3|pc|c6|pc|cT|pg||pc|h4|pc|h2|pc|hA|pc|h6|pg||pc|s2|pc|s6|pc|sK|pc|sQ|pg||pc|hK|pc|h7|pc|cJ|pc|hJ|pg||pc|dQ|pc|dA|pc|d2|pc|d3|pg||pc|hQ|pc|s5|pc|s9|pc|h3|pg||pc|cK|pc|s4|pc|c9|pc|d4|pg||pc|dJ|pc|d6|pc|d7|mc|8|pg||";
         let deal = crate::LinDeal::from_str(lin).unwrap();
         let dds_solver = dds::doubledummy::DoubleDummySolver::new();
         let contract = deal.contract().unwrap();
@@ -653,6 +659,7 @@ mod tests {
         let solved = dds_solver
             .analyze_play(&deal, &contract, dds_playsequence)
             .unwrap();
+        println!("Solved:\n{solved:?}");
         let p_performance = analyse_players_performance(
             contract,
             TraceSolved {

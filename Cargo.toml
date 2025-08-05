@@ -40,3 +40,7 @@ harness = false
 [[bench]]
 name = "bench_leadsim"
 harness = false
+
+[[bench]]
+name = "deck_pick_performance"
+harness = false

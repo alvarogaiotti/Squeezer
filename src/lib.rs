@@ -111,6 +111,8 @@ mod bbo;
 mod bbo_async;
 #[cfg(any(feature = "bbo", feature = "bbo_async"))]
 mod bbohelpers;
+#[cfg(feature = "serde")]
+mod bidding_rule_engine;
 pub mod card;
 mod contract;
 mod deal;

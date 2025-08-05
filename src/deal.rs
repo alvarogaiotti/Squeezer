@@ -495,6 +495,23 @@ impl DealerBuilder {
         Ok(self)
     }
 
+    /// Adds a single card to the predealed card. Useful for play analysis, to update the dealer after
+    /// you discover information.
+    ///
+    /// # Errors
+    /// Errors when the card was already dealt
+    #[inline]
+    pub fn add_predealt_card(&mut self, card: Card, seat: Seat) -> Result<(), DealerError> {
+        let prev_deck = self.deck;
+        let to_insert = card.into();
+        self.deck -= to_insert;
+        if prev_deck == self.deck {
+            Err(DealerError::new("card already dealt"))
+        } else {
+            *self.predealt_hands[seat as usize].get_or_insert(Cards::EMPTY) += to_insert;
+            Ok(())
+        }
+    }
     /// Sets a functions that will be used by the [`Dealer`] to check if the [`Deal`] is to be accepted.
     /// Do not set your hand types with this method (use the
     /// [`DealerBuilder::with_hand_descriptor`] method istead); but use it to set cross hand
@@ -716,8 +733,33 @@ pub struct Deal {
     number: u8,
 }
 
+#[cfg(feature = "lin")]
+impl From<LinDeal> for Deal {
+    fn from(lin_deal: LinDeal) -> Deal {
+        Deal {
+            hands: lin_deal.hands().hands,
+            number: lin_deal.number(),
+            vulnerability: Vulnerability::from_number(lin_deal.number()),
+            ..Default::default()
+        }
+    }
+}
+
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for Deal {
+    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
+        let mut remain_cards = [[0; 4]; 4];
+        for (seat, hand) in self.into_iter().enumerate() {
+            for (index, suit) in hand.into_iter().enumerate() {
+                remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
+            }
+        }
+        remain_cards.into()
+    }
+}
+
+#[cfg(feature = "dds")]
+impl dds::deal::AsDDSDeal for Hands {
     fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.into_iter().enumerate() {

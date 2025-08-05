@@ -2,7 +2,7 @@
 // See end of file for license information
 
 use crate::{
-    bindings::{ddsffi::RETURN_UNKNOWN_FAULT, MAXNOOFBOARDS},
+    bindings::{MAXNOOFBOARDS, ddsffi::RETURN_UNKNOWN_FAULT},
     ddserror::DdsError,
     deal::AsDDSDeal,
     traits::{AsDDSContract, IntoRawDDS},
@@ -112,11 +112,7 @@ pub mod solved_play {
         fn next(&mut self) -> Option<Self::Item> {
             let value = self.tricks[self.counter as usize];
             self.counter += 1;
-            if value == -1 {
-                None
-            } else {
-                Some(value)
-            }
+            if value == -1 { None } else { Some(value) }
         }
     }
 }

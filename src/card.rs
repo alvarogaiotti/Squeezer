@@ -1,7 +1,7 @@
 /// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
 /// I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
 
 /// A card, represented as a `u8`.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -226,6 +226,68 @@ impl TryFrom<&[Card]> for Cards {
     }
 }
 
+impl From<Card> for Cards {
+    fn from(card: Card) -> Self {
+        Cards::EMPTY.insert(card)
+    }
+}
+
+pub struct FastSampler;
+pub struct UniformSampler;
+
+pub trait CardSampler {
+    fn pick_n<R: Rng>(deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards>;
+}
+
+impl CardSampler for FastSampler {
+    fn pick_n<R: Rng>(deck: &mut Cards, mut num: usize, rng: &mut R) -> Option<Cards> {
+        let mut bits = deck.bits;
+        let mut n_left = deck.len() as usize;
+        let mut kept = 0;
+        let mut given = 0;
+        while n_left > 0 {
+            if num == 0 {
+                kept |= bits;
+                break;
+            }
+            let chosen = rng.random::<u64>() & bits;
+            if chosen != 0 {
+                let num_chosen = chosen.count_ones() as usize;
+                if num_chosen <= num {
+                    bits &= !chosen;
+                    given |= chosen;
+                    n_left -= num_chosen;
+                    num -= num_chosen;
+                } else if num_chosen + num < n_left {
+                    bits &= !chosen;
+                    kept |= chosen;
+                    n_left -= num_chosen;
+                }
+            }
+        }
+        deck.bits = kept;
+        Some(Cards { bits: given })
+    }
+}
+
+impl CardSampler for UniformSampler {
+    fn pick_n<R: Rng>(deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards> {
+        let mut positions = Vec::with_capacity(52);
+        for i in 0..64 {
+            if deck.bits & (1 << i) != 0 {
+                positions.push(i)
+            }
+        }
+        positions.shuffle(rng);
+        let mut to_draw = 0u64;
+        for &pos in positions.iter().take(num) {
+            to_draw |= 1 << pos;
+        }
+        deck.bits &= !to_draw;
+        Some(Cards { bits: to_draw })
+    }
+}
+
 /// A bunch of [`Card`]s.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -345,41 +407,18 @@ impl Cards {
     #[must_use]
     #[inline]
     pub fn pick(&mut self, num: usize) -> Option<Cards> {
-        self.pick_rng(&mut rand::rng(), num)
+        self.pick_rng::<_, FastSampler>(&mut rand::rng(), num)
     }
 
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
     /// Returns `None` only if there aren't enough cards.
-    fn pick_rng<R: Rng>(&mut self, rng: &mut R, mut num: usize) -> Option<Cards> {
-        let mut bits = self.bits;
-        let mut n_left = self.len() as usize;
-        if num > n_left {
-            return None;
+    pub fn pick_rng<R: Rng, S: CardSampler>(&mut self, rng: &mut R, num: usize) -> Option<Cards> {
+        assert!(num <= 52);
+        if self.len() < num as u8 {
+            None
+        } else {
+            S::pick_n(self, num, rng)
         }
-        let mut kept = 0;
-        let mut given = 0;
-        while n_left > 0 {
-            if num == 0 {
-                kept |= bits;
-                break;
-            }
-            let chosen = rng.random::<u64>() & bits;
-            if chosen != 0 {
-                let num_chosen = chosen.count_ones() as usize;
-                if num_chosen <= num {
-                    bits &= !chosen;
-                    given |= chosen;
-                    n_left -= num_chosen;
-                    num -= num_chosen;
-                } else if num_chosen + num < n_left {
-                    bits &= !chosen;
-                    kept |= chosen;
-                    n_left -= num_chosen;
-                }
-            }
-        }
-        self.bits = kept;
-        Some(Cards { bits: given })
     }
 
     /// A new, full French deck without Jokers.

@@ -34,20 +34,7 @@ pub struct BlockingBBOClient {
     hands_links: Vec<String>,
 }
 
-impl NetworkError for ureq::Error {
-    fn extract_url(&self) -> &str {
-        match self {
-            ureq::Error::Status(_, r) => r.get_url(),
-            ureq::Error::Transport(t) => {
-                if let Some(url) = t.url() {
-                    url.as_str()
-                } else {
-                    "{no_url}"
-                }
-            }
-        }
-    }
-}
+impl NetworkError for ureq::Error {}
 
 #[allow(unused_macros)]
 macro_rules! extract_url_ureq {
@@ -86,7 +73,7 @@ impl BlockingBBOClient {
     #[inline]
     #[must_use]
     pub fn new(username: String, password: String) -> Self {
-        let client = Agent::new();
+        let client = ureq::agent();
         Self {
             client,
             username,
@@ -104,14 +91,17 @@ impl BlockingBBOClient {
             ("start_time", &start_time.unix_timestamp().to_string()),
             ("end_time", &end_time.unix_timestamp().to_string()),
         ]);
-        info!("query: {}", request.url());
+        info!("query: {}", request.uri_ref().unwrap());
         let text = request
             .call()
             .map_err(|e| ClientError::ConnectionError {
                 source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
             })?
-            .into_string()
-            .map_err(|e| ClientError::IoError { source: e })?;
+            .into_body()
+            .read_to_string()
+            .map_err(|e| ClientError::IoError {
+                source: e.into_io(),
+            })?;
         info!("{text}");
         Ok(text)
     }
@@ -140,8 +130,11 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             .map_err(|e| ClientError::ConnectionError {
                 source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
             })?
-            .into_string()
-            .map_err(|e| ClientError::IoError { source: e })?
+            .into_body()
+            .read_to_string()
+            .map_err(|e| ClientError::IoError {
+                source: e.into_io(),
+            })?
             .contains("Please login")
         {
             info!("not logged in");
@@ -174,12 +167,15 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
         let response = self
             .client
             .post(BBOLOGIN)
-            .send_form(&params)
+            .send_form(params)
             .map_err(|e| BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))))?;
         info!("response status code: {}", response.status());
         let text = response
-            .into_string()
-            .map_err(|e| ClientError::IoError { source: e })?;
+            .into_body()
+            .read_to_string()
+            .map_err(|e| ClientError::IoError {
+                source: e.into_io(),
+            })?;
         if text.contains("password incorrect") {
             warn!("incorrect username or password");
             return Err(ClientError::ConnectionError {
@@ -239,9 +235,14 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
                     queue.push(e);
                     continue;
                 }
-                Ok(response) => response
-                    .into_string()
-                    .map_err(|e| ClientError::IoError { source: e })?,
+                Ok(response) => {
+                    response
+                        .into_body()
+                        .read_to_string()
+                        .map_err(|e| ClientError::IoError {
+                            source: e.into_io(),
+                        })?
+                }
             };
             // TODO:
             // For now puppy implementation

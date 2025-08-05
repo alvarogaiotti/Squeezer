@@ -25,9 +25,7 @@ pub const BBOLAND: &str = "https://www.bridgebase.com/myhands/index.php?offset=0
 pub const BBOHANDS: &str = "https://www.bridgebase.com/myhands/hands.php?";
 pub const BBOBASE: &str = "https://www.bridgebase.com/myhands/";
 
-pub trait NetworkError: std::error::Error {
-    fn extract_url(&self) -> &str;
-}
+pub trait NetworkError: std::error::Error {}
 
 pub trait BBOClient<E: NetworkError> {
     /// # Errors
@@ -76,22 +74,14 @@ impl<E: NetworkError> std::fmt::Display for BboErrorKind<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BboErrorKind::LoginError => write!(f, "incorrect username or password"),
-            BboErrorKind::DownloadError(e) => {
-                write!(f, "unable to download hand from {}", e.extract_url())
+            BboErrorKind::DownloadError(_) => {
+                write!(f, "unable to download hand")
             }
-            BboErrorKind::UnknownConnectionError(e) => {
-                write!(
-                    f,
-                    "unable to connect to {}, check internet connection",
-                    e.extract_url()
-                )
+            BboErrorKind::UnknownConnectionError(_) => {
+                write!(f, "unable to connect, check internet connection",)
             }
-            BboErrorKind::HandsRequestError(e) => {
-                write!(
-                    f,
-                    "incorrect time interval request parameters, tried to get from: {}",
-                    e.extract_url()
-                )
+            BboErrorKind::HandsRequestError(_) => {
+                write!(f, "incorrect time interval request parameters")
             }
         }
     }

@@ -57,7 +57,8 @@ pub struct ParsedLin {
 /// - the dealer
 ///
 /// You can create a lin deal starting from a str with
-#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LinDeal {
     players: [String; 4],
     hands: Hands,
@@ -254,7 +255,8 @@ impl dds::deal::AsDDSDeal for LinDeal {
 }
 /// Structure that represents a bidding sequence
 /// made of [`Bid`]s
-#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Bidding {
     bidding: Vec<Bid>,
 }
@@ -387,6 +389,12 @@ impl Bidding {
     }
 }
 
+impl Default for Bidding {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> IntoIterator for &'a Bidding {
     type Item = &'a Bid;
     type IntoIter = std::slice::Iter<'a, Bid>;
@@ -397,6 +405,7 @@ impl<'a> IntoIterator for &'a Bidding {
 
 /// We model bids as an Enum, with possible contracts as tuple
 /// variants containing [`NonZeroU8`] and a [`Strain`]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Bid {
     Pass,

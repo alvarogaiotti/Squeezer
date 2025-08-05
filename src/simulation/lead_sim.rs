@@ -67,7 +67,8 @@ impl<D: Dealer> LeadSimulation<D> {
         // We take from the deal producer the number we need
         let mut deals: Vec<Deal> = Vec::with_capacity(num);
         for _ in 0..num {
-            deals.push(self.dealer.deal()?);
+            let deal = self.dealer.deal()?;
+            deals.push(deal);
         }
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         solver
@@ -309,22 +310,37 @@ mod test {
 
     #[test]
     fn lead_simulation_ok() {
-        let hand = Cards::from_str("AQT KQ732 432 43").unwrap();
-        let dealer = DealerBuilder::new()
-            .predeal(Seat::South, hand)
+        let hand = Cards::from_str("J52 K75 J98 K864").unwrap();
+        println!("{hand}");
+        let west_hand = HandTypeBuilder::balanced(15, 17)
+            .remove_shape("4+xxx")
             .unwrap()
-            .with_function(|cards| {
-                let east = cards.east();
-                let west = cards.west();
-                east.hlen() + west.hlen() == 8
-                    && east.hcp() + west.hcp() >= 20
-                    && east.hcp() + west.hcp() <= 24
-            })
+            .remove_shape("x4+xx")
+            .unwrap()
+            .build();
+        let east_hand = HandTypeBuilder::new()
+            .with_range(9, 15)
+            .add_shape("4-4-5-5-")
+            .unwrap()
+            .remove_shape("(32)(53)")
+            .unwrap()
+            .remove_shape("(33)(52)")
+            .unwrap()
+            .remove_shape("(33)(43)")
+            .unwrap()
+            .remove_shape("(32)(44)")
+            .unwrap()
+            .build();
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, hand)
+            .unwrap()
+            .with_hand_descriptor(Seat::East, HandDescriptor::new(vec![east_hand]))
+            .with_hand_descriptor(Seat::West, HandDescriptor::new(vec![west_hand]))
             .build()
             .unwrap();
-        let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
+        let contract = Contract::from_str("3NW", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
-            num_of_boards: 1000,
+            num_of_boards: 10000,
             dealer,
             contract,
         };

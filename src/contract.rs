@@ -55,6 +55,92 @@ impl dds::traits::AsDDSContract for Contract {
 #[cfg(feature = "dds")]
 impl dds::traits::ContractScorer for Contract {
     fn score(&self, tricks: u8) -> i32 {
+        self.score(tricks)
+    }
+}
+
+/// Enum modelling whether a [`Contract`] is not doubled,
+/// doubled or redoubled
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Doubled {
+    NotDoubled = 0,
+    Doubled = 1,
+    Redoubled = 2,
+}
+
+/// The strain of a bridge contract, either some trump or
+/// no trump
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Strain {
+    Spades = 0,
+    Hearts = 1,
+    Diamonds = 2,
+    Clubs = 3,
+    NoTrumps = 4,
+}
+
+impl PartialOrd for Strain {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Strain {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        if let Strain::NoTrumps = self {
+            match other {
+                Strain::NoTrumps => Ordering::Equal,
+                _ => Ordering::Greater,
+            }
+        } else {
+            let comp = (*self as u8).cmp(&(*other as u8));
+            match comp {
+                Ordering::Less => Ordering::Greater,
+                Ordering::Greater => Ordering::Less,
+                Ordering::Equal => comp,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "dds")]
+impl From<Strain> for dds::deal::DdsSuit {
+    fn from(value: Strain) -> Self {
+        match value {
+            Strain::NoTrumps => Self::NoTrump,
+            Strain::Spades => Self::Spades,
+            Strain::Hearts => Self::Hearts,
+            Strain::Diamonds => Self::Diamonds,
+            Strain::Clubs => Self::Clubs,
+        }
+    }
+}
+
+impl From<u8> for Strain {
+    fn from(value: u8) -> Self {
+        match value % 5 {
+            0 => Self::Spades,
+            1 => Self::Hearts,
+            2 => Self::Diamonds,
+            3 => Self::Clubs,
+            4 => Self::NoTrumps,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Contract {
+    /// Returns the strain of the contract.
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
+    pub fn strain(&self) -> Strain {
+        self.strain
+    }
+
+    pub fn score(&self, tricks: u8) -> i32 {
         let target: i32 = i32::from(self.level) + 6i32;
         let overtricks: i32 = i32::from(tricks) - target;
         if overtricks >= 0 {
@@ -150,88 +236,6 @@ impl dds::traits::ContractScorer for Contract {
             }
             score
         }
-    }
-}
-
-/// Enum modelling whether a [`Contract`] is not doubled,
-/// doubled or redoubled
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum Doubled {
-    NotDoubled = 0,
-    Doubled = 1,
-    Redoubled = 2,
-}
-
-/// The strain of a bridge contract, either some trump or
-/// no trump
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum Strain {
-    Spades = 0,
-    Hearts = 1,
-    Diamonds = 2,
-    Clubs = 3,
-    NoTrumps = 4,
-}
-
-impl PartialOrd for Strain {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Strain {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        use std::cmp::Ordering;
-        if let Strain::NoTrumps = self {
-            match other {
-                Strain::NoTrumps => Ordering::Equal,
-                _ => Ordering::Greater,
-            }
-        } else {
-            let comp = (*self as u8).cmp(&(*other as u8));
-            match comp {
-                Ordering::Less => Ordering::Greater,
-                Ordering::Greater => Ordering::Less,
-                Ordering::Equal => comp,
-            }
-        }
-    }
-}
-
-#[cfg(feature = "dds")]
-impl From<Strain> for dds::deal::DdsSuit {
-    fn from(value: Strain) -> Self {
-        match value {
-            Strain::NoTrumps => Self::NoTrump,
-            Strain::Spades => Self::Spades,
-            Strain::Hearts => Self::Hearts,
-            Strain::Diamonds => Self::Diamonds,
-            Strain::Clubs => Self::Clubs,
-        }
-    }
-}
-
-impl From<u8> for Strain {
-    fn from(value: u8) -> Self {
-        match value % 5 {
-            0 => Self::Spades,
-            1 => Self::Hearts,
-            2 => Self::Diamonds,
-            3 => Self::Clubs,
-            4 => Self::NoTrumps,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl Contract {
-    /// Returns the strain of the contract.
-    #[allow(clippy::cast_possible_truncation)]
-    #[must_use]
-    pub fn strain(&self) -> Strain {
-        self.strain
     }
 
     /// Returns the next player after the declarer, i.e., the leader of the contract.
@@ -371,6 +375,13 @@ impl Strain {
             Self::Clubs => String::from("C"),
         }
     }
+    pub const ALL: [Self; 5] = [
+        Self::Spades,
+        Self::Hearts,
+        Self::Diamonds,
+        Self::Clubs,
+        Self::NoTrumps,
+    ];
 }
 
 impl fmt::Display for Strain {

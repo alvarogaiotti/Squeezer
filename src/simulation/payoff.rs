@@ -7,7 +7,7 @@
 /// and various scoring functions such as `imps` and `matchpoints`.
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
-use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver, traits::ContractScorer};
+use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
 use fmt::Display;
 use itertools::Itertools;
 use std::io::Write;
@@ -306,7 +306,6 @@ pub fn matchpoints(my: i32, other: i32) -> i32 {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use dds::traits::ContractScorer;
     #[test]
     fn payoff_report_test() {
         let contracts = vec![

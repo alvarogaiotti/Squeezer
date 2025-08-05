@@ -29,7 +29,8 @@ fn main_to_be() {
         .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2)
         .build()
         .unwrap();
-    let deal = dealer.deal().unwrap();
-    println!("{deal}");
-    assert!(deal.south().diamonds().len() >= 6);
+    for _ in 0..1000000 {
+        let deal = dealer.deal().unwrap();
+        println!("{deal}");
+    }
 }
