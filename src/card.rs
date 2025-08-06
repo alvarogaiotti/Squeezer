@@ -275,7 +275,7 @@ impl CardSampler for UniformSampler {
         let mut positions = Vec::with_capacity(52);
         for i in 0..64 {
             if deck.bits & (1 << i) != 0 {
-                positions.push(i)
+                positions.push(i);
             }
         }
         positions.shuffle(rng);

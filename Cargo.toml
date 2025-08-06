@@ -44,3 +44,7 @@ harness = false
 [[bench]]
 name = "deck_pick_performance"
 harness = false
+
+[[bench]]
+name = "bench_handdescriptor"
+harness = false
