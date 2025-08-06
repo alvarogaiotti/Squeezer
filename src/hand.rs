@@ -306,8 +306,8 @@ impl Default for HcpRange {
 
 /// Represents a set of possible hands with the accepted shapes and the accepted HCP range.
 /// This struct main goal is to express a single hand type that we can accept.
-/// If you want to represent multiple hand types, you can use the `HandDescriptor` struct,
-/// which embbeds multiple `HandType`s.
+/// If you want to represent multiple hand types, you can use the [`HandDescriptor`] struct,
+/// which embbeds multiple [`HandType`]s.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone)]
 // TODO: Add a custom evaluator field, so we can pass a Evaluator and have a custom ValuationRange or something
@@ -493,6 +493,11 @@ impl HandTypeBuilder {
 
     pub fn with_range(&mut self, min_hcp: u8, max_hcp: u8) -> &mut Self {
         self.hcp_range = Some(HcpRange::new(min_hcp, max_hcp));
+        self
+    }
+
+    pub fn all_shapes(&mut self) -> &mut Self {
+        self.shapes = Some(Shape::All);
         self
     }
 
