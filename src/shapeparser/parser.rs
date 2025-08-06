@@ -101,7 +101,7 @@ impl Parser {
     fn check(&self, token: Token) -> bool {
         if self.is_at_end() {
             return false;
-        };
+        }
         std::mem::discriminant(&self.peek()) == std::mem::discriminant(&token)
     }
 

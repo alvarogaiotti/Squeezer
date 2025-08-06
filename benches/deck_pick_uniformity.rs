@@ -1,16 +1,15 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand;
+use criterion::{criterion_group, criterion_main, Criterion};
 use squeezer::{Cards, FastSampler, UniformSampler};
 use std::collections::HashMap;
 
 fn bench_uniformity(c: &mut Criterion) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     c.bench_function("fast_sampler_uniformity_4bit", |b| {
         b.iter(|| {
             let mut counts = HashMap::new();
             for _ in 0..100_000 {
                 let mut deck = Cards::ALL;
-                if let Some(hand) = deck.pick_rng::<_, UniformSampler>(&mut rng, 13) {
+                if let Some(hand) = deck.pick_rng::<_, FastSampler>(&mut rng, 13) {
                     let key = hand.as_bits(); // raw bit representation
                     *counts.entry(key).or_insert(0) += 1;
                 }
@@ -18,7 +17,7 @@ fn bench_uniformity(c: &mut Criterion) {
 
             // Simulate summary step to prevent optimizer skipping
             let _top = counts.iter().max_by_key(|(_, &v)| v);
-            println!("{:?}", counts);
+            println!("{counts:?}");
         });
     });
 
@@ -33,8 +32,7 @@ fn bench_uniformity(c: &mut Criterion) {
                 }
             }
 
-            let top = counts.iter().max_by_key(|(_, &v)| v);
-            println!("{:?}", counts);
+            println!("{counts:?}");
         });
     });
 }

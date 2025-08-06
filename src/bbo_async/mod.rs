@@ -121,10 +121,7 @@ impl AsyncBBOClient {
             .text()
             .await
             .map_err(|_e| ClientError::IoError {
-                source: std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "unable to parse response as a String",
-                ),
+                source: std::io::Error::other("unable to parse response as a String"),
             })?
             .contains("Please login")
         {
@@ -165,10 +162,7 @@ impl AsyncBBOClient {
             .text()
             .await
             .map_err(|_e| ClientError::IoError {
-                source: std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "unable to parse response as String",
-                ),
+                source: std::io::Error::other("unable to parse response as String"),
             })?;
         if response.contains("password incorrect") {
             info!("incorrect username or password");

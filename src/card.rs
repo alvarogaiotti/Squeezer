@@ -275,7 +275,7 @@ impl CardSampler for UniformSampler {
         let mut positions = Vec::with_capacity(52);
         for i in 0..64 {
             if deck.bits & (1 << i) != 0 {
-                positions.push(i)
+                positions.push(i);
             }
         }
         positions.shuffle(rng);
@@ -412,6 +412,8 @@ impl Cards {
 
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
     /// Returns `None` only if there aren't enough cards.
+    /// # Panics
+    /// When `num >= 53`
     pub fn pick_rng<R: Rng, S: CardSampler>(&mut self, rng: &mut R, num: usize) -> Option<Cards> {
         assert!(num <= 52);
         if self.len() < num as u8 {
