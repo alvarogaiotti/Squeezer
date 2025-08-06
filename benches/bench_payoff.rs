@@ -1,7 +1,8 @@
 #![allow(clippy::all)]
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use squeezer::prelude::*;
 use squeezer::Simulation;
+use std::hint::black_box;
 
 #[inline]
 fn payoff_report_test(_: ()) {
@@ -26,5 +27,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(
+    name = benches;
+    config = Criterion::default().sample_size(10);
+    targets = criterion_benchmark
+);
 criterion_main!(benches);
