@@ -173,11 +173,12 @@ impl Default for Shapes {
 }
 
 impl Shapes {
-    /// Creates a new Shapes instance.
+    /// Creates a new empty `Shapes` instance.
+    /// If you want a full shape, use [`Shape::All`] instead.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            shape_table: Box::new(bitarr!(1; SHAPE_TABLE_BUCKETS)),
+            shape_table: Box::new(bitarr!(0; SHAPE_TABLE_BUCKETS)),
             min_ls: [ZERO_LENGTH; SUITS],
             max_ls: [MAX_LENGTH; SUITS],
         }

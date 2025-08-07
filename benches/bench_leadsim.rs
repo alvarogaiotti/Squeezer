@@ -20,7 +20,7 @@ fn lead_simulation_test(_: ()) {
         .build()
         .unwrap();
     let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
-    let simulation = LeadSimulation::new(1001, dealer, contract);
+    let simulation = LeadSimulation::new(1000, dealer, contract);
     let _ = simulation.run().unwrap();
 }
 
@@ -30,5 +30,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(
+    name = benches;
+    config = Criterion::default().sample_size(10);
+    targets = criterion_benchmark
+);
 criterion_main!(benches);

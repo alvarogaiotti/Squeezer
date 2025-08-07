@@ -66,7 +66,7 @@ mod test {
             concat!("Alignment of ", stringify!(futureTricks))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<FutureTricks>())).nodes as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<FutureTricks>())).nodes as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -76,7 +76,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<FutureTricks>())).cards as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<FutureTricks>())).cards as usize },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -86,7 +86,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<FutureTricks>())).suit as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<FutureTricks>())).suit as usize },
             8usize,
             concat!(
                 "Offset of field: ",
@@ -96,7 +96,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<FutureTricks>())).rank as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<FutureTricks>())).rank as usize },
             60usize,
             concat!(
                 "Offset of field: ",
@@ -106,7 +106,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<FutureTricks>())).equals as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<FutureTricks>())).equals as usize },
             112usize,
             concat!(
                 "Offset of field: ",
@@ -116,7 +116,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<FutureTricks>())).score as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<FutureTricks>())).score as usize },
             164usize,
             concat!(
                 "Offset of field: ",

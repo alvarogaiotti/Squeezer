@@ -169,7 +169,7 @@ mod test {
             concat!("Alignment of ", stringify!(solvedBoards))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<SolvedBoards>())).no_of_boards as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<SolvedBoards>())).no_of_boards as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -179,7 +179,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<SolvedBoards>())).solved_board as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<SolvedBoards>())).solved_board as usize },
             4usize,
             concat!(
                 "Offset of field: ",
