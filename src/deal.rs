@@ -4,7 +4,7 @@
 use std::{cell::Cell, num::NonZeroU8};
 
 #[cfg(feature = "lin")]
-use crate::linparser2::LinDeal;
+use crate::linparser::LinDeal;
 use crate::prelude::*;
 
 /// Type of the function that checks if a Deal is to be accepted or not

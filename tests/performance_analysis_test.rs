@@ -7,7 +7,7 @@ use dds::{
     doubledummy::DoubleDummySolver,
     utils::{RankSeq, SuitSeq},
 };
-use squeezer::{linparser2::LinFile, *};
+use squeezer::{linparser::LinFile, *};
 use std::fs;
 
 #[allow(dead_code)]

@@ -10,7 +10,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use crate::{
     Card, Cards, Contract, Doubled, Hand, Hands, Seat, Strain, Vulnerability, Vulnerable,
-    linparser2::{Bid, LinDeal, LinFile, PlaySequence, Players, Results, TournamentInfo},
+    linparser::{Bid, LinDeal, LinFile, PlaySequence, Players, Results, TournamentInfo},
 };
 
 use super::types::{LinBidding, RecordedBid, Room};
@@ -461,11 +461,11 @@ pub fn parse_bridge_file(input: &str) -> IResult<&str, LinFile> {
 #[cfg(test)]
 mod tests {
 
-    use crate::linparser2::parser::{
+    use crate::linparser::parser::{
         parse_bid, parse_dealer_and_hands, parse_played_card, parse_room_and_board_number,
         parse_vugraph_data,
     };
-    use crate::{Card, Hand, Vulnerability, linparser2::*};
+    use crate::{Card, Hand, Vulnerability, linparser::*};
     #[test]
     fn test_parse_vg_line() {
         let input = "vg|2nd Super College Cup,Final 2,I,15,28,NCCU,0,CGU,0|";

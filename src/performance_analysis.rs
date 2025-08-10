@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::{linparser2::PlaySequence, prelude::*};
+use crate::{linparser::PlaySequence, prelude::*};
 use dds::analyseplay::SolvedPlay;
 use itertools::Itertools;
 
@@ -643,7 +643,7 @@ mod tests {
         //let lin = "st||md|3SK5HJ84DJT852CJT8,SAHAT9753DA93C752,SJ876432HQDK76CK9,SQT9HK62DQ4CAQ643|rh||ah|Board 1|sv|o|mb|2S|mb|p|mb|p|mb|3H|mb|p|mb|4H|mb|p|mb|p|mb|p|pc|cK|pc|cA|pc|c8|pc|c2|pg||";
         //let lin = "qx|c37|st||md|3SKJT2HK84DA6CAT75,S54HJT7532DK97C84,SAQ763H96DQJ54CKJ,S98HAQDT832CQ9632|rh||ah|Board 1|sv|n|mb|1S|mb|p|mb|2N|mb|p|mb|3C|mb|p|mb|3D|mb|p|mb|3S|mb|p|mb|3N|mb|p|mb|4D|mb|p|mb|4H|mb|p|mb|4S|mb|p|mb|p|mb|p|pc|c2";
         //let lin = "qx|o47|st||md|1SJ852HADKT742CJT5,SAT96HJ6D3CAK8743,SK743HK8543DQJ5CQ,SQHQT972DA986C962|rh||ah|Board 1|sv|n|mb|p|mb|1C|mb|d|mb|1H|mb|d|an|t/o|mb|2C|mb|2S|mb|3C|mb|3S|mb|p|mb|p|mb|p|pc|c2|pc|c5|pc|cA|pc|cQ|pg||pc|c3|pc|s3|pc|c6|pc|cT|pg||pc|h4|pc|h2|pc|hA|pc|h6|pg||pc|s2|pc|s6|pc|sK|pc|sQ|pg||pc|hK|pc|h7|pc|cJ|pc|hJ|pg||pc|dQ|pc|dA|pc|d2|pc|d3|pg||pc|hQ|pc|s5|pc|s9|pc|h3|pg||pc|cK|pc|s4|pc|c9|pc|d4|pg||pc|dJ|pc|d6|pc|d7|mc|8|pg||";
-        let file = crate::linparser2::LinFile::from_str(lin).unwrap();
+        let file = crate::linparser::LinFile::from_str(lin).unwrap();
         let deal = file.deals.first().unwrap();
         let dds_solver = dds::doubledummy::DoubleDummySolver::new();
         let contract = deal.contract().unwrap();

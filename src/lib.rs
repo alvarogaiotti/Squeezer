@@ -120,10 +120,8 @@ mod dealproduction;
 mod error;
 mod evaluator;
 mod hand;
-//#[cfg(feature = "lin")]
-//mod linparser;
 #[cfg(feature = "lin")]
-pub mod linparser2;
+pub mod linparser;
 #[cfg(feature = "dds")]
 pub mod performance_analysis;
 mod shape;

@@ -474,12 +474,11 @@ impl LinFile {
 impl std::str::FromStr for LinFile {
     type Err = ParseLinError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, deal) = crate::linparser2::parse_bridge_file(s).map_err(|e|
+        let (_, deal) = crate::linparser::parse_bridge_file(s).map_err(|e|
             //ParseLinError::new(ParseLinErrorKind::Card, e.)
             match e {
                                 nom::Err::Error(err) | nom::Err::Failure(err) => {
                                     let error_input = err.input;
-                                    let position = s.len() - error_input.len();
                                     ParseLinError::new(
                                         //TODO: fix
                                         ParseLinErrorKind::Player,

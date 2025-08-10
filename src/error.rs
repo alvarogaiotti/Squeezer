@@ -2,7 +2,7 @@
 // See end of file for license information
 
 use crate::{
-    linparser2::ParseLinError,
+    linparser::ParseLinError,
     prelude::{CreationShapeError, DealerError},
 };
 use std::error::Error;
