@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 
 #[allow(unused_imports)]
 use safe_arch::*;
@@ -33,6 +33,58 @@ fn wrapping_winner(cards: &mut [Card], trump: Suit) {
             *ptr = next_player;
             winner.1
         });
+    }
+}
+
+fn wrapping_winner_lut(cards: &mut [Card], trump: Suit) {
+    let mut seat = Seat::North;
+    for trick in cards.chunks_exact(4) {
+        let (winner, _) = find_trick_winner_lut(trick, trump, seat);
+        seat = winner;
+    }
+}
+fn find_trick_winner_lut(trick: &[Card], trump: Suit, lead_seat: Seat) -> (Seat, Card) {
+    // Pre-compute card values for faster comparison
+    assert!(trick.len() == 4);
+    let trump_u8 = trump as u8;
+    let lead_suit = trick[0].suit() as u8;
+
+    let mut best_idx = 0;
+    let mut best_value = card_value(trick[0], trump_u8, lead_suit);
+
+    for (i, &card) in trick.iter().enumerate().skip(1) {
+        let value = card_value(card, trump_u8, lead_suit);
+        if value > best_value {
+            best_idx = i;
+            best_value = value;
+        }
+    }
+
+    let winner_seat = match (lead_seat as u8 + best_idx as u8) % 4 {
+        0 => Seat::North,
+        1 => Seat::East,
+        2 => Seat::South,
+        3 => Seat::West,
+        _ => unreachable!(),
+    };
+
+    (winner_seat, trick[best_idx])
+}
+
+#[inline]
+fn card_value(card: Card, trump: u8, lead_suit: u8) -> u16 {
+    let suit = card.suit() as u8;
+    let rank = card.rank();
+
+    if suit == trump {
+        // Trump cards: highest priority (256+) + rank
+        256 + rank as u16
+    } else if suit == lead_suit {
+        // Lead suit cards: medium priority (128+) + rank
+        128 + rank as u16
+    } else {
+        // Off-suit cards: lowest priority, just rank
+        rank as u16
     }
 }
 
@@ -101,6 +153,17 @@ fn criterion_benchmark(c: &mut Criterion) {
                 b.iter_batched(
                     || *cards,
                     |mut cards| wrapping_winner(&mut cards, Suit::Spades),
+                    criterion::BatchSize::SmallInput,
+                )
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("no_simd_lut", format!("{:?}", &cards)),
+            &cards,
+            |b, cards| {
+                b.iter_batched(
+                    || *cards,
+                    |mut cards| wrapping_winner_lut(&mut cards, Suit::Spades),
                     criterion::BatchSize::SmallInput,
                 )
             },

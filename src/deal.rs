@@ -162,6 +162,17 @@ impl Seat {
         self + 1
     }
 
+    #[must_use]
+    #[inline]
+    pub fn previous(self) -> Seat {
+        match self {
+            Self::North => Self::West,
+            Self::East => Self::North,
+            Self::West => Self::South,
+            Self::South => Self::East,
+        }
+    }
+
     /// Whether a player is on the same line as another (which might be himself!)
     #[must_use]
     #[inline]
@@ -586,6 +597,16 @@ impl DealerBuilder {
             hand_constraints: self.hand_descriptors,
             ..Default::default()
         })
+    }
+    #[inline]
+    pub fn with_complete_config(
+        self,
+        config: [(Option<HandDescriptor>, Option<Cards>); 4],
+    ) -> Result<Self, DealerError> {
+        let (descriptors, cards): (Vec<Option<HandDescriptor>>, Vec<Option<Cards>>) =
+            config.into_iter().collect();
+        self.with_hand_descriptors_all(descriptors.try_into().unwrap())
+            .predeal_all(cards.try_into().unwrap())
     }
 }
 

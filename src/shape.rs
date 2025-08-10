@@ -3,7 +3,7 @@
 
 use crate::prelude::*;
 use crate::shapeparser::{ShapeCreator, ShapePattern};
-use bitvec::{bitarr, BitArr};
+use bitvec::{BitArr, bitarr};
 
 #[allow(clippy::cast_possible_truncation)]
 const SHAPE_TABLE_BUCKETS: usize = ShapeHasher::M as usize;
@@ -134,7 +134,6 @@ impl Shape {
 /// for keeping track of the shape we are interested into.
 /// Offers all the necessary methods to manipulate the shapes.
 #[derive(Clone)]
-#[allow(clippy::unsafe_derive_deserialize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Shapes {
     shape_table: Box<ShapeTable>,
@@ -192,6 +191,13 @@ impl Shapes {
     /// Checks if a hand is a member of the shape.
     #[must_use]
     fn is_member(&self, hand_to_match: Hand) -> bool {
+        for (suit, (min, max)) in self.min_ls.iter().zip(self.max_ls.iter()).enumerate() {
+            let range = min..=max;
+            let len = hand_to_match.len_of_suit(Suit::try_from(suit).unwrap());
+            if !range.contains(&&len) {
+                return false;
+            }
+        }
         self.shape_table[Self::shape_pattern_to_index(hand_to_match.shape())]
     }
 
@@ -421,6 +427,19 @@ pub enum Suit {
     Hearts = 1,
     Diamonds = 2,
     Clubs = 3,
+}
+
+impl TryFrom<usize> for Suit {
+    type Error = DealerError;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Suit::Spades),
+            1 => Ok(Suit::Hearts),
+            2 => Ok(Suit::Diamonds),
+            3 => Ok(Suit::Clubs),
+            num => Err(DealerError::new(format!("cannot convert {num} to Suit"))),
+        }
+    }
 }
 
 impl TryFrom<i32> for Suit {

@@ -222,7 +222,11 @@ fn parse_bid(input: &str) -> IResult<&str, RecordedBid> {
             nom::error::ErrorKind::Char,
         ))
     })?;
-    let (input, alert) = opt(debug_parser("Alert", parse_alert)).parse(input)?;
+    let (input, alert) = if cfg!(debug_assertions) {
+        opt(debug_parser("Alert", parse_alert)).parse(input)?
+    } else {
+        opt(parse_alert).parse(input)?
+    };
     Ok((input, RecordedBid { bid, alert }))
 }
 
@@ -259,7 +263,6 @@ fn parse_claim(input: &str) -> IResult<&str, u8> {
     Ok((input, score))
 }
 
-#[cfg(debug_assertions)]
 fn debug_parser<'a, F>(
     name: &'static str,
     mut parser: F,

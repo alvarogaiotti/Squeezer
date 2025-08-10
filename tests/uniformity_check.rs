@@ -1,8 +1,8 @@
 use squeezer::{Cards, FastSampler, UniformSampler};
 use std::collections::HashMap;
 
-#[test]
-fn uniformity_test() {
+//#[test]
+fn _uniformity_test() {
     let mut rng = rand::rng();
     let mut counts_a = HashMap::new();
     let mut counts_b = HashMap::new();

@@ -338,19 +338,7 @@ pub fn analyse_players_performance(
     let mut results_iterator = results.into_iter();
     let mut players_records: [PlayerPlayRecord; 4] =
         std::array::from_fn(|_| PlayerPlayRecord::new());
-    let (winner_notrump, winner_trump);
-
-    // Determine the winner based on whether it's a No Trump contract or not
-    let winner_function: &dyn Fn(Card, Card, Seat, Seat) -> (Seat, Card) =
-        if matches!(contract.strain(), Strain::NoTrumps) {
-            winner_notrump = winner_nt;
-            &winner_notrump
-        } else {
-            // If it's a Trump contract, set the winner accordingly
-            let trump = contract.strain().try_into().expect("it's not NoTrump");
-            winner_trump = curry_winner_trump(trump);
-            &winner_trump
-        };
+    let trump = Suit::try_from(contract.strain()).ok();
 
     let mut winner = contract.leader();
     let mut previous_result = results_iterator
@@ -363,55 +351,74 @@ pub fn analyse_players_performance(
         .into_iter()
         .zip(results_iterator.chunks(4).into_iter())
     {
-        let mut card_result_iterator = trick.into_iter().zip(results.into_iter());
-        let (first_card, result) = card_result_iterator.next().expect("there should always be a leader, otherwise the tricks iterator should not have entered another loop.");
-
-        // Process the first card of each trick
-        let diff = performance_difference(previous_result, result);
-        players_records[winner as usize].push_trick(first_card, diff);
-        let mut winner_card = first_card;
-        previous_result = result;
-        let mut seat_iterator = winner.iter_from();
-
-        // Iterate through the rest of the cards in the trick
-        for (card, result) in card_result_iterator {
-            let actual_player = seat_iterator.next().unwrap();
-            (winner, winner_card) = winner_function(winner_card, card, winner, actual_player);
-            let diff = performance_difference(previous_result, result);
-            players_records[actual_player as usize].push_trick(card, diff);
-            previous_result = result;
+        let trick_cards: Vec<_> = trick.collect();
+        for ((card, n_of_tricks), seat) in trick_cards
+            .iter()
+            .zip(results)
+            .zip(winner.previous().iter_from())
+        {
+            let diff = performance_difference(previous_result, n_of_tricks);
+            players_records[seat as usize].push_trick(*card, diff);
+            previous_result = n_of_tricks;
         }
+        (winner, _) = find_trick_winner_lut(trick_cards.into_iter(), trump, winner);
     }
     players_records
 }
+fn find_trick_winner_lut<I: Iterator<Item = Card>>(
+    mut trick: I,
+    trump: Option<Suit>,
+    lead_seat: Seat,
+) -> (Seat, Card) {
+    // Pre-compute card values for faster comparison
+    let mut best_card = trick.next().unwrap();
+    let lead_suit = best_card.suit() as u8;
 
-/// Curries a function to determine the correct winner based on the trump suit, returning the
-/// curried function. The function returned returns the winner between two cards, making the
-/// function useful for a reduce-style operation on a iterator.
-fn curry_winner_trump(trump: Suit) -> impl Fn(Card, Card, Seat, Seat) -> (Seat, Card) {
-    move |previous_card: Card, card: Card, winner: Seat, actual_player: Seat| {
-        if previous_card.suit() != card.suit() {
-            // If the second card is a different suit it has to be the only trump
-            if previous_card.suit() == trump {
-                (winner, previous_card)
-            } else {
-                (actual_player, card)
-            }
-        } else if previous_card.rank() > card.rank() {
-            (winner, previous_card)
-        } else {
-            (actual_player, card)
+    let mut best_idx = 0;
+    let mut best_value = card_value(best_card, trump, lead_suit);
+
+    for (i, card) in trick.enumerate() {
+        let value = card_value(card, trump, lead_suit);
+        if value > best_value {
+            best_idx = i + 1;
+            best_card = card;
+            best_value = value;
         }
     }
+
+    #[allow(clippy::cast_possible_truncation)]
+    let winner_seat = match (lead_seat as u8 + best_idx as u8) % 4 {
+        0 => Seat::North,
+        1 => Seat::East,
+        2 => Seat::South,
+        3 => Seat::West,
+        _ => unreachable!(),
+    };
+
+    (winner_seat, best_card)
 }
 
-/// The winner of a no trump trick between two cards
-fn winner_nt(previous_card: Card, card: Card, winner: Seat, actual_player: Seat) -> (Seat, Card) {
-    // Short circuits.
-    if previous_card.suit() != card.suit() || previous_card.rank() > card.rank() {
-        (winner, previous_card)
+#[inline]
+fn card_value(card: Card, trump: Option<Suit>, lead_suit: u8) -> u16 {
+    let suit = card.suit() as u8;
+    let rank = card.rank();
+    if let Some(trump) = trump {
+        if suit == trump as u8 {
+            // Trump cards: highest priority (256+) + rank
+            256 + u16::from(rank)
+        } else if suit == lead_suit {
+            // Lead suit cards: medium priority (128+) + rank
+            128 + u16::from(rank)
+        } else {
+            // Off-suit cards: lowest priority, just rank
+            u16::from(rank)
+        }
+    } else if suit == lead_suit {
+        // Lead suit cards: medium priority (128+) + rank
+        128 + u16::from(rank)
     } else {
-        (actual_player, card)
+        // Off-suit cards: lowest priority, just rank
+        u16::from(rank)
     }
 }
 
@@ -474,47 +481,53 @@ mod tests {
 
     #[test]
     fn test_winner_suit() {
-        let winner_fn = curry_winner_trump(Suit::Clubs);
-        let winner = winner_fn(
-            Card::new(Suit::Hearts, 10),
-            Card::new(Suit::Hearts, 14),
-            Seat::North,
-            Seat::South,
+        let winner = find_trick_winner_lut(
+            [Card::new(Suit::Hearts, 10), Card::new(Suit::Hearts, 14)].into_iter(),
+            Some(Suit::Spades),
+            Seat::East,
         );
         assert_eq!(winner, (Seat::South, Card::HA));
 
-        let winner = winner_fn(
-            Card::new(Suit::Hearts, 10),
-            Card::new(Suit::Clubs, 2),
-            Seat::North,
-            Seat::South,
+        let winner = find_trick_winner_lut(
+            [
+                Card::new(Suit::Hearts, 10),
+                Card::new(Suit::Clubs, 2),
+                Card::DA,
+                Card::SA,
+            ]
+            .into_iter(),
+            Some(Suit::Clubs),
+            Seat::West,
         );
-        assert_eq!(winner, (Seat::South, Card::C2));
+        assert_eq!(winner, (Seat::North, Card::C2));
 
-        let winner = winner_fn(
-            Card::new(Suit::Clubs, 10),
-            Card::new(Suit::Clubs, 2),
-            Seat::North,
-            Seat::South,
+        let winner = find_trick_winner_lut(
+            [
+                Card::DA,
+                Card::new(Suit::Clubs, 10),
+                Card::new(Suit::Clubs, 2),
+                Card::SA,
+            ]
+            .into_iter(),
+            Some(Suit::Clubs),
+            Seat::West,
         );
         assert_eq!(winner, (Seat::North, Card::C10));
     }
 
     #[test]
     fn test_winner_nt() {
-        let winner = winner_nt(
-            Card::new(Suit::Hearts, 10),
-            Card::new(Suit::Hearts, 14),
-            Seat::North,
-            Seat::South,
-        );
-        assert_eq!(winner, (Seat::South, Card::HA));
-
-        let winner = winner_nt(
-            Card::new(Suit::Spades, 5),
-            Card::new(Suit::Hearts, 14),
+        let winner = find_trick_winner_lut(
+            [Card::new(Suit::Hearts, 10), Card::new(Suit::Hearts, 14)].into_iter(),
+            None,
             Seat::West,
-            Seat::North,
+        );
+        assert_eq!(winner, (Seat::North, Card::HA));
+
+        let winner = find_trick_winner_lut(
+            [Card::new(Suit::Spades, 5), Card::new(Suit::Hearts, 14)].into_iter(),
+            None,
+            Seat::West,
         );
         assert_eq!(winner, (Seat::West, Card::S5));
     }

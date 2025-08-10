@@ -440,6 +440,7 @@ impl HandTypeBuilder {
         Ok(self)
     }
 
+    /// You need to validate input for this function to work
     pub fn with_range(&mut self, min_hcp: u8, max_hcp: u8) -> &mut Self {
         self.hcp_range = Some(HcpRange::new(min_hcp, max_hcp));
         self
