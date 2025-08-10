@@ -1,7 +1,8 @@
 #![allow(clippy::all)]
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use squeezer::prelude::*;
 use squeezer::Simulation;
+use std::hint::black_box;
 
 #[inline]
 fn lead_simulation_test(_: ()) {

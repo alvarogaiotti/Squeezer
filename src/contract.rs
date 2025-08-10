@@ -140,6 +140,7 @@ impl Contract {
         self.strain
     }
 
+    #[must_use]
     pub fn score(&self, tricks: u8) -> i32 {
         let target: i32 = i32::from(self.level) + 6i32;
         let overtricks: i32 = i32::from(tricks) - target;
@@ -153,7 +154,7 @@ impl Contract {
             let mut bonus: i32 = 0;
             if self.strain == Strain::NoTrumps {
                 base_score += 10;
-            };
+            }
 
             match self.doubled {
                 Doubled::Doubled => {
@@ -167,7 +168,7 @@ impl Contract {
                     per_overtrick = 200;
                 }
                 Doubled::NotDoubled => {}
-            };
+            }
             bonus += if base_score >= 100 {
                 if matches!(self.vuln, Vulnerable::Yes) {
                     500
@@ -275,7 +276,7 @@ impl Contract {
             .ok_or(DealerError::new("contract level too high"))?;
         if !(1..=7).contains(&level) {
             return Err(DealerError::new("Wrong contract level"));
-        };
+        }
         Ok(Self {
             vuln,
             doubled,

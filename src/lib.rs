@@ -120,8 +120,10 @@ mod dealproduction;
 mod error;
 mod evaluator;
 mod hand;
+//#[cfg(feature = "lin")]
+//mod linparser;
 #[cfg(feature = "lin")]
-mod linparser;
+pub mod linparser2;
 #[cfg(feature = "dds")]
 pub mod performance_analysis;
 mod shape;
@@ -155,8 +157,6 @@ pub mod prelude {
     pub use crate::error::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
-    #[cfg(feature = "lin")]
-    pub use crate::linparser::*;
     pub use crate::shape::*;
     pub use crate::shapeparser::*;
     #[cfg(feature = "dds")]

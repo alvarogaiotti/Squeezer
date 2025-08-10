@@ -473,7 +473,7 @@ impl HandTypeBuilder {
                 self.add_shape("5-5-5-6").unwrap();
                 self.add_shape("xxx7+").unwrap();
             }
-        };
+        }
         self
     }
 

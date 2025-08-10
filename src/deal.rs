@@ -3,6 +3,8 @@
 
 use std::{cell::Cell, num::NonZeroU8};
 
+#[cfg(feature = "lin")]
+use crate::linparser2::LinDeal;
 use crate::prelude::*;
 
 /// Type of the function that checks if a Deal is to be accepted or not
@@ -92,7 +94,7 @@ impl Hands {
         &self.hands[Seat::West as usize]
     }
     #[inline]
-    pub fn iter(&self) -> std::slice::Iter<Hand> {
+    pub fn iter(&'_ self) -> std::slice::Iter<'_, Hand> {
         self.hands.iter()
     }
 }
@@ -656,7 +658,9 @@ impl Dealer for StandardDealer {
                     let predeal_len = cards.len();
                     if predeal_len < 13 {
                         let Some(cards_to_add) = deck.pick(13 - predeal_len as usize) else {
-                            return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
+                            return Err(DealerError::new(
+                                "The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again.",
+                            ));
                         };
                         hands[seat as usize].set_cards(cards + cards_to_add);
                     } else {
@@ -666,7 +670,9 @@ impl Dealer for StandardDealer {
                     hands[seat as usize] = if let Some(cards) = deck.pick(13) {
                         Hand { cards }
                     } else {
-                        return Err(DealerError::new("The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again."));
+                        return Err(DealerError::new(
+                            "The deck doesn't contain enough cards to deal all the hands. Check all the parameters and try to run again.",
+                        ));
                     };
                 }
             }
@@ -1011,7 +1017,7 @@ impl Deal {
     }
 
     #[inline]
-    pub fn iter(&self) -> std::slice::Iter<Hand> {
+    pub fn iter(&'_ self) -> std::slice::Iter<'_, Hand> {
         self.hands.iter()
     }
 }

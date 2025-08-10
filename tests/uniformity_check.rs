@@ -1,11 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand;
 use squeezer::{Cards, FastSampler, UniformSampler};
 use std::collections::HashMap;
 
 #[test]
 fn uniformity_test() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut counts_a = HashMap::new();
     let mut counts_b = HashMap::new();
     for _ in 0..100_000_000 {
@@ -36,8 +34,8 @@ fn uniformity_test() {
         total_bins += 1;
     }
 
-    println!("Chi-squared: {:.4}", chi2);
-    println!("Bins compared: {}", total_bins);
+    println!("Chi-squared: {chi2:.4}");
+    println!("Bins compared: {total_bins}");
     println!("Per-bin average χ²: {:.6}", chi2 / total_bins as f64);
 
     if chi2 > total_bins as f64 * 1.5 {

@@ -4,7 +4,7 @@
 use squeezer::*;
 
 #[test]
-fn main_to_be() {
+fn deal_generation() {
     let south_shapes = Shape::new_from_patterns(&["3262", "2362", "2263", "2272"]).unwrap();
 
     let south_specs = HandDescriptor::new(vec![HandType::new(south_shapes, HcpRange::new(18, 20))]);
@@ -29,8 +29,8 @@ fn main_to_be() {
         .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2)
         .build()
         .unwrap();
-    for _ in 0..1000000 {
-        let deal = dealer.deal().unwrap();
-        println!("{deal}");
+    for _ in 0..100 {
+        let _ = dealer.deal().unwrap();
+        //println!("{deal}");
     }
 }

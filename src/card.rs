@@ -412,6 +412,8 @@ impl Cards {
 
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
     /// Returns `None` only if there aren't enough cards.
+    /// # Panics
+    /// Panics if more than 52 cards are requested
     pub fn pick_rng<R: Rng, S: CardSampler>(&mut self, rng: &mut R, num: usize) -> Option<Cards> {
         assert!(num <= 52);
         if self.len() < num as u8 {

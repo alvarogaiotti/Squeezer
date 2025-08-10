@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::prelude::*;
+use crate::{linparser2::PlaySequence, prelude::*};
 use dds::analyseplay::SolvedPlay;
 use itertools::Itertools;
 
@@ -639,25 +639,27 @@ mod tests {
         use dds::analyseplay::PlayAnalyzer;
         //let lin = "pn|gattochef,sebyx,Inter2018,fede00|st||md|3SAQ432HQJT72DT3CQ,SKJH983D974CT9876,S965HK654DKJ6CAJ5,ST87HADAQ852CK432|rh||ah|Board 1|sv|o|mb|1C|an|2+|mb|1D|mb|1H|an|picche|mb|2D|mb|p|mb|p|mb|3H|mb|p|mb|3S|mb|p|mb|4S|mb|p|mb|p|mb|p|pg||pc|DA|pc|D3|pc|D9|pc|D6|pg||pc|HA|pc|H2|pc|H9|pc|H4|pg||pc|D8|pc|DT|pc|D7|pc|DJ|pg||pc|S5|pc|S7|pc|SA|pc|SJ|pg||pc|CQ|pc|CT|pc|CA|pc|C2|pg||pc|S6|pc|S8|pc|SQ|pc|SK|pg||pc|H8|mc|9|";
 
-        //let lin = "pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|";
+        let lin = "pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|";
         //let lin = "st||md|3SK5HJ84DJT852CJT8,SAHAT9753DA93C752,SJ876432HQDK76CK9,SQT9HK62DQ4CAQ643|rh||ah|Board 1|sv|o|mb|2S|mb|p|mb|p|mb|3H|mb|p|mb|4H|mb|p|mb|p|mb|p|pc|cK|pc|cA|pc|c8|pc|c2|pg||";
         //let lin = "qx|c37|st||md|3SKJT2HK84DA6CAT75,S54HJT7532DK97C84,SAQ763H96DQJ54CKJ,S98HAQDT832CQ9632|rh||ah|Board 1|sv|n|mb|1S|mb|p|mb|2N|mb|p|mb|3C|mb|p|mb|3D|mb|p|mb|3S|mb|p|mb|3N|mb|p|mb|4D|mb|p|mb|4H|mb|p|mb|4S|mb|p|mb|p|mb|p|pc|c2";
-        let lin = "qx|o47|st||md|1SJ852HADKT742CJT5,SAT96HJ6D3CAK8743,SK743HK8543DQJ5CQ,SQHQT972DA986C962|rh||ah|Board 1|sv|n|mb|p|mb|1C|mb|d|mb|1H|mb|d|an|t/o|mb|2C|mb|2S|mb|3C|mb|3S|mb|p|mb|p|mb|p|pc|c2|pc|c5|pc|cA|pc|cQ|pg||pc|c3|pc|s3|pc|c6|pc|cT|pg||pc|h4|pc|h2|pc|hA|pc|h6|pg||pc|s2|pc|s6|pc|sK|pc|sQ|pg||pc|hK|pc|h7|pc|cJ|pc|hJ|pg||pc|dQ|pc|dA|pc|d2|pc|d3|pg||pc|hQ|pc|s5|pc|s9|pc|h3|pg||pc|cK|pc|s4|pc|c9|pc|d4|pg||pc|dJ|pc|d6|pc|d7|mc|8|pg||";
-        let deal = crate::LinDeal::from_str(lin).unwrap();
+        //let lin = "qx|o47|st||md|1SJ852HADKT742CJT5,SAT96HJ6D3CAK8743,SK743HK8543DQJ5CQ,SQHQT972DA986C962|rh||ah|Board 1|sv|n|mb|p|mb|1C|mb|d|mb|1H|mb|d|an|t/o|mb|2C|mb|2S|mb|3C|mb|3S|mb|p|mb|p|mb|p|pc|c2|pc|c5|pc|cA|pc|cQ|pg||pc|c3|pc|s3|pc|c6|pc|cT|pg||pc|h4|pc|h2|pc|hA|pc|h6|pg||pc|s2|pc|s6|pc|sK|pc|sQ|pg||pc|hK|pc|h7|pc|cJ|pc|hJ|pg||pc|dQ|pc|dA|pc|d2|pc|d3|pg||pc|hQ|pc|s5|pc|s9|pc|h3|pg||pc|cK|pc|s4|pc|c9|pc|d4|pg||pc|dJ|pc|d6|pc|d7|mc|8|pg||";
+        let file = crate::linparser2::LinFile::from_str(lin).unwrap();
+        let deal = file.deals.first().unwrap();
         let dds_solver = dds::doubledummy::DoubleDummySolver::new();
         let contract = deal.contract().unwrap();
         let play_sequence = deal.play_sequence().unwrap();
-        let players = deal.players();
+        let players = file.players();
         let hands = deal.hands();
-        let bidding = deal.bidding().unwrap();
+        let bidding = deal.bidding();
         println!(
             "Players: {} Dealer: {} Contract: {contract}\n {hands}\nBidding: {bidding}\nPlay sequence:\n{play_sequence}",
-            players.iter().format(", "), deal.dealer(),
+            players.iter().format(", "),
+            deal.dealer(),
         );
         let dds_playsequence = play_sequence.try_into().unwrap();
         println!("{dds_playsequence:?}");
         let solved = dds_solver
-            .analyze_play(&deal, &contract, dds_playsequence)
+            .analyze_play(deal, &contract, dds_playsequence)
             .unwrap();
         println!("Solved:\n{solved:?}");
         let p_performance = analyse_players_performance(

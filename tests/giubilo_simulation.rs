@@ -1,7 +1,4 @@
-use dds::{
-    analyseplay::PlayTraceBinIter, doubledummy::DoubleDummySolver, solver::BridgeSolver,
-    tables::DdTableCalculator,
-};
+use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
 use rand::seq::SliceRandom;
 use squeezer::*;
 
@@ -34,7 +31,7 @@ fn giubilo_simulation() {
         {
             count += 1;
             deals.push(deal);
-            println!("Deal {}", count);
+            println!("Deal {count}");
         }
     }
     while count <= 200 {
@@ -49,7 +46,7 @@ fn giubilo_simulation() {
         {
             count += 1;
             deals.push(deal);
-            println!("Deal {}", count);
+            println!("Deal {count}");
         }
     }
     deals.shuffle(&mut rand::rng());

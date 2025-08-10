@@ -1,10 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand;
-use squeezer::{Cards, FastSampler, UniformSampler};
+use criterion::{Criterion, criterion_group, criterion_main};
+use squeezer::{Cards, UniformSampler};
 use std::collections::HashMap;
 
 fn bench_uniformity(c: &mut Criterion) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     c.bench_function("fast_sampler_uniformity_4bit", |b| {
         b.iter(|| {
             let mut counts = HashMap::new();
@@ -17,8 +16,7 @@ fn bench_uniformity(c: &mut Criterion) {
             }
 
             // Simulate summary step to prevent optimizer skipping
-            let _top = counts.iter().max_by_key(|(_, &v)| v);
-            println!("{:?}", counts);
+            println!("{counts:?}");
         });
     });
 
@@ -33,8 +31,7 @@ fn bench_uniformity(c: &mut Criterion) {
                 }
             }
 
-            let top = counts.iter().max_by_key(|(_, &v)| v);
-            println!("{:?}", counts);
+            println!("{counts:?}");
         });
     });
 }
