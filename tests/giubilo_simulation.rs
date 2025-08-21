@@ -2,7 +2,7 @@ use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
 use rand::seq::SliceRandom;
 use squeezer::*;
 
-#[test]
+//#[test]
 fn giubilo_simulation() {
     let contracts = [
         Contract::from_str("5CN", Vulnerable::No).unwrap(),

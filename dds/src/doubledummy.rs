@@ -4,10 +4,10 @@
 use std::sync::{Mutex, OnceLock, TryLockError};
 
 use crate::{
-    analyseplay::{PlayAnalyzer, PlayTraceBin, PlayTracesBin, SolvedPlay, SolvedPlays, CHUNK_SIZE},
+    analyseplay::{CHUNK_SIZE, PlayAnalyzer, PlayTraceBin, PlayTracesBin, SolvedPlay, SolvedPlays},
     bindings::{
-        ddsffi::RETURN_UNKNOWN_FAULT, AnalyseAllPlaysBin, AnalysePlayBin, SolveAllBoardsBin,
-        SolveBoard, MAXNOOFBOARDS,
+        AnalyseAllPlaysBin, AnalysePlayBin, MAXNOOFBOARDS, SolveAllBoardsBin, SolveBoard,
+        ddsffi::RETURN_UNKNOWN_FAULT,
     },
     ddserror::DdsError,
     deal::{AsDDSDeal, Boards, ConstructDdsDealError, DdsDeal},
@@ -18,7 +18,7 @@ use crate::{
         Populated, TrumpFilter,
     },
     traits::AsDDSContract,
-    utils::{build_c_deal, if_no_fault_return, Mode, Solutions, Target, ThreadIndex},
+    utils::{Mode, Solutions, Target, ThreadIndex, build_c_deal, if_no_fault_return},
 };
 
 /// A single threaded double dummy solver.
@@ -328,7 +328,7 @@ impl BridgeSolver for DoubleDummySolver {
     ) -> Result<u8, DdsError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
-        let futp: *mut FutureTricks = &mut future_tricks;
+        let futp: *mut FutureTricks = &raw mut future_tricks;
         let result;
         unsafe {
             result = SolveBoard(
@@ -360,7 +360,7 @@ impl BridgeSolver for DoubleDummySolver {
     ) -> Result<FutureTricks, DdsError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
-        let futp: *mut FutureTricks = &mut future_tricks;
+        let futp: *mut FutureTricks = &raw mut future_tricks;
         let result;
         unsafe {
             result = SolveBoard(
@@ -402,8 +402,8 @@ impl BridgeSolver for DoubleDummySolver {
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
-            let bop: *mut Boards = &mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
+            let bop: *mut Boards = &raw mut boards;
+            let solved_boards_ptr: *mut SolvedBoards = &raw mut solved_boards;
             unsafe {
                 result = SolveAllBoardsBin(bop, solved_boards_ptr);
             }
@@ -441,8 +441,8 @@ impl BridgeSolver for DoubleDummySolver {
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
-            let bop: *mut Boards = &mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
+            let bop: *mut Boards = &raw mut boards;
+            let solved_boards_ptr: *mut SolvedBoards = &raw mut solved_boards;
             unsafe {
                 result = SolveAllBoardsBin(bop, solved_boards_ptr);
             }
@@ -462,7 +462,7 @@ impl BridgeSolver for DoubleDummySolver {
     ) -> Result<FutureTricks, DdsError> {
         let c_deal = build_c_deal((contract, deal))?;
         let mut future_tricks = FutureTricks::new();
-        let futp: *mut FutureTricks = &mut future_tricks;
+        let futp: *mut FutureTricks = &raw mut future_tricks;
         let result;
         unsafe {
             result = SolveBoard(
@@ -503,8 +503,8 @@ impl BridgeSolver for DoubleDummySolver {
         let mut solved_boards = SolvedBoards::new(number_of_deals);
         let result;
         {
-            let bop: *mut Boards = &mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &mut solved_boards;
+            let bop: *mut Boards = &raw mut boards;
+            let solved_boards_ptr: *mut SolvedBoards = &raw mut solved_boards;
             unsafe {
                 result = SolveAllBoardsBin(bop, solved_boards_ptr);
             }
@@ -527,9 +527,9 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
         loop {
             match self.inner.try_lock() {
                 Ok(guard) => break guard.calculate_complete_table(table_deal),
-                Err(TryLockError::WouldBlock) => continue,
+                Err(TryLockError::WouldBlock) => {}
                 Err(TryLockError::Poisoned(guard)) => {
-                    break guard.into_inner().calculate_complete_table(table_deal)
+                    break guard.into_inner().calculate_complete_table(table_deal);
                 }
             }
         }
@@ -545,11 +545,11 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
         loop {
             match self.inner.try_lock() {
                 Ok(guard) => break guard.calculate_complete_table_pbn(table_deal_pbn),
-                Err(TryLockError::WouldBlock) => continue,
+                Err(TryLockError::WouldBlock) => {}
                 Err(TryLockError::Poisoned(guard)) => {
                     break guard
                         .into_inner()
-                        .calculate_complete_table_pbn(table_deal_pbn)
+                        .calculate_complete_table_pbn(table_deal_pbn);
                 }
             }
         }
@@ -679,8 +679,8 @@ impl PlayAnalyzer for DoubleDummySolver {
             solved: [SolvedPlay::new(); MAXNOOFBOARDS],
         };
 
-        let bop: *mut Boards = &mut boards;
-        let solved: *mut SolvedPlays = &mut solved_plays;
+        let bop: *mut Boards = &raw mut boards;
+        let solved: *mut SolvedPlays = &raw mut solved_plays;
         let play_trace: *mut PlayTracesBin = plays;
 
         //SAFETY: calling C
@@ -699,7 +699,7 @@ impl PlayAnalyzer for DoubleDummySolver {
             return Err(RETURN_UNKNOWN_FAULT.into());
         };
         let mut solved_play = SolvedPlay::new();
-        let solved: *mut SolvedPlay = &mut solved_play;
+        let solved: *mut SolvedPlay = &raw mut solved_play;
         let play_trace = play;
         // SAFETY: calling an external C function
         let result = unsafe { AnalysePlayBin(dds_deal, play_trace, solved, 0) };

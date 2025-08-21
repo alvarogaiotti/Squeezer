@@ -1,7 +1,7 @@
 /// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
 /// I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;
-use rand::{seq::SliceRandom, Rng};
+use rand::{Rng, seq::SliceRandom};
 
 /// A card, represented as a `u8`.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -413,7 +413,7 @@ impl Cards {
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
     /// Returns `None` only if there aren't enough cards.
     /// # Panics
-    /// Panics if more than 52 cards are requested
+    /// When `num >= 53`
     pub fn pick_rng<R: Rng, S: CardSampler>(&mut self, rng: &mut R, num: usize) -> Option<Cards> {
         assert!(num <= 52);
         if self.len() < num as u8 {

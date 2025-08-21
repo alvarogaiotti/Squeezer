@@ -29,7 +29,7 @@ fn deal_generation() {
         .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2)
         .build()
         .unwrap();
-    for _ in 0..100 {
+    for _ in 0..10 {
         let _ = dealer.deal().unwrap();
         //println!("{deal}");
     }

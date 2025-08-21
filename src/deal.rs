@@ -601,9 +601,9 @@ impl DealerBuilder {
     #[inline]
     pub fn with_complete_config(
         self,
-        config: [(Option<HandDescriptor>, Option<Cards>); 4],
+        config: [(Option<Cards>, Option<HandDescriptor>); 4],
     ) -> Result<Self, DealerError> {
-        let (descriptors, cards): (Vec<Option<HandDescriptor>>, Vec<Option<Cards>>) =
+        let (cards, descriptors): (Vec<Option<Cards>>, Vec<Option<HandDescriptor>>) =
             config.into_iter().collect();
         self.with_hand_descriptors_all(descriptors.try_into().unwrap())
             .predeal_all(cards.try_into().unwrap())

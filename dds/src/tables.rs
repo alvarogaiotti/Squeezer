@@ -9,8 +9,8 @@ use std::{
 
 use crate::{
     bindings::{
-        ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES},
         CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
+        ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES},
     },
     ddserror::DdsError,
     deal::DdsSuit,
@@ -527,7 +527,7 @@ mod test {
             concat!("Alignment of ", stringify!(ddTableDeal))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDeal>())).cards as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<DdTableDeal>())).cards as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -550,7 +550,7 @@ mod test {
             concat!("Alignment of ", stringify!(ddTableDeals))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDeals>())).no_of_tables as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<DdTableDeals>())).no_of_tables as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -560,7 +560,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDeals>())).deals as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<DdTableDeals>())).deals as usize },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -583,7 +583,7 @@ mod test {
             concat!("Alignment of ", stringify!(ddTableDealPBN))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDealPbn>())).cards as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<DdTableDealPbn>())).cards as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -606,9 +606,7 @@ mod test {
             concat!("Alignment of ", stringify!(ddTableDealsPBN))
         );
         assert_eq!(
-            unsafe {
-                &(*(::std::ptr::null::<DdTableDealsPbn>())).no_of_tables as *const _ as usize
-            },
+            unsafe { &raw const (*(::std::ptr::null::<DdTableDealsPbn>())).no_of_tables as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -618,7 +616,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<DdTableDealsPbn>())).deals as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<DdTableDealsPbn>())).deals as usize },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -642,7 +640,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<DdTableResults<NotPopulated>>())).res_table as *const _
+                &raw const (*(::std::ptr::null::<DdTableResults<NotPopulated>>())).res_table
                     as usize
             },
             0usize,
@@ -668,7 +666,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).no_of_boards as *const _
+                &raw const (*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).no_of_boards
                     as usize
             },
             0usize,
@@ -681,7 +679,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).results as *const _ as usize
+                &raw const (*(::std::ptr::null::<DdTablesRes<NotPopulated>>())).results as usize
             },
             4usize,
             concat!(
@@ -706,7 +704,7 @@ mod test {
             concat!("Alignment of ", stringify!(allParResults))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<AllParResults>())).par_results as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<AllParResults>())).par_results as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -730,7 +728,7 @@ mod test {
             concat!("Alignment of ", stringify!(parResults))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResults>())).par_score as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResults>())).par_score as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -741,7 +739,7 @@ mod test {
         );
         assert_eq!(
             unsafe {
-                &(*(::std::ptr::null::<ParResults>())).par_contracts_string as *const _ as usize
+                &raw const (*(::std::ptr::null::<ParResults>())).par_contracts_string as usize
             },
             32usize,
             concat!(
@@ -894,8 +892,7 @@ mod test {
                 }
             }
             let mut table = DdTableResults::new();
-            let result =
-                unsafe { CalcDDtable(table_deal, &mut table as *mut DdTableResults<NotPopulated>) };
+            let result = unsafe { CalcDDtable(table_deal, &raw mut table) };
             let table = unsafe {
                 std::mem::transmute::<DdTableResults<NotPopulated>, DdTableResults<Populated>>(
                     table,
@@ -923,11 +920,11 @@ mod test {
         let mut par_results = AllParResults::new();
         let result = unsafe {
             CalcAllTables(
-                (&mut table_deal) as *mut DdTableDeals,
+                &raw mut table_deal,
                 ParCalcMode::None as i32,
                 &mut [0, 0, 0, 0, 0] as *mut i32,
-                &mut table as *mut DdTablesRes<NotPopulated>,
-                &mut par_results as *mut AllParResults,
+                &raw mut table,
+                &raw mut par_results,
             )
         };
         let table = unsafe {

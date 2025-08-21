@@ -141,6 +141,7 @@ impl Contract {
     }
 
     #[must_use]
+    #[inline]
     pub fn score(&self, tricks: u8) -> i32 {
         let target: i32 = i32::from(self.level) + 6i32;
         let overtricks: i32 = i32::from(tricks) - target;

@@ -127,6 +127,14 @@ impl Shape {
             Self::All => [LenRange::default(); 4],
         }
     }
+    #[must_use]
+    #[inline]
+    pub(crate) fn pre_check(&self, shape_pattern: [u8; 4]) -> bool {
+        self.len_ranges()
+            .iter()
+            .zip(shape_pattern)
+            .all(|(range, len)| range.contains(len))
+    }
 }
 
 /// Struct that represents multiple shapes.
@@ -164,7 +172,8 @@ impl Default for Shapes {
 }
 
 impl Shapes {
-    /// Creates a new Shapes instance.
+    /// Creates a new empty `Shapes` instance.
+    /// If you want a full shape, use [`Shape::All`] instead.
     #[must_use]
     pub fn new() -> Self {
         Self {

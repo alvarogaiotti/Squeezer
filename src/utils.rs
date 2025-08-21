@@ -13,6 +13,8 @@ pub fn polish_club_hand_descriptor() -> HandDescriptor {
         .unwrap()
         .add_shape("(4414)")
         .unwrap()
+        .remove_shape("4441")
+        .unwrap()
         .add_shape("(5332)")
         .unwrap()
         .remove_shape("(5x)(2+2+)")
@@ -25,11 +27,10 @@ pub fn polish_club_hand_descriptor() -> HandDescriptor {
         .unwrap()
         .remove_shape("(5-5-5-)6+")
         .unwrap()
-        .with_range(11, 14)
+        .with_range(11, 17)
         .build();
     let strong_any = HandTypeBuilder::new()
-        .add_shape("xxxx")
-        .unwrap()
+        .all_shapes()
         .with_range(18, 37)
         .build();
     HandDescriptor::new(vec![weak1n, strong_any, unbal_with_clubs])

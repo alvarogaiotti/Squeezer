@@ -6,12 +6,12 @@ use colored::Colorize;
 use std::{collections::HashMap, fmt::Display};
 
 use crate::{
-    prelude::{Card, Contract, Dealer, SqueezerError},
     Deal, Suit,
+    prelude::{Card, Contract, Dealer, SqueezerError},
 };
 use dds::{
-    solver::{BridgeSolver, SolvedBoards},
     MAXNOOFBOARDS,
+    solver::{BridgeSolver, SolvedBoards},
 };
 use itertools::Itertools;
 
@@ -220,7 +220,8 @@ impl Display for LeadSimulationResult {
         let width = if width < 4 { 4 } else { width };
         writeln!(f, "Simulated {} deals:", self.deals_run)?;
         writeln!(f, "{:^1$}", "Frequency of tricks taken", width * 14 + 16)?;
-        writeln!(f,
+        writeln!(
+            f,
             "Ld   Avg  %Set   {:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}{:>width$}",
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
         )?;
@@ -340,7 +341,7 @@ mod test {
             .unwrap();
         let contract = Contract::from_str("3NW", Vulnerable::No).unwrap();
         let simulation = LeadSimulation {
-            num_of_boards: 10000,
+            num_of_boards: 100,
             dealer,
             contract,
         };

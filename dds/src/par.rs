@@ -251,7 +251,7 @@ mod test {
             concat!("Alignment of ", stringify!(ParTextResults))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParTextResults>())).par_text as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParTextResults>())).par_text as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -261,7 +261,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParTextResults>())).equal as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParTextResults>())).equal as usize },
             256usize,
             concat!(
                 "Offset of field: ",
@@ -284,7 +284,7 @@ mod test {
             concat!("Alignment of ", stringify!(ContractType))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ContractType>())).under_tricks as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ContractType>())).under_tricks as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -294,7 +294,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ContractType>())).over_tricks as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ContractType>())).over_tricks as usize },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -304,7 +304,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ContractType>())).level as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ContractType>())).level as usize },
             8usize,
             concat!(
                 "Offset of field: ",
@@ -314,7 +314,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ContractType>())).denom as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ContractType>())).denom as usize },
             12usize,
             concat!(
                 "Offset of field: ",
@@ -324,7 +324,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ContractType>())).seats as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ContractType>())).seats as usize },
             16usize,
             concat!(
                 "Offset of field: ",
@@ -347,7 +347,7 @@ mod test {
             concat!("Alignment of ", stringify!(ParResultsMaster))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResultsMaster>())).score as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResultsMaster>())).score as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -357,7 +357,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResultsMaster>())).number as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResultsMaster>())).number as usize },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -367,7 +367,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResultsMaster>())).contracts as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResultsMaster>())).contracts as usize },
             8usize,
             concat!(
                 "Offset of field: ",
@@ -390,7 +390,7 @@ mod test {
             concat!("Alignment of ", stringify!(ParResultsDealer))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResultsDealer>())).number as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResultsDealer>())).number as usize },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -400,7 +400,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResultsDealer>())).score as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResultsDealer>())).score as usize },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -410,7 +410,7 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<ParResultsDealer>())).contracts as *const _ as usize },
+            unsafe { &raw const (*(::std::ptr::null::<ParResultsDealer>())).contracts as usize },
             8usize,
             concat!(
                 "Offset of field: ",

@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 use criterion::{Criterion, criterion_group, criterion_main};
 use squeezer::{Cards, UniformSampler};
+=======
+use criterion::{criterion_group, criterion_main, Criterion};
+use squeezer::{Cards, FastSampler, UniformSampler};
+>>>>>>> handescriptor_variant
 use std::collections::HashMap;
 
 fn bench_uniformity(c: &mut Criterion) {
@@ -9,13 +14,17 @@ fn bench_uniformity(c: &mut Criterion) {
             let mut counts = HashMap::new();
             for _ in 0..100_000 {
                 let mut deck = Cards::ALL;
-                if let Some(hand) = deck.pick_rng::<_, UniformSampler>(&mut rng, 13) {
+                if let Some(hand) = deck.pick_rng::<_, FastSampler>(&mut rng, 13) {
                     let key = hand.as_bits(); // raw bit representation
                     *counts.entry(key).or_insert(0) += 1;
                 }
             }
 
             // Simulate summary step to prevent optimizer skipping
+<<<<<<< HEAD
+=======
+            let _top = counts.iter().max_by_key(|(_, &v)| v);
+>>>>>>> handescriptor_variant
             println!("{counts:?}");
         });
     });

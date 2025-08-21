@@ -229,10 +229,32 @@ impl Iterator for HandIterator {
 }
 /// Represents a range of High Card Points.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HcpRange {
-    min_hcp: u8,
-    max_hcp: u8,
+    min: u8,
+    max: u8,
+}
+
+impl PartialOrd for HcpRange {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for HcpRange {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.min > other.min {
+            std::cmp::Ordering::Greater
+        } else if self.min < other.min {
+            std::cmp::Ordering::Less
+        } else if self.max > other.max {
+            std::cmp::Ordering::Greater
+        } else if self.max < other.max {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    }
 }
 
 impl HcpRange {
@@ -240,40 +262,40 @@ impl HcpRange {
     /// i.e. that the `min_hcp` is less than or equal to the `max_hcp`.
     /// and that the `max_hcp` is clamped to 37.
     #[must_use]
-    pub fn new(min_hcp: u8, max_hcp: u8) -> Self {
-        let min_hcp = if min_hcp > 37 { 37 } else { min_hcp };
-        let max_hcp = if max_hcp > 37 {
+    pub fn new(min: u8, max: u8) -> Self {
+        let min = if min > 37 { 37 } else { min };
+        let max = if max > 37 {
             37
-        } else if max_hcp < min_hcp {
-            min_hcp
+        } else if max < min {
+            min
         } else {
-            max_hcp
+            max
         };
-        Self { min_hcp, max_hcp }
+        Self { min, max }
     }
 
     /// Get the minimum value of the HCP range.
     #[must_use]
-    pub const fn min(&self) -> u8 {
-        self.min_hcp
+    pub const fn range_min(&self) -> u8 {
+        self.min
     }
 
     /// Get the maximum value of the HCP range.
     #[must_use]
-    pub const fn max(&self) -> u8 {
-        self.max_hcp
+    pub const fn range_max(&self) -> u8 {
+        self.max
     }
 
     /// Check if the specified HCP is within this range.
     #[must_use]
     pub const fn contains(&self, hcp: u8) -> bool {
-        self.min_hcp <= hcp && self.max_hcp >= hcp
+        self.min <= hcp && self.max >= hcp
     }
 
     /// Get the range of HCP values as an inclusive range.
     #[must_use]
     pub const fn as_range(&self) -> RangeInclusive<u8> {
-        self.min()..=self.max()
+        self.range_min()..=self.range_max()
     }
 }
 impl Default for HcpRange {
@@ -284,8 +306,8 @@ impl Default for HcpRange {
 
 /// Represents a set of possible hands with the accepted shapes and the accepted HCP range.
 /// This struct main goal is to express a single hand type that we can accept.
-/// If you want to represent multiple hand types, you can use the `HandDescriptor` struct,
-/// which embbeds multiple `HandType`s.
+/// If you want to represent multiple hand types, you can use the [`HandDescriptor`] struct,
+/// which embbeds multiple [`HandType`]s.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone)]
 // TODO: Add a custom evaluator field, so we can pass a Evaluator and have a custom ValuationRange or something
@@ -307,7 +329,9 @@ impl HandType {
     #[must_use]
     #[inline]
     pub fn check(&self, hand: Hand) -> bool {
-        self.shape.is_member(hand) && self.hcp_range.contains(hand.hcp())
+        self.hcp_range.contains(hand.hcp())
+            && self.pre_check(hand.shape())
+            && self.shape.is_member(hand)
     }
 
     /// Get the length ranges for each suit based on the accepted shapes.
@@ -315,6 +339,12 @@ impl HandType {
     #[inline]
     pub fn len_ranges(&self) -> [LenRange; 4] {
         self.shape.len_ranges()
+    }
+
+    #[must_use]
+    #[inline]
+    fn pre_check(&self, len_patterns: [u8; 4]) -> bool {
+        self.shape.pre_check(len_patterns)
     }
 
     /// Get the accepted HCP range for this `HandType`.
@@ -375,21 +405,42 @@ impl HandType {
 #[derive(Debug, Default)]
 pub struct HandDescriptor {
     possible_hands: Vec<HandType>,
+    min: u8,
+    max: u8,
 }
 
 impl HandDescriptor {
     /// Check if a given hand matches any of the possible hand types based on shape and HCP range.
     #[must_use]
     pub fn check(&self, hand: Hand) -> bool {
-        self.possible_hands
-            .iter()
-            .any(|hand_type| hand_type.check(hand))
+        if (self.min..=self.max).contains(&hand.hcp()) {
+            self.possible_hands
+                .iter()
+                .any(|hand_type| hand_type.check(hand))
+        } else {
+            false
+        }
     }
 
     /// Create a new `HandDescriptor` with the specified list of possible hand types.
     #[must_use]
     pub fn new(possible_hands: Vec<HandType>) -> Self {
-        Self { possible_hands }
+        let mut min = 38;
+        let mut max = 0;
+        for hand in &possible_hands {
+            let hcp_range = hand.hcp_range();
+            if hcp_range.min < min {
+                min = hcp_range.min;
+            }
+            if hcp_range.max > max {
+                max = hcp_range.max;
+            }
+        }
+        Self {
+            possible_hands,
+            min,
+            max,
+        }
     }
 }
 
@@ -443,6 +494,11 @@ impl HandTypeBuilder {
     /// You need to validate input for this function to work
     pub fn with_range(&mut self, min_hcp: u8, max_hcp: u8) -> &mut Self {
         self.hcp_range = Some(HcpRange::new(min_hcp, max_hcp));
+        self
+    }
+
+    pub fn all_shapes(&mut self) -> &mut Self {
+        self.shapes = Some(Shape::All);
         self
     }
 
@@ -534,7 +590,7 @@ mod test {
 
         // Test clamping
         let range = HcpRange::new(40, 45);
-        assert_eq!(range.max(), 37);
+        assert_eq!(range.range_max(), 37);
     }
 
     #[test]
@@ -652,6 +708,6 @@ mod test {
 
         // Test HCP range clamping
         let range = HcpRange::new(0, 40);
-        assert_eq!(range.max(), 37);
+        assert_eq!(range.range_max(), 37);
     }
 }

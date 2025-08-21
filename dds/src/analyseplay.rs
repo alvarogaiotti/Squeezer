@@ -27,6 +27,7 @@ pub struct SolvedPlays {
     pub solved: [SolvedPlay; 200usize],
 }
 
+#[allow(clippy::cast_sign_loss)]
 impl AsRef<[SolvedPlay]> for SolvedPlays {
     fn as_ref(&self) -> &[SolvedPlay] {
         &self.solved[..self.no_of_boards as usize]
@@ -274,7 +275,9 @@ impl PlayTraceBin {
         }
     }
 
+    #[must_use]
     #[inline]
+    #[allow(clippy::cast_sign_loss)]
     pub fn iter(&self) -> PlayTraceBinIter<'_> {
         let number = self.number as usize;
         PlayTraceBinIter {
@@ -285,16 +288,31 @@ impl PlayTraceBin {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug)]
 pub struct PlayTraceBinIter<'a> {
     index: usize,
     suit: &'a [i32],
     rank: &'a [i32],
 }
 
-impl<'a> PlayTraceBinIter<'a> {
+impl PlayTraceBinIter<'_> {
+    #[must_use]
+    #[inline]
     pub const fn len(&self) -> usize {
         self.suit.len()
+    }
+    #[must_use]
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl<'a> IntoIterator for &'a PlayTraceBin {
+    type Item = (&'a i32, &'a i32);
+    type IntoIter = PlayTraceBinIter<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -358,6 +376,7 @@ pub struct SolvedPlay {
     pub tricks: [::std::os::raw::c_int; 53usize],
 }
 
+#[allow(clippy::cast_sign_loss)]
 impl AsRef<[::std::os::raw::c_int]> for SolvedPlay {
     fn as_ref(&self) -> &[::std::os::raw::c_int] {
         &self.tricks[..self.number as usize]
@@ -375,6 +394,7 @@ pub struct PlayTracesBin {
     pub plays: [PlayTraceBin; 200usize],
 }
 
+#[allow(clippy::cast_sign_loss)]
 impl AsRef<[PlayTraceBin]> for PlayTracesBin {
     fn as_ref(&self) -> &[PlayTraceBin] {
         &self.plays[..self.no_of_boards as usize]
@@ -392,6 +412,7 @@ pub struct PlayTracesPBN {
     pub plays: [PlayTracePBN; 200usize],
 }
 
+#[allow(clippy::cast_sign_loss)]
 impl AsRef<[PlayTracePBN]> for PlayTracesPBN {
     fn as_ref(&self) -> &[PlayTracePBN] {
         &self.plays[..self.no_of_boards as usize]
