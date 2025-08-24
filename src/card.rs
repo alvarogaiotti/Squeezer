@@ -289,10 +289,20 @@ impl CardSampler for UniformSampler {
 }
 
 /// A bunch of [`Card`]s.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Cards {
     bits: u64,
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Cards {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 impl std::fmt::UpperHex for Cards {

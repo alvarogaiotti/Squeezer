@@ -423,6 +423,7 @@ pub struct DealerBuilder {
     // }
     accept: AcceptFunction,
     deck: Cards,
+    numbering: Option<BoardNumbering>,
 
     /// Descriptor of the hands we would like, e.g.
     hand_descriptors: [Option<HandDescriptor>; NUMBER_OF_HANDS],
@@ -459,6 +460,7 @@ impl DealerBuilder {
             predealt_hands: [None; 4],
             vulnerability: Vulnerability::default(),
             deck: Cards::ALL,
+            numbering: None,
         }
     }
 
@@ -608,6 +610,11 @@ impl DealerBuilder {
         self.with_hand_descriptors_all(descriptors.try_into().unwrap())
             .predeal_all(cards.try_into().unwrap())
     }
+    #[inline]
+    pub fn no_board_numbering(mut self) -> Self {
+        self.numbering = Some(BoardNumbering::OutputAlwaysOne);
+        self
+    }
 }
 
 pub trait Dealer {
@@ -616,10 +623,15 @@ pub trait Dealer {
     fn deal(&self) -> Result<Deal, DealerError>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BoardNumbering {
     Sequential(Cell<NonZeroU8>),
     OutputAlwaysOne,
+}
+impl Default for BoardNumbering {
+    fn default() -> Self {
+        Self::Sequential(Cell::new(NonZeroU8::new(1).unwrap()))
+    }
 }
 
 /// Struct that takes care of the dealing.
@@ -654,7 +666,7 @@ impl StandardDealer {
             deck_starting_state: Cards::ALL,
             hand_constraints: [None, None, None, None],
             accept_function: Box::new(|_: &Hands| true),
-            output_as_subsequent: BoardNumbering::OutputAlwaysOne,
+            output_as_subsequent: BoardNumbering::default(),
         }
     }
 }
@@ -817,7 +829,7 @@ impl Deal {
         }
     }
 
-    /// Creates a new deal with conditions
+    /// Creates a new deal without conditions
     ///
     /// # Panics
     ///
@@ -874,7 +886,8 @@ impl Deal {
         self.hands[2]
     }
 
-    fn set_print_style(&mut self, style: Printer) {
+    #[inline]
+    pub fn set_print_style(&mut self, style: Printer) {
         self.printer = style;
     }
 
@@ -929,6 +942,12 @@ impl Deal {
             )
         );
         pbn
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn hands(&self) -> Hands {
+        Hands { hands: self.hands }
     }
 
     #[must_use]

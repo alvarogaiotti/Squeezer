@@ -2,7 +2,7 @@
 // See end of file for license information
 
 use super::{
-    parser::Parser, scanner::ScanningShapeError, Length, Modifier, ParsingShapeError, Pattern,
+    Length, Modifier, ParsingShapeError, Pattern, parser::Parser, scanner::ScanningShapeError,
 };
 use itertools::Itertools;
 use std::{cmp::Ordering, collections::VecDeque, ops::ControlFlow};
@@ -186,8 +186,8 @@ impl std::fmt::Display for InterpretationShapeError {
 #[derive(Debug, Copy, Clone, Default)]
 struct PatternFormationChecker {
     accumulator: u8,
+    hypotetically_allocated: u8,
     flag_at_least: bool,
-    flag_at_most: bool,
 }
 
 impl PatternFormationChecker {
@@ -197,20 +197,10 @@ impl PatternFormationChecker {
 
     pub fn check(self) -> Result<(), InterpretationShapeError> {
         match self.accumulator.cmp(&13) {
-            Ordering::Greater => {
-                if self.flag_at_most {
-                    Ok(())
-                } else {
-                    Err(InterpretationShapeError::TooMany)
-                }
-            }
-            Ordering::Less => {
-                if self.flag_at_least {
-                    Ok(())
-                } else {
-                    Err(InterpretationShapeError::NotEnough)
-                }
-            }
+            Ordering::Greater => Err(InterpretationShapeError::TooMany),
+            Ordering::Less if self.flag_at_least => Ok(()),
+            Ordering::Less if self.accumulator + self.hypotetically_allocated >= 13 => Ok(()),
+            Ordering::Less => Err(InterpretationShapeError::NotEnough),
             Ordering::Equal => Ok(()),
         }
     }
@@ -223,7 +213,7 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
     fn try_from(value: Vec<Pattern>) -> Result<Self, InterpretationShapeError> {
         let checker = PatternFormationChecker {
             accumulator: 0,
-            flag_at_most: false,
+            hypotetically_allocated: 0,
             flag_at_least: false,
         };
         let allocated_slots = value.iter().fold(checker, pattern_length_adder);
@@ -487,7 +477,7 @@ impl ShapeCreator {
 }
 
 fn pattern_length_adder(
-    mut accumulator: PatternFormationChecker,
+    accumulator: PatternFormationChecker,
     element: &Pattern,
 ) -> PatternFormationChecker {
     fn length_adder(
@@ -499,8 +489,7 @@ fn pattern_length_adder(
                 modifier: Modifier::AtMost,
                 length,
             } => {
-                accumulator.accumulator += length;
-                accumulator.flag_at_most = true;
+                accumulator.hypotetically_allocated += length;
                 accumulator
             }
             Length {
@@ -520,14 +509,9 @@ fn pattern_length_adder(
     match element {
         Pattern::Suit(length) => length_adder(accumulator, *length),
         Pattern::Group(group) => {
-            let group_acc = (*group)
+            let accumulator = (*group)
                 .iter()
-                .fold(PatternFormationChecker::new(), |acc, &value| {
-                    length_adder(acc, value)
-                });
-            accumulator.accumulator += group_acc.accumulator;
-            accumulator.flag_at_least |= group_acc.flag_at_least;
-            accumulator.flag_at_most |= group_acc.flag_at_most;
+                .fold(accumulator, |acc, &value| length_adder(acc, value));
             accumulator
         }
     }
@@ -672,6 +656,32 @@ mod test {
             .collect_vec();
         res.sort_unstable();
         assert_eq!(shapes, res);
+    }
+    #[test]
+    #[should_panic]
+    fn check_wrong_shape() {
+        let patterns = vec![
+            Pattern::Suit(Length {
+                length: 6,
+                modifier: Modifier::Exact,
+            }),
+            Pattern::Suit(Length {
+                length: 6,
+                modifier: Modifier::Exact,
+            }),
+            Pattern::Suit(Length {
+                length: 2,
+                modifier: Modifier::Exact,
+            }),
+            Pattern::Suit(Length {
+                length: 0,
+                modifier: Modifier::AtMost,
+            }),
+        ];
+        let mut creator = ShapeCreator::try_from(patterns).unwrap();
+        let mut shapes = Vec::new();
+        let mut shape = CandidateShapePattern::new();
+        creator.interpret(&mut shape, &mut shapes);
     }
     #[test]
     fn check_strange_shapes() {

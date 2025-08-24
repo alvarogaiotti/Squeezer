@@ -110,8 +110,8 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
 pub struct LeadCard {
     card: Card,
     number_of_tricks: [usize; 14],
-    average_tricks: f32,
-    set_percentage: f32,
+    average_tricks: f64,
+    set_percentage: f64,
 }
 
 impl LeadCard {
@@ -140,12 +140,12 @@ impl LeadCard {
             .enumerate()
             .skip(1) // Skip zero since will add up to zero
             .map(|(times, tricks)| times * tricks)
-            .sum::<usize>() as f32
-            / runs as f32;
+            .sum::<usize>() as f64
+            / runs as f64;
         self.set_percentage = (self.number_of_tricks[tricks_beating as usize..]
             .iter()
-            .sum::<usize>() as f32
-            / runs as f32)
+            .sum::<usize>() as f64
+            / runs as f64)
             * 100.0;
     }
 }

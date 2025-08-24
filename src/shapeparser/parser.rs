@@ -3,9 +3,12 @@
 
 use std::cmp::Ordering;
 
-use crate::shapeparser::{fmt, Length, Pattern, Token};
+use crate::{
+    ShapeCreator,
+    shapeparser::{Length, Pattern, Token, fmt},
+};
 
-use super::{interpreter::CreationShapeError, scanner::Scanner, DealerError};
+use super::{DealerError, interpreter::CreationShapeError, scanner::Scanner};
 
 /// Parser for parsing shape describing strings.
 /// Uses the following DSL:
@@ -39,8 +42,10 @@ pub fn validate_shape(shape: &str) -> Result<(), DealerError> {
         .scan_tokens()
         .map_err(Into::<CreationShapeError>::into)?;
     let mut parser = Parser::from(tokens);
-    parser
+    let patterns = parser
         .parse()
+        .map_err(|err| Into::<DealerError>::into(Into::<CreationShapeError>::into(err)))?;
+    ShapeCreator::try_from(patterns)
         .map_err(|err| Into::<CreationShapeError>::into(err).into())
         .map(|_| ())
 }
