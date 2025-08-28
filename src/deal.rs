@@ -600,6 +600,10 @@ impl DealerBuilder {
             ..Default::default()
         })
     }
+
+    #[allow(clippy::missing_panics_doc)]
+    /// # Errors
+    /// Errors when one card is predealt more than one time
     #[inline]
     pub fn with_complete_config(
         self,
@@ -610,6 +614,8 @@ impl DealerBuilder {
         self.with_hand_descriptors_all(descriptors.try_into().unwrap())
             .predeal_all(cards.try_into().unwrap())
     }
+
+    #[must_use]
     #[inline]
     pub fn no_board_numbering(mut self) -> Self {
         self.numbering = Some(BoardNumbering::OutputAlwaysOne);

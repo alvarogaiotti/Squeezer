@@ -17,5 +17,5 @@ pub trait Simulation<T: SimulationResult> {
     /// # Errors
     /// Errors on error from the solver
     /// or for operations to create input for the solver from a deal
-    fn run(&self) -> Result<T, SqueezerError>;
+    fn run(self) -> Result<T, SqueezerError>;
 }

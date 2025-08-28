@@ -131,7 +131,15 @@ impl From<u8> for Strain {
         }
     }
 }
+pub trait Scorable {
+    fn score(&self, tricks: u8) -> i32;
+}
 
+impl Scorable for Contract {
+    fn score(&self, tricks: u8) -> i32 {
+        self.score(tricks)
+    }
+}
 impl Contract {
     /// Returns the strain of the contract.
     #[allow(clippy::cast_possible_truncation)]

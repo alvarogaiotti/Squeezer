@@ -3,7 +3,7 @@
 
 use super::{Simulation, SimulationResult};
 use colored::Colorize;
-use std::{collections::HashMap, fmt::Display};
+use std::{cmp::Ordering, collections::HashMap, fmt::Display};
 
 use crate::{
     Deal, Suit,
@@ -58,6 +58,7 @@ impl<D: Dealer> LeadSimulation<D> {
         }
     }
 
+    #[inline]
     fn solve_boards<S: BridgeSolver>(
         &self,
         num: usize,
@@ -79,7 +80,7 @@ impl<D: Dealer> LeadSimulation<D> {
 
 impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
     #[allow(clippy::integer_division)]
-    fn run(&self) -> Result<LeadSimulationResult, SqueezerError> {
+    fn run(self) -> Result<LeadSimulationResult, SqueezerError> {
         let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
         let mut counter = self.num_of_boards;
 
@@ -228,7 +229,13 @@ impl Display for LeadSimulationResult {
         let res_iter = self
             .lead_results
             .iter()
-            .sorted_by(|a, b| b.1.set_percentage.total_cmp(&a.1.set_percentage))
+            .sorted_by(
+                |a, b| match b.1.set_percentage.total_cmp(&a.1.set_percentage) {
+                    Ordering::Less => Ordering::Less,
+                    Ordering::Equal => b.1.average_tricks.total_cmp(&a.1.average_tricks),
+                    Ordering::Greater => Ordering::Greater,
+                },
+            )
             .collect_vec();
         let max_average_tricks_position = res_iter
             .iter()

@@ -1,6 +1,7 @@
 use squeezer::{Cards, FastSampler, UniformSampler};
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 //#[test]
 fn uniformity_test() {
     let mut rng = rand::rng();

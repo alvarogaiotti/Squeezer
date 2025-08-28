@@ -508,12 +508,9 @@ fn pattern_length_adder(
     }
     match element {
         Pattern::Suit(length) => length_adder(accumulator, *length),
-        Pattern::Group(group) => {
-            let accumulator = (*group)
-                .iter()
-                .fold(accumulator, |acc, &value| length_adder(acc, value));
-            accumulator
-        }
+        Pattern::Group(group) => (*group)
+            .iter()
+            .fold(accumulator, |acc, &value| length_adder(acc, value)),
     }
 }
 

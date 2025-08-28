@@ -2,6 +2,7 @@ use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
 use rand::seq::SliceRandom;
 use squeezer::*;
 
+#[allow(dead_code)]
 //#[test]
 fn giubilo_simulation() {
     let contracts = [

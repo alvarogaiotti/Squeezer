@@ -402,7 +402,7 @@ impl HandType {
 /// # Ok(())
 /// # }
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct HandDescriptor {
     possible_hands: Vec<HandType>,
     min: u8,
