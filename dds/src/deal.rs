@@ -5,10 +5,10 @@ use itertools::Itertools;
 use squeezer_macros::RawDDSRef;
 
 use crate::{
+    MAXNOOFBOARDS,
     ddserror::DdsError,
     traits::{AsDDSCard, AsDDSContract, RawDDSRef},
     utils::{BuildSequenceError, Mode, Solutions, Target},
-    MAXNOOFBOARDS,
 };
 use core::{
     convert::{Into, TryFrom},

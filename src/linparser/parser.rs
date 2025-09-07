@@ -206,13 +206,13 @@ fn parse_vulnerability(input: &str) -> IResult<&str, Vulnerability> {
     ))
 }
 
-// MB line parser: mb|bid| or mb|bid!| with optional annotation
+// MB line parser: mb|bid| or mb|bid!| with optional alert
 fn parse_bid(input: &str) -> IResult<&str, RecordedBid> {
     let (input, _) = ws(tag("mb|"))(input)?;
     let (input, mut bid_str) = ws(take_until("|"))(input)?;
     let (input, _) = ws(char('|'))(input)?;
 
-    // Check for annotation (indicated by !)
+    // Check for alert (indicated by !)
     if bid_str.ends_with('!') {
         bid_str = bid_str.trim_end_matches('!');
     }
@@ -263,6 +263,7 @@ fn parse_claim(input: &str) -> IResult<&str, u8> {
     Ok((input, score))
 }
 
+#[cfg(debug_assertions)]
 fn debug_parser<'a, F>(
     name: &'static str,
     mut parser: F,
@@ -281,12 +282,12 @@ where
         match parser.parse(input) {
             Ok((remaining, result)) => {
                 println!("✅ Parser '{name}' succeeded. Result: {result:?}");
-                println!("   Remaining: {:?}", &remaining[..remaining.len().min(50)]);
+                println!("\tRemaining: {:?}", &remaining[..remaining.len().min(50)]);
                 Ok((remaining, result))
             }
             Err(e) => {
                 println!("❌ Parser '{name}' failed: {e:?}");
-                println!("   At position: {:?}", &input[..input.len().min(20)]);
+                println!("\tAt position: {:?}", &input[..input.len().min(20)]);
                 Err(e)
             }
         }

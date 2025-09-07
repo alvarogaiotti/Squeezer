@@ -405,8 +405,8 @@ impl HandType {
 #[derive(Debug, Default, Clone)]
 pub struct HandDescriptor {
     possible_hands: Vec<HandType>,
-    min: u8,
-    max: u8,
+    pub(crate) min: u8,
+    pub(crate) max: u8,
 }
 
 impl HandDescriptor {

@@ -384,7 +384,7 @@ impl BridgeSolver for DoubleDummySolver {
         &self,
         number_of_deals: i32,
         deals: &[D],
-        contract: &[C],
+        contracts: &[C],
     ) -> Result<Vec<u8>, DdsError> {
         #[allow(
             clippy::cast_possible_truncation,
@@ -394,7 +394,7 @@ impl BridgeSolver for DoubleDummySolver {
         let mut boards = Boards::new_uniform(
             number_of_deals,
             deals,
-            contract,
+            contracts,
             Target::MaxTricks,
             Solutions::Best,
             Mode::AutoReuseLazySearch,

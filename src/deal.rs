@@ -56,6 +56,14 @@ impl std::ops::Index<usize> for Hands {
     }
 }
 
+impl<'a> IntoIterator for &'a mut Hands {
+    type IntoIter = std::slice::IterMut<'a, Hand>;
+    type Item = &'a mut Hand;
+    fn into_iter(self) -> Self::IntoIter {
+        self.hands.iter_mut()
+    }
+}
+
 impl Hands {
     #[inline]
     pub(crate) fn new_from(hands: [Hand; 4]) -> Self {
@@ -96,6 +104,11 @@ impl Hands {
     #[inline]
     pub fn iter(&'_ self) -> std::slice::Iter<'_, Hand> {
         self.hands.iter()
+    }
+
+    #[inline]
+    pub fn iter_mut(&'_ mut self) -> std::slice::IterMut<'_, Hand> {
+        self.hands.iter_mut()
     }
 }
 
@@ -591,14 +604,31 @@ impl DealerBuilder {
     /// This will method will return an error if you try to predeal the same card twice.
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
-        Ok(StandardDealer {
-            predeal: self.predealt_hands,
-            vulnerability: self.vulnerability,
-            deck_starting_state: self.deck,
-            accept_function: self.accept,
-            hand_constraints: self.hand_descriptors,
-            ..Default::default()
-        })
+        let points_required_by_descriptors = {
+            let mut total = 0;
+            for descriptor in &self.hand_descriptors {
+                if let Some(hand_descriptor) = descriptor {
+                    total += hand_descriptor.min;
+                } else {
+                    0;
+                }
+            }
+            total
+        };
+        if self.deck.high_card_points() < points_required_by_descriptors {
+            Err(DealerError::new(
+                "insufficient high card point remaining in deck to be able to deal. Check your predeal parameters.",
+            ))
+        } else {
+            Ok(StandardDealer {
+                predeal: self.predealt_hands,
+                vulnerability: self.vulnerability,
+                deck_starting_state: self.deck,
+                accept_function: self.accept,
+                hand_constraints: self.hand_descriptors,
+                ..Default::default()
+            })
+        }
     }
 
     #[allow(clippy::missing_panics_doc)]
@@ -627,6 +657,7 @@ pub trait Dealer {
     /// # Errors
     /// Errors if is unable to deal a [`Deal`]
     fn deal(&self) -> Result<Deal, DealerError>;
+    fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS];
 }
 
 #[derive(Debug, Clone)]
@@ -684,6 +715,10 @@ impl Default for StandardDealer {
 }
 
 impl Dealer for StandardDealer {
+    #[inline]
+    fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS] {
+        self.predeal
+    }
     /// Deals a deal based on the parameters set via the constructor.
     #[inline]
     fn deal(&self) -> Result<Deal, DealerError> {
@@ -793,13 +828,7 @@ impl From<LinDeal> for Deal {
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for Deal {
     fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
-        let mut remain_cards = [[0; 4]; 4];
-        for (seat, hand) in self.into_iter().enumerate() {
-            for (index, suit) in hand.into_iter().enumerate() {
-                remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
-            }
-        }
-        remain_cards.into()
+        self.hands().to_dds_deal()
     }
 }
 

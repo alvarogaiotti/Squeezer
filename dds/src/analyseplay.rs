@@ -14,7 +14,7 @@ use core::{ffi::c_int, slice::Iter};
 /// [`PlayAnalyzer::analyze_play()`].
 /// 1 means thread1 takes number 1, thread2 takes number 2 and so on
 /// 10 means thread1 takes 1..10, thread2 takes 11..20 etc.
-pub const CHUNK_SIZE: i32 = 10;
+pub const CHUNK_SIZE: i32 = 5;
 
 #[non_exhaustive]
 #[repr(C)]

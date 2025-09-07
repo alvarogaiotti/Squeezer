@@ -8,7 +8,7 @@ use std::{error::Error, num::ParseIntError};
 
 use itertools::Itertools;
 
-use crate::{Card, Contract, Hands, Seat, Strain, Vulnerability};
+use crate::{Card, Cards, Contract, Hands, Seat, Strain, Vulnerability};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -34,6 +34,16 @@ impl PlaySequence {
     #[must_use]
     pub fn iter(&self) -> <&Self as std::iter::IntoIterator>::IntoIter {
         self.into_iter()
+    }
+}
+
+impl From<PlaySequence> for Cards {
+    fn from(value: PlaySequence) -> Self {
+        let mut deck = Cards::EMPTY;
+        for card in value {
+            deck = deck.insert(card);
+        }
+        deck
     }
 }
 

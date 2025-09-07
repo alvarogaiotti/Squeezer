@@ -8,12 +8,11 @@
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
 use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
-use fmt::Display;
 use itertools::Itertools;
 use std::io::Write;
 
 pub trait DifferenceMaker {}
-impl DifferenceMaker for Cards {}
+impl DifferenceMaker for Card {}
 impl DifferenceMaker for Contract {}
 
 /// Struct for running payoff simulation: is it better to risk a 3NT or better to play 4C in
@@ -38,16 +37,16 @@ impl DifferenceMaker for Contract {}
 /// # }
 /// ```
 #[derive(Debug, Clone)]
-pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> {
+pub struct PayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer> {
     no_of_runs: usize,
     dealer: D,
-    to_compare: Vec<P>,
+    to_compare: Vec<Contract>,
     diff: E,
 }
 
-impl<E: Fn(i32, i32) -> i32, D: Dealer, P: DifferenceMaker + Display> PayoffSimulation<E, D, P> {
+impl<E: Fn(i32, i32) -> i32, D: Dealer> PayoffSimulation<E, D> {
     /// Creates a new [`PayoffSimulation<E, D, P>`].
-    pub fn new(no_of_runs: usize, dealer: D, to_compare: Vec<P>, diff: E) -> Self {
+    pub fn new(no_of_runs: usize, dealer: D, to_compare: Vec<Contract>, diff: E) -> Self {
         Self {
             no_of_runs,
             dealer,
@@ -75,61 +74,76 @@ fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
 }
 
 #[derive(Debug, Clone)]
-struct PayoffAccumulator<T: DifferenceMaker> {
-    entry: T,
-    results: Vec<i32>,
+pub(crate) struct PayoffAccumulator<P: DifferenceMaker> {
+    pub entry: P,
+    pub results: Vec<i32>,
 }
 
-impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
-    for PayoffSimulation<E, D, Contract>
+impl<E, D> Simulation<Payoff<Contract>> for PayoffSimulation<E, D>
+where
+    E: Fn(i32, i32) -> i32,
+    D: Dealer,
 {
     /// Runs the simulation, providing you with the results in the form
     /// a [`Payoff<Contract>`], which compares the EV of the contract pair-wise.
     #[inline]
-    fn run(&self) -> Result<Payoff<Contract>, SqueezerError> {
+    fn run(self) -> Result<Payoff<Contract>, SqueezerError> {
         let no_of_entries = self.to_compare.len();
         let mut payoff = Payoff::new(self.to_compare.clone());
-        let mut entries: Vec<PayoffAccumulator<Contract>> = self
-            .to_compare
-            .iter()
-            .map(|elem| PayoffAccumulator {
-                entry: *elem,
-                results: Vec::with_capacity(self.no_of_runs),
-            })
-            .collect();
         let solver_array_len = 200 - (200 % no_of_entries);
-        let contracts: Vec<Contract> = self
+        let contracts = self
             .to_compare
             .iter()
             .copied()
             .cycle()
             .take(solver_array_len)
-            .collect();
+            .collect_vec();
+        let mut entries = self
+            .to_compare
+            .into_iter()
+            .map(|elem| PayoffAccumulator {
+                entry: elem,
+                results: Vec::with_capacity(self.no_of_runs),
+            })
+            .collect_vec();
         let solver = DoubleDummySolver::new();
 
         let mut deal_buffer = Vec::with_capacity(solver_array_len);
-        for chunk in &(0..self.no_of_runs).chunks(solver_array_len / no_of_entries) {
-            let chunk_length = chunk.count();
-            for _ in 0..chunk_length {
-                for _ in 0..no_of_entries {
-                    let deal = self.dealer.deal()?;
-                    deal_buffer.push(deal);
+        // Take the total number of runs we want to simulate, and divide it into chunks.
+        // Eg. 1000 runs, 4 contracts = 1000 split into 20 chunks of 50 elements
+        // For the 20 chunks of length 50...
+        let number_of_deals = solver_array_len / no_of_entries;
+        deal_buffer.resize(number_of_deals * no_of_entries, self.dealer.deal()?);
+        for start in (0..self.no_of_runs).step_by(number_of_deals) {
+            let chunk_length = (self.no_of_runs - start).min(number_of_deals);
+            // Chunk is 50 elements
+            for i in 0..chunk_length {
+                // Generate a deal
+                let deal = self.dealer.deal()?;
+                // push it 4 times
+                for j in 0..no_of_entries {
+                    deal_buffer[i * no_of_entries + j] = deal;
                 }
+                // We end up with a 200 element Vec laid as so:
+                //  _______________________________________________
+                // |D.1|D.1|D.1|D.1|D.2|D.2|D.2|D.2|D.3|D.3|D.3|D.3| and so on
+                // ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
             }
+            // We run the solver with the above Vec and with a set of contract as so:
+            //  _______________________________
+            // |C.1|C.2|C.3|C.4|C.1|C.2|C.3|C.4| and so on...
+            // ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
             #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
             let solver_results = solver.dd_tricks_parallel(
                 (chunk_length * no_of_entries) as i32,
                 &deal_buffer,
                 &contracts,
             )?;
-            let scores = solver_results
-                .into_iter()
-                .zip(contracts.iter())
-                .map(|(n_tricks, contract)| contract.score(n_tricks));
-            for (index, score) in scores.enumerate() {
-                entries[index % no_of_entries].results.push(score);
+            for (index, tricks) in solver_results.into_iter().enumerate() {
+                let entry = &mut entries[index % no_of_entries];
+                let score = entry.entry.score(tricks);
+                entry.results.push(score);
             }
-            deal_buffer.clear();
         }
         for (starting_entry_index, entry) in entries.iter().enumerate() {
             for (next_entry_index, next_entry) in entries.iter().enumerate() {
@@ -137,16 +151,29 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
                     payoff.results.push((0.0, 0.0));
                     continue;
                 }
-                let diffs: Vec<i32> = entry
-                    .results
-                    .iter()
-                    .zip(next_entry.results.iter())
-                    .map(|(first_res, second_res)| (self.diff)(*first_res, *second_res))
-                    .collect();
+                let mut mean = 0f64;
+                let mut m2 = 0f64;
+                let mut count = 0usize;
 
-                payoff
-                    .results
-                    .push(mean_and_std_dev(&diffs).unwrap_or((0.0, 0.0)));
+                #[allow(clippy::cast_precision_loss)]
+                for (first_result, second_result) in
+                    entry.results.iter().zip(next_entry.results.iter())
+                {
+                    let diff = f64::from((self.diff)(*first_result, *second_result));
+                    count += 1;
+                    let delta = diff - mean;
+                    mean += delta / (count as f64);
+                    let delta2 = diff - mean;
+                    m2 += delta * delta2;
+                }
+
+                #[allow(clippy::cast_precision_loss)]
+                if count > 1 {
+                    let variance = m2 / (count as f64);
+                    payoff.results.push((mean, variance.sqrt()));
+                } else {
+                    payoff.results.push((0.0, 0.0));
+                }
             }
         }
         Ok(payoff)
@@ -155,7 +182,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> Simulation<Payoff<Contract>>
 
 pub struct PayoffEntry<P>
 where
-    P: fmt::Display + DifferenceMaker,
+    P: DifferenceMaker,
 {
     difference_makers: (P, P),
     results: Option<(f32, f32)>,
@@ -163,7 +190,7 @@ where
 
 impl<P> PayoffEntry<P>
 where
-    P: fmt::Display + DifferenceMaker,
+    P: DifferenceMaker,
 {
     pub fn new(difference_maker1: P, difference_maker2: P, results: Option<(f32, f32)>) -> Self {
         Self {
@@ -178,12 +205,9 @@ where
 
 /// Struct that rapresents a payoff matrix which returns performances of contracs based
 /// on scoring. Some sort of expected value of the contracts.
-pub struct Payoff<P>
-where
-    P: fmt::Display + DifferenceMaker,
-{
-    entries: Vec<P>,
-    results: Vec<(f32, f32)>,
+pub struct Payoff<D: DifferenceMaker> {
+    pub(crate) entries: Vec<D>,
+    pub(crate) results: Vec<(f64, f64)>,
 }
 
 impl<P> Payoff<P>
@@ -192,14 +216,15 @@ where
 {
     #[must_use]
     pub fn new(entries: Vec<P>) -> Self {
+        let size = entries.len() * entries.len();
         Self {
             entries,
-            results: Vec::new(),
+            results: Vec::with_capacity(size),
         }
     }
 }
 
-impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
+impl<P: fmt::Display + DifferenceMaker> SimulationResult for Payoff<P> {
     /// This function generates a report displaying the Payoff matrix in the terminal.
     /// It compares the expected value of each option with respect to the others.
     #[allow(clippy::missing_panics_doc, clippy::cast_precision_loss)]
@@ -251,9 +276,8 @@ impl<D: Display + DifferenceMaker> SimulationResult for Payoff<D> {
 }
 
 #[allow(clippy::cast_precision_loss)]
-fn mean(data: &[i32]) -> Option<f32> {
+fn mean(data: &[i32], count: usize) -> Option<f32> {
     let sum = data.iter().sum::<i32>() as f32;
-    let count = data.len();
     match count {
         positive if positive > 0 => Some(sum / count as f32),
         _ => None,
@@ -262,7 +286,8 @@ fn mean(data: &[i32]) -> Option<f32> {
 
 #[allow(clippy::cast_precision_loss)]
 fn mean_and_std_dev(data: &[i32]) -> Option<(f32, f32)> {
-    match (mean(data), data.len()) {
+    let data_len = data.len();
+    match (mean(data, data_len), data_len) {
         (Some(data_mean), count) if count > 0 => {
             let variance = data
                 .iter()
@@ -326,7 +351,7 @@ mod test {
             )
             .build()
             .unwrap();
-        let sim = PayoffSimulation::new(100, dealer, contracts, imps);
+        let sim = PayoffSimulation::new(500, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();
     }
@@ -370,7 +395,7 @@ mod test {
             .with_hand_descriptor(Seat::North, HandDescriptor::new(vec![ht]))
             .build()
             .unwrap();
-        let sim = PayoffSimulation::new(10, dealer, contracts, imps);
+        let sim = PayoffSimulation::new(500, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();
     }

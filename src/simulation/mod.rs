@@ -3,6 +3,7 @@
 
 use crate::SqueezerError;
 
+mod card_payoff;
 mod lead_sim;
 mod payoff;
 
