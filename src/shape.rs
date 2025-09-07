@@ -4,6 +4,8 @@
 use crate::prelude::*;
 use crate::shapeparser::{ShapeCreator, ShapePattern};
 use bitvec::{BitArr, bitarr};
+#[cfg(feature = "dds")]
+use dds::deal::DdsSuit;
 
 #[allow(clippy::cast_possible_truncation)]
 const SHAPE_TABLE_BUCKETS: usize = ShapeHasher::M as usize;
@@ -436,6 +438,18 @@ pub enum Suit {
     Hearts = 1,
     Diamonds = 2,
     Clubs = 3,
+}
+
+#[cfg(feature = "dds")]
+impl From<Suit> for DdsSuit {
+    fn from(value: Suit) -> Self {
+        match value {
+            Suit::Spades => Self::Spades,
+            Suit::Hearts => Self::Hearts,
+            Suit::Diamonds => Self::Diamonds,
+            Suit::Clubs => Self::Clubs,
+        }
+    }
 }
 
 impl TryFrom<usize> for Suit {

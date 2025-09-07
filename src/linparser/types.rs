@@ -578,7 +578,7 @@ impl LinDeal {
 
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for LinDeal {
-    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
+    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.hands.into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {

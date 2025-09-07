@@ -1,6 +1,8 @@
 /// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
 /// I only slightly modified the code to adapt it to my needs.
 use crate::prelude::*;
+#[cfg(feature = "dds")]
+use dds::traits::AsDDSCard;
 use rand::{Rng, seq::SliceRandom};
 
 /// A card, represented as a `u8`.
@@ -596,6 +598,17 @@ impl Cards {
             index -= 1;
         }
         heads
+    }
+}
+
+#[cfg(feature = "dds")]
+impl AsDDSCard for Card {
+    fn as_card(&self) -> (dds::deal::DdsRank, dds::deal::DdsSuit) {
+        use dds::deal::DdsRank;
+        (
+            DdsRank::new(i32::from(self.rank())).unwrap(),
+            self.suit().into(),
+        )
     }
 }
 

@@ -2,7 +2,11 @@
 // See end of file for license information
 
 use crate::{linparser::PlaySequence, prelude::*};
-use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
+use dds::{
+    deal::{AsDDSDeal, DdsDeal, DdsDealBuilder},
+    doubledummy::DoubleDummySolver,
+    solver::BridgeSolver,
+};
 use itertools::Itertools;
 use std::io::Write;
 
@@ -90,7 +94,6 @@ where
             })
             .collect_vec();
         let solver = DoubleDummySolver::new();
-        let contracts = [self.contract; 200];
 
         let mut deal_buffer = Vec::with_capacity(solver_array_len);
         // Take the total number of runs we want to simulate, and divide it into chunks.
@@ -98,7 +101,7 @@ where
         // For the 20 chunks of length 50...
         let already_played: Cards = self.play_trace.into();
         let number_of_deals = solver_array_len / no_of_entries;
-        let hand = self.dealer.deal()?.hands();
+        let hand = DdsDeal::new();
         deal_buffer.resize(number_of_deals * no_of_entries, hand);
         for start in (0..self.no_of_runs).step_by(number_of_deals) {
             let chunk_length = (self.no_of_runs - start).min(number_of_deals);
@@ -107,13 +110,20 @@ where
                 // Generate a deal
                 let deal = self.dealer.deal()?;
                 // push it 4 times
-                for j in 0..no_of_entries {
+                for (j, entry) in entries.iter().enumerate() {
                     let mut hands = deal.hands();
                     // Consistency for this loop is not guaranteed
                     for hand in &mut hands {
-                        hand.set_cards(hand.as_cards() - already_played);
+                        hand.set_cards(hand.as_cards() - already_played.insert(entry.entry));
                     }
-                    deal_buffer[i * no_of_entries + j] = hands;
+                    let deal = DdsDealBuilder::new()
+                        .remain_cards(hands.as_dds_deal())
+                        .current_trick(&[Some(entry.entry), None, None])
+                        .contract(&self.contract)
+                        .first((self.seat).into())
+                        .build()
+                        .unwrap();
+                    deal_buffer[i * no_of_entries + j] = deal;
                 }
                 // We end up with a 200 element Vec laid as so:
                 //  _______________________________________________
@@ -124,16 +134,13 @@ where
             //  _______________________________
             // |C.1|C.2|C.3|C.4|C.1|C.2|C.3|C.4| and so on...
             // ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
+            let total_len = chunk_length * no_of_entries;
             #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
-            let solver_results = solver.dd_tricks_parallel(
-                (chunk_length * no_of_entries) as i32,
-                &deal_buffer,
-                &contracts,
-            )?;
+            let solver_results =
+                solver.dd_tricks_parallel(total_len as i32, &deal_buffer[..total_len])?;
             for (index, tricks) in solver_results.into_iter().enumerate() {
                 let entry = &mut entries[index % no_of_entries];
                 let score = self.contract.score(tricks);
-                println!("Score: {score}");
                 entry.results.push(score);
             }
         }
@@ -152,7 +159,6 @@ where
                     entry.results.iter().zip(next_entry.results.iter())
                 {
                     let diff = f64::from((self.diff)(*first_result, *second_result));
-                    println!("Diff: {diff}");
                     count += 1;
                     let delta = diff - mean;
                     mean += delta / (count as f64);
@@ -298,7 +304,7 @@ mod test {
             .unwrap();
         let play_trace = PlaySequence::new(vec![Card::D3, Card::D2, Card::D8, Card::DK]);
         let sim = CardPayoffSimulation::new(
-            500,
+            200,
             dealer,
             vec![Card::SA, Card::HA, Card::C9],
             contract,

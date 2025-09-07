@@ -11,6 +11,7 @@ use crate::{
 };
 use dds::{
     MAXNOOFBOARDS,
+    deal::{AsDDSDeal, DdsDealBuilder},
     solver::{BridgeSolver, SolvedBoards},
 };
 use itertools::Itertools;
@@ -63,17 +64,23 @@ impl<D: Dealer> LeadSimulation<D> {
         &self,
         num: usize,
         solver: &S,
-        contracts: &[Contract],
+        contract: Contract,
     ) -> Result<SolvedBoards, SqueezerError> {
         // We take from the deal producer the number we need
-        let mut deals: Vec<Deal> = Vec::with_capacity(num);
+        let mut deals: Vec<_> = Vec::with_capacity(num);
         for _ in 0..num {
             let deal = self.dealer.deal()?;
-            deals.push(deal);
+            deals.push(
+                DdsDealBuilder::new()
+                    .remain_cards(deal.as_dds_deal())
+                    .contract(&contract)
+                    .build()
+                    .unwrap(),
+            );
         }
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         solver
-            .dd_tricks_all_cards_parallel(num as i32, &deals, contracts)
+            .dd_tricks_all_cards_parallel(num as i32, &deals)
             .map_err(Into::into)
     }
 }
@@ -84,16 +91,15 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
         let mut sim_result = LeadSimulationResult::new(self.contract, self.num_of_boards);
         let mut counter = self.num_of_boards;
 
-        let contracts = [self.contract; MAXNOOFBOARDS];
         let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
         // For the number of boards, stepped by the number of deals we use per analysis
         while counter != 0 {
             if let Some(new_counter) = counter.checked_sub(MAXNOOFBOARDS) {
-                let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, &contracts)?;
+                let solvedb = self.solve_boards(MAXNOOFBOARDS, &solver, self.contract)?;
                 sim_result.add_results(&solvedb);
                 counter = new_counter;
             } else {
-                let solvedb = self.solve_boards(counter, &solver, &contracts[0..counter])?;
+                let solvedb = self.solve_boards(counter, &solver, self.contract)?;
                 sim_result.add_results(&solvedb);
                 counter = 0;
             }

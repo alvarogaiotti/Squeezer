@@ -7,7 +7,11 @@
 /// and various scoring functions such as `imps` and `matchpoints`.
 /// The file provides methods for calculating scores, creating contracts from strings, and reporting results based on simulated data.
 use crate::prelude::*;
-use dds::{doubledummy::DoubleDummySolver, solver::BridgeSolver};
+use dds::{
+    deal::{AsDDSDeal, DdsDeal, DdsDealBuilder},
+    doubledummy::DoubleDummySolver,
+    solver::BridgeSolver,
+};
 use itertools::Itertools;
 use std::io::Write;
 
@@ -91,13 +95,6 @@ where
         let no_of_entries = self.to_compare.len();
         let mut payoff = Payoff::new(self.to_compare.clone());
         let solver_array_len = 200 - (200 % no_of_entries);
-        let contracts = self
-            .to_compare
-            .iter()
-            .copied()
-            .cycle()
-            .take(solver_array_len)
-            .collect_vec();
         let mut entries = self
             .to_compare
             .into_iter()
@@ -113,7 +110,7 @@ where
         // Eg. 1000 runs, 4 contracts = 1000 split into 20 chunks of 50 elements
         // For the 20 chunks of length 50...
         let number_of_deals = solver_array_len / no_of_entries;
-        deal_buffer.resize(number_of_deals * no_of_entries, self.dealer.deal()?);
+        deal_buffer.resize(number_of_deals * no_of_entries, DdsDeal::new());
         for start in (0..self.no_of_runs).step_by(number_of_deals) {
             let chunk_length = (self.no_of_runs - start).min(number_of_deals);
             // Chunk is 50 elements
@@ -121,8 +118,13 @@ where
                 // Generate a deal
                 let deal = self.dealer.deal()?;
                 // push it 4 times
-                for j in 0..no_of_entries {
-                    deal_buffer[i * no_of_entries + j] = deal;
+                for (j, entry) in entries.iter().enumerate() {
+                    let c_deal = DdsDealBuilder::new()
+                        .remain_cards(deal.as_dds_deal())
+                        .contract(&entry.entry)
+                        .build()
+                        .unwrap();
+                    deal_buffer[i * no_of_entries + j] = c_deal;
                 }
                 // We end up with a 200 element Vec laid as so:
                 //  _______________________________________________
@@ -133,12 +135,10 @@ where
             //  _______________________________
             // |C.1|C.2|C.3|C.4|C.1|C.2|C.3|C.4| and so on...
             // ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
+            let total_len = chunk_length * no_of_entries;
             #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
-            let solver_results = solver.dd_tricks_parallel(
-                (chunk_length * no_of_entries) as i32,
-                &deal_buffer,
-                &contracts,
-            )?;
+            let solver_results =
+                solver.dd_tricks_parallel(total_len as i32, &deal_buffer[..total_len])?;
             for (index, tricks) in solver_results.into_iter().enumerate() {
                 let entry = &mut entries[index % no_of_entries];
                 let score = entry.entry.score(tricks);

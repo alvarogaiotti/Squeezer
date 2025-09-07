@@ -6,9 +6,8 @@ use core::ffi::c_int;
 use crate::{
     bindings::MAXNOOFBOARDS,
     ddserror::DdsError,
-    deal::AsDDSDeal,
+    deal::DdsDeal,
     future_tricks::FutureTricks,
-    traits::AsDDSContract,
     utils::{Mode, Solutions, Target},
 };
 
@@ -26,11 +25,7 @@ pub trait BridgeSolver {
     /// # Errors
     /// Returns errors if the deal is impossible to be constructed or if the
     /// solver errors out
-    fn dd_tricks<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deal: &D,
-        contract: &C,
-    ) -> Result<u8, DdsError>;
+    fn dd_tricks(&self, deal: &DdsDeal) -> Result<u8, DdsError>;
     /// Returns the number of tricks makable in one contract by one player for
     /// every lead.
     /// If you have more than a dozen deals to analyse use [`BridgeSolver::dd_tricks_parallel`]
@@ -38,22 +33,17 @@ pub trait BridgeSolver {
     /// # Errors
     /// Returns an error if the deal is impossible to be constructed or it the solver gives out an
     /// error
-    fn dd_tricks_all_cards<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deal: &D,
-        contract: &C,
-    ) -> Result<FutureTricks, DdsError>;
+    fn dd_tricks_all_cards(&self, deal: &DdsDeal) -> Result<FutureTricks, DdsError>;
 
     /// Same as [`BridgeSolver::dd_tricks`] but computes multiple deals in paralles.
     /// If you have more than a dozen deals to analyse use this function instead.
     /// # Errors
     /// Returns an error if the deal is impossible to be constructed or it the solver gives out an
     /// error
-    fn dd_tricks_parallel<D: AsDDSDeal, C: AsDDSContract>(
+    fn dd_tricks_parallel(
         &self,
         number_of_deals: i32,
-        deals: &[D],
-        contract: &[C],
+        deals: &[DdsDeal],
     ) -> Result<Vec<u8>, DdsError>;
 
     /// Same as [`BridgeSolver::dd_tricks_all_cards`] but computes multiple deals in paralles.
@@ -61,11 +51,10 @@ pub trait BridgeSolver {
     /// # Errors
     /// Returns an error if the deal is impossible to be constructed or it the solver gives out an
     /// error
-    fn dd_tricks_all_cards_parallel<D: AsDDSDeal, C: AsDDSContract>(
+    fn dd_tricks_all_cards_parallel(
         &self,
         number_of_deals: i32,
-        deals: &[D],
-        contract: &[C],
+        deals: &[DdsDeal],
     ) -> Result<SolvedBoards, DdsError>;
 
     /// With this function you gain much more flexibility regarding
@@ -77,10 +66,9 @@ pub trait BridgeSolver {
     /// # Errors
     /// Errors when DDS errors. See DDS docs for errors.
     /// Or check the inner workings of [`DdsError`].
-    fn solve_with_params<D: AsDDSDeal, C: AsDDSContract>(
+    fn solve_with_params(
         &self,
-        deal: &D,
-        contract: &C,
+        deal: &DdsDeal,
         mode: Mode,
         solutions: Solutions,
         target: Target,
@@ -97,11 +85,10 @@ pub trait BridgeSolver {
     /// # Errors
     /// Errors when DDS errors. See DDS docs for errors.
     /// Or check the inner workings of [`DdsError`].
-    fn solve_with_params_parallel<D: AsDDSDeal, C: AsDDSContract>(
+    fn solve_with_params_parallel(
         &self,
         number_of_deals: i32,
-        deals: &[D],
-        contracts: &[C],
+        deals: &[DdsDeal],
         mode: &[Mode],
         solutions: &[Solutions],
         target: &[Target],

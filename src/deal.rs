@@ -606,12 +606,8 @@ impl DealerBuilder {
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         let points_required_by_descriptors = {
             let mut total = 0;
-            for descriptor in &self.hand_descriptors {
-                if let Some(hand_descriptor) = descriptor {
-                    total += hand_descriptor.min;
-                } else {
-                    0;
-                }
+            for hand_descriptor in self.hand_descriptors.iter().flatten() {
+                total += hand_descriptor.min;
             }
             total
         };
@@ -827,14 +823,14 @@ impl From<LinDeal> for Deal {
 
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for Deal {
-    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
-        self.hands().to_dds_deal()
+    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
+        self.hands().as_dds_deal()
     }
 }
 
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for Hands {
-    fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
+    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
         for (seat, hand) in self.into_iter().enumerate() {
             for (index, suit) in hand.into_iter().enumerate() {

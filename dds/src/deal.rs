@@ -119,6 +119,22 @@ pub enum DdsSuit {
     NoTrump = 4,
 }
 
+impl std::fmt::Display for DdsSuit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                DdsSuit::Spades => "♠",
+                DdsSuit::Hearts => "♥",
+                DdsSuit::Diamonds => "♦",
+                DdsSuit::Clubs => "♣",
+                DdsSuit::NoTrump => "NT",
+            }
+        )
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 /// How DDS encodes ranks
@@ -128,15 +144,22 @@ impl DdsRank {
     #[inline]
     #[must_use]
     /// Creates a new [`DdsRank`]. Returns None if the rank is not valid.
-    /// Valid ranks are bit from 2 to 14.
+    /// Valid ranks are number from 2 to 14
     pub fn new(rank: i32) -> Option<Self> {
-        if (rank & 0b0_0011_1111_1111_1110).count_ones() == 1 {
+        if (2..=14).contains(&rank) {
             Some(Self(rank))
         } else {
             None
         }
     }
 }
+
+impl std::fmt::Display for DdsRank {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 // See https://stackoverflow.com/questions/28028854/how-do-i-match-enum-values-with-an-integer
 /// Macro for quick implementation of the [`TryFrom`] trait for a type
 macro_rules! impl_tryfrom_dds_suit {
@@ -265,12 +288,12 @@ pub struct DDSDealPBNRepr(
 /// Trump: 0 Spades, 1 Hearts, 2 Diamonds, 3 Clubs
 /// Hands: 0 North, 1 East, 2 South, 3 West
 pub trait AsDDSDeal {
-    fn to_dds_deal(&self) -> DDSDealRepr;
+    fn as_dds_deal(&self) -> DDSDealRepr;
 }
 
 /// This helps us build a [`DdsDeal`]. Rough edges right now, should be refactored or improved
 /// at least.
-pub struct DDSDealBuilder {
+pub struct DdsDealBuilder {
     /// Trump for the deal, `None` when not set
     trump: Option<DdsSuit>,
     /// Leader for the deal, `None` when not set
@@ -348,24 +371,33 @@ impl Display for ConstructDdsDealError {
 #[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
 impl std::error::Error for ConstructDdsDealError {}
 
-impl Default for DDSDealBuilder {
+impl Default for DdsDealBuilder {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DDSDealBuilder {
+impl DdsDealBuilder {
     #[inline]
     #[must_use]
     pub fn new() -> Self {
-        DDSDealBuilder {
+        DdsDealBuilder {
             trump: None,
             first: None,
             current_trick_suit: None,
             current_trick_rank: None,
             remain_cards: None,
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn contract<T: AsDDSContract>(mut self, contract: &T) -> Self {
+        let (trump, leader) = contract.as_dds_contract();
+        self.trump = Some(trump);
+        self.first = Some(leader);
+        self
     }
 
     #[inline]
@@ -400,7 +432,7 @@ impl DDSDealBuilder {
                     let (rank, suit) = card.as_card();
                     (rank.0, suit as i32)
                 } else {
-                    (-1, -1)
+                    (0, 0)
                 }
             })
             .unzip();
@@ -562,7 +594,7 @@ impl Boards {
                     first: first as i32,
                     current_trick_suit: [0i32; 3],
                     current_trick_rank: [0i32; 3],
-                    remain_cards: deal.to_dds_deal().as_slice(),
+                    remain_cards: deal.as_dds_deal().as_slice(),
                 }
             })
             .cycle()
@@ -619,7 +651,7 @@ impl Boards {
                     first: first as i32,
                     current_trick_suit: [0i32; 3],
                     current_trick_rank: [0i32; 3],
-                    remain_cards: deal.to_dds_deal().as_slice(),
+                    remain_cards: deal.as_dds_deal().as_slice(),
                 }
             })
             .cycle()
@@ -632,6 +664,50 @@ impl Boards {
             no_of_boards,
             // SAFETY: Length if 200
             deals,
+            target: target_buffer.map(Into::into),
+            solutions: solutions_buffer.map(Into::into),
+            mode: mode_buffer.map(Into::into),
+        })
+    }
+    #[inline]
+    pub fn from_deals_uniform(
+        no_of_boards: i32,
+        deals: &[DdsDeal],
+        target: Target,
+        solutions: Solutions,
+        mode: Mode,
+    ) -> Result<Self, DdsError> {
+        check_inputs_are_within_bounds!(no_of_boards, deals);
+        let mut deal_buffer = [DdsDeal::new(); MAXNOOFBOARDS];
+        deal_buffer[0..no_of_boards as usize].copy_from_slice(deals);
+        Ok(Self {
+            no_of_boards,
+            deals: deal_buffer,
+            target: [target.into(); MAXNOOFBOARDS],
+            solutions: [solutions.into(); MAXNOOFBOARDS],
+            mode: [mode.into(); MAXNOOFBOARDS],
+        })
+    }
+    #[inline]
+    pub fn from_deals(
+        no_of_boards: i32,
+        deals: &[DdsDeal],
+        target: &[Target],
+        solutions: &[Solutions],
+        mode: &[Mode],
+    ) -> Result<Self, DdsError> {
+        check_inputs_are_within_bounds!(no_of_boards, deals, target, solutions, mode);
+        let mut target_buffer = [Target::MaxTricks; MAXNOOFBOARDS];
+        target_buffer[0..no_of_boards as usize].copy_from_slice(target);
+        let mut solutions_buffer = [Solutions::Best; MAXNOOFBOARDS];
+        solutions_buffer[0..no_of_boards as usize].copy_from_slice(solutions);
+        let mut mode_buffer = [Mode::AutoReuseLazySearch; MAXNOOFBOARDS];
+        mode_buffer[0..no_of_boards as usize].copy_from_slice(mode);
+        let mut deal_buffer = [DdsDeal::new(); MAXNOOFBOARDS];
+        deal_buffer[0..no_of_boards as usize].copy_from_slice(deals);
+        Ok(Self {
+            no_of_boards,
+            deals: deal_buffer,
             target: target_buffer.map(Into::into),
             solutions: solutions_buffer.map(Into::into),
             mode: mode_buffer.map(Into::into),

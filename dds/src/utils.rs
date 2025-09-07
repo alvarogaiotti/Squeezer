@@ -3,7 +3,7 @@
 
 use crate::{
     ddserror::DdsError,
-    deal::{AsDDSDeal, ConstructDdsDealError, DDSDealBuilder, DdsDeal},
+    deal::{AsDDSDeal, ConstructDdsDealError, DdsDeal, DdsDealBuilder},
     doubledummy::MultiThreadDoubleDummySolver,
     solver::BridgeSolver,
     traits::{AsDDSContract, ContractScorer, IntoRawDDS},
@@ -75,6 +75,7 @@ impl From<Target> for c_int {
 #[allow(clippy::exhaustive_enums)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy)]
+#[repr(i32)]
 /// This struct serves the purpose of telling DDS what solve mode should it employ when solving a deal.
 /// Works toghether with [`Target`]: check DDS docs for the specifics way those two structs interact.
 /// A general overview is as follows:
@@ -423,10 +424,10 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
 ) -> Result<DdsDeal, ConstructDdsDealError> {
     let (contract, deal) = contract_and_deal;
     let (trump, first) = contract.as_dds_contract();
-    DDSDealBuilder::new()
+    DdsDealBuilder::new()
         .trump(trump)
         .first(first)
-        .remain_cards(deal.to_dds_deal())
+        .remain_cards(deal.as_dds_deal())
         .build()
 }
 
@@ -441,6 +442,9 @@ pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
     contract: &C,
 ) -> Result<i32, DdsError> {
     let solver = MultiThreadDoubleDummySolver::new();
-    let tricks = solver.dd_tricks(deal, contract)?;
+    let builder = DdsDealBuilder::new()
+        .remain_cards(deal.as_dds_deal())
+        .contract(contract);
+    let tricks = solver.dd_tricks(&builder.build()?)?;
     Ok(contract.score(tricks))
 }
