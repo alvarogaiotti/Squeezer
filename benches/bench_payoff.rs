@@ -1,16 +1,16 @@
 #![allow(clippy::all)]
-use criterion::{criterion_group, criterion_main, Criterion};
-use squeezer::prelude::*;
+use criterion::{Criterion, criterion_group, criterion_main};
 use squeezer::Simulation;
+use squeezer::prelude::*;
 use std::hint::black_box;
 
 #[inline]
 fn payoff_report_test(_: ()) {
     let contracts = vec![
-        Contract::from_str("3NN", Vulnerable::No).unwrap(),
-        Contract::from_str("3HN", Vulnerable::No).unwrap(),
-        Contract::from_str("3DN", Vulnerable::No).unwrap(),
-        Contract::from_str("4HN", Vulnerable::No).unwrap(),
+        Contract::from_str("3NN").unwrap(),
+        Contract::from_str("3HN").unwrap(),
+        Contract::from_str("3DN").unwrap(),
+        Contract::from_str("4HN").unwrap(),
     ];
     let dealer = DealerBuilder::new()
         .predeal(Seat::North, Cards::from_str("A AKjt Kqjt KQT9").unwrap())

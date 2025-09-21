@@ -30,9 +30,9 @@ impl DifferenceMaker for Contract {}
 /// # fn main() -> Result<(), Box<dyn Error>>{
 ///
 /// let to_compare = vec![
-///     Contract::from_str("3CN", Vulnerable::No)?,
-///     Contract::from_str("3HS", Vulnerable::No)?,
-///     Contract::from_str("3NN", Vulnerable::No)?,
+///     Contract::from_str("3CN")?,
+///     Contract::from_str("3HS")?,
+///     Contract::from_str("3NN")?,
 ///     ];
 /// let simulation = PayoffSimulation::new(100, StandardDealer::new(), to_compare, imps);
 /// let payoff = simulation.run()?;
@@ -203,7 +203,8 @@ where
     }
 }
 
-/// Struct that rapresents a payoff matrix which returns performances of contracs based
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Struct that represents a payoff matrix which returns performances of contracts based
 /// on scoring. Some sort of expected value of the contracts.
 pub struct Payoff<D: DifferenceMaker> {
     pub(crate) entries: Vec<D>,
@@ -334,10 +335,10 @@ mod test {
     #[test]
     fn payoff_report_test() {
         let contracts = vec![
-            Contract::from_str("3NN", Vulnerable::No).unwrap(),
-            Contract::from_str("3HN", Vulnerable::No).unwrap(),
-            Contract::from_str("3DN", Vulnerable::No).unwrap(),
-            Contract::from_str("4HN", Vulnerable::No).unwrap(),
+            Contract::from_str("3NN").unwrap(),
+            Contract::from_str("3HN").unwrap(),
+            Contract::from_str("3DN").unwrap(),
+            Contract::from_str("4HN").unwrap(),
         ];
         let dealer = DealerBuilder::new()
             .predeal(Seat::North, Cards::from_str("A AKjt Kqjt KQT9").unwrap())
@@ -359,15 +360,15 @@ mod test {
     #[test]
     #[should_panic(expected = "Wrong contract level")]
     fn create_contract_wrong_level_test() {
-        let _contract = Contract::from_str("8CS", Vulnerable::No).unwrap();
+        let _contract = Contract::from_str("8CS").unwrap();
     }
     #[test]
     fn contract_computes_correct_scores_test() {
-        let contract_c = Contract::from_str("6CN", Vulnerable::No).unwrap();
-        let contract_d = Contract::from_str("5DNX", Vulnerable::Yes).unwrap();
-        let contract_s = Contract::from_str("4SN", Vulnerable::No).unwrap();
-        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
-        let contract_n = Contract::from_str("3NN", Vulnerable::No).unwrap();
+        let contract_c = Contract::from_str("6CN").unwrap();
+        let contract_d = Contract::from_str_and_vuln("5DNX", Vulnerable::Yes).unwrap();
+        let contract_s = Contract::from_str_and_vuln("4SN", Vulnerable::No).unwrap();
+        let contract_h = Contract::from_str_and_vuln("3HN", Vulnerable::No).unwrap();
+        let contract_n = Contract::from_str("3NN").unwrap();
         assert_eq!(400_i32, contract_n.score(9));
         assert_eq!(140_i32, contract_h.score(9));
         assert_eq!(420_i32, contract_s.score(10));
@@ -378,9 +379,9 @@ mod test {
     #[test]
     fn other_payoff_test() {
         let contracts = vec![
-            Contract::from_str("4SN", Vulnerable::No).unwrap(),
-            Contract::from_str("3NN", Vulnerable::No).unwrap(),
-            Contract::from_str("6SN", Vulnerable::No).unwrap(),
+            Contract::from_str("4SN").unwrap(),
+            Contract::from_str("3NN").unwrap(),
+            Contract::from_str("6SN").unwrap(),
         ];
         let ht = HandTypeBuilder::new()
             .with_range(14, 14)
@@ -395,7 +396,7 @@ mod test {
             .with_hand_descriptor(Seat::North, HandDescriptor::new(vec![ht]))
             .build()
             .unwrap();
-        let sim = PayoffSimulation::new(500, dealer, contracts, imps);
+        let sim = PayoffSimulation::new(1000, dealer, contracts, imps);
         let matrix = sim.run().unwrap();
         matrix.report();
     }

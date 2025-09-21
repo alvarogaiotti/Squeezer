@@ -7,6 +7,7 @@ mod card_payoff;
 mod lead_sim;
 mod payoff;
 
+pub use card_payoff::*;
 pub use lead_sim::*;
 pub use payoff::*;
 

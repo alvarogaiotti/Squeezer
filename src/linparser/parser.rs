@@ -263,7 +263,6 @@ fn parse_claim(input: &str) -> IResult<&str, u8> {
     Ok((input, score))
 }
 
-#[cfg(debug_assertions)]
 fn debug_parser<'a, F>(
     name: &'static str,
     mut parser: F,
@@ -441,15 +440,10 @@ fn compute_contract(bidding: &LinBidding, dealer: Seat, deal_number: u8) -> Opti
 /// When parsing fails
 pub fn parse_bridge_file(input: &str) -> IResult<&str, LinFile> {
     let (input, _) = multispace0(input)?;
-    println!("Parsing bridge file...");
     let (input, tournament_info) = opt(parse_vugraph_data).parse(input)?;
-    println!("Parsed tournament info");
     let (input, results) = opt(parse_results).parse(input)?;
-    println!("Parsed results");
     let (input, players) = parse_players.parse(input)?;
-    println!("Parsed players");
     let (input, deals) = many1(parse_deal).parse(input)?;
-    println!("Completed deal parsing");
 
     Ok((
         input,

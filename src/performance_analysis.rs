@@ -674,7 +674,7 @@ mod tests {
         let solved = dds_solver
             .analyze_play(deal, &contract, dds_playsequence)
             .unwrap();
-        println!("Solved:\n{solved:?}");
+        println!("{solved:?}");
         let p_performance = analyse_players_performance(
             contract,
             TraceSolved {

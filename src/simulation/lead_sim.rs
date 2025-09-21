@@ -37,7 +37,7 @@ use itertools::Itertools;
 /// let lead_sim = LeadSimulation::new(
 ///     100,
 ///     dealer,
-///     Contract::from_str("5CN", Vulnerable::No)?,
+///     Contract::from_str("5CN")?,
 /// );
 /// let results = lead_sim.run().expect("unable to run simulation");
 /// results.report();
@@ -110,6 +110,7 @@ impl<T: Dealer> Simulation<LeadSimulationResult> for LeadSimulation<T> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
 /// A single lead card, storing the number of times it will make
 /// `number_of_tricks` in a array. The `average_tricks` and `set_percentage`
@@ -157,6 +158,7 @@ impl LeadCard {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The simulation results, containing a `HashMap` from `Card` to `LeadCard` for
 /// storing the result and being able to update the data.
 pub struct LeadSimulationResult {
@@ -352,7 +354,7 @@ mod test {
             .with_hand_descriptor(Seat::West, HandDescriptor::new(vec![west_hand]))
             .build()
             .unwrap();
-        let contract = Contract::from_str("3NW", Vulnerable::No).unwrap();
+        let contract = Contract::from_str("3NW").unwrap();
         let simulation = LeadSimulation {
             num_of_boards: 100,
             dealer,

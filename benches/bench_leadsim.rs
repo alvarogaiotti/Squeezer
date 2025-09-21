@@ -1,7 +1,7 @@
 #![allow(clippy::all)]
-use criterion::{criterion_group, criterion_main, Criterion};
-use squeezer::prelude::*;
+use criterion::{Criterion, criterion_group, criterion_main};
 use squeezer::Simulation;
+use squeezer::prelude::*;
 use std::hint::black_box;
 
 #[inline]
@@ -19,7 +19,7 @@ fn lead_simulation_test(_: ()) {
         })
         .build()
         .unwrap();
-    let contract = Contract::from_str("2HE", Vulnerable::No).unwrap();
+    let contract = Contract::from_str_and_vuln("2HE", Vulnerable::No).unwrap();
     let simulation = LeadSimulation::new(1000, dealer, contract);
     let _ = simulation.run().unwrap();
 }

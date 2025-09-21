@@ -3,7 +3,7 @@
 *.lib
 *.lin
 *.pbn
-libdds.so
+libdds*
 .idea/
 dds290-dll/
 rusty-tags.vi

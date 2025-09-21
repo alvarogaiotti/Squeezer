@@ -265,42 +265,6 @@ impl Contract {
         self.declarer
     }
 
-    /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
-    ///
-    /// # Errors
-    /// Errors if the contract string is improperly formatted
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn from_str(s: &str, vuln: Vulnerable) -> Result<Self, DealerError> {
-        let doubled = match s.len() - s.trim_end_matches('X').len() {
-            0 => Doubled::NotDoubled,
-            1 => Doubled::Doubled,
-            2 => Doubled::Redoubled,
-            _ => unreachable!("too many `X`"),
-        };
-        let mut chars = s.chars();
-        let level = chars
-            .next()
-            .ok_or(DealerError::new("no contract level"))?
-            .to_digit(10)
-            .ok_or(DealerError::new("contract level too high"))?;
-        if !(1..=7).contains(&level) {
-            return Err(DealerError::new("Wrong contract level"));
-        }
-        Ok(Self {
-            vuln,
-            doubled,
-            level: level as u8,
-            strain: chars
-                .next()
-                .ok_or(DealerError::new("no contract strain"))?
-                .try_into()?,
-            declarer: chars
-                .next()
-                .ok_or(DealerError::new("no contract dealer"))?
-                .try_into()?,
-        })
-    }
-
     /// Returns a non-unicode string representation of the contract.
     #[must_use]
     pub fn not_unicode_str(&self) -> String {
@@ -321,6 +285,44 @@ impl Contract {
         )
     }
 
+    /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
+    ///
+    /// # Errors
+    /// Errors if the contract string is improperly formatted
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn from_str_and_vuln(s: &str, vuln: Vulnerable) -> Result<Contract, DealerError> {
+        let doubled = match s.len() - s.trim_end_matches('X').len() {
+            0 => Doubled::NotDoubled,
+            1 => Doubled::Doubled,
+            2 => Doubled::Redoubled,
+            _ => unreachable!("too many `X`"),
+        };
+        let mut chars = s.chars();
+        let level = chars
+            .next()
+            .ok_or(DealerError::new("no contract level"))?
+            .to_digit(10)
+            .ok_or(DealerError::new("contract level too high"))?;
+        if !(1..=7).contains(&level) {
+            return Err(DealerError::new("Wrong contract level"));
+        }
+        let strain = chars
+            .next()
+            .ok_or(DealerError::new("no contract strain"))?
+            .try_into()?;
+        let declarer = chars
+            .next()
+            .ok_or(DealerError::new("no contract dealer"))?
+            .try_into()?;
+        Ok(Self {
+            vuln,
+            doubled,
+            level: level as u8,
+            strain,
+            declarer,
+        })
+    }
+
     /// Constructs a new `Contract` instance.
     #[must_use]
     pub fn new(
@@ -337,6 +339,76 @@ impl Contract {
             strain,
             declarer,
         }
+    }
+}
+
+impl FromStr for Contract {
+    type Err = DealerError;
+    /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
+    ///
+    /// # Errors
+    /// Errors if the contract string is improperly formatted
+    #[allow(clippy::cast_possible_truncation)]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut chars = s.chars();
+        let level = chars
+            .next()
+            .ok_or(DealerError::new("no contract level"))?
+            .to_digit(10)
+            .ok_or(DealerError::new("contract level too high"))?;
+        if !(1..=7).contains(&level) {
+            return Err(DealerError::new("Wrong contract level"));
+        }
+        let strain = chars
+            .next()
+            .ok_or(DealerError::new("no contract strain"))?
+            .try_into()?;
+        let mut chars = chars.peekable();
+        let doubled = if let Some(doubled) = chars.peek() {
+            match *doubled {
+                'x' | 'X' => {
+                    _ = chars.next();
+                    if let Some(redoubled) = chars.peek() {
+                        match redoubled {
+                            'x' | 'X' => {
+                                _ = chars.next();
+                                Doubled::Redoubled
+                            }
+                            _ => Doubled::Doubled,
+                        }
+                    } else {
+                        return Err(DealerError::new(
+                            "contract is incomplete: hasn't dealer specified",
+                        ));
+                    }
+                }
+                _ => Doubled::NotDoubled,
+            }
+        } else {
+            return Err(DealerError::new(
+                "contract is incomplete: hasn't dealer specified",
+            ));
+        };
+        let declarer = chars
+            .next()
+            .ok_or(DealerError::new("no contract dealer"))?
+            .try_into()?;
+        let vuln = if let Some(vuln) = chars.next() {
+            match vuln {
+                'n' | 'N' => Vulnerable::No,
+                'v' | 'V' => Vulnerable::Yes,
+                _ => return Err(DealerError::new("unrecognized vulnerability")),
+            }
+        } else {
+            Vulnerable::No
+        };
+        Ok(Self {
+            vuln,
+            doubled,
+            level: level as u8,
+            strain,
+            declarer,
+        })
     }
 }
 impl fmt::Display for Contract {
@@ -410,11 +482,11 @@ mod test {
     use super::{Contract, Vulnerable};
     #[test]
     fn can_create_contract_from_str_test() {
-        let contract_c = Contract::from_str("3CN", Vulnerable::No).unwrap();
-        let contract_d = Contract::from_str("3DN", Vulnerable::No).unwrap();
-        let contract_s = Contract::from_str("3SN", Vulnerable::No).unwrap();
-        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
-        let contract_n = Contract::from_str("3NNXX", Vulnerable::No).unwrap();
+        let contract_c = Contract::from_str_and_vuln("3CN", Vulnerable::No).unwrap();
+        let contract_d = Contract::from_str_and_vuln("3DN", Vulnerable::No).unwrap();
+        let contract_s = Contract::from_str_and_vuln("3SN", Vulnerable::No).unwrap();
+        let contract_h = Contract::from_str_and_vuln("3HN", Vulnerable::No).unwrap();
+        let contract_n = Contract::from_str_and_vuln("3NNXX", Vulnerable::No).unwrap();
         assert_eq!(contract_c.to_string(), "3♣N");
         assert_eq!(contract_d.to_string(), "3♦N");
         assert_eq!(contract_h.to_string(), "3♥N");

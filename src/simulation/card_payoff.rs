@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::{linparser::PlaySequence, prelude::*};
+use crate::prelude::*;
 use dds::{
     deal::{AsDDSDeal, DdsDeal, DdsDealBuilder},
     doubledummy::DoubleDummySolver,
@@ -21,9 +21,9 @@ use std::io::Write;
 /// # fn main() -> Result<(), Box<dyn Error>>{
 ///
 /// let to_compare = vec![
-///     Contract::from_str("3CN", Vulnerable::No)?,
-///     Contract::from_str("3HS", Vulnerable::No)?,
-///     Contract::from_str("3NN", Vulnerable::No)?,
+///     Contract::from_str("3CN")?,
+///     Contract::from_str("3HS")?,
+///     Contract::from_str("3NN")?,
 ///     ];
 /// let simulation = PayoffSimulation::new(100, StandardDealer::new(), to_compare, imps);
 /// let payoff = simulation.run()?;
@@ -39,11 +39,13 @@ pub struct CardPayoffSimulation<E: Fn(i32, i32) -> i32, D: Dealer> {
     contract: Contract,
     diff: E,
     seat: Seat,
-    play_trace: PlaySequence,
+    play_trace: Cards,
 }
 
 impl<E: Fn(i32, i32) -> i32, D: Dealer> CardPayoffSimulation<E, D> {
     /// Creates a new [`PayoffSimulation<E, D, P>`].
+    /// # Errors
+    /// Errors if the cards to compare are not included in the hand that has to play
     pub fn new(
         no_of_runs: usize,
         dealer: D,
@@ -51,7 +53,7 @@ impl<E: Fn(i32, i32) -> i32, D: Dealer> CardPayoffSimulation<E, D> {
         contract: Contract,
         diff: E,
         seat: Seat,
-        play_trace: PlaySequence,
+        play_trace: Cards,
     ) -> Result<Self, DealerError> {
         let hands = dealer.predealt();
         for card in &to_compare {
@@ -99,7 +101,7 @@ where
         // Take the total number of runs we want to simulate, and divide it into chunks.
         // Eg. 1000 runs, 4 contracts = 1000 split into 20 chunks of 50 elements
         // For the 20 chunks of length 50...
-        let already_played: Cards = self.play_trace.into();
+        let already_played: Cards = self.play_trace;
         let number_of_deals = solver_array_len / no_of_entries;
         let hand = DdsDeal::new();
         deal_buffer.resize(number_of_deals * no_of_entries, hand);
@@ -176,29 +178,6 @@ where
             }
         }
         Ok(payoff)
-    }
-}
-
-pub struct PayoffEntry<P>
-where
-    P: DifferenceMaker,
-{
-    difference_makers: (P, P),
-    results: Option<(f32, f32)>,
-}
-
-impl<P> PayoffEntry<P>
-where
-    P: DifferenceMaker,
-{
-    pub fn new(difference_maker1: P, difference_maker2: P, results: Option<(f32, f32)>) -> Self {
-        Self {
-            difference_makers: (difference_maker1, difference_maker2),
-            results,
-        }
-    }
-    pub fn set_result(&mut self, results: Option<(f32, f32)>) {
-        self.results = results;
     }
 }
 
@@ -283,7 +262,7 @@ mod test {
     };
     #[test]
     fn cards_payoff_report_test() {
-        let contract = Contract::from_str("3NN", Vulnerable::No).unwrap();
+        let contract = Contract::from_str_and_vuln("3NN", Vulnerable::No).unwrap();
         let dealer = DealerBuilder::new()
             .predeal(Seat::North, Cards::from_str("AKQ AKQ K 9").unwrap())
             .unwrap()
@@ -302,7 +281,7 @@ mod test {
             )
             .build()
             .unwrap();
-        let play_trace = PlaySequence::new(vec![Card::D3, Card::D2, Card::D8, Card::DK]);
+        let play_trace = PlaySequence::new(vec![Card::D3, Card::D2, Card::D8, Card::DK]).into();
         let sim = CardPayoffSimulation::new(
             200,
             dealer,
@@ -319,14 +298,14 @@ mod test {
 
     #[should_panic(expected = "Wrong contract level")]
     fn create_contract_wrong_level_test() {
-        let _contract = Contract::from_str("8CS", Vulnerable::No).unwrap();
+        let _contract = Contract::from_str_and_vuln("8CS", Vulnerable::No).unwrap();
     }
     fn contract_computes_correct_scores_test() {
-        let contract_c = Contract::from_str("6CN", Vulnerable::No).unwrap();
-        let contract_d = Contract::from_str("5DNX", Vulnerable::Yes).unwrap();
-        let contract_s = Contract::from_str("4SN", Vulnerable::No).unwrap();
-        let contract_h = Contract::from_str("3HN", Vulnerable::No).unwrap();
-        let contract_n = Contract::from_str("3NN", Vulnerable::No).unwrap();
+        let contract_c = Contract::from_str_and_vuln("6CN", Vulnerable::No).unwrap();
+        let contract_d = Contract::from_str_and_vuln("5DNX", Vulnerable::Yes).unwrap();
+        let contract_s = Contract::from_str_and_vuln("4SN", Vulnerable::No).unwrap();
+        let contract_h = Contract::from_str_and_vuln("3HN", Vulnerable::No).unwrap();
+        let contract_n = Contract::from_str_and_vuln("3NN", Vulnerable::No).unwrap();
         assert_eq!(400_i32, contract_n.score(9));
         assert_eq!(140_i32, contract_h.score(9));
         assert_eq!(420_i32, contract_s.score(10));
@@ -336,9 +315,9 @@ mod test {
     }
     fn other_payoff_test() {
         let contracts = vec![
-            Contract::from_str("4SN", Vulnerable::No).unwrap(),
-            Contract::from_str("3NN", Vulnerable::No).unwrap(),
-            Contract::from_str("6SN", Vulnerable::No).unwrap(),
+            Contract::from_str("4SN").unwrap(),
+            Contract::from_str("3NN").unwrap(),
+            Contract::from_str("6SN").unwrap(),
         ];
         let ht = HandTypeBuilder::new()
             .with_range(14, 14)
