@@ -226,6 +226,11 @@ where
 }
 
 impl<P: fmt::Display + DifferenceMaker> SimulationResult for Payoff<P> {
+    type DataFormat = Self;
+    fn results(self) -> Self::DataFormat {
+        self
+    }
+
     /// This function generates a report displaying the Payoff matrix in the terminal.
     /// It compares the expected value of each option with respect to the others.
     #[allow(clippy::missing_panics_doc, clippy::cast_precision_loss)]

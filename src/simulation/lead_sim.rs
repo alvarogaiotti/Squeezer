@@ -211,6 +211,10 @@ impl LeadSimulationResult {
 }
 
 impl SimulationResult for LeadSimulationResult {
+    type DataFormat = Vec<LeadCard>;
+    fn results(self) -> Self::DataFormat {
+        self.lead_results.values().cloned().collect()
+    }
     fn report(&self) {
         let string = self.to_string();
         for (index, line) in string.lines().enumerate() {

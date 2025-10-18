@@ -12,7 +12,9 @@ pub use lead_sim::*;
 pub use payoff::*;
 
 pub trait SimulationResult {
+    type DataFormat;
     fn report(&self);
+    fn results(self) -> Self::DataFormat;
 }
 
 pub trait Simulation<T: SimulationResult> {
