@@ -17,7 +17,7 @@ fn payoff_report_test(_: ()) {
         .unwrap()
         .build()
         .unwrap();
-    let sim = PayoffSimulation::new(1000, dealer, contracts, imps);
+    let sim = ContractPayoffSimulation::new(1000, dealer, contracts, imps);
     sim.run().unwrap();
 }
 

@@ -424,7 +424,7 @@ impl DdsDealBuilder {
     #[inline]
     #[must_use]
     #[allow(clippy::missing_panics_doc)]
-    pub fn current_trick<T: AsDDSCard>(mut self, current_trick: &[Option<T>; 3]) -> Self {
+    pub fn current_trick<T: AsDDSCard>(mut self, current_trick: [Option<T>; 3]) -> Self {
         let (ranks, suits): (Vec<_>, Vec<_>) = current_trick
             .iter()
             .map(|card| {

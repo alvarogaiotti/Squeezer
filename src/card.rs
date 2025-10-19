@@ -330,6 +330,13 @@ impl std::fmt::Binary for Cards {
         <u64 as std::fmt::Binary>::fmt(&self.bits, f)
     }
 }
+impl From<&Vec<Card>> for Cards {
+    fn from(value: &Vec<Card>) -> Self {
+        Cards {
+            bits: value.iter().fold(0, |a, c| a | (1 << c.offset)),
+        }
+    }
+}
 
 #[allow(clippy::cast_possible_truncation)]
 impl Cards {

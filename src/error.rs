@@ -12,6 +12,7 @@ use std::error::Error;
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum SqueezerError {
+    InvalidInput(String),
     LinParsing(ParseLinError),
     CreationShape(CreationShapeError),
     DealingError(DealerError),
@@ -33,6 +34,7 @@ impl Error for SqueezerError {
             #[cfg(feature = "dds")]
             SqueezerError::SeqError(err) => Some(err),
             SqueezerError::Generic(_) => None,
+            SqueezerError::InvalidInput(_) => None,
         }
     }
 }
@@ -44,8 +46,11 @@ impl std::fmt::Display for SqueezerError {
         } else {
             match self {
                 SqueezerError::Generic(err) => write!(f, "squeezer encountered an error:\n\t{err}"),
+                SqueezerError::InvalidInput(_) => {
+                    write!(f, "squeezer encountered an error:\n\tInvalid input")
+                }
                 _ => unreachable!(
-                    "only SqueezerError::Generic should return None from the source method "
+                    "only SqueezerError::Generic and InvalidInput should return None from the source method"
                 ),
             }
         }
