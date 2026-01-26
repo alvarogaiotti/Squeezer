@@ -97,7 +97,7 @@ fn benchmark_trick_winner_functions(c: &mut Criterion) {
                         let winner_position_in_trick = find_trick_winner_naive(
                             black_box(trick_cards),
                             black_box(lead_suit),
-                            black_box(trump),
+                            black_box(Some(trump)),
                         );
                         //println!("{winner_position_in_trick}");
                         current_leader = current_leader + winner_position_in_trick;

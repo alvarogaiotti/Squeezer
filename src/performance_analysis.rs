@@ -636,9 +636,8 @@ impl PreprocessedDeal {
             for i in 32..48 {
                 let card = cards[i].as_u8();
                 let suit = card >> 4;
-                let rank = card & 0x0F;
-                let is_trump = (suit == trump_id) as u8;
-                result[i] = (is_trump << 7) | rank as u8;
+                let is_trump = u8::from(suit == trump_id);
+                result[i] = (is_trump << 7) | card;
             }
         } else {
             for i in 0..48 {
@@ -756,21 +755,43 @@ pub fn find_trick_winner(
 
 #[inline]
 #[must_use]
-pub fn find_trick_winner_naive(original_cards: [Card; 4], lead_suit: Suit, trump: Suit) -> usize {
-    original_cards
-        .iter()
-        .enumerate()
-        .fold((0, 0), |acc, (i, card)| {
-            let is_trump = u8::from((trump as u8 ^ card.suit() as u8) & 0xF0 == 0);
-            let is_lead = u8::from((lead_suit as u8 ^ card.suit() as u8) & 0xF0 == 0);
+pub fn find_trick_winner_naive(
+    original_cards: [Card; 4],
+    lead_suit: Suit,
+    trump: Option<Suit>,
+) -> usize {
+    if let Some(trump) = trump {
+        original_cards
+            .iter()
+            .enumerate()
+            .fold((0, 0), |acc, (i, card)| {
+                let is_trump = u8::from((trump as u8 ^ card.suit() as u8) == 0);
+                let is_lead = u8::from((lead_suit as u8 ^ card.suit() as u8) == 0);
 
-            let new_best: u8 = acc.1.max(card.as_u8() | (is_trump * 128) | (is_lead * 64));
-            (
-                (i as u8 * (new_best - acc.1)) + (acc.0 * u8::from((new_best - acc.1) != 0)),
-                new_best - acc.1,
-            )
-        })
-        .0 as usize
+                let new_best: u8 = acc.1.max(card.as_u8() | (is_trump * 128) | (is_lead * 64));
+                (
+                    i as u8 * u8::from(new_best - acc.1 != 0)
+                        + acc.0 * u8::from(new_best - acc.1 == 0),
+                    new_best,
+                )
+            })
+            .0 as usize
+    } else {
+        original_cards
+            .iter()
+            .enumerate()
+            .fold((0, 0), |acc, (i, card)| {
+                let is_lead = u8::from((lead_suit as u8 ^ card.suit() as u8) == 0);
+
+                let new_best: u8 = acc.1.max(card.as_u8() | (is_lead * 64));
+                let is_equal = new_best.wrapping_sub(acc.1) == 0;
+                (
+                    i as u8 * u8::from(!is_equal) + acc.0 * u8::from(is_equal),
+                    new_best,
+                )
+            })
+            .0 as usize
+    }
 }
 
 // ============================================================================
@@ -878,8 +899,8 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         }
 
         // Find winner using SIMD-friendly comparison
-        let winner_position_in_trick =
-            find_trick_winner(trick_preprocessed, trick_cards, lead_suit);
+        let winner_position_in_trick = find_trick_winner_naive(trick_cards, lead_suit, trump);
+        // println!("{}", winner_position_in_trick);
         //println!("{winner_position_in_trick}");
         current_leader = current_leader + winner_position_in_trick;
     }
@@ -1112,17 +1133,17 @@ mod tests {
         };
         let players_performance = analyze_hand(analysis_input);
 
-        println!("N  E  S  W");
-        for i in 0..=4 {
-            use itertools::*;
-            println!(
-                "{}",
-                players_performance
-                    .records
-                    .iter()
-                    .format_with("-", |elt, f| f(&format_args!("{}", elt.plays[i].card)))
-            );
-        }
+        // println!("N  E  S  W");
+        // for i in 0..=4 {
+        //     use itertools::*;
+        //     println!(
+        //         "{}",
+        //         players_performance
+        //             .records
+        //             .iter()
+        //             .format_with("-", |elt, f| f(&format_args!("{}", elt.plays[i].card)))
+        //     );
+        // }
         assert_eq!(
             players_performance.records[Seat::North as usize].plays[0].card,
             Card::S2
