@@ -13,7 +13,13 @@ use crate::{Card, Cards, Contract, Hands, Seat, Strain, Vulnerability};
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlaySequence {
-    sequence: Vec<Card>,
+    pub(crate) sequence: Vec<Card>,
+}
+
+impl FromIterator<Card> for PlaySequence {
+    fn from_iter<T: IntoIterator<Item = Card>>(iter: T) -> Self {
+        Self::new(iter.into_iter().collect_vec())
+    }
 }
 
 impl PlaySequence {

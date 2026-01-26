@@ -8,7 +8,7 @@ use crate::linparser::LinDeal;
 use crate::prelude::*;
 
 /// Type of the function that checks if a Deal is to be accepted or not
-pub type AcceptFunction = Box<(dyn Fn(&Hands) -> bool + Send)>;
+pub type AcceptFunction = Box<dyn Fn(&Hands) -> bool + Send>;
 
 /// Structure that holds 4 `Hand`s of 13 cards
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -177,6 +177,12 @@ impl Seat {
 
     #[must_use]
     #[inline]
+    pub fn partner(&self) -> Seat {
+        self.next().next()
+    }
+
+    #[must_use]
+    #[inline]
     pub fn previous(self) -> Seat {
         match self {
             Self::North => Self::West,
@@ -213,7 +219,9 @@ impl Seat {
     #[must_use]
     /// Beware, this iterator never stops
     pub fn iter_from(self) -> RotatingSuitIterator {
-        RotatingSuitIterator::new(self)
+        // We want to trigger the rotation starting from the current seat
+        // so we must roll back and then proceed.
+        RotatingSuitIterator::new(self.previous())
     }
 }
 
@@ -985,7 +993,7 @@ impl Deal {
     #[inline]
     #[allow(clippy::cast_possible_truncation)]
     pub fn as_lin(&self, board_n: u8) -> String {
-        let board_n = if board_n % (MAX_N_OF_BOARDS + 1) == 0 {
+        let board_n = if board_n.is_multiple_of(MAX_N_OF_BOARDS + 1) {
             1
         } else {
             board_n % (MAX_N_OF_BOARDS + 1)

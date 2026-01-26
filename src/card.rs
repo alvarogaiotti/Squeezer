@@ -40,7 +40,13 @@ impl Card {
         }
     }
 
+    pub(crate) const fn from_u8(offset: u8) -> Self {
+        Self { offset }
+    }
+
     ///Returns suit of the card.
+    ///# Panics
+    /// If you request the suit of a `Card::JOKER`
     #[must_use]
     #[inline]
     pub const fn suit(self) -> Suit {
@@ -48,7 +54,8 @@ impl Card {
             0 => Suit::Spades,
             1 => Suit::Hearts,
             2 => Suit::Diamonds,
-            _ => Suit::Clubs,
+            3 => Suit::Clubs,
+            _ => panic!("requested Suit for a Card::JOKER!"),
         }
     }
 
@@ -101,6 +108,12 @@ impl Card {
             14 => 'A',
             _ => '?',
         }
+    }
+
+    #[must_use]
+    #[inline]
+    pub(crate) const fn as_u8(self) -> u8 {
+        self.offset
     }
 
     /// 2 of Clubs
@@ -211,6 +224,7 @@ impl Card {
     /// Ace of Spades
     pub const SA: Card = Card::new(Suit::Spades, 14);
     pub const JOKER: Card = Card { offset: u8::MAX };
+    pub const NONCE: Card = Card { offset: 0 };
 }
 
 impl TryFrom<&[Card]> for Cards {

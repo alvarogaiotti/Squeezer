@@ -14,7 +14,8 @@
     clippy::single_call_fn,
     clippy::unseparated_literal_suffix,
     clippy::implicit_return,
-    clippy::should_panic_without_expect
+    clippy::should_panic_without_expect,
+    clippy::needless_doctest_main
 )]
 /*!This crate offers you every tool you might need for Bridge (the card game) related stuff.
  We support some variegated functionality: random single deal creation (via [`Deal::new()`]),

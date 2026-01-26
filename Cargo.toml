@@ -50,3 +50,11 @@ harness = false
 [[bench]]
 name = "bench_handdescriptor"
 harness = false
+
+[[bench]]
+name = "simd_benchmark"
+harness = false
+
+[[bench]]
+name = "trick_winner_bench"
+harness = false

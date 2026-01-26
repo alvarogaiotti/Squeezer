@@ -47,18 +47,13 @@ type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 /// Public enum representing a Shape. I'll probably add something more
 /// fine tuned later, for now we discriminate just based on whether we need
 /// all the shapes or just some subset of them.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum Shape {
     Custom(Shapes),
+    #[default]
     All,
-}
-
-impl Default for Shape {
-    fn default() -> Self {
-        Self::All
-    }
 }
 
 impl FromStr for Shape {
@@ -143,6 +138,7 @@ impl Shape {
 /// The shapes are stored in a bit array and this is the main data structure
 /// for keeping track of the shape we are interested into.
 /// Offers all the necessary methods to manipulate the shapes.
+#[allow(clippy::unsafe_derive_deserialize)]
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Shapes {
@@ -250,7 +246,7 @@ impl Shapes {
             } else {
                 heap_algorithm(n - 1, shape, permutations);
                 for index in 0..n - 1 {
-                    if n % 2 == 0 {
+                    if n.is_multiple_of(2) {
                         shape.swap(index, n - 1);
                     } else {
                         shape.swap(0, n - 1);
@@ -534,6 +530,12 @@ impl Suit {
             Suit::Hearts => '\u{2665}',
             Suit::Spades => '\u{2660}',
         }
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn bits(self) -> u8 {
+        self as u8
     }
     /// The latin character for this suit
     #[must_use]
