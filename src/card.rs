@@ -233,7 +233,7 @@ impl TryFrom<&[Card]> for Cards {
     fn try_from(card_slice: &[Card]) -> Result<Self, Self::Error> {
         let mut cards = Cards::EMPTY;
         for card in card_slice {
-            if cards.contains(*card) {
+            if cards.has_card(*card) {
                 return Err(SqueezerError::Generic("duplicate card".to_string()));
             }
             cards = cards.insert(*card);
@@ -396,8 +396,14 @@ impl Cards {
     #[must_use]
     #[inline]
     /// Returns true if `card` is contained in the instance.
-    pub const fn contains(self, card: Card) -> bool {
+    pub const fn has_card(self, card: Card) -> bool {
         self.bits & (1 << card.offset) != 0
+    }
+    #[must_use]
+    #[inline]
+    /// Returns true if all the `cards` are contained in the instance.
+    pub const fn contains(self, cards: Cards) -> bool {
+        cards.bits & self.bits == cards.bits
     }
 
     /// Sum of two [`Cards`] instances.

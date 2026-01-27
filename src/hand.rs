@@ -9,7 +9,7 @@ use crate::prelude::*;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Hand {
-    pub cards: Cards,
+    pub(crate) cards: Cards,
 }
 
 impl Default for Hand {
@@ -31,6 +31,13 @@ impl Hand {
         }
     }
 
+    /// Get the cards in the Hand as a set.
+    /// Returns the cards in the Hand.
+    #[must_use]
+    #[inline]
+    pub fn cards(&self) -> Cards {
+        self.cards
+    }
     /// Create a new Hand with no cards.
     /// Returns the created Hand.
     #[must_use]
@@ -47,11 +54,18 @@ impl Hand {
         self.cards = cards;
     }
 
+    /// Check if the Hand contains a set of cards.
+    /// Returns true if the Hand contains the cards, false otherwise.
+    #[must_use]
+    pub fn contains(&self, cards: Cards) -> bool {
+        self.cards.contains(cards)
+    }
+
     /// Check if the Hand contains a specific card.
     /// Returns true if the Hand contains the card, false otherwise.
     #[must_use]
-    pub fn contains(&self, card: Card) -> bool {
-        self.cards.contains(card)
+    pub fn has_card(&self, card: Card) -> bool {
+        self.cards.has_card(card)
     }
 
     /// Get the distribution of suits in the Hand.
@@ -139,13 +153,6 @@ impl Hand {
     #[must_use]
     pub fn hcp(&self) -> u8 {
         self.cards.high_card_points()
-    }
-
-    /// Get the cards in the Hand as a set.
-    /// Returns the cards in the Hand.
-    #[must_use]
-    pub fn as_cards(&self) -> Cards {
-        self.cards
     }
 
     /// Get the cards in the Hand as bit representation.

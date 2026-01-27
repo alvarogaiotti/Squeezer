@@ -723,7 +723,7 @@ impl<D: Dealer> CardPayoffBuilder<D> {
         let hands = dealer.predealt();
         for card in &self.cards {
             if let Some(hand) = hands[seat as usize]
-                && !hand.contains(*card)
+                && !hand.has_card(*card)
             {
                 return Err(SqueezerError::InvalidInput(format!(
                     "{card} is not in {seat}'s hand"
@@ -889,7 +889,7 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
                     // Remove already played cards and the card being tested
                     let played_cards_after_new_card = play_trace_cards.insert(acc.card);
                     for hand in &mut hands {
-                        hand.set_cards(hand.as_cards() - played_cards_after_new_card);
+                        hand.set_cards(hand.cards() - played_cards_after_new_card);
                     }
 
                     if let Some(index) = insertion_point {

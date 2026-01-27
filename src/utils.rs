@@ -56,10 +56,10 @@ pub fn weak2_hand_descriptor(hand: Hand) -> bool {
     wk2.check(hand)
         && ((hand.slen() == 6
             && w2.evaluate(hand.spades()) > 3
-            && controls.evaluate(hand.as_cards()) < 4)
+            && controls.evaluate(hand.cards()) < 4)
             || (hand.hlen() == 6
                 && w2.evaluate(hand.hearts()) > 3
-                && controls.evaluate(hand.as_cards()) < 4))
+                && controls.evaluate(hand.cards()) < 4))
 }
 
 #[must_use]
@@ -106,7 +106,7 @@ fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
 #[must_use]
 pub fn zar_points(hand: Hand) -> u8 {
     let zar_evaluator = Evaluator::new(&[6, 4, 2, 1]);
-    zar_evaluator.evaluate(hand.as_cards()) + evaluate_lenght_and_concentration(hand)
+    zar_evaluator.evaluate(hand.cards()) + evaluate_lenght_and_concentration(hand)
         - devaluate_short_honors(hand)
 }
 
