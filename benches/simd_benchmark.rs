@@ -28,7 +28,7 @@ fn generate_random_cards() -> [Card; 48] {
     let mut rng = rng();
     let mut cards = [Card::new(Suit::Spades, 2); 48];
 
-    for i in 0..48 {
+    for card in &mut cards {
         let suit = match rng.random_range(0..4) {
             0 => Suit::Spades,
             1 => Suit::Hearts,
@@ -37,7 +37,7 @@ fn generate_random_cards() -> [Card; 48] {
             _ => unreachable!(),
         };
         let rank = rng.random_range(2..=14);
-        cards[i] = Card::new(suit, rank);
+        *card = Card::new(suit, rank);
     }
 
     cards

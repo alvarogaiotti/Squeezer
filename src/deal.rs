@@ -218,21 +218,21 @@ impl Seat {
     #[inline]
     #[must_use]
     /// Beware, this iterator never stops
-    pub fn iter_from(self) -> RotatingSuitIterator {
+    pub fn iter_from(self) -> RotatingSeatIterator {
         // We want to trigger the rotation starting from the current seat
         // so we must roll back and then proceed.
-        RotatingSuitIterator::new(self.previous())
+        RotatingSeatIterator::new(self.previous())
     }
 }
 
 /// Iterator that cycles over the seats in a Bridge game.
 /// Can set state and restart.
 /// Start iteration from the seat next to the one with which is initialised.
-pub struct RotatingSuitIterator {
+pub struct RotatingSeatIterator {
     state: Seat,
 }
 
-impl Iterator for RotatingSuitIterator {
+impl Iterator for RotatingSeatIterator {
     type Item = Seat;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -241,7 +241,7 @@ impl Iterator for RotatingSuitIterator {
     }
 }
 
-impl RotatingSuitIterator {
+impl RotatingSeatIterator {
     /// Beware, this iterator never stops
     #[inline]
     #[must_use]

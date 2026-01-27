@@ -168,7 +168,7 @@ pub mod prelude {
         array::IntoIter,
         error::Error,
         fmt,
-        hash::{Hash, Hasher},
+        hash::{Hash},
         ops::RangeInclusive,
     };
 }

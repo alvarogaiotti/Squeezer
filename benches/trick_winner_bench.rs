@@ -9,7 +9,7 @@
 // name = "trick_winner_bench"
 // harness = false
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rand::Rng;
 use rand::rng;
 use squeezer::{

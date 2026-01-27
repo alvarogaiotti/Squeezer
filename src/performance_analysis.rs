@@ -541,20 +541,22 @@ impl PreprocessedDeal {
     #[target_feature(enable = "avx2")]
     #[must_use]
     pub unsafe fn new_avx2(cards: &[Card; 48], trump: Option<Suit>) -> Self {
-        use std::arch::x86_64::*;
+        use std::arch::x86_64::{
+            _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256, _mm256_or_si256,
+            _mm256_set1_epi8, _mm256_slli_epi16, _mm256_srli_epi16, _mm256_storeu_si256,
+        };
 
         let mut result = [0u8; 48];
 
         if let Some(trump_suit) = trump {
             let trump_id = trump_suit as u8;
 
-            let zero = _mm256_setzero_si256();
             let rank_mask = _mm256_set1_epi8(0x0F);
             let suit_mask = _mm256_set1_epi8(0xF0u8 as i8);
             let trump_vec = _mm256_set1_epi8(trump_id as i8);
 
             // ---- Load 32 cards ----
-            let cards_v = _mm256_loadu_si256(cards.as_ptr().cast());
+            let cards_v = unsafe { _mm256_loadu_si256(cards.as_ptr().cast()) };
             // _mm256_storeu_si256(print.as_mut_ptr().cast(), cards_v);
             // println!("Cards");
             // for e in &print {
@@ -589,8 +591,6 @@ impl PreprocessedDeal {
             // for e in &print {
             //     println!("{e}");
             // }
-
-            let shift_bonus = _mm256_slli_epi16(bonus, 7);
 
             // _mm256_storeu_si256(print.as_mut_ptr().cast(), shift_bonus);
             // println!("Shift Bonus");
@@ -630,7 +630,7 @@ impl PreprocessedDeal {
             let result_p = _mm256_or_si256(ranks, _mm256_slli_epi16(bonus, 7));
             let result_p = _mm256_or_si256(result_p, cards_v);
 
-            _mm256_storeu_si256(result.as_mut_ptr().cast(), result_p);
+            unsafe { _mm256_storeu_si256(result.as_mut_ptr().cast(), result_p) };
 
             // scalar tail
             for i in 32..48 {
@@ -755,6 +755,7 @@ pub fn find_trick_winner(
 
 #[inline]
 #[must_use]
+#[allow(clippy::cast_possible_truncation)]
 pub fn find_trick_winner_naive(
     original_cards: [Card; 4],
     lead_suit: Suit,
@@ -853,8 +854,8 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
     let extra_cards = seq_len % 4;
     cards_array[0..seq_len].copy_from_slice(&input.play_sequence.sequence);
 
-    // **KEY OPTIMIZATION**: Preprocess entire deal once with SIMD
-    let preprocessed = PreprocessedDeal::new(&cards_array, trump);
+    // Preprocess entire deal once with SIMD
+    // let preprocessed = PreprocessedDeal::new(&cards_array, trump);
     let mut records = [
         PlayerRecord::new(),
         PlayerRecord::new(),
@@ -876,7 +877,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 
         trick_cards.copy_from_slice(&cards_array[card_offset..card_offset + 4]);
 
-        let trick_preprocessed = preprocessed.get_trick(trick_idx);
+        // let trick_preprocessed = preprocessed.get_trick(trick_idx);
         let lead_suit = trick_cards[0].suit();
         //dbg!(trick_cards);
         //dbg!(trick_preprocessed);
