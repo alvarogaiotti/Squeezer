@@ -41,6 +41,8 @@ use crate::{
 /// # use dds::solver::BridgeSolver;
 /// # use std::error::Error;
 /// # use dds::doubledummy::DoubleDummySolver;
+/// # use dds::deal::DdsDealBuilder;
+/// # use dds::deal::AsDDSDeal;
 /// # #[derive(Debug, Clone)]
 /// # pub struct DealMock {pub hands: [[usize; 4]; 4]}
 /// # impl IntoIterator for DealMock {
@@ -52,7 +54,7 @@ use crate::{
 /// # }
 /// #
 /// # impl dds::deal::AsDDSDeal for DealMock {
-/// #     fn to_dds_deal(&self) -> dds::deal::DDSDealRepr {
+/// #     fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
 /// #         let mut remain_cards = [[0; 4]; 4];
 /// #         for (seat, hand) in self.clone().into_iter().enumerate() {
 /// #             for (index, suit) in hand.into_iter().enumerate() {
@@ -106,7 +108,8 @@ use crate::{
 ///    };
 ///    let contract = ContractMock {};
 ///    let solver = DoubleDummySolver::new();
-///    println!("{}", solver.dd_tricks(&deal, &contract)?);
+///    let deal = DdsDealBuilder::new().contract(&contract).remain_cards(deal.as_dds_deal()).build()?;
+///    println!("{}", solver.dd_tricks(&deal)?);
 /// # Ok(())
 /// # }
 /// ```
@@ -621,7 +624,7 @@ impl PlayAnalyzer for DoubleDummySolver {
             Ok(vec) => vec,
             Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
         };
-        c_deals.resize(MAXNOOFBOARDS, DdsDeal::new());
+        c_deals.resize(MAXNOOFBOARDS, DdsDeal::sentinel());
         let mut boards = Boards {
             no_of_boards: deals_len,
             // We know vec has the right length

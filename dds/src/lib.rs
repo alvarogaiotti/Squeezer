@@ -11,7 +11,6 @@ pub mod analyseplay;
 #[allow(
     clippy::unseparated_literal_suffix,
     clippy::missing_docs_in_private_items,
-    clippy::unseparated_literal_suffix,
     non_snake_case,
     non_upper_case_globals,
     clippy::pedantic,

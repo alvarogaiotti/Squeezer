@@ -503,7 +503,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
             .collect();
 
         let solver = DoubleDummySolver::new();
-        let mut deal_buffer = vec![DdsDeal::new(); solver_array_len];
+        let mut deal_buffer = vec![DdsDeal::sentinel(); solver_array_len];
 
         // Run simulation in chunks
         for chunk_start in (0..self.num_deals).step_by(deals_per_chunk) {
@@ -872,7 +872,7 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
         let play_trace_cards = Cards::from(&self.play_trace);
         let (mut current_trick, insertion_point) = create_current_trick(&self.play_trace);
         let solver = MultiThreadDoubleDummySolver::new();
-        let mut deal_buffer = vec![DdsDeal::new(); MAXNOOFBOARDS];
+        let mut deal_buffer = vec![DdsDeal::sentinel(); MAXNOOFBOARDS];
 
         // Run simulation in chunks
         for chunk_start in (0..self.num_deals).step_by(deals_per_chunk) {

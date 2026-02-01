@@ -250,15 +250,15 @@ impl<const N: usize> TryFrom<[c_int; N]> for SuitSeq {
         if length == 0 {
             Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(BuildSequenceError::SequenceTooLong);
+            Err(BuildSequenceError::SequenceTooLong)
         } else {
             let mut sequence = [-1i32; SEQUENCE_LENGTH];
             sequence[0..length].copy_from_slice(&value[0..length]);
-            return Ok(Self {
+            Ok(Self {
                 sequence,
                 // SAFETY: checks already performed above
                 length: i32::try_from(length).unwrap(),
-            });
+            })
         }
     }
 }
@@ -282,18 +282,18 @@ impl TryFrom<&[c_int]> for SuitSeq {
         if length == 0 {
             Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(BuildSequenceError::SequenceTooLong);
+            Err(BuildSequenceError::SequenceTooLong)
         } else {
             // let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
             // array.extend_from_slice(value);
             // array.resize(SEQUENCE_LENGTH, -1i32);
             let mut sequence = [-1i32; SEQUENCE_LENGTH];
             sequence[..length].copy_from_slice(value);
-            return Ok(Self {
+            Ok(Self {
                 sequence,
                 // SAFETY: checks already performed above
                 length: i32::try_from(length).unwrap(),
-            });
+            })
         }
     }
 }
@@ -352,17 +352,17 @@ impl TryFrom<&[c_int]> for RankSeq {
         if length == 0 {
             Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(BuildSequenceError::SequenceTooLong);
+            Err(BuildSequenceError::SequenceTooLong)
         } else {
             let mut array = Vec::with_capacity(SEQUENCE_LENGTH);
             array.extend_from_slice(value);
             array.resize(SEQUENCE_LENGTH, -1i32);
-            return Ok(Self {
+            Ok(Self {
                 // SAFETY: checks already performed above
                 sequence: array.try_into().unwrap(),
                 // SAFETY: checks already performed above
                 length: i32::try_from(length).unwrap(),
-            });
+            })
         }
     }
 }
@@ -387,16 +387,16 @@ impl<const N: usize> TryFrom<[c_int; N]> for RankSeq {
         if length == 0 {
             Err(BuildSequenceError::SequenceTooShort)
         } else if length > SEQUENCE_LENGTH {
-            return Err(BuildSequenceError::SequenceTooLong);
+            Err(BuildSequenceError::SequenceTooLong)
         } else {
             let mut array = value.to_vec();
             array.resize(SEQUENCE_LENGTH, -1i32);
-            return Ok(Self {
+            Ok(Self {
                 // SAFETY: checks already performed above
                 sequence: array.try_into().unwrap(),
                 // SAFETY: checks already performed above
                 length: i32::try_from(length).unwrap(),
-            });
+            })
         }
     }
 }

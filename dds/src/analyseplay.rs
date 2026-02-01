@@ -462,7 +462,11 @@ mod test {
             concat!("Alignment of ", stringify!(solvedPlays))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<SolvedPlays>())).no_of_boards as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<SolvedPlays>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -472,7 +476,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<SolvedPlays>())).solved as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<SolvedPlays>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).solved) as usize - ptr as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -495,7 +503,11 @@ mod test {
             concat!("Alignment of ", stringify!(solvedPlay))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<SolvedPlay>())).number as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<SolvedPlay>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).number) as usize - ptr as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -505,7 +517,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<SolvedPlay>())).tricks as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<SolvedPlay>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).tricks) as usize - ptr as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -528,7 +544,11 @@ mod test {
             concat!("Alignment of ", stringify!(playTracesBin))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracesBin>())).no_of_boards as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTracesBin>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -538,7 +558,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracesBin>())).plays as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTracesBin>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).plays) as usize - ptr as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -561,7 +585,11 @@ mod test {
             concat!("Alignment of ", stringify!(playTracesPBN))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracesPBN>())).no_of_boards as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTracesPBN>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -571,7 +599,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracesPBN>())).plays as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTracesPBN>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).plays) as usize - ptr as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -594,7 +626,11 @@ mod test {
             concat!("Alignment of ", stringify!(playTraceBin))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTraceBin>())).number as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTraceBin>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).number) as usize - ptr as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -604,7 +640,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTraceBin>())).suit as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTraceBin>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).suit) as usize - ptr as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",
@@ -614,7 +654,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTraceBin>())).rank as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTraceBin>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).rank) as usize - ptr as usize
+            },
             212usize,
             concat!(
                 "Offset of field: ",
@@ -637,7 +681,11 @@ mod test {
             concat!("Alignment of ", stringify!(playTracePBN))
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracePBN>())).number as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTracePBN>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).number) as usize - ptr as usize
+            },
             0usize,
             concat!(
                 "Offset of field: ",
@@ -647,7 +695,11 @@ mod test {
             )
         );
         assert_eq!(
-            unsafe { &(*(::std::ptr::null::<PlayTracePBN>())).cards as *const _ as usize },
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<PlayTracePBN>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).cards) as usize - ptr as usize
+            },
             4usize,
             concat!(
                 "Offset of field: ",
