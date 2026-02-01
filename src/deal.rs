@@ -31,7 +31,8 @@
 //! ## Example Usage
 //!
 //! ```rust
-//! use squeezer::*;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # use squeezer::*;
 //!
 //! // Simple deal with North predealed
 //! let dealer = DealerBuilder::new()
@@ -50,11 +51,11 @@
 //!     })
 //!     .with_hand_descriptor(
 //!         Seat::North,
-//!         HandDescriptor::new()
-//!             .hcp(12..=37)
-//!             .shape(Shape::from_str("5332")?)
+//!         HandDescriptor::hcp(12..38)
 //!     )
 //!     .build()?;
+//! # Ok(())
+//! # }
 //! ```
 
 use std::{cell::Cell, num::NonZeroU8};
@@ -74,10 +75,14 @@ use crate::prelude::*;
 /// # Example
 ///
 /// ```rust
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
 /// let accept: AcceptFunction = Box::new(|hands: &Hands| {
 ///     // Accept only if North-South have game-forcing values combined
 ///     hands.north().hcp() + hands.south().hcp() >= 25
 /// });
+/// # Ok(())
+/// # }
 /// ```
 pub type AcceptFunction = Box<dyn Fn(&Hands) -> bool + Send>;
 
@@ -95,9 +100,13 @@ pub type AcceptFunction = Box<dyn Fn(&Hands) -> bool + Send>;
 ///
 /// You can index by `Seat` or `usize`:
 /// ```rust
-/// let hands: Hands = /* ... */;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
+/// let hands: Hands = Hands::deal();
 /// let north = hands[Seat::North];
 /// let north = hands[0]; // Equivalent
+/// # Ok(())
+/// # }
 /// ```
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -146,13 +155,6 @@ impl std::ops::Index<usize> for Hands {
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
         &self.hands[index]
-    }
-}
-
-impl Hands {
-    #[inline]
-    pub fn iter_mut(&'_ mut self) -> std::slice::IterMut<'_, Hand> {
-        self.hands.iter_mut()
     }
 }
 
@@ -218,6 +220,38 @@ impl Hands {
     #[inline]
     pub fn iter(&self) -> std::slice::Iter<'_, Hand> {
         self.hands.iter()
+    }
+
+    /// Creates a new random set of 4 `Hand`s.
+    ///
+    /// # Panics
+    /// Should never panic as we build a new deck to deal.
+    #[inline]
+    #[must_use]
+    pub fn deal() -> Self {
+        let mut deck = Cards::new_deck();
+        Self {
+            hands: [
+                Hand {
+                    cards: deck.pick(13).expect("new deck is full"),
+                },
+                Hand {
+                    cards: deck.pick(13).expect("new deck is full"),
+                },
+                Hand {
+                    cards: deck.pick(13).expect("new deck is full"),
+                },
+                Hand { cards: deck },
+            ],
+        }
+    }
+
+    /// Returns a mutable iterator over the four hands.
+    ///
+    /// Iterates in order: North, East, South, West
+    #[inline]
+    pub(crate) fn iter_mut(&'_ mut self) -> std::slice::IterMut<'_, Hand> {
+        self.hands.iter_mut()
     }
 }
 
@@ -304,8 +338,12 @@ impl Seat {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// assert_eq!(Seat::North.next(), Seat::East);
     /// assert_eq!(Seat::West.next(), Seat::North);
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     #[inline]
@@ -320,8 +358,12 @@ impl Seat {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// assert_eq!(Seat::East.previous(), Seat::North);
     /// assert_eq!(Seat::North.previous(), Seat::West);
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     #[inline]
@@ -344,9 +386,13 @@ impl Seat {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// assert!(Seat::North.is_same_line(&Seat::South));  // Partners
     /// assert!(Seat::East.is_same_line(&Seat::West));    // Partners
     /// assert!(!Seat::North.is_same_line(&Seat::East));  // Opponents
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     #[inline]
@@ -380,7 +426,11 @@ impl Seat {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// assert_eq!(Seat::North.long_str(), "North");
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -400,10 +450,14 @@ impl Seat {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let mut iter = Seat::North.iter_from();
+    /// assert_eq!(iter.next(), Some(Seat::North));
     /// assert_eq!(iter.next(), Some(Seat::East));
-    /// assert_eq!(iter.next(), Some(Seat::South));
     /// // Continues forever...
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -419,8 +473,12 @@ impl Seat {
 /// # Example
 ///
 /// ```rust
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
 /// let seats: Vec<_> = Seat::North.iter_from().take(5).collect();
-/// assert_eq!(seats, vec![Seat::East, Seat::South, Seat::West, Seat::North, Seat::East]);
+/// assert_eq!(seats, vec![Seat::North, Seat::East, Seat::South, Seat::West, Seat::North]);
+/// # Ok(())
+/// # }
 /// ```
 pub struct RotatingSeatIterator {
     state: Seat,
@@ -438,7 +496,7 @@ impl Iterator for RotatingSeatIterator {
 impl RotatingSeatIterator {
     /// Creates a new rotating iterator starting from the given seat.
     ///
-    /// The first call to `.next()` will return the seat *after* the starting seat.
+    /// The first call to `.next()` will return the starting seat.
     #[inline]
     #[must_use]
     pub fn new(state: Seat) -> Self {
@@ -584,9 +642,13 @@ impl Vulnerability {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let vuln = Vulnerability::NS;
     /// assert_eq!(vuln.is_vulnerable(Seat::North), Vulnerable::Yes);
     /// assert_eq!(vuln.is_vulnerable(Seat::East), Vulnerable::No);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -610,9 +672,13 @@ impl Vulnerability {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// assert_eq!(Vulnerability::from_number(1), Vulnerability::None);
     /// assert_eq!(Vulnerability::from_number(2), Vulnerability::NS);
     /// assert_eq!(Vulnerability::from_number(17), Vulnerability::None); // Wraps
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -697,13 +763,19 @@ impl IntoIterator for Vulnerability {
 ///
 /// Methods can be chained and the builder is consumed by `.build()`:
 ///
+/// # Ok(())
+/// # }
 /// ```rust
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
 /// let dealer = DealerBuilder::new()
-///     .predeal(Seat::North, cards)?
-///     .with_hand_descriptor(Seat::South, descriptor)
-///     .with_function(|hands| /* validation */)
+///     .predeal(Seat::North, Card::HQ.into())?
+///     .with_hand_descriptor(Seat::South, HandDescriptor::hcp(2..15))
+///     .with_function(|hands| /* validation */ true)
 ///     .with_vulnerability(Vulnerability::All)
 ///     .build()?;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # Performance Considerations
@@ -715,19 +787,21 @@ impl IntoIterator for Vulnerability {
 /// # Example: Complex Dealer
 ///
 /// ```rust
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
 /// let dealer = DealerBuilder::new()
 ///     .predeal(Seat::North, Cards::from_str("SAK")?)? // North has A-K of spades
 ///     .with_hand_descriptor(
 ///         Seat::South,
-///         HandDescriptor::new()
-///             .hcp(12..=14)
-///             .shape(Shape::from_str("5332")?)
+///         HandDescriptor::hcp(12..14)
 ///     )
 ///     .with_function(|hands| {
 ///         // NS must have 8+ spade fit
 ///         hands.north().spades().len() + hands.south().spades().len() >= 8
 ///     })
 ///     .build()?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct DealerBuilder {
     /// Function that validates the complete deal across all four hands
@@ -797,9 +871,13 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
     ///     .predeal(Seat::North, Cards::from_str("SAKQJ")?)?  // 5 spades
     ///     .predeal(Seat::South, Cards::from_str("HAK")?)?;   // 2 hearts
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn predeal(mut self, seat: Seat, hand: Cards) -> Result<Self, DealerError> {
@@ -835,6 +913,8 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
     ///     .predeal_all([
     ///         Some(Cards::from_str("SAKQJ")?),  // North
@@ -842,6 +922,8 @@ impl DealerBuilder {
     ///         Some(Cards::from_str("HAK")?),     // South
     ///         None,                              // West - no predeal
     ///     ])?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn predeal_all(mut self, hands: [Option<Cards>; 4]) -> Result<Self, DealerError> {
@@ -880,9 +962,13 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let mut builder = DealerBuilder::new();
-    /// builder.add_predealt_card(Card::new(Rank::Ace, Suit::Spades), Seat::North)?;
-    /// builder.add_predealt_card(Card::new(Rank::King, Suit::Spades), Seat::North)?;
+    /// builder.add_predealt_card(Card::new(Suit::Spades,14), Seat::North)?;
+    /// builder.add_predealt_card(Card::new(Suit::Spades, 13), Seat::North)?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn add_predealt_card(&mut self, card: Card, seat: Seat) -> Result<(), DealerError> {
@@ -913,12 +999,16 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
     ///     .with_function(|hands: &Hands| {
     ///         // Require NS to have game-forcing values
     ///         let ns_hcp = hands.north().hcp() + hands.south().hcp();
     ///         ns_hcp >= 25
     ///     });
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -940,14 +1030,15 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
     ///     .with_hand_descriptor(
     ///         Seat::North,
-    ///         HandDescriptor::new()
-    ///             .hcp(12..=17)
-    ///             .shape(Shape::from_str("5332")?)
-    ///             .spades(5..=7)
+    ///         HandDescriptor::hcp(12..=17)
     ///     );
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -965,13 +1056,17 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
     ///     .with_hand_descriptors_all([
-    ///         Some(descriptor_north),
+    ///         Some(HandDescriptor::hcp(12..14)),
     ///         None,  // East - no constraints
-    ///         Some(descriptor_south),
+    ///         Some(HandDescriptor::hcp(12..14)),
     ///         None,  // West - no constraints
     ///     ]);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -990,8 +1085,12 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
     ///     .with_vulnerability(Vulnerability::All);
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     #[must_use]
@@ -1012,11 +1111,15 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let dealer = DealerBuilder::new()
-    ///     .predeal(Seat::North, cards)?
+    ///     .predeal(Seat::North, Card::SK.into())?
     ///     .build()?;
     ///
     /// let deal = dealer.deal()?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
@@ -1042,13 +1145,17 @@ impl DealerBuilder {
     /// # Example
     ///
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
     /// let config = [
-    ///     (Some(cards_north), Some(descriptor_north)),
+    ///     (Some(Card::HQ.into()), Some(HandDescriptor::hcp(12..14))),
     ///     (None, None),  // East - no constraints
-    ///     (Some(cards_south), Some(descriptor_south)),
+    ///     (Some(Card::HK.into()), Some(HandDescriptor::hcp(12..14))),
     ///     (None, None),  // West - no constraints
     /// ];
     /// let builder = DealerBuilder::new().with_complete_config(config)?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[allow(clippy::missing_panics_doc)]
     #[inline]
@@ -1342,12 +1449,16 @@ pub enum Printer {
 /// The deal can be displayed in multiple formats via the `Printer` enum:
 ///
 /// ```rust
-/// let mut deal = dealer.deal()?;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
+/// let mut deal = Deal::new();
 /// deal.short();  // Compact table
 /// println!("{}", deal);
 ///
 /// deal.pbn();    // Portable Bridge Notation
 /// println!("{}", deal);
+/// # Ok(())
+/// # }
 /// ```
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone)]
@@ -1446,9 +1557,14 @@ impl Deal {
     /// # Example
     ///
     /// ```rust
-    /// if deal.check(|d| d.north().hcp() >= 12) {
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let deal = Deal::new();
+    /// if deal.check(|d: &Deal| d.north().hcp() >= 12) {
     ///     println!("North has opening hand");
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     #[inline]
@@ -1539,8 +1655,11 @@ impl Deal {
     /// # Format
     ///
     /// ```text
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// [Board "1"]
     /// [Deal "N:SAKQ.HAK.DAK.CAK S743.HT9.D8.CJT9 ..."]
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     #[inline]

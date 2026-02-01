@@ -234,12 +234,29 @@ impl Iterator for HandIterator {
         Some(result)
     }
 }
-/// Represents a range of High Card Points.
+/// Represents an *inclusive* of High Card Points.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HcpRange {
     min: u8,
     max: u8,
+}
+
+impl From<(u8, u8)> for HcpRange {
+    fn from((min, max): (u8, u8)) -> Self {
+        let mut min = min.clamp(0, 37);
+        let mut max = max.clamp(0, 37);
+        if min > max {
+            std::mem::swap(&mut min, &mut max);
+        }
+        Self { min, max }
+    }
+}
+
+impl From<HcpRange> for (u8, u8) {
+    fn from(range: HcpRange) -> Self {
+        (range.min, range.max)
+    }
 }
 
 impl PartialOrd for HcpRange {
@@ -303,6 +320,30 @@ impl HcpRange {
     #[must_use]
     pub const fn as_range(&self) -> RangeInclusive<u8> {
         self.range_min()..=self.range_max()
+    }
+    #[must_use]
+    #[inline]
+    pub fn from_range<R, U>(hcp_range: R) -> Self
+    where
+        R: std::ops::RangeBounds<U>,
+        U: Into<u8> + Copy,
+    {
+        let mut min = match hcp_range.start_bound() {
+            std::ops::Bound::Included(&min) => min.into(),
+            std::ops::Bound::Excluded(&min) => min.into().saturating_sub(1),
+            std::ops::Bound::Unbounded => 0,
+        }
+        .clamp(0, 37);
+        let mut max = match hcp_range.end_bound() {
+            std::ops::Bound::Included(&max) => max.into(),
+            std::ops::Bound::Excluded(&max) => max.into().saturating_sub(1),
+            std::ops::Bound::Unbounded => 37,
+        }
+        .clamp(0, 37);
+        if min > max {
+            std::mem::swap(&mut min, &mut max);
+        }
+        Self { min, max }
     }
 }
 impl Default for HcpRange {
@@ -419,6 +460,7 @@ pub struct HandDescriptor {
 impl HandDescriptor {
     /// Check if a given hand matches any of the possible hand types based on shape and HCP range.
     #[must_use]
+    #[inline]
     pub fn check(&self, hand: Hand) -> bool {
         if (self.min..=self.max).contains(&hand.hcp()) {
             self.possible_hands
@@ -431,6 +473,7 @@ impl HandDescriptor {
 
     /// Create a new `HandDescriptor` with the specified list of possible hand types.
     #[must_use]
+    #[inline]
     pub fn new(possible_hands: Vec<HandType>) -> Self {
         let mut min = 38;
         let mut max = 0;
@@ -447,6 +490,37 @@ impl HandDescriptor {
             possible_hands,
             min,
             max,
+        }
+    }
+
+    /// This method will create a new `HandDescriptor` that accepts each hand with a
+    /// specific shape
+    #[must_use]
+    #[inline]
+    pub fn shape(shape: Shape) -> Self {
+        Self {
+            possible_hands: vec![HandType {
+                shape,
+                hcp_range: HcpRange { min: 0, max: 37 },
+            }],
+            min: 0,
+            max: 37,
+        }
+    }
+
+    /// This method will create a new `HandDescriptor` that accepts each hand with a
+    /// specific hcp range
+    #[must_use]
+    #[inline]
+    pub fn hcp<U: std::ops::RangeBounds<T>, T: Into<u8> + Copy>(hcp_range: U) -> Self {
+        let hcp_range = HcpRange::from_range(hcp_range);
+        Self {
+            min: hcp_range.min,
+            max: hcp_range.max,
+            possible_hands: vec![HandType {
+                shape: Shape::All,
+                hcp_range,
+            }],
         }
     }
 }
