@@ -38,12 +38,9 @@
 //! # }
 //! ```
 
+use super::{finish_deal, solve_all_cards_batches};
 use crate::prelude::*;
-use dds::{
-    MAXNOOFBOARDS,
-    deal::{AsDDSDeal, DdsDealBuilder},
-    solver::{BridgeSolver, SolvedBoards},
-};
+use dds::deal::{AsDDSDeal, DdsDealBuilder};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -561,31 +558,6 @@ impl<D: Dealer> LeadSimulation<D> {
             store_deal_details: false,
         }
     }
-
-    /// Solve a batch of boards
-    fn solve_boards<S: BridgeSolver>(
-        &self,
-        num: usize,
-        solver: &S,
-    ) -> Result<SolvedBoards, SqueezerError> {
-        let mut deals = Vec::with_capacity(num);
-
-        for _ in 0..num {
-            let deal = self.dealer.deal()?;
-            deals.push(
-                DdsDealBuilder::new()
-                    .remain_cards(deal.as_dds_deal())
-                    .contract(&self.contract)
-                    .build()
-                    .unwrap(),
-            );
-        }
-
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-        solver
-            .dd_tricks_all_cards_parallel(num as i32, &deals)
-            .map_err(Into::into)
-    }
 }
 
 impl<D: Dealer> Simulation for LeadSimulation<D> {
@@ -598,59 +570,63 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
         // cheaper than hashing and also avoids the per-card entry allocation.
         let mut card_accumulators: [Option<CardLeadResult>; 64] = std::array::from_fn(|_| None);
 
-        let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
-        let mut counter = self.num_deals;
-        let mut global_deal_index = 0;
+        // Shared batch-solve engine; only per-lead accumulation remains here.
+        let solved = solve_all_cards_batches(
+            &self.dealer,
+            self.num_deals,
+            "lead",
+            |deal, deal_index, out| {
+                out.push(finish_deal(
+                    DdsDealBuilder::new()
+                        .remain_cards(deal.as_dds_deal())
+                        .contract(&self.contract),
+                    "lead",
+                    deal_index,
+                )?);
+                Ok(())
+            },
+        )?;
 
-        // Run simulation in batches
-        while counter != 0 {
-            let batch_size = if let Some(new_counter) = counter.checked_sub(MAXNOOFBOARDS) {
-                let size = MAXNOOFBOARDS;
-                counter = new_counter;
-                size
-            } else {
-                let size = counter;
-                counter = 0;
-                size
-            };
+        // Process results: one entry per deal, in global deal order.
+        for entry in &solved {
+            let future_tricks = &entry.future;
+            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+            for card_idx in 0..future_tricks.cards as usize {
+                let rank = future_tricks.rank[card_idx];
+                let suit = future_tricks.suit[card_idx];
+                let tricks = future_tricks.score[card_idx] as u8;
 
-            let solved_boards = self.solve_boards(batch_size, &solver)?;
+                let card = Card::new(
+                    Suit::try_from(suit).map_err(|_| {
+                        SqueezerError::DealingError(DealerError::new(format!(
+                            "lead: DDS returned invalid suit {suit} for deal {}",
+                            entry.deal_index
+                        )))
+                    })?,
+                    rank as u8,
+                );
 
-            // Process results
-            for future_tricks in solved_boards {
-                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-                for card_idx in 0..future_tricks.cards as usize {
-                    let rank = future_tricks.rank[card_idx];
-                    let suit = future_tricks.suit[card_idx];
-                    let tricks = future_tricks.score[card_idx] as u8;
+                let accumulator =
+                    card_accumulators[card.as_u8() as usize].get_or_insert_with(|| {
+                        if self.store_deal_details {
+                            CardLeadResult::with_deal_details(card, self.num_deals)
+                        } else {
+                            CardLeadResult::new(card)
+                        }
+                    });
 
-                    let card = Card::new(Suit::try_from(suit).unwrap(), rank as u8);
+                let deal_idx = if self.store_deal_details {
+                    Some(entry.deal_index)
+                } else {
+                    None
+                };
 
-                    let accumulator =
-                        card_accumulators[card.as_u8() as usize].get_or_insert_with(|| {
-                            if self.store_deal_details {
-                                CardLeadResult::with_deal_details(card, self.num_deals)
-                            } else {
-                                CardLeadResult::new(card)
-                            }
-                        });
-
-                    let deal_idx = if self.store_deal_details {
-                        Some(global_deal_index)
-                    } else {
-                        None
-                    };
-
-                    accumulator.record_tricks(tricks, deal_idx);
-                }
-
-                global_deal_index += 1;
+                accumulator.record_tricks(tricks, deal_idx);
             }
         }
 
         // Populate raw data
         raw_data.cards = card_accumulators.into_iter().flatten().collect();
-
         // Sort cards for consistent ordering (by suit and rank)
         raw_data.cards.sort_by(|a, b| {
             a.card

@@ -51,13 +51,9 @@ use super::core::{
     Comparable, ComparisonResult, DealResult, DistributionData, PairwiseStatistics, Simulation,
     SimulationMetadata, SimulationOutput,
 };
+use super::{finish_deal, solve_tricks_batches};
 use crate::prelude::*;
-use dds::{
-    MAXNOOFBOARDS,
-    deal::{AsDDSDeal, DdsDeal, DdsDealBuilder},
-    doubledummy::{DoubleDummySolver, MultiThreadDoubleDummySolver},
-    solver::BridgeSolver,
-};
+use dds::deal::{AsDDSDeal, DdsDealBuilder};
 
 // ============================================================================
 // RAW PAYOFF DATA - Complete simulation results for detailed analysis
@@ -553,8 +549,6 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
 
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
         let num_contracts = self.contracts.len();
-        let solver_array_len = 200 - (200 % num_contracts);
-        let deals_per_chunk = solver_array_len / num_contracts;
 
         // Initialize accumulators for each contract first (borrows self),
         // then move the contracts into raw_data (no second allocation).
@@ -568,45 +562,33 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
             .collect();
         let mut raw_data = RawPayoffData::new(self.contracts);
 
-        let solver = DoubleDummySolver::new();
-        let mut deal_buffer = vec![DdsDeal::sentinel(); solver_array_len];
-
-        // Run simulation in chunks
-        for chunk_start in (0..self.num_deals).step_by(deals_per_chunk) {
-            let chunk_length = (self.num_deals - chunk_start).min(deals_per_chunk);
-
-            // Generate deals and populate buffer
-            for i in 0..chunk_length {
-                let deal = self.dealer.deal()?;
-
-                // Add each contract variant for this deal
-                for (j, acc) in accumulators.iter().enumerate() {
-                    let dds_deal = DdsDealBuilder::new()
-                        .remain_cards(deal.as_dds_deal())
-                        .contract(&acc.contract)
-                        .build()
-                        .unwrap();
-                    deal_buffer[i * num_contracts + j] = dds_deal;
+        // Shared batch-solve engine owns deal generation, DDS batching, and
+        // error mapping; here only the per-deal contract fan-out remains.
+        let solved = solve_tricks_batches(
+            &self.dealer,
+            self.num_deals,
+            num_contracts,
+            "contract payoff",
+            |deal, deal_index, out| {
+                for acc in &accumulators {
+                    out.push(finish_deal(
+                        DdsDealBuilder::new()
+                            .remain_cards(deal.as_dds_deal())
+                            .contract(&acc.contract),
+                        "contract payoff",
+                        deal_index,
+                    )?);
                 }
-            }
+                Ok(())
+            },
+        )?;
 
-            // Solve all deals in parallel
-            let total_len = chunk_length * num_contracts;
-            #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
-            let solver_results =
-                solver.dd_tricks_parallel(total_len as i32, &deal_buffer[..total_len])?;
-
-            // Process results (results come back in deal-major, contract-minor
-            // order, so iterate without per-result modulo/division)
-            let mut results_iter = solver_results.into_iter();
-            for i in 0..chunk_length {
-                let deal_idx = chunk_start + i;
-                for acc in &mut accumulators {
-                    let tricks = results_iter.next().unwrap();
-                    let score = acc.contract.score(tricks);
-
-                    acc.results.push(DealResult::new(deal_idx, tricks, score));
-                }
+        // Drain in deal-major order (the engine yields one entry per deal).
+        for entry in &solved {
+            for (acc, tricks) in accumulators.iter_mut().zip(&entry.tricks) {
+                let score = acc.contract.score(*tricks);
+                acc.results
+                    .push(DealResult::new(entry.deal_index, *tricks, score));
             }
         }
 
@@ -911,8 +893,6 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
     #[inline]
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
         let num_cards = self.cards.len();
-        let solver_array_len = 200 - (200 % num_cards);
-        let deals_per_chunk = solver_array_len / num_cards;
 
         // Initialize accumulators first (borrows self), then move cards into
         // raw_data instead of cloning.
@@ -928,19 +908,16 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
 
         let play_trace_cards = Cards::from(&self.play_trace);
         let (mut current_trick, insertion_point) = create_current_trick(&self.play_trace);
-        let solver = MultiThreadDoubleDummySolver::new();
-        let mut deal_buffer = vec![DdsDeal::sentinel(); MAXNOOFBOARDS];
 
-        // Run simulation in chunks
-        for chunk_start in (0..self.num_deals).step_by(deals_per_chunk) {
-            let chunk_length = (self.num_deals - chunk_start).min(deals_per_chunk);
-
-            // Generate deals and populate buffer
-            for i in 0..chunk_length {
-                let deal = self.dealer.deal()?;
-
-                // Add each card variant for this deal
-                for (j, acc) in accumulators.iter().enumerate() {
+        // Shared batch-solve engine; only the per-deal card fan-out
+        // (mid-trick setup per candidate card) remains here.
+        let solved = solve_tricks_batches(
+            &self.dealer,
+            self.num_deals,
+            num_cards,
+            "card payoff",
+            |deal, deal_index, out| {
+                for acc in &accumulators {
                     let mut hands = deal.hands();
 
                     // Remove already played cards and the card being tested
@@ -953,35 +930,27 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
                         current_trick[index] = Some(acc.card);
                     }
 
-                    let dds_deal = DdsDealBuilder::new()
-                        .remain_cards(hands.as_dds_deal())
-                        .current_trick(current_trick)
-                        .contract(&self.contract)
-                        .first(self.seat.into())
-                        .build()
-                        .unwrap();
-
-                    deal_buffer[i * num_cards + j] = dds_deal;
+                    out.push(finish_deal(
+                        DdsDealBuilder::new()
+                            .remain_cards(hands.as_dds_deal())
+                            .current_trick(current_trick)
+                            .contract(&self.contract)
+                            .first(self.seat.into()),
+                        "card payoff",
+                        deal_index,
+                    )?);
                 }
-            }
+                Ok(())
+            },
+        )?;
 
-            // Solve all deals in parallel
-            let total_len = chunk_length * num_cards;
-            #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
-            let solver_results =
-                solver.dd_tricks_parallel(total_len as i32, &deal_buffer[..total_len])?;
+        // Drain in deal-major order (the engine yields one entry per deal).
+        for entry in &solved {
+            for (acc, tricks) in accumulators.iter_mut().zip(&entry.tricks) {
+                let score = self.contract.score(*tricks);
 
-            // Process results (results come back in deal-major, card-minor
-            // order, so iterate without per-result modulo/division)
-            let mut results_iter = solver_results.into_iter();
-            for i in 0..chunk_length {
-                let deal_idx = chunk_start + i;
-                for acc in &mut accumulators {
-                    let tricks = results_iter.next().unwrap();
-                    let score = self.contract.score(tricks);
-
-                    acc.results.push(DealResult::new(deal_idx, tricks, score));
-                }
+                acc.results
+                    .push(DealResult::new(entry.deal_index, *tricks, score));
             }
         }
 
@@ -1269,5 +1238,52 @@ mod tests {
         // May fail if cards aren't in North's hand, but builder should validate
         // This tests that builder accepts the configuration
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic
+    }
+
+    /// Deterministic end-to-end through the shared batch-solve engine.
+    ///
+    /// A fully predealt dealer can only produce one deal, so two simulated
+    /// deals are identical and the exact tricks/scores are pinned. This is
+    /// the no-behavior-change proof for the engine migration: expected
+    /// values were captured from the pre-refactor `run()`.
+    ///
+    /// DDS global state segfaults under parallel test threads: run the
+    /// simulation suite single-threaded (`cargo test -- --test-threads=1`)
+    /// and hold the solver lock for the whole test.
+    #[test]
+    fn test_contract_payoff_fully_predealt_is_deterministic() {
+        use crate::simulation::solver::dds_test_lock;
+
+        let _guard = dds_test_lock();
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, Cards::from_str("SAKQJT98765432").unwrap())
+            .unwrap()
+            .predeal(Seat::East, Cards::from_str("HAKQJT98765432").unwrap())
+            .unwrap()
+            .predeal(Seat::South, Cards::from_str("DAKQJT98765432").unwrap())
+            .unwrap()
+            .predeal(Seat::West, Cards::from_str("CAKQJT98765432").unwrap())
+            .unwrap()
+            .build()
+            .unwrap();
+        let contracts = vec![
+            Contract::from_str("1NN").unwrap(),
+            Contract::from_str("2SN").unwrap(),
+        ];
+        let output = ContractPayoffSimulation::new(2, dealer, contracts, |a, b| a - b)
+            .run()
+            .expect("fixed deals solve");
+
+        assert_eq!(output.raw.option_results.len(), 2);
+        let first = &output.raw.option_results[0].deals;
+        let second = &output.raw.option_results[1].deals;
+        assert_eq!(first.len(), 2);
+        assert_eq!(second.len(), 2);
+        for deal in first {
+            assert_eq!((deal.tricks, deal.score), (0, -350));
+        }
+        for deal in second {
+            assert_eq!((deal.tricks, deal.score), (13, 260));
+        }
     }
 }
