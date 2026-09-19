@@ -4,8 +4,8 @@
 use crate::{
     get_bboerrorkind_error,
     prelude::{
-        BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
-        BBOLOGIN,
+        BBOBASE, BBOHANDS, BBOLOGIN, BboError, BboErrorKind, ClientError, LinkExtractor,
+        NetworkError,
     },
 };
 use log::{debug, error, info, warn};
@@ -89,6 +89,13 @@ impl LinkExtractor for AsyncBBOClient {
     }
 }
 
+/// Decides login status from a login-page body: BBO shows
+/// "Please login" to anonymous visitors. Pure so the branch logic is
+/// unit-testable without network access (mirrors the sync client).
+fn logged_in_from_body(body: &str) -> bool {
+    !body.contains("Please login")
+}
+
 impl AsyncBBOClient {
     #[inline]
     #[must_use]
@@ -112,29 +119,34 @@ impl AsyncBBOClient {
     /// Errors when the site is not reachable
     pub async fn is_logged(&self) -> Result<bool> {
         info!("checking if logged in");
-        if self
-            .client
-            .get(BBOLOGIN)
-            .send()
-            .await
-            .map_err(ClientError::unknown_error)?
-            .text()
-            .await
-            .map_err(|_e| ClientError::IoError {
-                source: std::io::Error::other("unable to parse response as a String"),
-            })?
-            .contains("Please login")
-        {
-            info!("not logged in");
-            Ok(false)
-        } else {
-            info!("logged in");
-            Ok(false)
-        }
+        let logged_in = logged_in_from_body(
+            &self
+                .client
+                .get(BBOLOGIN)
+                .send()
+                .await
+                .map_err(ClientError::unknown_error)?
+                .text()
+                .await
+                .map_err(|_e| ClientError::IoError {
+                    source: std::io::Error::other("unable to parse response as a String"),
+                })?,
+        );
+        info!(
+            "{}",
+            if logged_in {
+                "logged in"
+            } else {
+                "not logged in"
+            }
+        );
+        Ok(logged_in)
     }
 
     /// Login procedure
-    async fn login(&self) -> Result<()> {
+    /// # Errors
+    /// Errors when the site is not reachable or credentials are rejected
+    pub async fn login(&self) -> Result<()> {
         info!("starting login procedure");
         if self.is_logged().await? {
             return Ok(());
@@ -175,7 +187,10 @@ impl AsyncBBOClient {
         Ok(())
     }
 
-    async fn get_in_interval(
+    /// Collects hand links for the subscribed interval, in 28-day pages.
+    /// # Errors
+    /// Errors when the site is not reachable
+    pub async fn get_in_interval(
         &mut self,
         mut start_time: OffsetDateTime,
         mut end_time: OffsetDateTime,
@@ -194,12 +209,12 @@ impl AsyncBBOClient {
                 break;
             }
             let next_start = start_time - Duration::days(28);
-            let _text = self.get_hands_in_interval(start_time, next_start).await?;
+            let text = self.get_hands_in_interval(start_time, next_start).await?;
             start_time = next_start;
-            self.get_links("", &mut vec);
+            self.get_links(&text, &mut vec);
         }
-        let _text = self.get_hands_in_interval(start_time, end_time).await?;
-        self.get_links("", &mut vec);
+        let text = self.get_hands_in_interval(start_time, end_time).await?;
+        self.get_links(&text, &mut vec);
 
         self.hands_links = vec;
         Ok(())
@@ -252,5 +267,42 @@ impl AsyncBBOClient {
             };
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn login_status_decision_matches_sync_client() {
+        // The exact branch that was buggy (both arms returned false).
+        assert!(!logged_in_from_body("Please login to continue"));
+        assert!(logged_in_from_body("Welcome back, your tables await"));
+        assert!(logged_in_from_body(""));
+    }
+
+    #[test]
+    fn link_extraction_collects_fetchlin_urls() {
+        let client = AsyncBBOClient::new(String::new(), String::new());
+        let page = r#"<a href="fetchlin.php?u=user&h=abc123">hand</a> noise <a href="fetchlin.php?u=user&h=def456">hand</a>"#;
+        let mut links = Vec::new();
+        client.get_links(page, &mut links);
+        assert_eq!(
+            links,
+            vec![
+                "fetchlin.php?u=user&h=abc123".to_owned(),
+                "fetchlin.php?u=user&h=def456".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn link_extraction_ignores_pages_without_links() {
+        let client = AsyncBBOClient::new(String::new(), String::new());
+        let mut links = Vec::new();
+        client.get_links("", &mut links);
+        client.get_links("<html>no hands here</html>", &mut links);
+        assert!(links.is_empty());
     }
 }

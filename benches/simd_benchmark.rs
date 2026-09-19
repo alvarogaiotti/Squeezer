@@ -1,13 +1,4 @@
-// Benchmark for SIMD vs Scalar preprocessing
-// Add this to your Cargo.toml:
-//
-// [dev-dependencies]
-// criterion = { version = "0.5", features = ["html_reports"] }
-//
-// [[bench]]
-// name = "simd_benchmark"
-// harness = false
-
+// Benchmark for SIMD vs scalar preprocessing.
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use dds::analyseplay::SolvedPlay;
 use rand::{Rng, rng};
@@ -18,11 +9,6 @@ use squeezer::performance_analysis::analyze_hand;
 use squeezer::performance_analysis::find_trick_winner;
 use squeezer::prelude::*;
 use std::hint::black_box;
-
-// You'll need to expose these from your module for benchmarking
-// Add to your lib.rs:
-// pub use performance::{PreprocessedDeal};
-// and make PreprocessedDeal::new_scalar, new_sse2, new_avx2 public
 
 fn generate_random_cards() -> [Card; 48] {
     let mut rng = rng();
@@ -75,11 +61,12 @@ fn benchmark_preprocessing(c: &mut Criterion) {
         }
     }
 
-    // Benchmark NEON version (ARM only)
+    // No working NEON preprocessing exists (the constructor did not
+    // compile); benchmark the scalar path on ARM so the suite measures.
     #[cfg(target_arch = "aarch64")]
     {
-        group.bench_function("neon", |b| {
-            b.iter(|| unsafe { PreprocessedDeal::new_neon(black_box(&cards), black_box(trump)) })
+        group.bench_function("neon (scalar fallback)", |b| {
+            b.iter(|| PreprocessedDeal::new_scalar(black_box(&cards), black_box(trump)))
         });
     }
 

@@ -48,7 +48,7 @@
 //! ```
 
 use super::core::{
-    Comparable, ComparisonResult, DealResult, DistributionData, PairwiseStatistics, Simulation,
+    ComparisonResult, DealResult, DistributionData, PairwiseStatistics, Simulation,
     SimulationMetadata, SimulationOutput,
 };
 use super::{finish_deal, solve_tricks_batches};
@@ -63,7 +63,7 @@ use dds::deal::{AsDDSDeal, DdsDealBuilder};
 /// Contains all individual deal results for maximum flexibility in analysis.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RawPayoffData<T: Comparable> {
+pub struct RawPayoffData<T: Clone + Eq + std::hash::Hash> {
     /// The options that were compared
     pub options: Vec<T>,
 
@@ -74,7 +74,7 @@ pub struct RawPayoffData<T: Comparable> {
     pub items: Vec<PairwiseComparison<T>>,
 }
 
-impl<T: Comparable + std::fmt::Display> RawPayoffData<T> {
+impl<T: Clone + Eq + std::hash::Hash + std::fmt::Display> RawPayoffData<T> {
     /// Create a new raw payoff data container
     #[must_use]
     #[inline]
@@ -117,7 +117,7 @@ impl<T: Comparable + std::fmt::Display> RawPayoffData<T> {
 /// Builds the directed comparison `option_a` vs `option_b` from aligned
 /// per-deal results, applying `scoring_fn` once per deal. Capacity for
 /// `num_deals` comparisons is reserved up front.
-fn build_pairwise<T: Comparable>(
+fn build_pairwise<T: Clone + Eq + std::hash::Hash>(
     option_a: T,
     option_b: T,
     results_a: &[DealResult],
@@ -141,7 +141,7 @@ fn build_pairwise<T: Comparable>(
 /// Results for a single option across all deals
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct OptionResults<T: Comparable> {
+pub struct OptionResults<T: Clone + Eq + std::hash::Hash> {
     /// The option these results are for
     pub option: T,
 
@@ -149,7 +149,7 @@ pub struct OptionResults<T: Comparable> {
     pub deals: Vec<DealResult>,
 }
 
-impl<T: Comparable> OptionResults<T> {
+impl<T: Clone + Eq + std::hash::Hash> OptionResults<T> {
     /// Create a new option results container
     #[inline]
     pub fn new(option: T) -> Self {
@@ -188,7 +188,7 @@ impl<T: Comparable> OptionResults<T> {
 /// Pairwise comparison between two options
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PairwiseComparison<T: Comparable> {
+pub struct PairwiseComparison<T: Clone + Eq + std::hash::Hash> {
     /// First option being compared
     pub option_a: T,
 
@@ -199,7 +199,7 @@ pub struct PairwiseComparison<T: Comparable> {
     pub comparisons: Vec<ComparisonResult>,
 }
 
-impl<T: Comparable> PairwiseComparison<T> {
+impl<T: Clone + Eq + std::hash::Hash> PairwiseComparison<T> {
     /// Create a new pairwise comparison
     #[inline]
     pub fn new(option_a: T, option_b: T) -> Self {
@@ -241,7 +241,7 @@ impl<T: Comparable> PairwiseComparison<T> {
 /// This is the primary structure for displaying results in a GUI.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PayoffMatrix<T: Comparable> {
+pub struct PayoffMatrix<T: Clone + Eq + std::hash::Hash> {
     /// The options being compared
     pub options: Vec<T>,
 
@@ -252,7 +252,7 @@ pub struct PayoffMatrix<T: Comparable> {
     pub rankings: Vec<OptionRanking<T>>,
 }
 
-impl<T: Comparable + Clone> PayoffMatrix<T> {
+impl<T: Clone + Eq + std::hash::Hash> PayoffMatrix<T> {
     /// Get statistics for a specific comparison
     pub fn get_stats(&self, option_a: &T, option_b: &T) -> Option<&PairwiseStatistics> {
         self.comparisons
@@ -377,7 +377,7 @@ impl<T: Comparable + Clone> PayoffMatrix<T> {
 /// Statistics for a single pairwise comparison in the matrix
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PayoffComparison<T: Comparable> {
+pub struct PayoffComparison<T: Clone + Eq + std::hash::Hash> {
     /// First option
     pub option_a: T,
 
@@ -394,7 +394,7 @@ pub struct PayoffComparison<T: Comparable> {
 /// Ranking information for a single option
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct OptionRanking<T: Comparable> {
+pub struct OptionRanking<T: Clone + Eq + std::hash::Hash> {
     /// The option
     pub option: T,
 
@@ -680,7 +680,11 @@ impl<D: Dealer> CardPayoffBuilder<D> {
         self
     }
 
-    /// Set the cards to compare
+    /// Set the cards to compare.
+    ///
+    /// Every candidate must be predealt to `seat` (see [`Self::seat`]):
+    /// `build()` rejects candidates missing from that hand instead of
+    /// silently solving nonsense deals.
     #[must_use]
     #[inline]
     pub fn cards(mut self, cards: Vec<Card>) -> Self {
@@ -723,7 +727,12 @@ impl<D: Dealer> CardPayoffBuilder<D> {
         self
     }
 
-    /// Set the cards already played (play trace)
+    /// Set the cards already played (play trace).
+    ///
+    /// Must hold 1 to 47 cards: an empty trace is a lead problem (use
+    /// `LeadSimulation`), and 48+ played cards leave nothing to simulate.
+    /// `build()` enforces the window; the trace contents themselves are
+    /// not validated against the predealt hands.
     #[must_use]
     #[inline]
     pub fn play_trace(mut self, trace: Vec<Card>) -> Self {
@@ -759,14 +768,29 @@ impl<D: Dealer> CardPayoffBuilder<D> {
             ));
         }
 
-        // Validate cards are in the hand
+        if self.play_trace.is_empty() || self.play_trace.len() > 47 {
+            return Err(SqueezerError::InvalidInput(
+                "play trace cannot be shorter than 1 card (use LeadSimulation in this case) or longer than 47 cards (only one trick left and already deterministic)".to_string(),
+            ));
+        }
+
+        // Validate cards are in the predealt hand, mirroring `new()`: a
+        // missing predeal is an error here, not a silent pass (there is no
+        // other way for the engine to place the candidates).
         let hands = dealer.predealt();
-        for card in &self.cards {
-            if let Some(hand) = hands[seat as usize]
-                && !hand.has_card(*card)
-            {
+        match hands[seat as usize] {
+            Some(hand) => {
+                let cards_as_cards = Cards::from(&self.cards);
+                if hand & cards_as_cards != cards_as_cards {
+                    return Err(SqueezerError::InvalidInput(format!(
+                        "{} is not in {seat}'s hand",
+                        hand.difference(cards_as_cards) & cards_as_cards
+                    )));
+                }
+            }
+            None => {
                 return Err(SqueezerError::InvalidInput(format!(
-                    "{card} is not in {seat}'s hand"
+                    "{seat} hand is not predealt"
                 )));
             }
         }
@@ -795,7 +819,8 @@ pub struct CardPayoffSimulation<D: Dealer> {
     num_deals: usize,
     /// What dealer you want to use? Here you set your dealing parameters
     dealer: D,
-    /// Cards that you want to compare
+    /// Cards that you want to compare. Must all be predealt to `seat`;
+    /// enforced at construction.
     cards: Vec<Card>,
     /// Contract you are playing in
     contract: Contract,
@@ -803,8 +828,9 @@ pub struct CardPayoffSimulation<D: Dealer> {
     scoring_fn: Box<dyn Fn(i32, i32) -> i32>,
     /// Seat of the player ho has to play, and possesses the cards.
     seat: Seat,
-    /// Cards played until now.
-    /// ATTENTION: this is not validated. It's up to you to make sure that this parameter is correct.
+    /// Cards played until now: 1 to 47 cards (enforced at construction).
+    /// The trace contents are not cross-checked against predealt hands;
+    /// that combination remains the caller's responsibility.
     play_trace: Vec<Card>,
 }
 
@@ -871,17 +897,17 @@ impl<D: Dealer> CardPayoffSimulation<D> {
 fn create_current_trick(play_trace: &[Card]) -> ([Option<Card>; 3], Option<usize>) {
     let mut last_trick = [None; 3];
     let rest = play_trace.len() % 4;
-    let mut insertion_poìnt = 0;
+    let mut insertion_point = 0;
     for (i, &card) in play_trace.iter().rev().take(rest).enumerate() {
         last_trick[i] = Some(card);
-        insertion_poìnt = i + 1;
+        insertion_point = i + 1;
     }
     (
         last_trick,
         if rest == 3 {
             None
         } else {
-            Some(insertion_poìnt)
+            Some(insertion_point)
         },
     )
 }
@@ -1238,6 +1264,56 @@ mod tests {
         // May fail if cards aren't in North's hand, but builder should validate
         // This tests that builder accepts the configuration
         assert!(result.is_ok() || result.is_err()); // Just ensure it doesn't panic
+    }
+
+    #[test]
+    fn test_card_payoff_builder_validates_predealt_and_trace() {
+        fn build_with<D: Dealer>(
+            dealer: D,
+            trace: Vec<Card>,
+            contract: Contract,
+        ) -> Result<CardPayoffSimulation<D>, SqueezerError> {
+            CardPayoffBuilder::new()
+                .num_deals(1)
+                .contract(contract)
+                .cards(vec![Card::SA, Card::SK])
+                .scoring_function(imps)
+                .seat(Seat::North)
+                .play_trace(trace)
+                .dealer(dealer)
+                .build()
+        }
+
+        let contract = Contract::from_str("3CN").unwrap();
+        let trace = vec![Card::C2];
+
+        // No predeal at all: error, not a silent pass.
+        let dealer = StandardDealer::new();
+        assert!(build_with(dealer, trace.clone(), contract).is_err());
+
+        // Predeal missing a candidate: error naming the seat.
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, Cards::from_str("SA").unwrap())
+            .unwrap()
+            .build()
+            .unwrap();
+        assert!(build_with(dealer, trace.clone(), contract).is_err());
+
+        // Empty trace defers to LeadSimulation.
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, Cards::from_str("SAK").unwrap())
+            .unwrap()
+            .build()
+            .unwrap();
+        assert!(build_with(dealer, Vec::new(), contract).is_err());
+
+        // Valid configuration builds.
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, Cards::from_str("SAK").unwrap())
+            .unwrap()
+            .build()
+            .unwrap();
+        assert!(build_with(dealer, trace, contract).is_ok());
     }
 
     /// Deterministic end-to-end through the shared batch-solve engine.

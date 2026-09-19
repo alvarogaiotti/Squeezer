@@ -817,7 +817,7 @@ pub struct DealerBuilder {
     numbering: Option<BoardNumbering>,
 
     /// Per-seat constraints (shape, HCP, controls, etc.)
-    hand_descriptors: [Option<HandConstraint>; NUMBER_OF_HANDS],
+    hand_constraints: [Option<HandConstraint>; NUMBER_OF_HANDS],
 
     /// Cards to predeal to specific seats (can be partial hands)
     predealt_hands: [Option<Cards>; NUMBER_OF_HANDS],
@@ -829,7 +829,7 @@ pub struct DealerBuilder {
 impl std::fmt::Debug for DealerBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DealerBuilder")
-            .field("hand_descriptors", &self.hand_descriptors)
+            .field("hand_constraints", &self.hand_constraints)
             .field("predealt_hands", &self.predealt_hands)
             .field("vulnerability", &self.vulnerability)
             .finish_non_exhaustive()
@@ -852,7 +852,7 @@ impl DealerBuilder {
     pub fn new() -> Self {
         Self {
             accept: Box::new(|_: &Hands| true),
-            hand_descriptors: [None, None, None, None],
+            hand_constraints: [None, None, None, None],
             predealt_hands: [None; 4],
             vulnerability: Vulnerability::default(),
             deck: Cards::ALL,
@@ -1046,7 +1046,7 @@ impl DealerBuilder {
     #[inline]
     #[must_use]
     pub fn with_hand_descriptor(mut self, seat: Seat, hand_description: HandDescriptor) -> Self {
-        self.hand_descriptors[seat as usize] = Some(hand_description.into());
+        self.hand_constraints[seat as usize] = Some(hand_description.into());
         self
     }
 
@@ -1074,7 +1074,7 @@ impl DealerBuilder {
     #[inline]
     #[must_use]
     pub fn with_hand_constraint(mut self, seat: Seat, constraint: HandConstraint) -> Self {
-        self.hand_descriptors[seat as usize] = Some(constraint);
+        self.hand_constraints[seat as usize] = Some(constraint);
         self
     }
 
@@ -1105,7 +1105,7 @@ impl DealerBuilder {
         mut self,
         hand_descriptors: [Option<HandDescriptor>; 4],
     ) -> Self {
-        self.hand_descriptors =
+        self.hand_constraints =
             hand_descriptors.map(|descriptor| descriptor.map(HandConstraint::from));
         self
     }
@@ -1117,7 +1117,7 @@ impl DealerBuilder {
     #[inline]
     #[must_use]
     pub fn with_hand_constraints_all(mut self, constraints: [Option<HandConstraint>; 4]) -> Self {
-        self.hand_descriptors = constraints;
+        self.hand_constraints = constraints;
         self
     }
 
@@ -1179,7 +1179,7 @@ impl DealerBuilder {
             vulnerability: self.vulnerability,
             deck_starting_state: self.deck,
             accept_function: self.accept,
-            hand_constraints: self.hand_descriptors,
+            hand_constraints: self.hand_constraints,
             output_as_subsequent: self.numbering.unwrap_or_default(),
         })
     }
@@ -1263,8 +1263,10 @@ pub trait Dealer {
 /// and vulnerability, though this dealer allows overriding those.
 ///
 /// The sequential counter is an `AtomicU8`, so dealers stay `Send + Sync`
-/// and simulations may drive one dealer from many threads. The field is
-/// private with a clamping constructor, keeping board numbers in `1..=128`.
+/// and can be shared across threads. (Each `deal()` call itself still
+/// generates serially; no simulation loop parallelizes dealing yet.)
+/// The field is private with a clamping constructor, keeping board numbers
+/// in `1..=128`.
 #[derive(Debug)]
 #[repr(u8)]
 pub enum BoardNumbering {

@@ -1,6 +1,6 @@
 # Residual crate seams
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem
 
@@ -26,3 +26,12 @@ until a simulation actually parallelizes. Verify each feature combo with
 ## Non-goals
 
 Actual parallelization of simulation loops.
+
+## Comments
+
+- Done 2026-09-19: `performance_analysis` now requires
+  `all(feature = "dds", feature = "lin")` (it consumes LIN play
+  sequences; `dds`-alone stays for `simulation`). `DealerBuilder` field
+  renamed `hand_descriptors` -> `hand_constraints` (compat method names
+  kept). `BoardNumbering` docs state sharing capability without
+  overselling unparallelized loops.

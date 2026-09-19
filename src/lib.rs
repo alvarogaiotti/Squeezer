@@ -122,7 +122,9 @@ mod hand;
 mod hand_constraint;
 #[cfg(feature = "lin")]
 pub mod linparser;
-#[cfg(feature = "dds")]
+/// Needs both features: analysis consumes LIN play sequences via the DDS
+/// solver, so `dds` alone cannot provide it.
+#[cfg(all(feature = "dds", feature = "lin"))]
 pub mod performance_analysis;
 mod range;
 mod shape;
@@ -165,12 +167,6 @@ pub mod prelude {
     pub(crate) use itertools::Itertools;
     pub use std::str::FromStr;
 
-    pub(crate) use std::{
-        array::IntoIter,
-        error::Error,
-        fmt,
-        hash::{Hash},
-        ops::RangeInclusive,
-    };
+    pub(crate) use std::{array::IntoIter, error::Error, fmt, hash::Hash, ops::RangeInclusive};
 }
 pub use prelude::*;

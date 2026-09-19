@@ -2,8 +2,8 @@
 // See end of file for license information
 
 use crate::prelude::{
-    BBOClient, BboError, BboErrorKind, ClientError, LinkExtractor, NetworkError, BBOBASE, BBOHANDS,
-    BBOLOGIN,
+    BBOBASE, BBOClient, BBOHANDS, BBOLOGIN, BboError, BboErrorKind, ClientError, LinkExtractor,
+    NetworkError,
 };
 use std::sync::OnceLock;
 

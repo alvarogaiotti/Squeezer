@@ -36,10 +36,6 @@ name = "bench_payoff"
 harness = false
 
 [[bench]]
-name = "my_benchmark"
-harness = false
-
-[[bench]]
 name = "bench_leadsim"
 harness = false
 

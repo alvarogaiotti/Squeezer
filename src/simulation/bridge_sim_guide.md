@@ -698,7 +698,7 @@ Configuration for formatters.
 Export payoff matrix to CSV.
 
 ```rust
-pub fn payoff_to_csv<T: Comparable + Display>(
+pub fn payoff_to_csv<T: Clone + Eq + std::hash::Hash + Display>(
     matrix: &PayoffMatrix<T>,
     writer: &mut dyn Write,
 ) -> std::io::Result<()>
@@ -1051,18 +1051,18 @@ impl CustomStatistics {
 Implement your own output format:
 
 ```rust
-pub struct JsonFormatter<'a, T: Comparable> {
+pub struct JsonFormatter<'a, T: Clone + Eq + std::hash::Hash> {
     matrix: &'a PayoffMatrix<T>,
 }
 
-impl<'a, T: Comparable + Serialize> JsonFormatter<'a, T> {
+impl<'a, T: Clone + Eq + std::hash::Hash + Serialize> JsonFormatter<'a, T> {
     pub fn new(matrix: &'a PayoffMatrix<T>) -> Self {
         Self { matrix }
     }
 
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         #[derive(Serialize)]
-        struct JsonOutput<'b, U: Comparable> {
+        struct JsonOutput<'b, U: Clone + Eq + std::hash::Hash> {
             rankings: &'b [OptionRanking<U>],
             comparisons: Vec<JsonComparison>,
         }

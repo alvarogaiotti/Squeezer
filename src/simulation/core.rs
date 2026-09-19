@@ -17,12 +17,10 @@ use std::collections::HashMap;
 // TRAIT DEFINITIONS - Core abstractions
 // ============================================================================
 
-/// Trait for items that can be compared in payoff simulations.
-/// This replaces the marker trait with more semantic meaning.
-pub trait Comparable: Clone + Eq + std::hash::Hash {}
-
-impl Comparable for Card {}
-impl Comparable for Contract {}
+// NOTE: a `Comparable` marker trait (`Clone + Eq + Hash`, implemented only
+// for `Card` and `Contract`) used to live here. It added generic-parameter
+// noise without abstraction value, so the bounds are spelled out at each
+// use site instead.
 
 /// Core trait for running simulations.
 /// Simulations produce results that can be consumed in various ways.

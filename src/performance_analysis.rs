@@ -20,8 +20,6 @@ use crate::{linparser::PlaySequence, prelude::*};
 use dds::analyseplay::SolvedPlay;
 use std::fmt;
 
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::{
     __m128i, _mm_add_epi16, _mm_and_si128, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_set1_epi8,
@@ -414,30 +412,16 @@ pub struct PreprocessedDeal {
 }
 
 impl PreprocessedDeal {
-    /// Creates a new preprocessed deal using SIMD operations.
+    /// Creates a new preprocessed deal.
+    ///
+    /// Scalar only: the former AVX2/SSE2/NEON auto-dispatch is gone. The
+    /// SSE2 path disagreed with scalar on trump encoding, the NEON path did
+    /// not compile, and the naive winner matched SIMD performance anyway
+    /// (see `find_trick_winner_naive`). The arch-specific constructors
+    /// below survive solely as benchmark harnesses.
     #[must_use]
     pub fn new(cards: &[Card; 48], trump: Option<Suit>) -> Self {
-        #[cfg(target_arch = "x86_64")]
-        {
-            // Self::new_scalar(cards, trump)
-            if is_x86_feature_detected!("avx2") {
-                unsafe { Self::new_avx2(cards, trump) }
-            } else if is_x86_feature_detected!("sse2") {
-                unsafe { Self::new_sse2(cards, trump) }
-            } else {
-                Self::new_scalar(cards, trump)
-            }
-        }
-
-        #[cfg(target_arch = "aarch64")]
-        {
-            unsafe { Self::new_neon(cards, trump) }
-        }
-
-        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-        {
-            Self::new_scalar(cards, trump)
-        }
+        Self::new_scalar(cards, trump)
     }
 
     /// Scalar fallback implementation.
@@ -557,15 +541,7 @@ impl PreprocessedDeal {
 
             // ---- Load 32 cards ----
             let cards_v = unsafe { _mm256_loadu_si256(cards.as_ptr().cast()) };
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), cards_v);
-            // println!("Cards");
-            // for e in &print {
-            //     println!("{e}");
             // }
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), trump_vec);
-            // println!("Trumps");
-            // for e in &print {
-            //     println!("{e}");
             // }
 
             // rank = low nibble
@@ -575,10 +551,6 @@ impl PreprocessedDeal {
             let suit_idx = _mm256_and_si256(cards_v, suit_mask);
             let suit_idx = _mm256_srli_epi16(suit_idx, 4);
 
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), suit_idx);
-            // println!("Suit match");
-            // for e in &print {
-            //     println!("{e}");
             // }
             // compare suits
             let is_trump = _mm256_cmpeq_epi8(suit_idx, trump_vec);
@@ -586,41 +558,16 @@ impl PreprocessedDeal {
             // bonus byte: 1 or 0
             let bonus = _mm256_and_si256(is_trump, _mm256_set1_epi8(1));
 
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), bonus);
-            // println!("Bonus");
-            // for e in &print {
-            //     println!("{e}");
             // }
 
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), shift_bonus);
-            // println!("Shift Bonus");
-            // for e in &print {
-            //     println!("{e:b}");
             // }
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), bonus);
-            // println!("Bonus");
-            // for e in &print {
-            //     println!("{e}");
             // }
 
-            // // widen
             // let ranks_lo = _mm256_unpacklo_epi8(ranks, zero);
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), ranks_lo);
-            // println!("ranks");
-            // for e in &print {
-            //     println!("{e}");
             // }
             // let bonus_lo = _mm256_unpacklo_epi8(bonus, zero);
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), bonus_lo);
-            // println!("Bonus lo");
-            // for e in &print {
-            //     println!("{e}");
             // }
             // let bonus_hi = _mm256_slli_epi16(bonus_lo, 8);
-            // _mm256_storeu_si256(print.as_mut_ptr().cast(), bonus_hi);
-            // println!("Bonus hi");
-            // for e in &print {
-            //     println!("{e}");
             // }
             // let result_lo = _mm256_or_si256(ranks_lo, _mm256_slli_epi16(bonus_lo, 8));
 
@@ -642,57 +589,6 @@ impl PreprocessedDeal {
         } else {
             for i in 0..48 {
                 result[i] = cards[i].as_u8();
-            }
-        }
-
-        Self { cards: result }
-    }
-
-    /// NEON implementation (ARM aarch64).
-    #[cfg(target_arch = "aarch64")]
-    #[target_feature(enable = "neon")]
-    pub unsafe fn new_neon(cards: &[Card; 48], trump: Option<Suit>) -> Self {
-        let mut result = [0u16; 48];
-
-        if let Some(trump_suit) = trump {
-            let trump_id = trump_suit as u8;
-            let trump_vec = vdupq_n_u8(trump_id);
-            let mask_0f = vdupq_n_u8(0x0F);
-            let shift_4 = vdupq_n_s8(4);
-
-            for chunk in 0..3 {
-                let offset = chunk * 16;
-
-                let cards_u8 = vld1q_u8(cards[offset..].as_ptr());
-
-                // Extract suits (shift right 4)
-                let suits = vshrq_n_u8(cards_u8, 4);
-
-                // Extract ranks
-                let ranks = vandq_u8(cards_u8, mask_0f);
-
-                // Compare with trump
-                let is_trump_mask = vceqq_u8(suits, trump_vec);
-
-                // Widen to u16 and add bonus (low 8 cards)
-                let ranks_low = vmovl_u8(vget_low_u8(ranks));
-                let mask_low = vmovl_u8(vget_low_u8(is_trump_mask));
-                let bonus_256 = vdupq_n_u16(256);
-                let bonus_low = vandq_u16(mask_low, bonus_256);
-                let result_low = vaddq_u16(ranks_low, bonus_low);
-
-                // High 8 cards
-                let ranks_high = vmovl_u8(vget_high_u8(ranks));
-                let mask_high = vmovl_u8(vget_high_u8(is_trump_mask));
-                let bonus_high = vandq_u16(mask_high, bonus_256);
-                let result_high = vaddq_u16(ranks_high, bonus_high);
-
-                vst1q_u16(result[offset..].as_mut_ptr(), result_low);
-                vst1q_u16(result[offset + 8..].as_mut_ptr(), result_high);
-            }
-        } else {
-            for i in 0..48 {
-                result[i] = u16::from(cards[i].rank_bits());
             }
         }
 
@@ -733,7 +629,6 @@ pub fn find_trick_winner(
 
     for i in 0..4 {
         let base = preprocessed[i];
-        //println!("{i}: {} {base}", original_cards[i]);
         let suit = original_cards[i].suit();
 
         // Branchless: add 128 if not trump and is lead suit
@@ -854,8 +749,6 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
     let extra_cards = seq_len % 4;
     cards_array[0..seq_len].copy_from_slice(&input.play_sequence.sequence);
 
-    // Preprocess entire deal once with SIMD
-    // let preprocessed = PreprocessedDeal::new(&cards_array, trump);
     let mut records = [
         PlayerRecord::new(),
         PlayerRecord::new(),
@@ -877,10 +770,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 
         trick_cards.copy_from_slice(&cards_array[card_offset..card_offset + 4]);
 
-        // let trick_preprocessed = preprocessed.get_trick(trick_idx);
         let lead_suit = trick_cards[0].suit();
-        //dbg!(trick_cards);
-        //dbg!(trick_preprocessed);
         // Get DD results for this trick
         let trick_dd: Vec<i32> = dd_iter.by_ref().take(4).collect();
         assert_eq!(
@@ -901,8 +791,6 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 
         // Find winner using SIMD-friendly comparison
         let winner_position_in_trick = find_trick_winner_naive(trick_cards, lead_suit, trump);
-        // println!("{}", winner_position_in_trick);
-        //println!("{winner_position_in_trick}");
         current_leader = current_leader + winner_position_in_trick;
     }
 
@@ -1027,58 +915,67 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_winner_suit() {
-    //     let winner = find_trick_winner(
-    //         [Card::new(Suit::Hearts, 10), Card::new(Suit::Hearts, 14)].into_iter(),
-    //         Some(Suit::Spades),
-    //         Seat::East,
-    //     );
-    //     assert_eq!(winner, (Seat::South, Card::HA));
-
-    //     let winner = find_trick_winner(
-    //         [
-    //             Card::new(Suit::Hearts, 10),
-    //             Card::new(Suit::Clubs, 2),
-    //             Card::DA,
-    //             Card::SA,
-    //         ]
-    //         .into_iter(),
-    //         Some(Suit::Clubs),
-    //         Seat::West,
-    //     );
-    //     assert_eq!(winner, (Seat::North, Card::C2));
-
-    //     let winner = find_trick_winner(
-    //         [
-    //             Card::DA,
-    //             Card::new(Suit::Clubs, 10),
-    //             Card::new(Suit::Clubs, 2),
-    //             Card::SA,
-    //         ]
-    //         .into_iter(),
-    //         Some(Suit::Clubs),
-    //         Seat::West,
-    //     );
-    //     assert_eq!(winner, (Seat::North, Card::C10));
-    // }
-
-    // #[test]
-    // fn test_winner_nt() {
-    //     let winner = find_trick_winner(
-    //         [Card::new(Suit::Hearts, 10), Card::new(Suit::Hearts, 14)].into_iter(),
-    //         None,
-    //         Seat::West,
-    //     );
-    //     assert_eq!(winner, (Seat::North, Card::HA));
-
-    //     let winner = find_trick_winner(
-    //         [Card::new(Suit::Spades, 5), Card::new(Suit::Hearts, 14)].into_iter(),
-    //         None,
-    //         Seat::West,
-    //     );
-    //     assert_eq!(winner, (Seat::West, Card::S5));
-    // }
+    #[test]
+    fn test_preprocessed_winner_agrees_with_naive() {
+        // Revived from commented-out tests written against an older
+        // signature: pins the preprocessed winner to the naive one plus
+        // expected positions, across trump and no-trump cases.
+        let cases: [([Card; 4], Suit, Option<Suit>, usize); 4] = [
+            (
+                [
+                    Card::new(Suit::Hearts, 10),
+                    Card::new(Suit::Hearts, 14),
+                    Card::new(Suit::Clubs, 2),
+                    Card::new(Suit::Spades, 14),
+                ],
+                Suit::Hearts,
+                Some(Suit::Spades),
+                3,
+            ),
+            (
+                [
+                    Card::new(Suit::Spades, 11),
+                    Card::new(Suit::Spades, 13),
+                    Card::new(Suit::Spades, 12),
+                    Card::new(Suit::Spades, 9),
+                ],
+                Suit::Spades,
+                Some(Suit::Spades),
+                1,
+            ),
+            (
+                [
+                    Card::new(Suit::Hearts, 10),
+                    Card::new(Suit::Hearts, 14),
+                    Card::new(Suit::Clubs, 2),
+                    Card::new(Suit::Diamonds, 5),
+                ],
+                Suit::Hearts,
+                None,
+                1,
+            ),
+            (
+                [
+                    Card::new(Suit::Clubs, 10),
+                    Card::new(Suit::Hearts, 14),
+                    Card::new(Suit::Clubs, 2),
+                    Card::new(Suit::Clubs, 13),
+                ],
+                Suit::Clubs,
+                None,
+                3,
+            ),
+        ];
+        for (trick, lead_suit, trump, expected) in cases {
+            let mut padded = [Card::NONCE; 48];
+            padded[..4].copy_from_slice(&trick);
+            let preprocessed = PreprocessedDeal::new_scalar(&padded, trump);
+            let fast = find_trick_winner(preprocessed.get_trick(0), trick, lead_suit);
+            let naive = find_trick_winner_naive(trick, lead_suit, trump);
+            assert_eq!(fast, naive, "divergence on {trick:?}");
+            assert_eq!(fast, expected, "wrong winner for {trick:?}");
+        }
+    }
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -1134,10 +1031,8 @@ mod tests {
         };
         let players_performance = analyze_hand(analysis_input);
 
-        // println!("N  E  S  W");
         // for i in 0..=4 {
         //     use itertools::*;
-        //     println!(
         //         "{}",
         //         players_performance
         //             .records

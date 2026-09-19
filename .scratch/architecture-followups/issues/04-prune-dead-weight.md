@@ -1,6 +1,6 @@
 # Prune dead weight: giubilo, SIMD, winner impls, benches
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem
 
@@ -29,3 +29,17 @@ do not rewire it into `analyze_hand` in this ticket.
 ## Non-goals
 
 SIMD performance work; the batch-solve engine.
+
+## Comments
+
+- Done 2026-09-19: deleted `tests/giubilo_simulation.rs`,
+  `benches/my_benchmark.rs` (+ Cargo stanza),
+  `benches/deck_pick_uniformity.rs` (unregistered); stripped commented
+  bodies/headers in `trick_winner_bench.rs` and `simd_benchmark.rs`.
+- SIMD: `PreprocessedDeal::new()` is scalar-only (deleted AVX2/SSE2/NEON
+  auto-dispatch); deleted uncompilable `new_neon`, ARM bench falls back
+  to scalar; removed debug-print scaffolding and dead commented lines in
+  `analyze_hand`. `new_sse2`/`new_avx2` stay as bench harnesses only.
+- Revived commented winner tests as live
+  `test_preprocessed_winner_agrees_with_naive` (fast == naive + expected
+  positions, trump and NT).

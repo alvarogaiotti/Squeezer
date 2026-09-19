@@ -40,19 +40,19 @@
 use colored::Colorize;
 use std::fmt::{self, Write as FmtWrite};
 
-use crate::{Comparable, LeadStatistics, PayoffComparison, PayoffMatrix, Suit};
+use crate::{LeadStatistics, PayoffComparison, PayoffMatrix, Suit};
 
 // ============================================================================
 // PAYOFF MATRIX FORMATTER
 // ============================================================================
 
 /// Formatter for payoff matrices (contract or card comparisons)
-pub struct PayoffMatrixFormatter<'a, T: Comparable + fmt::Display> {
+pub struct PayoffMatrixFormatter<'a, T: Clone + Eq + std::hash::Hash + fmt::Display> {
     matrix: &'a PayoffMatrix<T>,
     config: FormatterConfig,
 }
 
-impl<'a, T: Comparable + fmt::Display> PayoffMatrixFormatter<'a, T> {
+impl<'a, T: Clone + Eq + std::hash::Hash + fmt::Display> PayoffMatrixFormatter<'a, T> {
     /// Create a new formatter with default configuration
     #[must_use]
     #[inline]
@@ -179,7 +179,9 @@ impl<'a, T: Comparable + fmt::Display> PayoffMatrixFormatter<'a, T> {
     }
 }
 
-impl<T: Comparable + fmt::Display> std::fmt::Display for PayoffMatrixFormatter<'_, T> {
+impl<T: Clone + Eq + std::hash::Hash + fmt::Display> std::fmt::Display
+    for PayoffMatrixFormatter<'_, T>
+{
     #[inline]
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         // Title
@@ -571,51 +573,18 @@ impl FormatterConfig {
 }
 
 // ============================================================================
-// CONVENIENCE TRAIT FOR FORMATTED OUTPUT
-// ============================================================================
-
-/// Trait for types that can be formatted for terminal output
-pub trait TerminalFormattable {
-    /// Print a formatted report to stdout
-    fn print_report(&self);
-
-    /// Get formatted report as a string
-    fn format_report(&self) -> String;
-}
-
-impl<T: Comparable + fmt::Display> TerminalFormattable for PayoffMatrix<T> {
-    fn print_report(&self) {
-        PayoffMatrixFormatter::new(self).print();
-    }
-
-    fn format_report(&self) -> String {
-        PayoffMatrixFormatter::new(self).to_string()
-    }
-}
-
-impl TerminalFormattable for LeadStatistics {
-    fn print_report(&self) {
-        LeadStatsFormatter::new(self).print();
-    }
-
-    fn format_report(&self) -> String {
-        LeadStatsFormatter::new(self).to_string()
-    }
-}
-
-// ============================================================================
 // EXPORT UTILITIES
 // ============================================================================
 
 /// Utilities for exporting results to various formats
 pub mod export {
-    use super::{Comparable, LeadStatistics, PayoffMatrix, fmt};
+    use super::{LeadStatistics, PayoffMatrix, fmt};
     use std::io::Write;
 
     /// Export payoff matrix to CSV format
     /// # Errors
     /// Errors on IO errors: unable to open file, etc..
-    pub fn payoff_to_csv<T: Comparable + fmt::Display>(
+    pub fn payoff_to_csv<T: Clone + Eq + std::hash::Hash + fmt::Display>(
         matrix: &PayoffMatrix<T>,
         writer: &mut dyn Write,
     ) -> std::io::Result<()> {
@@ -718,7 +687,7 @@ pub mod export {
 
 /// Utilities for preparing data for charts/graphs in a GUI
 pub mod charts {
-    use super::{Comparable, LeadStatistics, PayoffComparison, PayoffMatrix, fmt};
+    use super::{LeadStatistics, PayoffComparison, PayoffMatrix, fmt};
 
     /// Data prepared for a histogram chart
     #[derive(Debug, Clone)]
@@ -750,7 +719,7 @@ pub mod charts {
     }
 
     /// Prepare histogram data from a payoff comparison
-    pub fn payoff_comparison_histogram<T: Comparable + fmt::Display>(
+    pub fn payoff_comparison_histogram<T: Clone + Eq + std::hash::Hash + fmt::Display>(
         comp: &PayoffComparison<T>,
     ) -> HistogramData {
         HistogramData {
@@ -760,7 +729,7 @@ pub mod charts {
     }
 
     /// Prepare box plot data from a payoff comparison
-    pub fn payoff_comparison_boxplot<T: Comparable + fmt::Display>(
+    pub fn payoff_comparison_boxplot<T: Clone + Eq + std::hash::Hash + fmt::Display>(
         comp: &PayoffComparison<T>,
     ) -> BoxPlotData {
         BoxPlotData {
@@ -776,7 +745,7 @@ pub mod charts {
     /// Prepare bar chart data for payoff matrix rankings
     #[must_use]
     #[inline]
-    pub fn payoff_rankings_barchart<T: Comparable + fmt::Display>(
+    pub fn payoff_rankings_barchart<T: Clone + Eq + std::hash::Hash + fmt::Display>(
         matrix: &PayoffMatrix<T>,
     ) -> BarChartData {
         BarChartData {

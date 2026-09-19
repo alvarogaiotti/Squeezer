@@ -1,6 +1,6 @@
 # Card-payoff predealt / current-trick coupling
 
-Status: needs-triage
+Status: resolved
 
 ## Problem
 
@@ -23,3 +23,17 @@ revisit the dead zone either way.
 
 Scoring/pairwise accumulation; the shared batch-solve engine (separate,
 already planned).
+
+## Comments
+
+- Decision 2026-09-19: explicit seam (small) over simulation-owned setup
+  — the generic `D: Dealer` cannot construct predeals through the trait,
+  so ownership stays with the caller but is now validated and documented.
+- Done: `CardPayoffBuilder::build()` requires the predealt hand
+  (missing predeal is an error, not a silent pass), validates trace
+  length 1..=47 like `new()`, and shares `new()`'s set-based candidate
+  check; fixed the `insertion_poìnt` typo (pure rename); documented the
+  candidate/trace contract on builder methods and struct fields. Mid-trick
+  algebra untouched (ownership redesign remains future work).
+- Tests: `test_card_payoff_builder_validates_predealt_and_trace` (missing
+  predeal, missing candidate, empty trace, valid build).

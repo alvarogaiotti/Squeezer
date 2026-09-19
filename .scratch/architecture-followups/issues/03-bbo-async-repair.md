@@ -28,6 +28,12 @@ async trait, duplicated logic moved to `bbohelpers`, live-net test
 strategy, and whether `bidding_rule_engine` revives (add `serde_yaml`) or
 is deleted.
 
-## Non-goals
+## Comments
 
-Deal/simulation domains.
+- Slice 1 done 2026-09-19: `is_logged` else-branch returns `true`
+  (decision extracted as tested `logged_in_from_body`); `get_in_interval`
+  passes fetched page text to `get_links`; `login`/`get_in_interval` now
+  `pub` like the sync surface. Offline tests: status decision, link
+  extraction (multi-link + empty), client construction. Network paths
+  remain untestable (hardcoded URLs, no mock crates) — recorded for
+  slice 2, which still needs the shared-core decision.

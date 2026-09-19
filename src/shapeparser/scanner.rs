@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::shapeparser::{fmt, Modifier, Token};
+use crate::shapeparser::{Modifier, Token, fmt};
 /// Represents a Scanner for parsing shapes.
 pub struct Scanner {
     source: Vec<char>,
