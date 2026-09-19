@@ -3,7 +3,15 @@
 
 use crate::prelude::*;
 
+/// Per-seat vulnerability answer: is *this* seat vulnerable?
+///
+/// This is the adjective to [`Vulnerability`]'s noun. `Vulnerability`
+/// describes the board state (none / NS / EW / all); `Vulnerable` is the
+/// answer for one seat under that state. Convert between them with
+/// [`Vulnerable::new`] (or `Vulnerable::from((vulnerability, seat))`) rather
+/// than reimplementing the seat-parity bit test at each call site.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Vulnerable {
     Yes,
@@ -11,10 +19,36 @@ pub enum Vulnerable {
 }
 
 impl Vulnerable {
+    /// Answers vulnerability for `seat` under `vulnerability`.
+    ///
+    /// Single home of the seat-parity bit test: even seats (North, South)
+    /// read bit 0 (NS), odd seats (East, West) read bit 1 (EW).
+    #[must_use]
+    pub const fn new(vulnerability: Vulnerability, seat: Seat) -> Self {
+        let seat_position = (seat as usize) % 2;
+        if ((vulnerability as usize) & (1 << seat_position)) != 0 {
+            Self::Yes
+        } else {
+            Self::No
+        }
+    }
+
     #[must_use]
     pub const fn from_number_and_seat(board_number: u8, seat: Seat) -> Self {
-        let state = Vulnerability::from_number(board_number);
-        state.is_vulnerable(seat)
+        Self::new(Vulnerability::from_number(board_number), seat)
+    }
+
+    /// Convenience predicate over the answer.
+    #[must_use]
+    pub const fn is_yes(self) -> bool {
+        matches!(self, Self::Yes)
+    }
+}
+
+impl From<(Vulnerability, Seat)> for Vulnerable {
+    /// Ergonomic bridge from board state plus seat to per-seat answer.
+    fn from((vulnerability, seat): (Vulnerability, Seat)) -> Self {
+        Self::new(vulnerability, seat)
     }
 }
 /// A struct representing a contract
@@ -62,6 +96,7 @@ impl dds::traits::ContractScorer for Contract {
 /// Enum modelling whether a [`Contract`] is not doubled,
 /// doubled or redoubled
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Doubled {
     NotDoubled = 0,
@@ -72,6 +107,7 @@ pub enum Doubled {
 /// The strain of a bridge contract, either some trump or
 /// no trump
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Strain {
     Spades = 0,

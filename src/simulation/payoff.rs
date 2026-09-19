@@ -83,13 +83,15 @@ impl<T: Comparable + std::fmt::Display> RawPayoffData<T> {
     #[must_use]
     #[inline]
     pub fn new(options: Vec<T>) -> Self {
+        let n = options.len();
         Self {
             option_results: options
                 .iter()
                 .map(|opt| OptionResults::new(opt.clone()))
                 .collect(),
             options,
-            items: Vec::new(),
+            // Directed pairs (A,B) and (B,A); reserve up front.
+            items: Vec::with_capacity(n.saturating_sub(1) * n),
         }
     }
 
@@ -114,6 +116,32 @@ impl<T: Comparable + std::fmt::Display> RawPayoffData<T> {
     }
 }
 
+/// Shared pairwise builder used by both contract and card simulations.
+///
+/// Builds the directed comparison `option_a` vs `option_b` from aligned
+/// per-deal results, applying `scoring_fn` once per deal. Capacity for
+/// `num_deals` comparisons is reserved up front.
+fn build_pairwise<T: Comparable>(
+    option_a: T,
+    option_b: T,
+    results_a: &[DealResult],
+    results_b: &[DealResult],
+    scoring_fn: &dyn Fn(i32, i32) -> i32,
+) -> PairwiseComparison<T> {
+    let capacity = results_a.len().min(results_b.len());
+    let mut pairwise = PairwiseComparison::with_capacity(option_a, option_b, capacity);
+    for (deal_idx, (result_a, result_b)) in results_a.iter().zip(results_b.iter()).enumerate() {
+        let difference = scoring_fn(result_a.score, result_b.score);
+        pairwise.add_comparison(ComparisonResult::new(
+            deal_idx,
+            result_a.score,
+            result_b.score,
+            difference,
+        ));
+    }
+    pairwise
+}
+
 /// Results for a single option across all deals
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -127,10 +155,20 @@ pub struct OptionResults<T: Comparable> {
 
 impl<T: Comparable> OptionResults<T> {
     /// Create a new option results container
+    #[inline]
     pub fn new(option: T) -> Self {
         Self {
             option,
             deals: Vec::new(),
+        }
+    }
+
+    /// Create a new option results container with deal capacity reserved.
+    #[inline]
+    pub fn with_capacity(option: T, capacity: usize) -> Self {
+        Self {
+            option,
+            deals: Vec::with_capacity(capacity),
         }
     }
 
@@ -145,6 +183,7 @@ impl<T: Comparable> OptionResults<T> {
     }
 
     /// Add a deal result
+    #[inline]
     pub fn add_deal(&mut self, result: DealResult) {
         self.deals.push(result);
     }
@@ -166,6 +205,7 @@ pub struct PairwiseComparison<T: Comparable> {
 
 impl<T: Comparable> PairwiseComparison<T> {
     /// Create a new pairwise comparison
+    #[inline]
     pub fn new(option_a: T, option_b: T) -> Self {
         Self {
             option_a,
@@ -174,12 +214,24 @@ impl<T: Comparable> PairwiseComparison<T> {
         }
     }
 
+    /// Create a new pairwise comparison with comparison capacity reserved.
+    #[inline]
+    pub fn with_capacity(option_a: T, option_b: T, capacity: usize) -> Self {
+        Self {
+            option_a,
+            option_b,
+            comparisons: Vec::with_capacity(capacity),
+        }
+    }
+
     /// Add a comparison result
+    #[inline]
     pub fn add_comparison(&mut self, result: ComparisonResult) {
         self.comparisons.push(result);
     }
 
     /// Get all differences as a vector (useful for plotting)
+    #[inline]
     pub fn differences(&self) -> Vec<i32> {
         self.comparisons.iter().map(|c| c.difference).collect()
     }
@@ -239,12 +291,12 @@ impl<T: Comparable + Clone> PayoffMatrix<T> {
     #[must_use]
     #[inline]
     pub fn from_raw_data(raw: &RawPayoffData<T>) -> Self {
-        let mut comparisons = Vec::new();
+        let mut comparisons = Vec::with_capacity(raw.items.len());
 
         // Compute statistics for each pairwise comparison
         for item in &raw.items {
             let stats = PairwiseStatistics::from_comparisons(&item.comparisons);
-            let distribution = DistributionData::from_differences(&item.differences(), 20);
+            let distribution = DistributionData::from_comparison_differences(&item.comparisons, 20);
 
             comparisons.push(PayoffComparison {
                 option_a: item.option_a.clone(),
@@ -265,47 +317,62 @@ impl<T: Comparable + Clone> PayoffMatrix<T> {
     }
 
     /// Calculate overall rankings based on average performance against all other options
+    ///
+    /// Single pass over `comparisons`: aggregates (sum, count, wins, losses)
+    /// per option via an index map instead of filtering per option (O(O*C)).
     fn calculate_rankings(
         options: &[T],
         comparisons: &[PayoffComparison<T>],
     ) -> Vec<OptionRanking<T>> {
+        #[derive(Clone, Copy, Default)]
+        struct Agg {
+            sum: f64,
+            count: usize,
+            wins: usize,
+            losses: usize,
+        }
+        let mut index_of = std::collections::HashMap::with_capacity(options.len() * 2);
+        for (idx, opt) in options.iter().enumerate() {
+            index_of.entry(opt).or_insert(idx);
+        }
+        let mut aggs = vec![Agg::default(); options.len()];
+        for comparison in comparisons {
+            if let Some(&idx) = index_of.get(&comparison.option_a) {
+                let a = &mut aggs[idx];
+                a.sum += comparison.stats.mean;
+                a.count += 1;
+                if comparison.stats.is_a_significantly_better() {
+                    a.wins += 1;
+                }
+                if comparison.stats.is_b_significantly_better() {
+                    a.losses += 1;
+                }
+            }
+        }
+
         let mut rankings: Vec<_> = options
             .iter()
-            .map(|opt| {
-                // Calculate average score against all other options
-                let relevant_comparisons: Vec<_> =
-                    comparisons.iter().filter(|c| &c.option_a == opt).collect();
-
-                let total_mean: f64 = relevant_comparisons.iter().map(|c| c.stats.mean).sum();
-
+            .enumerate()
+            .map(|(idx, opt)| {
+                let a = aggs[idx];
                 #[allow(clippy::cast_precision_loss)]
-                let avg_mean = if relevant_comparisons.is_empty() {
+                let avg_mean = if a.count == 0 {
                     0.0
                 } else {
-                    total_mean / relevant_comparisons.len() as f64
+                    a.sum / a.count as f64
                 };
-
-                let wins = relevant_comparisons
-                    .iter()
-                    .filter(|c| c.stats.is_a_significantly_better())
-                    .count();
-
-                let losses = relevant_comparisons
-                    .iter()
-                    .filter(|c| c.stats.is_b_significantly_better())
-                    .count();
 
                 OptionRanking {
                     option: opt.clone(),
                     average_score: avg_mean,
-                    wins,
-                    losses,
+                    wins: a.wins,
+                    losses: a.losses,
                 }
             })
             .collect();
 
         // Sort by average score (descending)
-        rankings.sort_by(|a, b| b.average_score.partial_cmp(&a.average_score).unwrap());
+        rankings.sort_by(|a, b| b.average_score.total_cmp(&a.average_score));
 
         rankings
     }
@@ -489,10 +556,8 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
         let solver_array_len = 200 - (200 % num_contracts);
         let deals_per_chunk = solver_array_len / num_contracts;
 
-        // Initialize raw data container
-        let mut raw_data = RawPayoffData::new(self.contracts.clone());
-
-        // Initialize accumulators for each contract
+        // Initialize accumulators for each contract first (borrows self),
+        // then move the contracts into raw_data (no second allocation).
         let mut accumulators: Vec<_> = self
             .contracts
             .iter()
@@ -501,6 +566,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
                 results: Vec::with_capacity(self.num_deals),
             })
             .collect();
+        let mut raw_data = RawPayoffData::new(self.contracts);
 
         let solver = DoubleDummySolver::new();
         let mut deal_buffer = vec![DdsDeal::sentinel(); solver_array_len];
@@ -530,49 +596,41 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
             let solver_results =
                 solver.dd_tricks_parallel(total_len as i32, &deal_buffer[..total_len])?;
 
-            // Process results
-            for (index, tricks) in solver_results.into_iter().enumerate() {
-                let contract_idx = index % num_contracts;
-                let deal_idx = chunk_start + (index / num_contracts);
-                let acc = &mut accumulators[contract_idx];
-                let score = acc.contract.score(tricks);
+            // Process results (results come back in deal-major, contract-minor
+            // order, so iterate without per-result modulo/division)
+            let mut results_iter = solver_results.into_iter();
+            for i in 0..chunk_length {
+                let deal_idx = chunk_start + i;
+                for acc in &mut accumulators {
+                    let tricks = results_iter.next().unwrap();
+                    let score = acc.contract.score(tricks);
 
-                acc.results.push(DealResult::new(deal_idx, tricks, score));
+                    acc.results.push(DealResult::new(deal_idx, tricks, score));
+                }
             }
         }
 
-        // Populate raw data with individual results
-        for acc in &accumulators {
-            let opt_results = raw_data
-                .option_results
-                .iter_mut()
-                .find(|r| r.option == acc.contract)
-                .unwrap();
+        // Populate raw data with individual results. Both vectors are keyed by
+        // the same contract order, so zip directly instead of a linear search.
+        for (opt_results, acc) in raw_data.option_results.iter_mut().zip(&accumulators) {
             opt_results.deals.clone_from(&acc.results);
         }
 
-        // Generate all pairwise comparisons
+        // Generate all directed pairwise comparisons via the shared helper
+        // (capacity reserved; scoring applied once per deal per pair).
         for (i, acc_a) in accumulators.iter().enumerate() {
             for (j, acc_b) in accumulators.iter().enumerate() {
                 if i == j {
                     continue;
                 }
 
-                let mut pairwise = PairwiseComparison::new(acc_a.contract, acc_b.contract);
-
-                for (deal_idx, (result_a, result_b)) in
-                    acc_a.results.iter().zip(acc_b.results.iter()).enumerate()
-                {
-                    let difference = (self.scoring_fn)(result_a.score, result_b.score);
-                    pairwise.add_comparison(ComparisonResult::new(
-                        deal_idx,
-                        result_a.score,
-                        result_b.score,
-                        difference,
-                    ));
-                }
-
-                raw_data.items.push(pairwise);
+                raw_data.items.push(build_pairwise(
+                    acc_a.contract,
+                    acc_b.contract,
+                    &acc_a.results,
+                    &acc_b.results,
+                    &self.scoring_fn,
+                ));
             }
         }
 
@@ -856,18 +914,17 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
         let solver_array_len = 200 - (200 % num_cards);
         let deals_per_chunk = solver_array_len / num_cards;
 
-        // Initialize raw data container
-        let mut raw_data = RawPayoffData::new(self.cards.clone());
-
-        // Initialize accumulators for each card
-        let mut accumulators = self
+        // Initialize accumulators first (borrows self), then move cards into
+        // raw_data instead of cloning.
+        let mut accumulators: Vec<CardAccumulator> = self
             .cards
             .iter()
             .map(|&card| CardAccumulator {
                 card,
                 results: Vec::with_capacity(self.num_deals),
             })
-            .collect_vec();
+            .collect();
+        let mut raw_data = RawPayoffData::new(self.cards);
 
         let play_trace_cards = Cards::from(&self.play_trace);
         let (mut current_trick, insertion_point) = create_current_trick(&self.play_trace);
@@ -914,49 +971,40 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
             let solver_results =
                 solver.dd_tricks_parallel(total_len as i32, &deal_buffer[..total_len])?;
 
-            // Process results
-            for (index, tricks) in solver_results.into_iter().enumerate() {
-                let card_idx = index % num_cards;
-                let deal_idx = chunk_start + (index / num_cards);
-                let acc = &mut accumulators[card_idx];
-                let score = self.contract.score(tricks);
+            // Process results (results come back in deal-major, card-minor
+            // order, so iterate without per-result modulo/division)
+            let mut results_iter = solver_results.into_iter();
+            for i in 0..chunk_length {
+                let deal_idx = chunk_start + i;
+                for acc in &mut accumulators {
+                    let tricks = results_iter.next().unwrap();
+                    let score = self.contract.score(tricks);
 
-                acc.results.push(DealResult::new(deal_idx, tricks, score));
+                    acc.results.push(DealResult::new(deal_idx, tricks, score));
+                }
             }
         }
 
-        // Populate raw data with individual results
-        for acc in &accumulators {
-            let opt_results = raw_data
-                .option_results
-                .iter_mut()
-                .find(|r| r.option == acc.card)
-                .unwrap();
+        // Populate raw data with individual results. Both vectors are keyed by
+        // the same card order, so zip directly instead of a linear search.
+        for (opt_results, acc) in raw_data.option_results.iter_mut().zip(&accumulators) {
             opt_results.deals.clone_from(&acc.results);
         }
 
-        // Generate all pairwise comparisons
+        // Generate all directed pairwise comparisons via the shared helper.
         for (i, acc_a) in accumulators.iter().enumerate() {
             for (j, acc_b) in accumulators.iter().enumerate() {
                 if i == j {
                     continue;
                 }
 
-                let mut pairwise = PairwiseComparison::new(acc_a.card, acc_b.card);
-
-                for (deal_idx, (result_a, result_b)) in
-                    acc_a.results.iter().zip(acc_b.results.iter()).enumerate()
-                {
-                    let difference = (self.scoring_fn)(result_a.score, result_b.score);
-                    pairwise.add_comparison(ComparisonResult::new(
-                        deal_idx,
-                        result_a.score,
-                        result_b.score,
-                        difference,
-                    ));
-                }
-
-                raw_data.items.push(pairwise);
+                raw_data.items.push(build_pairwise(
+                    acc_a.card,
+                    acc_b.card,
+                    &acc_a.results,
+                    &acc_b.results,
+                    &self.scoring_fn,
+                ));
             }
         }
 

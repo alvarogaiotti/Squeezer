@@ -23,31 +23,32 @@ use crate::prelude::*;
 /// # }
 /// ```
 pub struct Evaluator {
-    evaluator: Box<dyn Fn(Cards) -> u8>,
+    vals: [u8; 13],
 }
 
 impl Evaluator {
     #[must_use]
-    pub fn new(values: &[u8]) -> Self {
+    pub const fn new(values: &[u8]) -> Self {
         let mut vals = [0u8; 13];
         // Since the iteration starts from the top (e.g. A), we populate in
         // a linear fashion, using enumerate to take the values that comes in when
         // new is called with the standard parameters like values: &[4,3,2,1]
         //                                                          A,K,Q,J,...
         //                                                          [8,6,2,1,0...]
-
-        vals[..values.len()].copy_from_slice(values);
-        Self {
-            evaluator: Box::new(move |x: Cards| {
-                x.into_iter()
-                    .map(|y| vals[14 - y.rank() as usize])
-                    .sum::<u8>()
-            }),
+        let mut i = 0;
+        while i < values.len() {
+            vals[i] = values[i];
+            i += 1;
         }
+        Self { vals }
     }
+
     #[must_use]
     pub fn evaluate(&self, cards: Cards) -> u8 {
-        (self.evaluator)(cards)
+        cards
+            .into_iter()
+            .map(|y| self.vals[14 - y.rank() as usize])
+            .sum::<u8>()
     }
 }
 

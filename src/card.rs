@@ -3,7 +3,7 @@
 use crate::prelude::*;
 #[cfg(feature = "dds")]
 use dds::traits::AsDDSCard;
-use rand::{Rng, seq::SliceRandom};
+use rand::Rng;
 
 /// A card, represented as a `u8`.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -63,7 +63,7 @@ impl Card {
     #[must_use]
     #[inline]
     pub const fn rank(self) -> u8 {
-        self.offset % 16
+        self.offset & 15
     }
 
     /// Returns the name of the rank of the card.
@@ -288,16 +288,27 @@ impl CardSampler for FastSampler {
 
 impl CardSampler for UniformSampler {
     fn pick_n<R: Rng>(deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards> {
-        let mut positions = Vec::with_capacity(52);
-        for i in 0..64 {
-            if deck.bits & (1 << i) != 0 {
-                positions.push(i);
+        let deck_len = deck.len() as usize;
+        if num > deck_len {
+            return None;
+        }
+        let mut positions = [0u8; 52];
+        let mut n = 0;
+        for i in 0..64u8 {
+            if deck.bits & (1u64 << i) != 0 {
+                positions[n] = i;
+                n += 1;
             }
         }
-        positions.shuffle(rng);
+        // Partial Fisher-Yates: only the first `num` positions need to be shuffled
+        // to obtain a uniformly random subset.
+        for i in 0..num {
+            let j = rng.random_range(i..n);
+            positions.swap(i, j);
+        }
         let mut to_draw = 0u64;
         for &pos in positions.iter().take(num) {
-            to_draw |= 1 << pos;
+            to_draw |= 1u64 << pos;
         }
         deck.bits &= !to_draw;
         Some(Cards { bits: to_draw })
@@ -347,7 +358,7 @@ impl std::fmt::Binary for Cards {
 impl From<&Vec<Card>> for Cards {
     fn from(value: &Vec<Card>) -> Self {
         Cards {
-            bits: value.iter().fold(0, |a, c| a | (1 << c.offset)),
+            bits: value.iter().fold(0, |a, c| a | (1u64 << c.offset)),
         }
     }
 }
@@ -380,7 +391,7 @@ impl Cards {
     /// Insert a `card` into the instance.
     pub const fn insert(self, card: Card) -> Self {
         Self {
-            bits: self.bits | (1 << card.offset),
+            bits: self.bits | (1u64 << card.offset),
         }
     }
 
@@ -389,7 +400,7 @@ impl Cards {
     /// NOTE: Removes, does not `pop`.
     pub const fn remove(self, card: Card) -> Self {
         Self {
-            bits: self.bits & !(1 << card.offset),
+            bits: self.bits & !(1u64 << card.offset),
         }
     }
 
@@ -397,7 +408,7 @@ impl Cards {
     #[inline]
     /// Returns true if `card` is contained in the instance.
     pub const fn has_card(self, card: Card) -> bool {
-        self.bits & (1 << card.offset) != 0
+        self.bits & (1u64 << card.offset) != 0
     }
     #[must_use]
     #[inline]
@@ -574,22 +585,34 @@ impl Cards {
     }
 
     /// High card points.
+    ///
+    /// Single pass over the set bits: each card contributes 4/3/2/1 for
+    /// A/K/Q/J based on its rank nibble.
     #[must_use]
     #[inline]
     pub const fn high_card_points(self) -> u8 {
-        self.aces().len()
-            + self.intersection(Cards::ACES.union(Cards::KINGS)).len()
-            + self
-                .intersection(Cards::ACES.union(Cards::KINGS).union(Cards::QUEENS))
-                .len()
-            + self
-                .intersection(
-                    Cards::ACES
-                        .union(Cards::KINGS)
-                        .union(Cards::QUEENS)
-                        .union(Cards::JACKS),
-                )
-                .len()
+        let mut bits = self.bits;
+        let mut points = 0u8;
+        while bits != 0 {
+            let tz = bits.trailing_zeros() as u8;
+            // Rank lives in the low nibble of the card offset.
+            let rank = tz & 15;
+            // A=14 -> 4, K=13 -> 3, Q=12 -> 2, J=11 -> 1, else 0.
+            let add = if rank == 14 {
+                4
+            } else if rank == 13 {
+                3
+            } else if rank == 12 {
+                2
+            } else if rank == 11 {
+                1
+            } else {
+                0
+            };
+            points += add;
+            bits &= bits - 1;
+        }
+        points
     }
 
     /// Returns the inner u64 type representing this [`Cards`] instance.
@@ -687,7 +710,7 @@ impl IntoIterator for Cards {
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SuitIterator {
     bits: u64,
 }
@@ -707,7 +730,7 @@ impl SuitIterator {
     }
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_truncation, clippy::copy_iterator)]
 impl Iterator for SuitIterator {
     type Item = Card;
 
@@ -716,9 +739,9 @@ impl Iterator for SuitIterator {
             None
         } else {
             let next = self.bits.leading_zeros();
-            self.bits &= !(1 << (63 - next));
+            self.bits &= !(1u64 << (63 - next));
             Some(Card {
-                offset: 63 - next as u8,
+                offset: (63 - next) as u8,
             })
         }
     }
@@ -743,7 +766,7 @@ impl Iterator for SuitIterator {
     }
 
     fn min(self) -> Option<Card> {
-        self.clone().next()
+        self.clone().next_back()
     }
 }
 
@@ -756,7 +779,9 @@ impl std::fmt::Display for Cards {
             let cards = self.in_suit(suit);
             if !cards.is_empty() {
                 write!(f, "{}", suit.unicode())?;
-                for c in cards.into_iter().rev() {
+                // SuitIterator yields high -> low (A,K,Q...), the conventional
+                // bridge display order, so no `.rev()` here.
+                for c in cards {
                     write!(f, "{}", c.rankchar())?;
                 }
             }
@@ -931,8 +956,8 @@ impl DoubleEndedIterator for SuitIterator {
         if self.bits == 0 {
             None
         } else {
-            let next = 63 - self.bits.leading_zeros();
-            self.bits &= !(1 << next);
+            let next = self.bits.trailing_zeros();
+            self.bits &= !(1u64 << next);
             Some(Card { offset: next as u8 })
         }
     }
@@ -944,4 +969,15 @@ fn heads_of_sequences_works() {
     assert_eq!(cards.heads_of_sequences(), Cards::EMPTY.insert(Card::DA));
     let cards = Cards::from_str("KQ986532").unwrap();
     assert_eq!(cards.heads_of_sequences(), Cards::from_str("K963").unwrap());
+}
+
+#[test]
+fn high_card_points_single_pass_matches_classic() {
+    use std::str::FromStr;
+    // A/K/Q/J = 4/3/2/1; spot cards contribute 0.
+    let hand = Cards::from_str("SAKQJHT987").unwrap();
+    // S: A(4)+K(3)+Q(2)+J(1) = 10; H: T = 0.
+    assert_eq!(hand.high_card_points(), 10);
+    assert_eq!(Cards::EMPTY.high_card_points(), 0);
+    assert_eq!(Cards::ALL.high_card_points(), 40);
 }

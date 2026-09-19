@@ -59,47 +59,45 @@
  ```
  # use squeezer::*;
 
- fn main() {
-     use crate::*;
+  fn main() -> Result<(), Box<dyn std::error::Error>> {
+      use crate::*;
 
-     // Create a new random deal, Board 1 etc.
-     // If you don't care about the characteristics of the deal
-     // then this is the best method.
-     let _deal = Deal::new();
+      // Create a new random deal, Board 1 etc.
+      // If you don't care about the characteristics of the deal
+      // then this is the best method.
+      let _deal = Deal::new();
 
-     // If you want a much finer approach, you should use a DealerBuilder:
+      // If you want a much finer approach, you should use a DealerBuilder:
 
-     // Create a HandType with the builder for more ergonomics
-     let north_specs1 = HandTypeBuilder::new()
-         .with_longest(Suit::Diamonds)
-         .with_range(5, 15)
-         .remove_shape("xx7+x") // This removes any shape with 7 or more diamonds
-         .unwrap()
-         .build();
+      // Create a HandConstraint with the builder for more ergonomics
+      let north_specs1 = HandConstraintBuilder::new()
+          .with_longest(Suit::Diamonds)?
+          .with_range(5, 15)
+          .remove_shape("xx7+x")? // This removes any shape with 7 or more diamonds
+          .build()?;
 
-     // Or simply write it out yourself!
-     let north_specs2 = HandType::new(
-         Shape::new_from_patterns(&["2623", "4432", "4522"]).unwrap(),
-         HcpRange::new(5, 15),
-     );
+      // Or simply write it out yourself!
+      let north_specs2 = HandConstraint::new(
+          &["2623", "4432", "4522"],
+          HcpRange::new(5, 15),
+      )?;
 
-     // Give everything to the DealerBuilder, which will craft a brand new impl Dealer for you!
-     // Note that we are strict on the case of the string for the predealt hand: ALWAYS UPPERCASE.
-     let dealer_builder = DealerBuilder::new()
-        .predeal(Seat::South, Cards::from_str("AKQ AJT9 T3 AK95")
-        .unwrap())
-        .unwrap()
-        .with_hand_descriptor(
-            Seat::North,
-            HandDescriptor::new(vec![north_specs1, north_specs2])
-        );
+      // Give everything to the DealerBuilder, which will craft a brand new impl Dealer for you!
+      // Note that we are strict on the case of the string for the predealt hand: ALWAYS UPPERCASE.
+      let dealer_builder = DealerBuilder::new()
+         .predeal(Seat::South, Cards::from_str("AKQ AJT9 T3 AK95")?)?
+         .with_hand_constraint(
+             Seat::North,
+             HandConstraint::any(vec![north_specs1, north_specs2])?
+         );
      let dealer = dealer_builder.build().unwrap();
 
-     for _ in 0..200 {
-         // Let's deal
-         println!("{}", dealer.deal().unwrap());
-     }
- }
+      for _ in 0..200 {
+          // Let's deal
+          println!("{}", dealer.deal().unwrap());
+      }
+      Ok(())
+  }
  ```
 
  DISCLOSURE: The [`crate::card`] module comes from David Roundy's crate [bridge-cards](https://github.com/droundy/bridge-cards).
@@ -121,10 +119,12 @@ mod dealproduction;
 mod error;
 mod evaluator;
 mod hand;
+mod hand_constraint;
 #[cfg(feature = "lin")]
 pub mod linparser;
 #[cfg(feature = "dds")]
 pub mod performance_analysis;
+mod range;
 mod shape;
 mod shapeparser;
 #[cfg(feature = "dds")]
@@ -156,6 +156,7 @@ pub mod prelude {
     pub use crate::error::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
+    pub use crate::hand_constraint::*;
     pub use crate::shape::*;
     pub use crate::shapeparser::*;
     #[cfg(feature = "dds")]

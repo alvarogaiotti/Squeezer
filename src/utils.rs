@@ -3,6 +3,41 @@
 
 use crate::prelude::*;
 
+/// Builds the Polish Club 1♣ opening constraint: weak balanced 11-14,
+/// unbalanced with clubs 11-17, or any strong 18+ hand.
+///
+/// # Errors
+///
+/// Returns [`ConstraintError`] if an internal pattern is malformed. The
+/// patterns are fixed tables covered by tests, so this signals a crate bug,
+/// not caller input.
+pub fn polish_club_hand_constraint() -> Result<HandConstraint, ConstraintError> {
+    let weak1n = HandConstraintBuilder::new()
+        .add_shape("(4432)")?
+        .add_shape("(4333)")?
+        .add_shape("(4414)")?
+        .remove_shape("4441")?
+        .add_shape("(5332)")?
+        .remove_shape("(5x)(2+2+)")?
+        .with_range(11, 14)
+        .build()?;
+    let unbal_with_clubs = HandConstraintBuilder::new()
+        .with_longest(Suit::Clubs)?
+        .remove_shape("(4x)x5")?
+        .remove_shape("(5-5-5-)6+")?
+        .with_range(11, 17)
+        .build()?;
+    let strong_any = HandConstraintBuilder::new()
+        .all_shapes()
+        .with_range(18, 37)
+        .build()?;
+    HandConstraint::any(vec![weak1n, strong_any, unbal_with_clubs])
+}
+
+/// Legacy Polish Club descriptor kept for compatibility.
+///
+/// Prefer [`polish_club_hand_constraint`]: same bridge meaning, but behind
+/// the deepened [`HandConstraint`] interface with a typed error.
 #[must_use]
 #[allow(clippy::missing_panics_doc)]
 pub fn polish_club_hand_descriptor() -> HandDescriptor {
@@ -42,24 +77,31 @@ pub fn polish_club_hand_descriptor() -> HandDescriptor {
         || hand.hcp() > 17 */
 }
 
-#[must_use]
-#[allow(clippy::missing_panics_doc)]
-pub fn weak2_hand_descriptor(hand: Hand) -> bool {
-    let w2 = Evaluator::new(&[2, 2, 1, 1, 1]);
-    let controls = Evaluator::new(&[2, 1]);
+const W2_EVALUATOR: Evaluator = Evaluator::new(&[2, 2, 1, 1, 1]);
+const CONTROLS_EVALUATOR: Evaluator = Evaluator::new(&[2, 1]);
+const ZAR_EVALUATOR: Evaluator = Evaluator::new(&[6, 4, 2, 1]);
 
-    let wk2 = HandTypeBuilder::new()
+/// Weak-two opening detector: 6-card major, 5-10 HCP, weak controls.
+///
+/// # Panics
+///
+/// Panics only if a fixed shape pattern stops parsing (a crate bug: the
+/// patterns are literals covered by tests).
+#[must_use]
+pub fn weak2_hand_descriptor(hand: Hand) -> bool {
+    let wk2 = HandConstraintBuilder::new()
         .add_shape("(63-)4-4-")
-        .unwrap()
+        .expect("fixed weak-two shape pattern parses")
         .with_range(5, 10)
-        .build();
+        .build()
+        .expect("fixed weak-two constraint is non-empty");
     wk2.check(hand)
         && ((hand.slen() == 6
-            && w2.evaluate(hand.spades()) > 3
-            && controls.evaluate(hand.cards()) < 4)
+            && W2_EVALUATOR.evaluate(hand.spades()) > 3
+            && CONTROLS_EVALUATOR.evaluate(hand.cards()) < 4)
             || (hand.hlen() == 6
-                && w2.evaluate(hand.hearts()) > 3
-                && controls.evaluate(hand.cards()) < 4))
+                && W2_EVALUATOR.evaluate(hand.hearts()) > 3
+                && CONTROLS_EVALUATOR.evaluate(hand.cards()) < 4))
 }
 
 #[must_use]
@@ -76,13 +118,25 @@ fn devaluate_short_honors(hand: Hand) -> u8 {
     malus
 }
 
+/// Sorts four suit holdings by length in ascending order using a sorting network.
+fn sort_suit_lengths(suits: &mut [Cards; 4]) {
+    fn cmp_swap(suits: &mut [Cards; 4], i: usize, j: usize) {
+        if suits[i].len() > suits[j].len() {
+            suits.swap(i, j);
+        }
+    }
+    cmp_swap(suits, 0, 1);
+    cmp_swap(suits, 2, 3);
+    cmp_swap(suits, 0, 2);
+    cmp_swap(suits, 1, 3);
+    cmp_swap(suits, 1, 2);
+}
+
 #[must_use]
 fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
-    let mut sorted_suits = hand.into_iter().sorted_by_key(Cards::len);
-    let shortest = sorted_suits.next().unwrap();
-    let third_longest = sorted_suits.next().unwrap();
-    let second_longest = sorted_suits.next().unwrap();
-    let longest = sorted_suits.next().unwrap();
+    let mut suits = [hand.spades(), hand.hearts(), hand.diamonds(), hand.clubs()];
+    sort_suit_lengths(&mut suits);
+    let [shortest, second_shortest, second_longest, longest] = suits;
     let sum_long = longest.len() + second_longest.len();
     let diff_long_short = longest.len() - shortest.len();
     let mut points = sum_long + diff_long_short;
@@ -92,7 +146,7 @@ fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
     let strong_concentration = 14 < hand.hcp()
         && longest.high_card_points()
             + second_longest.high_card_points()
-            + third_longest.high_card_points()
+            + second_shortest.high_card_points()
             >= hand.hcp() - 1;
     if weak_concentration || strong_concentration {
         points += 1;
@@ -105,22 +159,27 @@ fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
 }
 #[must_use]
 pub fn zar_points(hand: Hand) -> u8 {
-    let zar_evaluator = Evaluator::new(&[6, 4, 2, 1]);
-    zar_evaluator.evaluate(hand.cards()) + evaluate_lenght_and_concentration(hand)
+    ZAR_EVALUATOR.evaluate(hand.cards()) + evaluate_lenght_and_concentration(hand)
         - devaluate_short_honors(hand)
 }
 
+/// Dealer for the Lavazza 3NT opening: long minor, 26-32 Zar points.
+///
+/// # Panics
+///
+/// Panics only if a fixed shape pattern stops parsing (a crate bug: the
+/// patterns are literals covered by tests).
 #[must_use]
-#[allow(clippy::missing_panics_doc)]
 pub fn dealer_of_lavazza_3nt_opening(seat: Option<Seat>) -> impl Dealer {
-    let hand_type = HandTypeBuilder::new()
+    let hand_type = HandConstraintBuilder::new()
         .add_shape("(8x)xx")
-        .unwrap()
+        .expect("fixed Lavazza shape pattern parses")
         .add_shape("(7x)xx")
-        .unwrap()
+        .expect("fixed Lavazza shape pattern parses")
         .add_shape("(9x)xx")
-        .unwrap()
-        .build();
+        .expect("fixed Lavazza shape pattern parses")
+        .build()
+        .expect("fixed Lavazza constraint is non-empty");
     let builder = DealerBuilder::new().with_function(Box::new(move |hands: &Hands| {
         if let Some(seat) = seat {
             hand_type.check(hands[seat as usize])

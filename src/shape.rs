@@ -43,7 +43,8 @@
 //! ```
 
 use crate::prelude::*;
-use crate::shapeparser::{ShapeCreator, ShapePattern};
+use crate::range::Bounded;
+use crate::shapeparser::{CreationShapeError, ShapeCreator, ShapePattern};
 use bitvec::{BitArr, bitarr};
 #[cfg(feature = "dds")]
 use dds::deal::DdsSuit;
@@ -240,8 +241,15 @@ impl Shape {
     #[must_use]
     #[inline]
     pub fn is_member(&self, hand_to_match: Hand) -> bool {
+        self.is_member_shape(hand_to_match.shape())
+    }
+
+    /// Membership check on an already computed shape pattern.
+    #[must_use]
+    #[inline]
+    pub(crate) fn is_member_shape(&self, shape_pattern: [u8; 4]) -> bool {
         match *self {
-            Self::Custom(ref shape) => shape.is_member(hand_to_match),
+            Self::Custom(ref shape) => shape.is_member_shape(shape_pattern),
             Self::All => true,
         }
     }
@@ -292,10 +300,10 @@ impl Shape {
     #[must_use]
     #[inline]
     pub(crate) fn pre_check(&self, shape_pattern: [u8; 4]) -> bool {
-        self.len_ranges()
-            .iter()
-            .zip(shape_pattern)
-            .all(|(range, len)| range.contains(len))
+        match *self {
+            Self::Custom(ref shape) => shape.pre_check(shape_pattern),
+            Self::All => true,
+        }
     }
 }
 
@@ -309,17 +317,17 @@ impl Shape {
 ///
 /// ```text
 /// Shapes {
-///     shape_table: Box<BitArr[1379]>  // 172 bytes (heap-allocated)
+///     shape_table: BitArr[1379]        // 172 bytes (inline, no allocation)
 ///     min_ls: [u8; 4]                  // 4 bytes
 ///     max_ls: [u8; 4]                  // 4 bytes
 /// }
-/// Total: 180 bytes (8 bytes for Box pointer + 8 bytes for arrays)
+/// Total: 180 bytes (no heap allocation)
 /// ```
 ///
 /// # Design Rationale
 ///
 /// - **Bit array**: 1 bit per shape provides O(1) lookup with minimal memory
-/// - **Box allocation**: Keeps `Shapes` small on stack, bit array on heap
+/// - **Inline storage**: Avoids a heap allocation and an extra pointer indirection
 /// - **Min/max arrays**: Enable fast rejection without bit array access
 /// - **Custom hash**: Maps shapes to array indices deterministically
 ///
@@ -349,7 +357,7 @@ pub struct Shapes {
     /// Bit array storing allowed shapes. Each bit position corresponds to a shape
     /// as determined by `shape_pattern_to_index`. If bit N is set, shape with hash N
     /// is allowed.
-    shape_table: Box<ShapeTable>,
+    shape_table: ShapeTable,
 
     /// Minimum suit lengths [spades, hearts, diamonds, clubs].
     /// Used for fast rejection before consulting the bit array.
@@ -391,7 +399,7 @@ impl Shapes {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            shape_table: Box::new(bitarr!(0; SHAPE_TABLE_BUCKETS)),
+            shape_table: bitarr!(0; SHAPE_TABLE_BUCKETS),
             min_ls: [ZERO_LENGTH; SUITS],
             max_ls: [MAX_LENGTH; SUITS],
         }
@@ -399,14 +407,16 @@ impl Shapes {
 
     /// Computes the hash index for a shape pattern.
     ///
-    /// Uses a polynomial rolling hash: `state = (14 * state + byte) % 1379`
+    /// Uses a polynomial rolling hash: `state = 14 * (14 * (14 * s + h) + d) + c`,
+    /// reduced mod 1379 once at the end. The unreduced value is at most
+    /// 14^4 * 13 < 500k, so a single `% M` is exact and avoids 3 divisions.
     ///
     /// # Hash Function Properties
     ///
     /// - **Deterministic**: Same input always produces same output
     /// - **Collision-free**: For all 560 valid bridge shapes (verified by tests)
     /// - **Const-evaluable**: Can be used in const contexts
-    /// - **Fast**: 4 multiplications + 4 additions + 4 modulo operations
+    /// - **Fast**: 3 multiplications + 3 additions + 1 modulo operation
     ///
     /// # Parameters
     ///
@@ -419,20 +429,14 @@ impl Shapes {
     #[must_use]
     #[inline]
     pub const fn shape_pattern_to_index(pattern: [u8; 4]) -> usize {
-        const R: u64 = 14;
         const M: u64 = 1379;
 
-        let mut state = 0u64;
-        let mut index = 0;
+        let state = 14u64
+            * (14u64 * (14u64 * pattern[0] as u64 + pattern[1] as u64) + pattern[2] as u64)
+            + pattern[3] as u64;
 
-        // Unrolled loop for performance (const fn can't use for loops in older Rust)
-        while index < 4 {
-            state = (R * state + pattern[index] as u64) % M;
-            index += 1;
-        }
-
-        // Safe truncation: state is guaranteed < M < usize::MAX
-        state as usize
+        // Safe truncation: state % M is guaranteed < M < usize::MAX
+        (state % M) as usize
     }
 
     /// Checks if a hand's shape is a member of this shape set.
@@ -448,20 +452,35 @@ impl Shapes {
     #[must_use]
     #[inline]
     pub fn is_member(&self, hand_to_match: Hand) -> bool {
-        // Fast-path: Check min/max ranges before computing hash
-        // This rejects invalid shapes with just 4 comparisons (SIMD-friendly)
-        // Check all ranges at once (compiler can vectorize this)
-        let shape = hand_to_match.shape();
-        if (shape[0] < self.min_ls[0] || shape[0] > self.max_ls[0])
-            || (shape[1] < self.min_ls[1] || shape[1] > self.max_ls[1])
-            || (shape[2] < self.min_ls[2] || shape[2] > self.max_ls[2])
-            || (shape[3] < self.min_ls[3] || shape[3] > self.max_ls[3])
-        {
+        self.is_member_shape(hand_to_match.shape())
+    }
+
+    /// Fast range-only pre-check on an already computed shape pattern.
+    #[must_use]
+    #[inline]
+    pub(crate) fn pre_check(&self, shape: [u8; 4]) -> bool {
+        shape[0] >= self.min_ls[0]
+            && shape[0] <= self.max_ls[0]
+            && shape[1] >= self.min_ls[1]
+            && shape[1] <= self.max_ls[1]
+            && shape[2] >= self.min_ls[2]
+            && shape[2] <= self.max_ls[2]
+            && shape[3] >= self.min_ls[3]
+            && shape[3] <= self.max_ls[3]
+    }
+
+    /// Membership check on an already computed shape pattern.
+    ///
+    /// This avoids recomputing the hand's shape when the caller already has it.
+    #[must_use]
+    #[inline]
+    pub(crate) fn is_member_shape(&self, shape: [u8; 4]) -> bool {
+        // Fast-path: range check first (single source of truth in pre_check).
+        if !self.pre_check(shape) {
             return false;
         }
 
         // Slow-path: Compute hash and check bit array
-        let shape = hand_to_match.shape();
         self.shape_table[Self::shape_pattern_to_index(shape)]
     }
 
@@ -480,7 +499,16 @@ impl Shapes {
     /// bounds and may include excluded shapes in their ranges.
     #[allow(clippy::missing_panics_doc)]
     pub fn remove_shape(&mut self, shape: &str) -> Result<(), DealerError> {
-        let patterns = ShapeCreator::build_shape(shape)?;
+        Ok(self.try_remove_pattern(shape)?)
+    }
+
+    /// Removes all shapes matching the given pattern, preserving the typed error.
+    ///
+    /// Crate-internal core behind [`Shapes::remove_shape`]: same bit-clearing
+    /// behavior, but returns the parser's [`CreationShapeError`] instead of
+    /// flattening it into a `DealerError` string.
+    pub(crate) fn try_remove_pattern(&mut self, pattern: &str) -> Result<(), CreationShapeError> {
+        let patterns = ShapeCreator::build_shape(pattern)?;
 
         for pattern in patterns {
             self.delete_shape(pattern);
@@ -541,7 +569,7 @@ impl Shapes {
     ///
     /// Sets every bit in the bit array to true. Used internally by `new_filled()`.
     /// For public use, prefer `Shape::All` which avoids allocating the bit array entirely.
-    fn all(&mut self) -> &mut Self {
+    fn fill_all(&mut self) -> &mut Self {
         self.shape_table.fill(true);
         self
     }
@@ -552,10 +580,35 @@ impl Shapes {
     /// as it doesn't allocate a bit array.
     fn new_filled() -> Self {
         Self {
-            shape_table: Box::new(bitarr!(1; SHAPE_TABLE_BUCKETS)),
+            shape_table: bitarr!(1; SHAPE_TABLE_BUCKETS),
             min_ls: [0; 4],
             max_ls: [13; 4],
         }
+    }
+
+    /// Creates a `Shapes` with every shape allowed (full bit table).
+    ///
+    /// Crate-internal equivalent of `Shape::All` without the enum dispatch:
+    /// the deepened hand-constraint module stores this directly so the hot
+    /// `check` path never branches on a variant.
+    #[must_use]
+    pub(crate) fn all() -> Self {
+        Self::new_filled()
+    }
+
+    /// Creates a shape set with all shapes except those matching the pattern.
+    ///
+    /// Crate-internal core behind [`Shapes::but`], preserving the typed error.
+    pub(crate) fn all_but(pattern: &str) -> Result<Self, CreationShapeError> {
+        let mut table = Self::new_filled();
+        table.try_remove_pattern(pattern)?;
+        Ok(table)
+    }
+
+    /// Returns `true` when no shape is allowed (every bit is clear).
+    #[must_use]
+    pub(crate) fn is_empty(&self) -> bool {
+        !self.shape_table.any()
     }
 
     /// Creates a shape set containing all shapes except those matching the pattern.
@@ -590,16 +643,29 @@ impl Shapes {
     /// Returns `DealerError` if the pattern string is malformed.
     #[allow(clippy::missing_panics_doc)]
     pub fn add_shape(&mut self, shape: &str) -> Result<(), DealerError> {
-        let patterns = ShapeCreator::build_shape(shape)?;
+        Ok(self.try_add_pattern(shape)?)
+    }
+
+    /// Adds all shapes matching the given pattern, preserving the typed error.
+    ///
+    /// Crate-internal core behind [`Shapes::add_shape`]: parses the pattern once
+    /// via `ShapeCreator`, widens the per-suit min/max fast-reject bounds, and
+    /// sets the matching bits.
+    pub(crate) fn try_add_pattern(&mut self, pattern: &str) -> Result<(), CreationShapeError> {
+        let patterns = ShapeCreator::build_shape(pattern)?;
 
         for pattern in patterns {
-            pattern
+            // Widen the fast-reject bounds in place. (The previous code
+            // mutated a temporary `len_ranges()` copy and dropped it, so
+            // bounds silently stayed `[0, 13]`.)
+            for (len, bounds) in pattern
                 .iter()
-                .zip(self.len_ranges().iter_mut())
-                .for_each(|(new, old)| {
-                    old.min = old.min.min(*new);
-                    old.max = old.max.max(*new);
-                });
+                .zip(self.min_ls.iter_mut().zip(self.max_ls.iter_mut()))
+            {
+                let (min, max) = bounds;
+                *min = (*min).min(*len);
+                *max = (*max).max(*len);
+            }
             self.insert_shape(pattern);
         }
         Ok(())
@@ -725,8 +791,8 @@ impl From<&[LenRange; SUITS]> for Shapes {
         let mut max_ls = [MAX_LENGTH; SUITS];
 
         for &suit in Suit::ALL {
-            min_ls[suit as usize] = len_range[suit as usize].min;
-            max_ls[suit as usize] = len_range[suit as usize].max;
+            min_ls[suit as usize] = len_range[suit as usize].min();
+            max_ls[suit as usize] = len_range[suit as usize].max();
         }
 
         let mut shapes = Self {
@@ -744,26 +810,17 @@ impl From<&[LenRange; SUITS]> for Shapes {
 /// Used to specify constraints like "5-7 spades" or "0-3 clubs". These ranges
 /// are used for fast pre-filtering before checking the bit array.
 ///
+/// Thin newtype over the shared [`Bounded`] core (cap [`MAX_LENGTH`]): the
+/// same clamping invariant as [`HcpRange`], enforced once.
+///
 /// # Invariants
 ///
 /// - `min <= max`
 /// - Both values are in range [0, 13]
 /// - Values are automatically clamped on construction
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-pub struct LenRange {
-    /// Minimum allowed length for this suit (0-13)
-    pub min: u8,
-    /// Maximum allowed length for this suit (0-13)
-    pub max: u8,
-}
-
-impl Default for LenRange {
-    /// Creates a `LenRange` with no restrictions [0, 13].
-    fn default() -> Self {
-        Self::new(ZERO_LENGTH, MAX_LENGTH)
-    }
-}
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
+pub struct LenRange(pub(crate) Bounded<MAX_LENGTH>);
 
 impl LenRange {
     /// Creates a new `LenRange` with automatic bounds clamping.
@@ -786,10 +843,8 @@ impl LenRange {
     /// assert_eq!(range.max(), 13); // Clamped to max hand size
     /// ```
     #[must_use]
-    pub fn new(min: u8, max: u8) -> Self {
-        let max = max.clamp(ZERO_LENGTH, MAX_LENGTH);
-        let min = min.clamp(ZERO_LENGTH, max);
-        Self { min, max }
+    pub const fn new(min: u8, max: u8) -> Self {
+        Self(Bounded::new(min, max))
     }
 
     /// Returns this range as an inclusive Rust range.
@@ -804,22 +859,22 @@ impl LenRange {
     /// }
     /// ```
     #[must_use]
-    pub fn as_range(&self) -> RangeInclusive<u8> {
-        self.min()..=self.max()
+    pub const fn as_range(&self) -> RangeInclusive<u8> {
+        self.0.as_range()
     }
 
     /// Returns the minimum length in this range.
     #[must_use]
     #[inline]
-    pub fn min(&self) -> u8 {
-        self.min
+    pub const fn min(&self) -> u8 {
+        self.0.min()
     }
 
     /// Returns the maximum length in this range.
     #[must_use]
     #[inline]
-    pub fn max(&self) -> u8 {
-        self.max
+    pub const fn max(&self) -> u8 {
+        self.0.max()
     }
 
     /// Checks if a specific suit length falls within this range.
@@ -834,8 +889,8 @@ impl LenRange {
     /// ```
     #[must_use]
     #[inline]
-    pub fn contains(&self, length: u8) -> bool {
-        length >= self.min && length <= self.max
+    pub const fn contains(&self, length: u8) -> bool {
+        self.0.contains(length)
     }
 }
 
@@ -844,6 +899,7 @@ impl LenRange {
 /// Suits are ordered from highest to lowest in bridge: Spades > Hearts > Diamonds > Clubs.
 /// Each suit is assigned a numeric value (0-3) for efficient array indexing.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Suit {
     /// Spades (♠) - Highest suit, index 0

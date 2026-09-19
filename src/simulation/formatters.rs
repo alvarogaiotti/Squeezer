@@ -219,20 +219,34 @@ impl<T: Comparable + fmt::Display> std::fmt::Display for PayoffMatrixFormatter<'
         writeln!(fmt)?;
         writeln!(fmt, "{}", "-".repeat(12 + self.matrix.options.len() * 12))?;
 
+        // Precompute a dense lookup so each cell is O(1) instead of scanning
+        // every comparison for every (row, column) pair. Build the option ->
+        // index map once, then place each comparison directly.
+        let n = self.matrix.options.len();
+        let mut comparison_grid: Vec<Option<&PayoffComparison<T>>> = vec![None; n * n];
+        let mut index_of = std::collections::HashMap::with_capacity(n * 2);
+        for (idx, opt) in self.matrix.options.iter().enumerate() {
+            // Options are unique; keep the first index on duplicates.
+            index_of.entry(opt).or_insert(idx);
+        }
+        for comparison in &self.matrix.comparisons {
+            if let (Some(&a), Some(&b)) = (
+                index_of.get(&comparison.option_a),
+                index_of.get(&comparison.option_b),
+            ) {
+                comparison_grid[a * n + b] = Some(comparison);
+            }
+        }
+
         // Data rows
         for (i, option_a) in self.matrix.options.iter().enumerate() {
             write!(fmt, "{:<12}", format!("{}", option_a))?;
 
-            for (j, option_b) in self.matrix.options.iter().enumerate() {
+            for (j, _) in self.matrix.options.iter().enumerate() {
                 if i == j {
                     write!(fmt, "{:>12}", "-")?;
                 } else {
-                    let comparison = self
-                        .matrix
-                        .comparisons
-                        .iter()
-                        .find(|c| &c.option_a == option_a && &c.option_b == option_b)
-                        .unwrap();
+                    let comparison = comparison_grid[i * n + j].unwrap();
 
                     let value = format!("{:>8.2}", comparison.stats.mean);
 
@@ -255,16 +269,11 @@ impl<T: Comparable + fmt::Display> std::fmt::Display for PayoffMatrixFormatter<'
             // Standard error row
             if self.config.show_std_errors {
                 write!(fmt, "{:12}", "")?;
-                for (j, option_b) in self.matrix.options.iter().enumerate() {
+                for (j, _) in self.matrix.options.iter().enumerate() {
                     if i == j {
                         write!(fmt, "{:>12}", "")?;
                     } else {
-                        let comparison = self
-                            .matrix
-                            .comparisons
-                            .iter()
-                            .find(|c| &c.option_a == option_a && &c.option_b == option_b)
-                            .unwrap();
+                        let comparison = comparison_grid[i * n + j].unwrap();
                         write!(
                             fmt,
                             "{:>12}",
@@ -474,16 +483,9 @@ impl std::fmt::Display for LeadStatsFormatter<'_> {
             }
 
             // Trick distribution
-            let dist_map = card_stat
-                .distribution_percentages
-                .iter()
-                .enumerate()
-                .map(|(t, p)| (t, *p))
-                .collect::<std::collections::HashMap<_, _>>();
-
             for tricks in 0..=max_tricks as usize {
-                let percentage = dist_map.get(&tricks).unwrap_or(&0.0);
-                if *percentage > 0.0 {
+                let percentage = card_stat.distribution_percentages[tricks];
+                if percentage > 0.0 {
                     write!(fmt, "{percentage:>4.0}")?;
                 } else {
                     write!(fmt, "{:>4}", "-")?;
@@ -699,15 +701,8 @@ pub mod export {
         for card_stat in &stats.cards {
             write!(writer, "{}", card_stat.card)?;
 
-            let dist_map: std::collections::HashMap<_, _> = card_stat
-                .distribution_percentages
-                .iter()
-                .enumerate()
-                .map(|(t, p)| (t, *p))
-                .collect();
-
             for tricks in 0..=max_tricks as usize {
-                let percentage = dist_map.get(&tricks).unwrap_or(&0.0);
+                let percentage = card_stat.distribution_percentages[tricks];
                 write!(writer, ",{percentage:.2}")?;
             }
             writeln!(writer)?;
@@ -825,12 +820,7 @@ pub mod charts {
             let mut values = Vec::new();
 
             for card_stat in &stats.cards {
-                let percentage = card_stat
-                    .distribution_percentages
-                    .iter()
-                    .enumerate()
-                    .find(|&(t, _)| t == tricks as usize)
-                    .map_or(0.0, |(_, p)| *p);
+                let percentage = card_stat.distribution_percentages[tricks as usize];
                 values.push(percentage);
             }
 

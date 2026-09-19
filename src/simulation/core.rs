@@ -262,19 +262,38 @@ impl PairwiseStatistics {
             return Self::default();
         }
 
-        // Calculate mean and variance using Welford's online algorithm
+        // Single pass: Welford's online algorithm, min/max, counts and
+        // collection of the differences to sort for the percentiles.
         let mut mean = 0.0;
         let mut m2 = 0.0;
+        let mut min = i32::MAX;
+        let mut max = i32::MIN;
+        let mut a_better = 0;
+        let mut b_better = 0;
+        let mut equal = 0;
+        let mut sorted_diffs: Vec<i32> = Vec::with_capacity(n);
 
         #[allow(clippy::cast_precision_loss)]
         for (i, comp) in comparisons.iter().enumerate() {
-            let diff = f64::from(comp.difference);
+            let difference = comp.difference;
+            let diff = f64::from(difference);
             let delta = diff - mean;
 
             mean += delta / (i + 1) as f64;
 
             let delta2 = diff - mean;
             m2 += delta * delta2;
+
+            min = min.min(difference);
+            max = max.max(difference);
+
+            match difference.cmp(&0) {
+                std::cmp::Ordering::Greater => a_better += 1,
+                std::cmp::Ordering::Less => b_better += 1,
+                std::cmp::Ordering::Equal => equal += 1,
+            }
+
+            sorted_diffs.push(difference);
         }
 
         #[allow(clippy::cast_precision_loss)]
@@ -283,26 +302,7 @@ impl PairwiseStatistics {
         #[allow(clippy::cast_precision_loss)]
         let std_error = std_dev / (n as f64).sqrt();
 
-        // Calculate min, max, and counts
-        let mut min = i32::MAX;
-        let mut max = i32::MIN;
-        let mut a_better = 0;
-        let mut b_better = 0;
-        let mut equal = 0;
-
-        for comp in comparisons {
-            min = min.min(comp.difference);
-            max = max.max(comp.difference);
-
-            match comp.difference.cmp(&0) {
-                std::cmp::Ordering::Greater => a_better += 1,
-                std::cmp::Ordering::Less => b_better += 1,
-                std::cmp::Ordering::Equal => equal += 1,
-            }
-        }
-
         // Calculate percentiles
-        let mut sorted_diffs: Vec<i32> = comparisons.iter().map(|c| c.difference).collect();
         sorted_diffs.sort_unstable();
 
         let q1 = percentile(&sorted_diffs, 0.25);
@@ -366,6 +366,8 @@ impl Default for PairwiseStatistics {
 }
 
 /// Calculate percentile from sorted data
+#[must_use]
+#[inline]
 fn percentile(sorted_data: &[i32], p: f64) -> f64 {
     if sorted_data.is_empty() {
         return 0.0;
@@ -411,15 +413,45 @@ impl DistributionData {
     #[must_use]
     #[inline]
     pub fn from_differences(differences: &[i32], num_bins: usize) -> Self {
-        if differences.is_empty() {
+        Self::from_differences_iter(differences.iter().copied(), num_bins)
+    }
+
+    /// Create distribution data from comparison results directly, without
+    /// materialising an intermediate `Vec` of differences and without
+    /// requiring a cloneable iterator.
+    #[allow(clippy::missing_panics_doc)]
+    #[must_use]
+    #[inline]
+    pub fn from_comparison_differences(comparisons: &[ComparisonResult], num_bins: usize) -> Self {
+        Self::from_differences_iter(comparisons.iter().map(|c| c.difference), num_bins)
+    }
+
+    /// Create distribution data from an iterator of differences without
+    /// materialising an intermediate `Vec`.
+    #[allow(clippy::missing_panics_doc)]
+    #[must_use]
+    #[inline]
+    pub(crate) fn from_differences_iter<I>(differences: I, num_bins: usize) -> Self
+    where
+        I: Iterator<Item = i32> + Clone,
+    {
+        let mut probe = differences.clone();
+        let Some(first) = probe.next() else {
             return Self {
                 bins: Vec::new(),
                 bin_width: 0.0,
             };
+        };
+
+        let mut min_i = first;
+        let mut max_i = first;
+        for diff in probe {
+            min_i = min_i.min(diff);
+            max_i = max_i.max(diff);
         }
 
-        let min = f64::from(*differences.iter().min().unwrap());
-        let max = f64::from(*differences.iter().max().unwrap());
+        let min = f64::from(min_i);
+        let max = f64::from(max_i);
         let range = max - min;
 
         #[allow(clippy::cast_precision_loss)]
@@ -435,7 +467,7 @@ impl DistributionData {
             bin.1 = bin_end;
         }
 
-        for &diff in differences {
+        for diff in differences {
             let diff_f64 = f64::from(diff);
 
             #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
@@ -451,13 +483,7 @@ impl DistributionData {
 
 #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
 fn bisect_right(value: i32, lista: &[i32]) -> i32 {
-    for (i, &x) in lista.iter().enumerate() {
-        if x < value {
-            continue;
-        }
-        return i as i32;
-    }
-    lista.len() as i32
+    lista.partition_point(|&x| x < value) as i32
 }
 #[must_use]
 #[inline]

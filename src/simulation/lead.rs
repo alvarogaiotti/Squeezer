@@ -131,6 +131,7 @@ impl CardLeadResult {
     }
 
     /// Record a result
+    #[inline]
     pub fn record_tricks(&mut self, tricks: u8, deal_index: Option<usize>) {
         self.tricks_distribution[tricks as usize] += 1;
 
@@ -150,27 +151,43 @@ impl CardLeadResult {
     }
 
     /// Get tricks as a sorted vector for plotting: Vec<(tricks, count)>
+    ///
+    /// Prefer [`tricks_histogram_array`](Self::tricks_histogram_array) in hot
+    /// paths to avoid the 14-element heap allocation.
     #[must_use]
     #[inline]
     pub fn tricks_histogram(&self) -> Vec<(usize, usize)> {
-        self.tricks_distribution
-            .iter()
-            .copied()
-            .enumerate()
-            .collect()
+        self.tricks_histogram_array().to_vec()
+    }
+
+    /// Stack-allocated variant of [`tricks_histogram`](Self::tricks_histogram).
+    #[must_use]
+    #[inline]
+    pub fn tricks_histogram_array(&self) -> [(usize, usize); 14] {
+        std::array::from_fn(|i| (i, self.tricks_distribution[i]))
     }
 
     /// Get cumulative distribution: Vec<(`tricks`, `cumulative_count`)>
+    ///
+    /// Prefer [`cumulative_distribution_array`](Self::cumulative_distribution_array)
+    /// in hot paths to avoid the heap allocation.
     #[must_use]
     #[inline]
     pub fn cumulative_distribution(&self) -> Vec<(usize, usize)> {
-        let mut hist = self.tricks_histogram();
-        let mut cumulative = 0;
-        for (_, count) in &mut hist {
-            cumulative += *count;
-            *count = cumulative;
+        self.cumulative_distribution_array().to_vec()
+    }
+
+    /// Stack-allocated variant of [`cumulative_distribution`](Self::cumulative_distribution).
+    #[must_use]
+    #[inline]
+    pub fn cumulative_distribution_array(&self) -> [(usize, usize); 14] {
+        let mut out = [(0usize, 0usize); 14];
+        let mut cumulative = 0usize;
+        for (i, &count) in self.tricks_distribution.iter().enumerate() {
+            cumulative += count;
+            out[i] = (i, cumulative);
         }
-        hist
+        out
     }
 }
 
@@ -245,36 +262,30 @@ impl LeadStatistics {
     #[must_use]
     #[inline]
     pub fn from_raw_data(raw: &RawLeadData, tricks_to_beat: u8) -> Self {
-        let mut cards: Vec<_> = raw
-            .cards
-            .iter()
-            .map(|card_result| CardLeadStatistics::from_card_result(card_result, tricks_to_beat))
-            .collect();
+        let mut cards: Vec<_> = Vec::with_capacity(raw.cards.len());
+        cards.extend(
+            raw.cards.iter().map(|card_result| {
+                CardLeadStatistics::from_card_result(card_result, tricks_to_beat)
+            }),
+        );
 
-        // Sort by set percentage (descending), then by average tricks
+        // Sort by set percentage (descending), then by average tricks.
+        // `total_cmp` avoids panics on NaN that `partial_cmp().unwrap()` has.
         cards.sort_by(|a, b| {
             b.set_percentage
-                .partial_cmp(&a.set_percentage)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| {
-                    b.average_tricks
-                        .partial_cmp(&a.average_tricks)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
+                .total_cmp(&a.set_percentage)
+                .then_with(|| b.average_tricks.total_cmp(&a.average_tricks))
         });
 
-        let best_by_avg_tricks = cards
-            .iter()
-            .max_by(|a, b| {
-                a.average_tricks
-                    .partial_cmp(&b.average_tricks)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .cloned()
-            .unwrap_or_else(CardLeadStatistics::default);
-
+        // Reuse the sorted order: the first element is the best by set %.
         let best_by_set_percentage = cards
             .first()
+            .cloned()
+            .unwrap_or_else(CardLeadStatistics::default);
+        // Best by average still needs a scan, but with total_cmp (no unwrap).
+        let best_by_avg_tricks = cards
+            .iter()
+            .max_by(|a, b| a.average_tricks.total_cmp(&b.average_tricks))
             .cloned()
             .unwrap_or_else(CardLeadStatistics::default);
 
@@ -329,30 +340,44 @@ impl CardLeadStatistics {
             return Self::default();
         }
 
-        // Calculate average tricks
-        let total_tricks: usize = result
-            .tricks_distribution
-            .iter()
-            .enumerate()
-            .map(|(tricks, &count)| tricks * count)
-            .sum();
+        // Single pass: total tricks, set count, min/max and percentages.
+        let mut total_tricks: usize = 0;
+        let mut deals_beating: usize = 0;
+        let mut min_tricks: usize = 14;
+        let mut max_tricks: usize = 0;
+        let mut distribution_percentages = [0.0f64; 14];
+        #[allow(clippy::cast_precision_loss)]
+        let total_f = total_deals as f64;
+        for (tricks, &count) in result.tricks_distribution.iter().enumerate() {
+            if count == 0 {
+                continue;
+            }
+            total_tricks += tricks * count;
+            if tricks >= tricks_to_beat as usize {
+                deals_beating += count;
+            }
+            if tricks < min_tricks {
+                min_tricks = tricks;
+            }
+            if tricks > max_tricks {
+                max_tricks = tricks;
+            }
+            #[allow(clippy::cast_precision_loss)]
+            {
+                distribution_percentages[tricks] = (count as f64 / total_f) * 100.0;
+            }
+        }
+        if min_tricks == 14 {
+            min_tricks = 0;
+        }
 
         #[allow(clippy::cast_precision_loss)]
-        let average_tricks = total_tricks as f64 / total_deals as f64;
-
-        // Calculate set percentage
-        let deals_beating: usize = result
-            .tricks_distribution
-            .iter()
-            .enumerate()
-            .filter(|&(tricks, _)| tricks >= tricks_to_beat as usize)
-            .map(|(_, &count)| count)
-            .sum();
+        let average_tricks = total_tricks as f64 / total_f;
 
         #[allow(clippy::cast_precision_loss)]
-        let set_percentage = (deals_beating as f64 / total_deals as f64) * 100.0;
+        let set_percentage = (deals_beating as f64 / total_f) * 100.0;
 
-        // Calculate standard deviation
+        // Second pass for variance (needs the mean).
         #[allow(clippy::cast_precision_loss)]
         let variance: f64 = result
             .tricks_distribution
@@ -363,45 +388,20 @@ impl CardLeadStatistics {
                 diff * diff * count as f64
             })
             .sum::<f64>()
-            / total_deals as f64;
+            / total_f;
         let std_dev = variance.sqrt();
-
-        // Min and max
-        #[allow(clippy::cast_possible_truncation)]
-        let min_tricks = result
-            .tricks_distribution
-            .iter()
-            .enumerate()
-            .find(|&(_, &count)| count != 0)
-            .map_or(0, |(tricks, _)| tricks as u8);
-
-        #[allow(clippy::cast_possible_truncation)]
-        let max_tricks = result
-            .tricks_distribution
-            .iter()
-            .enumerate()
-            .rfind(|&(_, &count)| count != 0)
-            .map_or(13, |(tricks, _)| tricks as u8);
 
         // Median (approximate)
         let median_tricks = calculate_median(&result.tricks_distribution, total_deals);
 
-        // Distribution percentages
-        #[allow(clippy::cast_precision_loss)]
-        let distribution_percentages = result
-            .tricks_distribution
-            .iter()
-            .map(|&count| (count as f64 / total_deals as f64) * 100.0)
-            .collect_array()
-            .unwrap();
-
+        #[allow(clippy::cast_possible_truncation)]
         Self {
             card: result.card,
             average_tricks,
             set_percentage,
             std_dev,
-            min_tricks,
-            max_tricks,
+            min_tricks: min_tricks as u8,
+            max_tricks: max_tricks as u8,
             median_tricks,
             distribution_percentages,
         }
@@ -424,17 +424,18 @@ impl Default for CardLeadStatistics {
 }
 
 /// Calculate median from a trick distribution
+///
+/// Single cumulative walk over the fixed `[usize; 14]` histogram — no
+/// allocation. For even totals this returns the lower-middle value, which
+/// is exact enough for lead ordering.
 fn calculate_median(distribution: &[usize; 14], total: usize) -> f64 {
-    let sorted: Vec<_> = distribution
-        .iter()
-        .enumerate()
-        .filter(|&(_, &count)| count != 0)
-        .collect();
+    if total == 0 {
+        return 0.0;
+    }
+    let mid = total.div_ceil(2);
+    let mut cumulative = 0usize;
 
-    let mid = total / 2;
-    let mut cumulative = 0;
-
-    for (tricks, count) in sorted {
+    for (tricks, &count) in distribution.iter().enumerate() {
         cumulative += count;
 
         #[allow(clippy::cast_precision_loss)]
@@ -593,7 +594,9 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
 
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
         let mut raw_data = RawLeadData::new(self.contract);
-        let mut card_accumulators: HashMap<Card, CardLeadResult> = HashMap::new();
+        // Cards are keyed directly by their compact offset (0..=63), which is
+        // cheaper than hashing and also avoids the per-card entry allocation.
+        let mut card_accumulators: [Option<CardLeadResult>; 64] = std::array::from_fn(|_| None);
 
         let solver = dds::doubledummy::MultiThreadDoubleDummySolver::new();
         let mut counter = self.num_deals;
@@ -623,13 +626,14 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
 
                     let card = Card::new(Suit::try_from(suit).unwrap(), rank as u8);
 
-                    let accumulator = card_accumulators.entry(card).or_insert_with(|| {
-                        if self.store_deal_details {
-                            CardLeadResult::with_deal_details(card, self.num_deals)
-                        } else {
-                            CardLeadResult::new(card)
-                        }
-                    });
+                    let accumulator =
+                        card_accumulators[card.as_u8() as usize].get_or_insert_with(|| {
+                            if self.store_deal_details {
+                                CardLeadResult::with_deal_details(card, self.num_deals)
+                            } else {
+                                CardLeadResult::new(card)
+                            }
+                        });
 
                     let deal_idx = if self.store_deal_details {
                         Some(global_deal_index)
@@ -645,7 +649,7 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
         }
 
         // Populate raw data
-        raw_data.cards = card_accumulators.into_values().collect();
+        raw_data.cards = card_accumulators.into_iter().flatten().collect();
 
         // Sort cards for consistent ordering (by suit and rank)
         raw_data.cards.sort_by(|a, b| {

@@ -2,6 +2,7 @@
 // See end of file for license information
 
 use crate::prelude::*;
+use crate::range::Bounded;
 
 ///Represent a bridge hand: 13 cards, with different and various properties.
 ///The majority of this properties were implemented in the `bridge_deck` crate,
@@ -20,7 +21,28 @@ impl Default for Hand {
     }
 }
 
+/// Cached per-candidate summary: shape pattern + HCP.
+///
+/// The same `(shape, hcp)` pair travels together through
+/// `HandType::check`, `HandDescriptor::check` and the `Shape` predicates.
+/// Bundling it avoids recomputing shape/HCP per predicate (each costs
+/// several popcounts) and fixes the Data Clumps smell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HandSummary {
+    pub shape: crate::shapeparser::ShapePattern,
+    pub hcp: u8,
+}
+
 impl Hand {
+    /// Compute the `(shape, hcp)` summary once per candidate.
+    #[must_use]
+    #[inline]
+    pub(crate) fn summary(self) -> HandSummary {
+        HandSummary {
+            shape: self.shape(),
+            hcp: self.hcp(),
+        }
+    }
     /// Create a new Hand with 13 random cards from a deck.
     /// Returns the created Hand.
     #[must_use]
@@ -234,50 +256,29 @@ impl Iterator for HandIterator {
         Some(result)
     }
 }
-/// Represents an *inclusive* of High Card Points.
+/// Represents an *inclusive* range of High Card Points.
+///
+/// Thin newtype over the shared [`Bounded`] core (cap [`MAX_HCP_IN_HAND`]):
+/// construction, clamping, and membership live in exactly one place, shared
+/// with [`LenRange`].
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct HcpRange {
-    min: u8,
-    max: u8,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct HcpRange(pub(crate) Bounded<MAX_HCP_IN_HAND>);
 
 impl From<(u8, u8)> for HcpRange {
     fn from((min, max): (u8, u8)) -> Self {
-        let mut min = min.clamp(0, 37);
-        let mut max = max.clamp(0, 37);
+        let mut min = min.clamp(0, MAX_HCP_IN_HAND);
+        let mut max = max.clamp(0, MAX_HCP_IN_HAND);
         if min > max {
             std::mem::swap(&mut min, &mut max);
         }
-        Self { min, max }
+        Self(Bounded::new(min, max))
     }
 }
 
 impl From<HcpRange> for (u8, u8) {
     fn from(range: HcpRange) -> Self {
-        (range.min, range.max)
-    }
-}
-
-impl PartialOrd for HcpRange {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for HcpRange {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.min > other.min {
-            std::cmp::Ordering::Greater
-        } else if self.min < other.min {
-            std::cmp::Ordering::Less
-        } else if self.max > other.max {
-            std::cmp::Ordering::Greater
-        } else if self.max < other.max {
-            std::cmp::Ordering::Less
-        } else {
-            std::cmp::Ordering::Equal
-        }
+        range.0.as_pair()
     }
 }
 
@@ -286,40 +287,32 @@ impl HcpRange {
     /// i.e. that the `min_hcp` is less than or equal to the `max_hcp`.
     /// and that the `max_hcp` is clamped to 37.
     #[must_use]
-    pub fn new(min: u8, max: u8) -> Self {
-        let min = if min > 37 { 37 } else { min };
-        let max = if max > 37 {
-            37
-        } else if max < min {
-            min
-        } else {
-            max
-        };
-        Self { min, max }
+    pub const fn new(min: u8, max: u8) -> Self {
+        Self(Bounded::new(min, max))
     }
 
     /// Get the minimum value of the HCP range.
     #[must_use]
     pub const fn range_min(&self) -> u8 {
-        self.min
+        self.0.min()
     }
 
     /// Get the maximum value of the HCP range.
     #[must_use]
     pub const fn range_max(&self) -> u8 {
-        self.max
+        self.0.max()
     }
 
     /// Check if the specified HCP is within this range.
     #[must_use]
     pub const fn contains(&self, hcp: u8) -> bool {
-        self.min <= hcp && self.max >= hcp
+        self.0.contains(hcp)
     }
 
     /// Get the range of HCP values as an inclusive range.
     #[must_use]
     pub const fn as_range(&self) -> RangeInclusive<u8> {
-        self.range_min()..=self.range_max()
+        self.0.as_range()
     }
     #[must_use]
     #[inline]
@@ -333,22 +326,17 @@ impl HcpRange {
             std::ops::Bound::Excluded(&min) => min.into().saturating_sub(1),
             std::ops::Bound::Unbounded => 0,
         }
-        .clamp(0, 37);
+        .clamp(0, MAX_HCP_IN_HAND);
         let mut max = match hcp_range.end_bound() {
             std::ops::Bound::Included(&max) => max.into(),
             std::ops::Bound::Excluded(&max) => max.into().saturating_sub(1),
-            std::ops::Bound::Unbounded => 37,
+            std::ops::Bound::Unbounded => MAX_HCP_IN_HAND,
         }
-        .clamp(0, 37);
+        .clamp(0, MAX_HCP_IN_HAND);
         if min > max {
             std::mem::swap(&mut min, &mut max);
         }
-        Self { min, max }
-    }
-}
-impl Default for HcpRange {
-    fn default() -> Self {
-        HcpRange::new(0, 37)
+        Self(Bounded::new(min, max))
     }
 }
 
@@ -377,9 +365,16 @@ impl HandType {
     #[must_use]
     #[inline]
     pub fn check(&self, hand: Hand) -> bool {
-        self.hcp_range.contains(hand.hcp())
-            && self.pre_check(hand.shape())
-            && self.shape.is_member(hand)
+        self.check_cached(hand.summary())
+    }
+
+    /// Check the `HandType` using an already computed summary.
+    #[must_use]
+    #[inline]
+    pub(crate) fn check_cached(&self, summary: HandSummary) -> bool {
+        self.hcp_range.contains(summary.hcp)
+            && self.shape.pre_check(summary.shape)
+            && self.shape.is_member_shape(summary.shape)
     }
 
     /// Get the length ranges for each suit based on the accepted shapes.
@@ -387,12 +382,6 @@ impl HandType {
     #[inline]
     pub fn len_ranges(&self) -> [LenRange; 4] {
         self.shape.len_ranges()
-    }
-
-    #[must_use]
-    #[inline]
-    fn pre_check(&self, len_patterns: [u8; 4]) -> bool {
-        self.shape.pre_check(len_patterns)
     }
 
     /// Get the accepted HCP range for this `HandType`.
@@ -406,6 +395,18 @@ impl HandType {
     #[inline]
     pub fn builder() -> HandTypeBuilder {
         HandTypeBuilder::new()
+    }
+
+    /// Splits the type into its compiled shape set and HCP range.
+    ///
+    /// Crate-internal bridge to the deepened `HandConstraint`: `Shape::All`
+    /// materializes to a full table here.
+    pub(crate) fn into_parts(self) -> (Shapes, HcpRange) {
+        let shapes = match self.shape {
+            Shape::Custom(shapes) => shapes,
+            Shape::All => Shapes::all(),
+        };
+        (shapes, self.hcp_range)
     }
 }
 
@@ -462,10 +463,11 @@ impl HandDescriptor {
     #[must_use]
     #[inline]
     pub fn check(&self, hand: Hand) -> bool {
-        if (self.min..=self.max).contains(&hand.hcp()) {
+        let summary = hand.summary();
+        if (self.min..=self.max).contains(&summary.hcp) {
             self.possible_hands
                 .iter()
-                .any(|hand_type| hand_type.check(hand))
+                .any(|hand_type| hand_type.check_cached(summary))
         } else {
             false
         }
@@ -475,15 +477,15 @@ impl HandDescriptor {
     #[must_use]
     #[inline]
     pub fn new(possible_hands: Vec<HandType>) -> Self {
-        let mut min = 38;
+        let mut min = MAX_HCP_IN_DECK + 1;
         let mut max = 0;
         for hand in &possible_hands {
             let hcp_range = hand.hcp_range();
-            if hcp_range.min < min {
-                min = hcp_range.min;
+            if hcp_range.range_min() < min {
+                min = hcp_range.range_min();
             }
-            if hcp_range.max > max {
-                max = hcp_range.max;
+            if hcp_range.range_max() > max {
+                max = hcp_range.range_max();
             }
         }
         Self {
@@ -501,10 +503,10 @@ impl HandDescriptor {
         Self {
             possible_hands: vec![HandType {
                 shape,
-                hcp_range: HcpRange { min: 0, max: 37 },
+                hcp_range: HcpRange::default(),
             }],
             min: 0,
-            max: 37,
+            max: MAX_HCP_IN_HAND,
         }
     }
 
@@ -515,13 +517,24 @@ impl HandDescriptor {
     pub fn hcp<U: std::ops::RangeBounds<T>, T: Into<u8> + Copy>(hcp_range: U) -> Self {
         let hcp_range = HcpRange::from_range(hcp_range);
         Self {
-            min: hcp_range.min,
-            max: hcp_range.max,
+            min: hcp_range.range_min(),
+            max: hcp_range.range_max(),
             possible_hands: vec![HandType {
                 shape: Shape::All,
                 hcp_range,
             }],
         }
+    }
+
+    /// Splits the descriptor into per-type `(shapes, HCP)` pairs.
+    ///
+    /// Crate-internal bridge to the deepened `HandConstraint`, which stores
+    /// one branch per pair.
+    pub(crate) fn into_branches(self) -> Vec<(Shapes, HcpRange)> {
+        self.possible_hands
+            .into_iter()
+            .map(HandType::into_parts)
+            .collect()
     }
 }
 

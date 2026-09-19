@@ -1,0 +1,728 @@
+// Copyright (C) 2024 Alvaro Gaiotti
+// See end of file for license information
+
+//! # Deep hand-constraint module
+//!
+//! This module is the single home for "which hands may the dealer accept".
+//! It collapses what used to be four layers (`HandDescriptor` over
+//! `HandType` over `Shape`/`Shapes` over the `shapeparser` pipeline) behind
+//! one small interface:
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # use squeezer::*;
+//! // Parse once, check millions of times.
+//! let constraint = HandConstraint::new(&["(4432)", "(4333)", "(5332)"], HcpRange::new(12, 14))?;
+//! let hand = Hand::from_str("AK52.K532.A2.432")?;
+//! assert!(constraint.check(hand));
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Why this shape
+//!
+//! - **Strings stay behind the seam.** Callers pass pattern strings once at
+//!   construction; the scanner/parser/interpreter pipeline (`shapeparser`)
+//!   is an internal implementation detail. There is a single
+//!   parse-once/check-many path, so the old double pipeline (a dead
+//!   `validate_shape` beside `ShapeCreator::build_shape`) cannot recur.
+//! - **No `All` variant on the hot path.** "All shapes allowed" is stored as
+//!   a full bit table (`Shapes::all()`), so `check` never dispatches on an
+//!   enum variant with surprising semantics (`add` as silent no-op).
+//! - **One fused check.** `check` computes the hand's `(shape, hcp)` summary
+//!   once and does a single range-plus-table lookup per branch. The old code
+//!   ran the range pre-check twice per candidate (once explicitly, once
+//!   inside `is_member_shape`); that duplication lives in exactly one place
+//!   now: `Shapes::is_member_shape`.
+//! - **One typed error.** Every fallible constructor returns
+//!   [`ConstraintError`], preserving the parser's cause instead of
+//!   flattening it into strings (or disagreeing between `DealerError` and
+//!   `Box<dyn Error>` per method).
+
+use crate::prelude::*;
+use std::ops::RangeBounds;
+
+/// Pattern sets for [`HandConstraintBuilder::with_longest`], one per suit.
+///
+/// Each table unions to "this suit is (one of) the longest": two exact-shape
+/// groups plus the 7+ anchor. Kept as `const` tables next to the builder so
+/// the DSL strings appear exactly once in the crate.
+const LONGEST_SPADES: [&str; 3] = ["55-4-4-", "66-5-5", "7+xxx"];
+const LONGEST_HEARTS: [&str; 3] = ["4-55-5-", "5-65-5-", "x7+xx"];
+const LONGEST_DIAMONDS: [&str; 3] = ["4-4-55-", "5-5-66-", "xx7+x"];
+const LONGEST_CLUBS: [&str; 3] = ["4-4-4-5", "5-5-5-6", "xxx7+"];
+
+/// Returns the longest-suit pattern table for a suit.
+const fn longest_patterns(suit: Suit) -> [&'static str; 3] {
+    match suit {
+        Suit::Spades => LONGEST_SPADES,
+        Suit::Hearts => LONGEST_HEARTS,
+        Suit::Diamonds => LONGEST_DIAMONDS,
+        Suit::Clubs => LONGEST_CLUBS,
+    }
+}
+
+/// Typed error for everything the hand-constraint surface can reject.
+///
+/// This replaces the old split where `add_shape` returned `DealerError`
+/// (a display string, detail discarded) while `remove_shape` returned
+/// `Box<dyn Error>`. Every variant preserves its cause for `source()`-based
+/// inspection and testing.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
+pub enum ConstraintError {
+    /// A shape pattern string failed to scan, parse, or interpret.
+    InvalidPattern {
+        /// The offending pattern, echoed for diagnostics.
+        pattern: String,
+        /// The underlying scanner/parser/interpreter cause.
+        cause: CreationShapeError,
+    },
+    /// Construction would accept no hand at all (empty shape set).
+    EmptyConstraint,
+    /// `with_longest` was called for two different suits.
+    ConflictingLongest {
+        /// The suit from the first `with_longest` call.
+        first: Suit,
+        /// The suit from the conflicting second call.
+        second: Suit,
+    },
+}
+
+impl std::fmt::Display for ConstraintError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidPattern { pattern, cause } => {
+                write!(f, "invalid shape pattern {pattern:?}: {cause}")
+            }
+            Self::EmptyConstraint => write!(f, "hand constraint accepts no shape"),
+            Self::ConflictingLongest { first, second } => write!(
+                f,
+                "conflicting longest suits: {} then {} (call with_longest at most once per suit family)",
+                first.name(),
+                second.name()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ConstraintError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::InvalidPattern { cause, .. } => Some(cause),
+            Self::EmptyConstraint | Self::ConflictingLongest { .. } => None,
+        }
+    }
+}
+
+impl From<ConstraintError> for DealerError {
+    /// Compatibility bridge: the dealer core historically reports
+    /// `DealerError`, so the typed error converts losslessly-in-display
+    /// (message preserved; structure available to callers using this module
+    /// directly).
+    fn from(value: ConstraintError) -> Self {
+        DealerError::new(value.to_string())
+    }
+}
+
+/// One acceptable hand family: a shape set plus an HCP window.
+///
+/// Private to this module: callers think in [`HandConstraint`]s (a union of
+/// branches), never in branches directly.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+struct ConstraintBranch {
+    shapes: Shapes,
+    hcp: HcpRange,
+}
+
+/// Deep hand constraint: a union of acceptable `(shapes, HCP)` families.
+///
+/// This is the interface the dealer checks per candidate. Construction parses
+/// pattern strings once; `check` is the only hot-path method and performs a
+/// single fused lookup per branch.
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct HandConstraint {
+    branches: Vec<ConstraintBranch>,
+    /// Union HCP window over all branches: private fast-reject bound.
+    ///
+    /// Deliberately not exposed: the old `HandDescriptor::min/max` pair was
+    /// a second source of truth on the interface. Here it is derived at
+    /// construction and used only inside `check`.
+    min_hcp: u8,
+    max_hcp: u8,
+}
+
+impl HandConstraint {
+    /// Builds a constraint from pattern strings and an HCP range.
+    ///
+    /// An empty pattern list means "any shape". Patterns are parsed once
+    /// here; the resulting bit table serves every later `check`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::InvalidPattern`] if any pattern is malformed.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let weak_nt = HandConstraint::new(&["(4432)", "(4333)"], HcpRange::new(12, 14))?;
+    /// assert!(weak_nt.check(Hand::from_str("AK52.K532.A2.432")?));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn new(patterns: &[&str], hcp: HcpRange) -> Result<Self, ConstraintError> {
+        // No patterns means no shape restriction: start from the full table
+        // rather than the empty one (which would accept nothing).
+        let mut shapes = if patterns.is_empty() {
+            Shapes::all()
+        } else {
+            Shapes::new()
+        };
+        for pattern in patterns {
+            shapes
+                .try_add_pattern(pattern)
+                .map_err(|cause| ConstraintError::InvalidPattern {
+                    pattern: (*pattern).to_owned(),
+                    cause,
+                })?;
+        }
+        Ok(Self::from_compiled(shapes, hcp))
+    }
+
+    /// Builds a "this suit is longest" constraint (see [`HandConstraintBuilder::with_longest`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::InvalidPattern`] if the internal pattern
+    /// table ever stops parsing (a bug, not user input: the tables are
+    /// `const` and covered by per-suit tests).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let spades = HandConstraint::longest(Suit::Spades, HcpRange::new(5, 10))?;
+    /// assert!(spades.check(Hand::from_str("AKQJ432.32.32.32")?));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn longest(suit: Suit, hcp: HcpRange) -> Result<Self, ConstraintError> {
+        let mut shapes = Shapes::new();
+        for pattern in longest_patterns(suit) {
+            shapes
+                .try_add_pattern(pattern)
+                .map_err(|cause| ConstraintError::InvalidPattern {
+                    pattern: pattern.to_owned(),
+                    cause,
+                })?;
+        }
+        Ok(Self::from_compiled(shapes, hcp))
+    }
+
+    /// Builds a constraint over HCP only (any shape).
+    ///
+    /// Infallible: no patterns to parse.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use squeezer::*;
+    /// let opener = HandConstraint::hcp(12..=17);
+    /// assert!(opener.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+    /// ```
+    #[must_use]
+    pub fn hcp<R, U>(hcp_range: R) -> Self
+    where
+        R: RangeBounds<U>,
+        U: Into<u8> + Copy,
+    {
+        let hcp = HcpRange::from_range(hcp_range);
+        Self::from_compiled(Shapes::all(), hcp)
+    }
+
+    /// Builds a constraint accepting every hand.
+    #[must_use]
+    pub fn all() -> Self {
+        Self::from_compiled(Shapes::all(), HcpRange::default())
+    }
+
+    /// Unions several constraints: a hand passes if any alternative passes.
+    ///
+    /// This is how multi-family hands (e.g. a Polish Club opening with a
+    /// weak, an unbalanced, and a strong alternative) are expressed without
+    /// exposing branch plumbing on the interface.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::EmptyConstraint`] for an empty list.
+    pub fn any(constraints: Vec<Self>) -> Result<Self, ConstraintError> {
+        if constraints.is_empty() {
+            return Err(ConstraintError::EmptyConstraint);
+        }
+        let mut branches = Vec::new();
+        let mut min_hcp = u8::MAX;
+        let mut max_hcp = u8::MIN;
+        for constraint in constraints {
+            min_hcp = min_hcp.min(constraint.min_hcp);
+            max_hcp = max_hcp.max(constraint.max_hcp);
+            branches.extend(constraint.branches);
+        }
+        Ok(Self {
+            branches,
+            min_hcp,
+            max_hcp,
+        })
+    }
+
+    /// Creates a builder for combinable construction.
+    #[must_use]
+    pub fn builder() -> HandConstraintBuilder {
+        HandConstraintBuilder::new()
+    }
+
+    /// Wraps one precompiled shape set and HCP range.
+    ///
+    /// Crate-internal seam for callers that already hold a `Shapes` (e.g.
+    /// the compatibility conversion from `HandDescriptor`): no parsing, no
+    /// failure modes.
+    pub(crate) fn from_compiled(shapes: Shapes, hcp: HcpRange) -> Self {
+        let (min_hcp, max_hcp) = hcp.into();
+        Self {
+            branches: vec![ConstraintBranch { shapes, hcp }],
+            min_hcp,
+            max_hcp,
+        }
+    }
+
+    /// Checks whether a hand satisfies any branch of this constraint.
+    ///
+    /// The hand's `(shape, hcp)` summary is computed once, then each branch
+    /// runs a single fused range-plus-table lookup. Hands outside the union
+    /// HCP window are rejected without touching the shape tables.
+    #[must_use]
+    #[inline]
+    pub fn check(&self, hand: Hand) -> bool {
+        let summary = hand.summary();
+        if !(self.min_hcp..=self.max_hcp).contains(&summary.hcp) {
+            return false;
+        }
+        self.check_cached(summary)
+    }
+
+    /// Checks an already-computed hand summary.
+    ///
+    /// Crate-internal fast path for the dealer's rejection loop, which checks
+    /// one candidate against several seats: the summary is computed once per
+    /// candidate, not once per seat.
+    #[must_use]
+    #[inline]
+    pub(crate) fn check_cached(&self, summary: HandSummary) -> bool {
+        self.branches.iter().any(|branch| {
+            branch.hcp.contains(summary.hcp) && branch.shapes.is_member_shape(summary.shape)
+        })
+    }
+}
+
+impl From<HandType> for HandConstraint {
+    /// Compatibility bridge: a legacy `HandType` becomes a single branch.
+    ///
+    /// `Shape::All` materializes to a full table here, which also retires the
+    /// old variant-dependent `add` (silent no-op) / `remove` (materialize)
+    /// semantics: the converted constraint is always an explicit set.
+    fn from(hand_type: HandType) -> Self {
+        let (shapes, hcp) = hand_type.into_parts();
+        Self::from_compiled(shapes, hcp)
+    }
+}
+
+impl From<HandDescriptor> for HandConstraint {
+    /// Compatibility bridge: each legacy `HandType` becomes one branch.
+    ///
+    /// Used by `DealerBuilder::with_hand_descriptor` so existing callers keep
+    /// working while the dealer core checks the deepened type.
+    fn from(descriptor: HandDescriptor) -> Self {
+        let mut branches = Vec::new();
+        let mut min_hcp = u8::MAX;
+        let mut max_hcp = u8::MIN;
+        for (shapes, hcp) in descriptor.into_branches() {
+            let (min, max) = hcp.into();
+            min_hcp = min_hcp.min(min);
+            max_hcp = max_hcp.max(max);
+            branches.push(ConstraintBranch { shapes, hcp });
+        }
+        // A descriptor built from zero types accepts nothing; preserve that.
+        if branches.is_empty() {
+            min_hcp = 1;
+            max_hcp = 0;
+        }
+        Self {
+            branches,
+            min_hcp,
+            max_hcp,
+        }
+    }
+}
+
+/// Consuming builder for [`HandConstraint`].
+///
+/// Methods take `self` and return `Self` (matching `DealerBuilder` per the
+/// Rust API guidelines), so configuration chains without `mut` bindings.
+/// Every pattern-taking method is fallible with [`ConstraintError`]; nothing
+/// here panics on user input.
+#[derive(Debug, Default)]
+pub struct HandConstraintBuilder {
+    shapes: Option<Shapes>,
+    hcp: Option<HcpRange>,
+    /// Tracks `with_longest` so a conflicting second call is a typed error,
+    /// not silent nonsense (Q12-b).
+    longest: Option<Suit>,
+}
+
+impl HandConstraintBuilder {
+    /// Starts an unconstrained builder (all shapes, full HCP range at `build`).
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Starts a builder accepting balanced shapes (`4333`, `4432`, `5332`).
+    #[must_use]
+    pub fn balanced(min_hcp: u8, max_hcp: u8) -> Self {
+        let mut shapes = Shapes::new();
+        shapes.add_balanced();
+        Self {
+            shapes: Some(shapes),
+            hcp: Some(HcpRange::new(min_hcp, max_hcp)),
+            longest: None,
+        }
+    }
+
+    /// Unions the shapes matching `pattern` into the constraint.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::InvalidPattern`] if the pattern is malformed.
+    pub fn add_shape(self, pattern: &str) -> Result<Self, ConstraintError> {
+        let mut this = self;
+        if let Some(ref mut shapes) = this.shapes {
+            shapes
+                .try_add_pattern(pattern)
+                .map_err(|cause| ConstraintError::InvalidPattern {
+                    pattern: pattern.to_owned(),
+                    cause,
+                })?;
+        } else {
+            let mut shapes = Shapes::new();
+            shapes
+                .try_add_pattern(pattern)
+                .map_err(|cause| ConstraintError::InvalidPattern {
+                    pattern: pattern.to_owned(),
+                    cause,
+                })?;
+            this.shapes = Some(shapes);
+        }
+        Ok(this)
+    }
+
+    /// Removes the shapes matching `pattern` from the constraint.
+    ///
+    /// Called before any `add_shape`, it starts from "all shapes" (the old
+    /// `Shapes::but` behavior), now with a typed error.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::InvalidPattern`] if the pattern is malformed.
+    pub fn remove_shape(self, pattern: &str) -> Result<Self, ConstraintError> {
+        let mut this = self;
+        if let Some(ref mut shapes) = this.shapes {
+            shapes.try_remove_pattern(pattern).map_err(|cause| {
+                ConstraintError::InvalidPattern {
+                    pattern: pattern.to_owned(),
+                    cause,
+                }
+            })?;
+        } else {
+            this.shapes = Some(Shapes::all_but(pattern).map_err(|cause| {
+                ConstraintError::InvalidPattern {
+                    pattern: pattern.to_owned(),
+                    cause,
+                }
+            })?);
+        }
+        Ok(this)
+    }
+
+    /// Unions the "this suit is longest" family into the constraint.
+    ///
+    /// The ergonomic core of opening-bid descriptors (e.g. "unbalanced with
+    /// clubs"): one call buys the exact-shape groups plus the 7+ anchor that
+    /// callers would otherwise hand-roll from the DSL. Backed by the `const`
+    /// per-suit tables, so the pattern strings exist once in the crate.
+    ///
+    /// Calling twice with the same suit is idempotent; calling with a
+    /// different suit is a [`ConstraintError::ConflictingLongest`] — a
+    /// longest-suit family for two suits at once is almost certainly a
+    /// caller bug, and a runtime guard keeps the builder free of typestate
+    /// generics.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::ConflictingLongest`] on a second call with
+    /// a different suit, or [`ConstraintError::InvalidPattern`] if an
+    /// internal table entry ever stops parsing.
+    pub fn with_longest(self, suit: Suit) -> Result<Self, ConstraintError> {
+        let mut this = self;
+        match this.longest {
+            Some(first) if first == suit => return Ok(this),
+            Some(first) => {
+                return Err(ConstraintError::ConflictingLongest {
+                    first,
+                    second: suit,
+                });
+            }
+            None => {}
+        }
+        for pattern in longest_patterns(suit) {
+            this = this.add_shape(pattern)?;
+        }
+        this.longest = Some(suit);
+        Ok(this)
+    }
+
+    /// Sets the HCP window (infallible; values clamp to `[0, 37]`).
+    #[must_use]
+    pub fn with_range(self, min_hcp: u8, max_hcp: u8) -> Self {
+        Self {
+            hcp: Some(HcpRange::new(min_hcp, max_hcp)),
+            ..self
+        }
+    }
+
+    /// Accepts all shapes (full table, no enum dispatch on the hot path).
+    #[must_use]
+    pub fn all_shapes(self) -> Self {
+        Self {
+            shapes: Some(Shapes::all()),
+            ..self
+        }
+    }
+
+    /// Finishes the constraint.
+    ///
+    /// Unset shapes default to all shapes; unset HCP defaults to the full
+    /// `[0, 37]` range (mirroring the legacy builder's defaults).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::EmptyConstraint`] when the accumulated
+    /// shape set is empty (e.g. everything added was then removed).
+    pub fn build(self) -> Result<HandConstraint, ConstraintError> {
+        let shapes = self.shapes.unwrap_or_else(Shapes::all);
+        if shapes.is_empty() {
+            return Err(ConstraintError::EmptyConstraint);
+        }
+        Ok(HandConstraint::from_compiled(
+            shapes,
+            self.hcp.unwrap_or_default(),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+
+    fn spades_longest_hand() -> Hand {
+        Hand::from_str("AKQJ432.32.32.32").unwrap()
+    }
+
+    fn hearts_longest_hand() -> Hand {
+        Hand::from_str("32.AKQJ432.32.32").unwrap()
+    }
+
+    #[test]
+    fn new_checks_shape_and_hcp() {
+        let constraint = HandConstraint::new(&["(4432)"], HcpRange::new(12, 14)).unwrap();
+        assert!(constraint.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        // Right shape, wrong strength.
+        assert!(!constraint.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        // Right strength, wrong shape.
+        assert!(!constraint.check(Hand::from_str("AKQJ2.KQ32.A2.32").unwrap()));
+    }
+
+    #[test]
+    fn bare_pattern_is_positional_group_is_permuted() {
+        // Documents the DSL seam: a bare pattern matches suit order exactly,
+        // while a parenthesized group matches every permutation.
+        let exact = HandConstraint::new(&["4432"], HcpRange::new(0, 37)).unwrap();
+        assert!(exact.check(Hand::from_str("AKQ2.KQ32.AK2.32").unwrap()));
+        assert!(!exact.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        let grouped = HandConstraint::new(&["(4432)"], HcpRange::new(0, 37)).unwrap();
+        assert!(grouped.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+    }
+
+    #[test]
+    fn new_with_empty_patterns_accepts_any_shape() {
+        let constraint = HandConstraint::new(&[], HcpRange::new(12, 14)).unwrap();
+        // Both hands hold 14 HCP; shapes differ (4-4-2-3 vs 5-3-3-2).
+        assert!(constraint.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(constraint.check(Hand::from_str("AQJ32.K32.A32.32").unwrap()));
+        // Strength still filters: 19 HCP is rejected.
+        assert!(!constraint.check(Hand::from_str("AKQJ2.KQ32.A2.32").unwrap()));
+    }
+
+    #[test]
+    fn new_rejects_malformed_pattern_with_cause() {
+        let err = HandConstraint::new(&["not a shape!!"], HcpRange::new(0, 37)).unwrap_err();
+        match &err {
+            ConstraintError::InvalidPattern { pattern, cause } => {
+                assert_eq!(pattern, "not a shape!!");
+                // The parser cause survives instead of being flattened to a string.
+                let _ = cause.to_string();
+                assert!(std::error::Error::source(&err).is_some());
+            }
+            other => panic!("expected InvalidPattern, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn longest_accepts_per_suit() {
+        for suit in [Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs] {
+            let constraint = HandConstraint::longest(suit, HcpRange::new(0, 37)).unwrap();
+            let hand = match suit {
+                Suit::Spades => spades_longest_hand(),
+                Suit::Hearts => hearts_longest_hand(),
+                Suit::Diamonds => Hand::from_str("32.32.AKQJ432.32").unwrap(),
+                Suit::Clubs => Hand::from_str("32.32.32.AKQJ432").unwrap(),
+            };
+            assert!(
+                constraint.check(hand),
+                "longest {suit:?} should accept its 7-card hand"
+            );
+        }
+    }
+
+    #[test]
+    fn longest_rejects_other_suit_anchor() {
+        let spades = HandConstraint::longest(Suit::Spades, HcpRange::new(0, 37)).unwrap();
+        assert!(!spades.check(hearts_longest_hand()));
+    }
+
+    #[test]
+    fn builder_chains_without_mut() {
+        // Consuming builder: no `mut` binding needed, mirroring DealerBuilder.
+        let constraint = HandConstraintBuilder::new()
+            .add_shape("(4432)")
+            .unwrap()
+            .add_shape("(4333)")
+            .unwrap()
+            .remove_shape("4441")
+            .unwrap()
+            .with_range(11, 14)
+            .build()
+            .unwrap();
+        assert!(constraint.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(!constraint.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+    }
+
+    #[test]
+    fn builder_remove_before_add_starts_from_all() {
+        let constraint = HandConstraintBuilder::new()
+            .remove_shape("(7xxx)")
+            .unwrap()
+            .with_range(0, 37)
+            .build()
+            .unwrap();
+        assert!(constraint.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(!constraint.check(Hand::from_str("AKQJ432.32.32.32").unwrap()));
+    }
+
+    #[test]
+    fn builder_empty_set_is_an_error_not_a_silent_trap() {
+        let err = HandConstraintBuilder::new()
+            .add_shape("4432")
+            .unwrap()
+            .remove_shape("4432")
+            .unwrap()
+            .build()
+            .unwrap_err();
+        assert!(matches!(err, ConstraintError::EmptyConstraint));
+    }
+
+    #[test]
+    fn with_longest_same_suit_is_idempotent() {
+        let constraint = HandConstraintBuilder::new()
+            .with_longest(Suit::Clubs)
+            .unwrap()
+            .with_longest(Suit::Clubs)
+            .unwrap()
+            .with_range(0, 37)
+            .build()
+            .unwrap();
+        assert!(constraint.check(Hand::from_str("32.32.32.AKQJ432").unwrap()));
+    }
+
+    #[test]
+    fn with_longest_conflicting_suit_is_an_error() {
+        let err = HandConstraintBuilder::new()
+            .with_longest(Suit::Clubs)
+            .unwrap()
+            .with_longest(Suit::Spades)
+            .unwrap_err();
+        match err {
+            ConstraintError::ConflictingLongest { first, second } => {
+                assert_eq!(first, Suit::Clubs);
+                assert_eq!(second, Suit::Spades);
+            }
+            other => panic!("expected ConflictingLongest, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn any_unions_alternatives() {
+        let weak = HandConstraint::new(&["(4432)"], HcpRange::new(11, 14)).unwrap();
+        let strong = HandConstraint::hcp(18..=37);
+        let polish = HandConstraint::any(vec![weak, strong]).unwrap();
+        assert!(polish.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(polish.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        assert!(!polish.check(Hand::from_str("AT632.K6432.T2.2").unwrap()));
+    }
+
+    #[test]
+    fn any_rejects_empty_list() {
+        assert!(matches!(
+            HandConstraint::any(Vec::new()).unwrap_err(),
+            ConstraintError::EmptyConstraint
+        ));
+    }
+
+    #[test]
+    fn legacy_descriptor_converts_branch_for_branch() {
+        let weak = HandType::new(Shape::try_from("(4432)").unwrap(), HcpRange::new(11, 14));
+        let strong = HandType::new(Shape::All, HcpRange::new(18, 37));
+        let legacy = HandDescriptor::new(vec![weak, strong]);
+        let converted = HandConstraint::from(legacy);
+        assert!(converted.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(converted.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        assert!(!converted.check(Hand::from_str("AT632.K6432.T2.2").unwrap()));
+    }
+
+    #[test]
+    fn hcp_only_constructor_mirrors_legacy_ranges() {
+        // "AK52.K532.A2.432" holds 14 HCP: A+K spades (7), K hearts (3),
+        // A diamonds (4). An inclusive 12..=14 window accepts it; the
+        // exclusive 12..14 range would not (14 excluded).
+        let constraint = HandConstraint::hcp(12..=14);
+        assert!(constraint.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+        let legacy = HandDescriptor::hcp(12..=14);
+        let hand = Hand::from_str("AK52.K532.A2.432").unwrap();
+        assert_eq!(constraint.check(hand), legacy.check(hand));
+    }
+}

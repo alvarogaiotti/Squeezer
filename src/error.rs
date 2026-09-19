@@ -1,10 +1,9 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::{
-    linparser::ParseLinError,
-    prelude::{CreationShapeError, DealerError},
-};
+#[cfg(feature = "lin")]
+use crate::linparser::ParseLinError;
+use crate::prelude::{ConstraintError, CreationShapeError, DealerError};
 use std::error::Error;
 
 /// Error wrapper for the entire library, so we expose just this one at the highest level.
@@ -13,8 +12,10 @@ use std::error::Error;
 #[derive(Debug)]
 pub enum SqueezerError {
     InvalidInput(String),
+    #[cfg(feature = "lin")]
     LinParsing(ParseLinError),
     CreationShape(CreationShapeError),
+    ConstraintError(ConstraintError),
     DealingError(DealerError),
     #[cfg(feature = "dds")]
     DDSError(dds::ddserror::DdsError),
@@ -26,8 +27,10 @@ pub enum SqueezerError {
 impl Error for SqueezerError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            #[cfg(feature = "lin")]
             SqueezerError::LinParsing(err) => Some(err),
             SqueezerError::CreationShape(err) => Some(err),
+            SqueezerError::ConstraintError(err) => Some(err),
             SqueezerError::DealingError(err) => Some(err),
             #[cfg(feature = "dds")]
             SqueezerError::DDSError(err) => Some(err),
@@ -63,6 +66,13 @@ impl From<DealerError> for SqueezerError {
     }
 }
 
+impl From<ConstraintError> for SqueezerError {
+    fn from(value: ConstraintError) -> Self {
+        Self::ConstraintError(value)
+    }
+}
+
+#[cfg(feature = "lin")]
 impl From<ParseLinError> for SqueezerError {
     fn from(value: ParseLinError) -> Self {
         Self::LinParsing(value)
