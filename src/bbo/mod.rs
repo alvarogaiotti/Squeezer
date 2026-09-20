@@ -1,79 +1,49 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::prelude::{
-    BBOBASE, BBOClient, BBOHANDS, BBOLOGIN, BboError, BboErrorKind, ClientError, LinkExtractor,
-    NetworkError,
+//! Blocking BBO client (`bbo` feature).
+//!
+//! Shares the endpoint constants, error type, and hand-link parser with the
+//! async client; only the transport differs (a `reqwest::blocking::Client`
+//! with a cookie jar). See [`crate::bbo_async`] for the async twin.
+
+use crate::bbohelpers::{
+    BBOClient, BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, logged_in_from_body,
 };
-use std::sync::OnceLock;
 
 #[cfg(not(test))]
 use log::{debug, info, warn};
-use regex::Regex;
+use reqwest::blocking::Client;
 #[cfg(test)]
 use std::{println as info, println as warn, println as debug}; // Workaround to use println! for logs.
 use time::{Duration, OffsetDateTime};
-use ureq::Agent;
+use url::Url;
 
-impl From<BboError<ureq::Error>> for ClientError<ureq::Error> {
-    fn from(value: BboError<ureq::Error>) -> Self {
-        Self::ConnectionError { source: value }
-    }
-}
-
-impl<E: NetworkError> From<std::io::Error> for ClientError<E> {
-    fn from(value: std::io::Error) -> Self {
-        Self::IoError { source: value }
-    }
-}
-
+/// Synchronous BBO client, backed by `reqwest::blocking`.
 pub struct BlockingBBOClient {
-    client: Agent,
+    client: Client,
     username: String,
     password: String,
-    hands_links: Vec<String>,
-}
-
-impl NetworkError for ureq::Error {}
-
-#[allow(unused_macros)]
-macro_rules! extract_url_ureq {
-    ($e:expr) => {
-        match $e {
-            ureq::Error::Transport(t) => {
-                if let Some(url) = t.url() {
-                    url.as_str().to_owned()
-                } else {
-                    BBOBASE.to_owned()
-                }
-            }
-            ureq::Error::Status(_, response) => response.get_url().to_owned(),
-        }
-    };
-}
-
-impl std::fmt::Display for BboError<ureq::Error> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "unable to connect")
-    }
-}
-impl std::error::Error for BboError<ureq::Error> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.kind)
-    }
-}
-
-impl From<BboErrorKind<ureq::Error>> for BboError<ureq::Error> {
-    fn from(value: BboErrorKind<ureq::Error>) -> Self {
-        Self { kind: value }
-    }
+    hands_links: Vec<Url>,
 }
 
 impl BlockingBBOClient {
+    /// Builds a client with its own cookie jar, so `login` persists the
+    /// session for subsequent requests.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the TLS backend cannot be initialized. There is no
+    /// meaningful fallback: without TLS the client cannot reach BBO at all,
+    /// so failing at construction is preferable to surfacing the failure on
+    /// every request.
     #[inline]
     #[must_use]
     pub fn new(username: String, password: String) -> Self {
-        let client = ureq::agent();
+        let client = Client::builder()
+            .cookie_store(true)
+            .build()
+            .expect("TLS backend initializes");
         Self {
             client,
             username,
@@ -81,72 +51,47 @@ impl BlockingBBOClient {
             hands_links: Vec::new(),
         }
     }
+
+    /// The listing URL for an interval, used both to fetch and to resolve the
+    /// relative links in the response.
+    fn hands_url(&self, start_time: OffsetDateTime, end_time: OffsetDateTime) -> Url {
+        let mut url = Url::parse(BBOHANDS).expect("constant listing URL parses");
+        url.query_pairs_mut()
+            .append_pair("username", &self.username)
+            .append_pair("start_time", &start_time.unix_timestamp().to_string())
+            .append_pair("end_time", &end_time.unix_timestamp().to_string());
+        url
+    }
+
     fn get_hands_in_interval(
         &self,
         start_time: OffsetDateTime,
         end_time: OffsetDateTime,
-    ) -> Result<String, ClientError<ureq::Error>> {
-        let request = self.client.get(BBOHANDS).query_pairs([
-            ("username", self.username.as_str()),
-            ("start_time", &start_time.unix_timestamp().to_string()),
-            ("end_time", &end_time.unix_timestamp().to_string()),
-        ]);
-        info!("query: {}", request.uri_ref().unwrap());
-        let text = request
-            .call()
-            .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
-            })?
-            .into_body()
-            .read_to_string()
-            .map_err(|e| ClientError::IoError {
-                source: e.into_io(),
-            })?;
+    ) -> Result<String, BboError> {
+        let url = self.hands_url(start_time, end_time);
+        info!("query: {url}");
+        let text = self.client.get(url).send()?.text()?;
         info!("{text}");
         Ok(text)
     }
 }
-impl LinkExtractor for BlockingBBOClient {
-    fn get_links(&self, webpage: &str, vec: &mut Vec<String>) {
-        #[allow(non_snake_case)]
-        let REGEX: OnceLock<Regex> = OnceLock::new();
-        let regex =
-            REGEX.get_or_init(|| Regex::new(r"\x22(?P<lin>fetchlin.php\?[\w=&]+)\x22").unwrap());
-        vec.extend(
-            regex
-                .captures_iter(webpage)
-                .map(|matches| matches.name("lin").unwrap().as_str().to_owned()),
-        );
-    }
-}
-impl BBOClient<ureq::Error> for BlockingBBOClient {
-    /// Check login status
-    fn is_logged(&self) -> Result<bool, ClientError<ureq::Error>> {
+
+impl BBOClient for BlockingBBOClient {
+    fn is_logged(&self) -> Result<bool, BboError> {
         info!("checking if logged in");
-        if self
-            .client
-            .get(BBOLOGIN)
-            .call()
-            .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
-            })?
-            .into_body()
-            .read_to_string()
-            .map_err(|e| ClientError::IoError {
-                source: e.into_io(),
-            })?
-            .contains("Please login")
-        {
-            info!("not logged in");
-            Ok(false)
-        } else {
-            info!("logged in");
-            Ok(true)
-        }
+        let logged_in = logged_in_from_body(&self.client.get(BBOLOGIN).send()?.text()?);
+        info!(
+            "{}",
+            if logged_in {
+                "logged in"
+            } else {
+                "not logged in"
+            }
+        );
+        Ok(logged_in)
     }
 
-    /// Login procedure
-    fn login(&self) -> Result<(), ClientError<ureq::Error>> {
+    fn login(&self) -> Result<(), BboError> {
         info!("starting login procedure");
         if self.is_logged()? {
             return Ok(());
@@ -157,38 +102,17 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
             ("submit", "Login"),
             ("keep", "on"),
         ];
+        info!("sending login request for user {}", self.username);
 
-        info!(
-            "sending login request with username: {} and password:{}",
-            self.username.as_str(),
-            self.password.as_str()
-        );
-
-        let response = self
-            .client
-            .post(BBOLOGIN)
-            .send_form(params)
-            .map_err(|e| BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))))?;
+        let response = self.client.post(BBOLOGIN).form(&params).send()?;
         info!("response status code: {}", response.status());
-        let text = response
-            .into_body()
-            .read_to_string()
-            .map_err(|e| ClientError::IoError {
-                source: e.into_io(),
-            })?;
-        if text.contains("password incorrect") {
+        if response.text()?.contains("password incorrect") {
             warn!("incorrect username or password");
-            return Err(ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::LoginError),
-            });
+            return Err(BboError::Login);
         }
-        let _ = self
-            .client
-            .get("http://www.bridgebase.com/myhands/hands.php?offset=0")
-            .call()
-            .map_err(|e| ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::UnknownConnectionError(Box::new(e))),
-            })?;
+        // Land on the hands page so the session is established before the
+        // first listing request.
+        self.client.get(BBOLAND).send()?;
         Ok(())
     }
 
@@ -196,66 +120,59 @@ impl BBOClient<ureq::Error> for BlockingBBOClient {
         &mut self,
         mut start_time: OffsetDateTime,
         mut end_time: OffsetDateTime,
-    ) -> Result<(), ClientError<ureq::Error>> {
+    ) -> Result<(), BboError> {
         if start_time < end_time {
-            debug!(
-                "swapped times as start_time is less than end_time:\n\tstart_time: {}\n\t end_time: {}",
-                &start_time, &end_time
-            );
+            debug!("swapping start_time and end_time (arguments were reversed)");
             std::mem::swap(&mut start_time, &mut end_time);
         }
         info!("trying to get hands links");
-        let mut vec: Vec<String> = Vec::new();
-
+        // BBO caps a listing at 28 days, so walk backwards in 28-day pages.
+        let mut links = Vec::new();
         while (start_time - end_time).whole_days() > 28 {
-            info!("Time delta: {}", start_time - end_time);
             let next_start = start_time - Duration::days(28);
-
             let text = self.get_hands_in_interval(start_time, next_start)?;
+            links.extend(hand_record_links(
+                &self.hands_url(start_time, next_start),
+                &text,
+            ));
             start_time = next_start;
-            self.get_links(&text, &mut vec);
         }
-        info!("Time delta after reduction: {}", start_time - end_time);
         let text = self.get_hands_in_interval(start_time, end_time)?;
-        self.get_links(&text, &mut vec);
-        self.hands_links = vec;
-
+        links.extend(hand_record_links(
+            &self.hands_url(start_time, end_time),
+            &text,
+        ));
+        self.hands_links = links;
         Ok(())
     }
+}
 
-    fn download(&self) -> Result<(), ClientError<ureq::Error>> {
-        let mut queue = Vec::new();
-        for mut hand in self.hands_links.iter().cloned() {
-            hand.insert_str(0, BBOBASE);
-
+impl BlockingBBOClient {
+    /// Downloads every collected hand, returning the first failure if any.
+    ///
+    /// # Errors
+    /// Errors when the site is not reachable or a hand cannot be fetched.
+    pub fn download(&self) -> Result<(), BboError> {
+        let mut first_error = None;
+        for hand in &self.hands_links {
             info!("downloading from {hand}");
-            let _lin = match self.client.get(&hand).call() {
+            match self.client.get(hand.clone()).send() {
                 Err(e) => {
-                    warn!("unable to download from {}.\nSee: {}", &hand, e);
-                    queue.push(e);
+                    warn!("unable to download from {hand}.\nSee: {e}");
+                    first_error.get_or_insert(BboError::Download(e));
                     continue;
                 }
                 Ok(response) => {
-                    response
-                        .into_body()
-                        .read_to_string()
-                        .map_err(|e| ClientError::IoError {
-                            source: e.into_io(),
-                        })?
+                    // TODO: persist the returned LIN instead of discarding it.
+                    let _lin = response.text()?;
                 }
-            };
-            // TODO:
-            // For now puppy implementation
+            }
+            // BBO is rate-sensitive; be polite between hand downloads.
             std::thread::sleep(std::time::Duration::from_secs(5));
         }
-        if queue.is_empty() {
-            Ok(())
-        } else {
-            Err(ClientError::ConnectionError {
-                source: BboError::from(BboErrorKind::DownloadError(Box::new(
-                    queue.into_iter().last().unwrap(),
-                ))),
-            })
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
         }
     }
 }

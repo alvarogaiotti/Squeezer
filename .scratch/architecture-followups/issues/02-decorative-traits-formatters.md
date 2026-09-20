@@ -1,6 +1,6 @@
 # Decorative traits and unreferenced formatters surface
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem
 
@@ -28,6 +28,9 @@ behavior change; existing tests stay green.
   `payoff_to_csv` sections) and `bridge_sim_summary.md`, so the
   "unreferenced" premise does not hold. Hiding or deleting them needs a
   docs decision first — follow up with the maintainer.
+- Decision 2026-09-20: leave public. Maintainer call: guide-documented
+  surface stays; ticket closed with `Comparable` collapsed and
+  `TerminalFormattable` deleted.
 
 ## Non-goals
 

@@ -12,18 +12,20 @@ itertools = "*"
 serde = { version = "1.0", features = ["derive"], optional = true }
 reqwest = { version = "*", features = ["cookies", "blocking"], optional = true }
 time = { version = "*", optional = true }
-regex = { version = "1", optional = true }
-ureq = { version = "*", features = ["cookies"], optional = true }
 squeezer_macros = { path = "squeezer_macros" }
 dds = { path = "dds", optional = true }
 bitvec = { version = "*", features = ["atomic", "std"] }
 safe_arch = "*"
 nom = {version = "8.0.0", optional=true}
+scraper = { version = "0.27.0", optional = true }
+url = { version = "2.5.8", optional = true }
 
 [features]
 default = ["lin", "dds", "bbo_async"]
-bbo = ["dep:time", "dep:ureq", "dep:regex"]
-bbo_async = ["dep:time", "dep:regex", "dep:reqwest"]
+# Both BBO clients share reqwest (async + blocking), scraper for HTML parsing
+# and url for resolving the relative hand-record links.
+bbo = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
+bbo_async = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
 lin = ["dep:nom"]
 dds = ["dep:dds"]
 serde = ["dep:serde", "dds?/serde", "bitvec/serde"]
@@ -34,10 +36,12 @@ criterion = { version = "*", features = ["html_reports"] }
 [[bench]]
 name = "bench_payoff"
 harness = false
+required-features = ["dds"]
 
 [[bench]]
 name = "bench_leadsim"
 harness = false
+required-features = ["dds"]
 
 [[bench]]
 name = "deck_pick_performance"
@@ -50,7 +54,15 @@ harness = false
 [[bench]]
 name = "simd_benchmark"
 harness = false
+required-features = ["dds", "lin"]
 
 [[bench]]
 name = "trick_winner_bench"
 harness = false
+required-features = ["dds", "lin"]
+
+# Only this integration test needs the solver + LIN parser; the rest build
+# on every feature set.
+[[test]]
+name = "performance_analysis_test"
+required-features = ["dds", "lin"]
