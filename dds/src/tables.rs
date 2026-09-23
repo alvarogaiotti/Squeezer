@@ -791,27 +791,47 @@ mod test {
         }
     }
 
+    /// Runs `body` with a fresh caller-owned DDS context and destroys it after.
+    ///
+    /// The `dds_c_*` context shim is the concurrency-safe path: each test owns
+    /// its context, so the suite runs under the default parallel test harness
+    /// (no `--test-threads=1`).
+    fn with_context<T>(body: impl FnOnce(*mut core::ffi::c_void) -> T) -> T {
+        let ctx = unsafe { crate::context::dds_c_create_solvercontext_default() };
+        assert!(!ctx.is_null(), "context creation returned NULL");
+        let result = body(ctx);
+        unsafe { crate::context::dds_c_destroy_solvercontext(ctx) };
+        result
+    }
+
+    /// Computes one deal's DD table on a fresh context, asserting success.
+    fn calc_table(table_deal: &DdTableDeal) -> DdTableResults<Populated> {
+        let mut table = DdTableResults::<NotPopulated>::new();
+        let result = with_context(|ctx| unsafe {
+            crate::context::dds_c_calc_dd_table(ctx, table_deal, &raw mut table)
+        });
+        assert_eq!(crate::bindings::ddsffi::RETURN_NO_FAULT, result);
+        table.populated()
+    }
+
     #[test]
     #[allow(clippy::needless_range_loop)]
-    fn test_calculate_table_unprotected_worrs() {
-        // Remember to run all this test in one thread, otherwise they'll SEGFAULT
+    fn test_calculate_table_with_owned_context() {
         let mut table_deal = [[0; 4]; 4];
-        let solver = DoubleDummySolver::new();
         for deal in 0..3 {
             for h in 0..4 {
                 for s in 0..4 {
                     table_deal[h][s] = HOLDINGS[deal][s][h];
                 }
             }
-            let table = solver.calculate_complete_table(&table_deal).unwrap();
+            let table = calc_table(&DdTableDeal::from(&table_deal));
             check_table(&table, deal);
         }
     }
 
     #[test]
     #[allow(clippy::needless_range_loop)]
-    fn test_CalcDDTable_unprotected_works() {
-        // Remember to run all this test in one thread, otherwise they'll SEGFAULT
+    fn test_calc_dd_table_binding_with_owned_context() {
         let mut table_deal = DdTableDeal::new();
         for deal in 0..3 {
             for h in 0..4 {
@@ -819,48 +839,25 @@ mod test {
                     table_deal.cards[h][s] = HOLDINGS[deal][s][h];
                 }
             }
-            let mut table = DdTableResults::new();
-            let result = unsafe { CalcDDtable(table_deal, &raw mut table) };
-            let table = unsafe {
-                std::mem::transmute::<DdTableResults<NotPopulated>, DdTableResults<Populated>>(
-                    table,
-                )
-            };
-            assert_eq!(crate::bindings::ddsffi::RETURN_NO_FAULT, result);
+            let table = calc_table(&table_deal);
             check_table(&table, deal);
         }
     }
 
     #[test]
-    fn test_calculate_all_table_unprotected() {
-        // Remember to run all this test in one thread, otherwise they'll SEGFAULT
-        let mut table_deal = [[[0; 4]; 4]; 3];
-
+    #[allow(clippy::needless_range_loop)]
+    fn test_calculate_all_tables_with_owned_contexts() {
+        // `CalcAllTables` is the legacy batch entry point; loop one deal at a
+        // time through a fresh context instead, so no global state is shared.
         for deal in 0..3 {
+            let mut table_deal = [[0; 4]; 4];
             for h in 0..4 {
                 for s in 0..4 {
-                    table_deal[deal][h][s] = HOLDINGS[deal][s][h];
+                    table_deal[h][s] = HOLDINGS[deal][s][h];
                 }
             }
+            let table = calc_table(&DdTableDeal::from(&table_deal));
+            check_table(&table, deal);
         }
-        let mut table_deal = DdTableDeals::new(&table_deal);
-        let mut table = DdTablesRes::new(3);
-        let mut par_results = AllParResults::new();
-        let result = unsafe {
-            CalcAllTables(
-                &raw mut table_deal,
-                ParCalcMode::None as i32,
-                &mut [0, 0, 0, 0, 0] as *mut i32,
-                &raw mut table,
-                &raw mut par_results,
-            )
-        };
-        let table = unsafe {
-            std::mem::transmute::<DdTablesRes<NotPopulated>, DdTablesRes<Populated>>(table)
-        };
-        assert_eq!(crate::bindings::ddsffi::RETURN_NO_FAULT, result);
-        check_table(&table.results[0], 0);
-        check_table(&table.results[1], 1);
-        check_table(&table.results[2], 2);
     }
 }

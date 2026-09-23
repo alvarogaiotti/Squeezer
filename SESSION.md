@@ -17,9 +17,11 @@
   message. Ticket 04 could add explicit variants/messages.
 - `ConstructDdsDealError::DuplicatedCard` is never constructed: the deal
   builder does not detect duplicated cards, so the variant is dead.
-- After removing the PBN entry points, `DdsDealPbn`, `BoardsPbn`,
-  `DdTableDealPbn`, `DdTableDealsPbn`, `PlayTracePBN` and `PlayTracesPBN`
-  have no callers. Ticket 04 should delete them with the batch rework.
+- Ticket 04 deleted the PBN batch types with no callers (`DdsDealPbn`,
+  `BoardsPbn`, `PlayTracePBN`, `PlayTracesPBN`). `DdTableDealPbn` and
+  `DdTableDealsPbn` in `dds/src/tables.rs` still have no callers; they are part
+  of the table/par surface ticket 04 kept, and could go with the rest of the
+  PBN table API later.
 - `dds::context`'s `dds_c_calc_dd_table`/`dds_c_calc_par` output
   `DdTableResults<NotPopulated>`; no public transition advances the
   type-state marker, so callers read `res_table` directly. Tickets 03/04 may
@@ -82,13 +84,62 @@
   backend should be wired to `DdTableCalculator`/`ParCalculator` with tickets
   10/11 and to `PlayAnalyser` with ticket 13, alongside those traits' first
   consumers.
-- `SolverPool` reuses one context per rayon *job*, not per worker: `map_init`
-  calls the initializer for each chunk, so a stolen chunk creates an extra
-  context and the design's "one context per worker, reused across the run" is
-  only approximated. `with_min_len` keeps the count near the worker count and
-  `workers × TT-cap` still bounds *instantaneous* memory, but true per-worker
-  reuse would need a thread-local/per-worker context table. Revisit in ticket
-  04/10 if the approximation hurts TT warmth or memory.
+- `SolverPool` (and its dyn sibling `DynSolverPool`) reuses one context per
+  rayon *job*, not per worker: `map_init` calls the initializer for each chunk,
+  so a stolen chunk creates an extra context and the design's "one context per
+  worker, reused across the run" is only approximated. `with_min_len` keeps the
+  count near the worker count and `workers × TT-cap` still bounds
+  *instantaneous* memory, but true per-worker reuse would need a
+  thread-local/per-worker context table. Revisit in ticket 10 if the
+  approximation hurts TT warmth or memory.
+- `DynSolverPool` duplicates `SolverPool`'s rayon-pool plumbing (thread count
+  clamping, `with_min_len` chunking, `try_map`). A `PoolFactory` trait with an
+  associated context type would collapse the two, at the cost of a blanket impl
+  for `Box<dyn ContextFactory>`; left split for now to keep the static path
+  free of indirection and the type signatures obvious.
+- Porting the `dds` table tests to the `dds_c_calc_dd_table` shim (for parallel
+  safety) removed the only direct tests of the legacy
+  `DdTableCalculator for DoubleDummySolver` impl (`CalcDDtable`/`CalcAllTables`).
+  That impl has no caller in the root crate and is kept only with the
+  `DoubleDummySolver` surface until ticket 13; its first real consumer will be
+  the seam's `DdTableCalculator` wired in ticket 10/11.
+- `dds::MAXNOOFBOARDS` (the crate-root re-export) was removed; the raw
+  `bindings::ddsffi::MAXNOOFBOARDS` binding is retained but has no Rust
+  consumer now that the batch surface is gone.
+- Design ticket 04 is ambiguous about the DDS batch entry points: it lists them
+  under "Dropped" *and* says they are "kept as a documented future throughput
+  option". Implementation ticket 04's explicit deliverable says to delete
+  `SolveAllBoardsBin`/`AnalyseAllPlaysBin`/`Boards`/`SolvedBoards`, so ticket 04
+  deleted them. A later reader wanting the batch path back should re-bind them
+  from the vendored 3.1 sources rather than assume they survived.
+- Card-payoff perspective edge (until ticket 10 deletes `CardPayoffSimulation`):
+  the engine computes declarer tricks as `13 - side_to_play`, which is only
+  correct when the side to play is the *defenders*. For a contract/lead opening
+  position that holds (the opening leader is declarer's LHO). For card payoff
+  the position is *after* the candidate, so the complement flips the side when
+  the candidate is a defender, and when the candidate completes a trick
+  `to_play` becomes the trick winner (either side). The pre-refactor engine had
+  the same `13 - score` assumption; ticket 10/13 should use
+  `if to_play.is_same_line(declarer) { dd_tricks } else { 13 - dd_tricks }`.
+- `Position::from_parts` is a `pub(crate)` constructor added so the simulation
+  engine can build an opening position from a `Deal` + `Contract` without
+  assembling a `Board`. Ticket 09/10 should decide whether to make it public or
+  replace it with conditioned-deal construction.
+- `simulation::solver::vulnerability_for` picks an arbitrary vulnerability
+  consistent with a contract so the card-payoff board construction validates;
+  it is only needed because card payoff still derives positions through
+  `Board`. It goes away with `CardPayoffSimulation` in ticket 10.
+- The card-payoff fan-out now reconstructs the seats of the `play_trace` cards
+  (the last was played by `seat.prev()`, and so on) and lets `Board` validate
+  them. The deleted `create_current_trick` reversed the trailing trick and set
+  DDS's `first` to the seat to play rather than the trick leader, so the old
+  mid-trick solves were almost certainly wrong for a non-empty trace.
+- `performance_analysis.rs`'s `test_complete_analysis_pipeline` still calls
+  `DoubleDummySolver::analyze_play` and only prints (no assertions); ticket 13
+  ports it to the seam.
+- `dds::utils::dd_score` was deleted with the batch surface. A future
+  score-from-deal helper should go through the seam's `SolverContext`, not a
+  fresh DDS solver.
 
 ## Resolved
 

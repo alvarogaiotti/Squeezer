@@ -51,9 +51,8 @@ use super::core::{
     ComparisonResult, DealResult, DistributionData, PairwiseStatistics, Simulation,
     SimulationMetadata, SimulationOutput,
 };
-use super::{finish_deal, solve_tricks_batches};
+use super::{opening_position, solve_tricks_pool, vulnerability_for};
 use crate::prelude::*;
-use dds::deal::{AsDDSDeal, DdsDealBuilder};
 
 // ============================================================================
 // RAW PAYOFF DATA - Complete simulation results for detailed analysis
@@ -418,6 +417,7 @@ pub struct ContractPayoffBuilder<D: Dealer = StandardDealer> {
     dealer: Option<D>,
     contracts: Vec<Contract>,
     scoring_fn: Option<Box<dyn Fn(i32, i32) -> i32>>,
+    solver_factory: Option<Box<dyn ContextFactory>>,
 }
 
 impl<D: Dealer> ContractPayoffBuilder<D> {
@@ -430,6 +430,7 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
             dealer: None,
             contracts: Vec::new(),
             scoring_fn: None,
+            solver_factory: None,
         }
     }
 
@@ -476,6 +477,18 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         self
     }
 
+    /// Use a specific solver backend, by its object-safe factory.
+    ///
+    /// Defaults to the DDS backend. This is the seam that keeps a solver type
+    /// parameter out of the public simulation API and lets tests inject a mock
+    /// (ADR-0005).
+    #[must_use]
+    #[inline]
+    pub fn solver_factory(mut self, factory: Box<dyn ContextFactory>) -> Self {
+        self.solver_factory = Some(factory);
+        self
+    }
+
     /// Build the simulation
     /// # Errors
     /// When you did not define the number of deals, the scoring function or the dealer.
@@ -491,6 +504,9 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         let scoring_fn = self
             .scoring_fn
             .ok_or_else(|| SqueezerError::InvalidInput("scoring_function must be set".into()))?;
+        let solver_factory: Box<dyn ContextFactory> = self
+            .solver_factory
+            .unwrap_or_else(|| Box::new(DdsSolver::new()));
 
         if self.contracts.len() < 2 {
             return Err(SqueezerError::InvalidInput(
@@ -503,6 +519,7 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
             dealer,
             contracts: self.contracts,
             scoring_fn,
+            solver_factory,
         })
     }
 }
@@ -519,6 +536,7 @@ pub struct ContractPayoffSimulation<D: Dealer> {
     dealer: D,
     contracts: Vec<Contract>,
     scoring_fn: Box<dyn Fn(i32, i32) -> i32>,
+    solver_factory: Box<dyn ContextFactory>,
 }
 
 impl<D: Dealer> ContractPayoffSimulation<D> {
@@ -539,6 +557,7 @@ impl<D: Dealer> ContractPayoffSimulation<D> {
             dealer,
             contracts,
             scoring_fn: Box::new(scoring_fn),
+            solver_factory: Box::new(DdsSolver::new()),
         }
     }
 }
@@ -548,47 +567,58 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
     type Statistics = PayoffMatrix<Contract>;
 
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
-        let num_contracts = self.contracts.len();
+        let ContractPayoffSimulation {
+            num_deals,
+            dealer,
+            contracts,
+            scoring_fn,
+            solver_factory,
+        } = self;
+        let num_contracts = contracts.len();
 
-        // Initialize accumulators for each contract first (borrows self),
-        // then move the contracts into raw_data (no second allocation).
-        let mut accumulators: Vec<_> = self
-            .contracts
-            .iter()
-            .map(|contract| ContractAccumulator {
-                contract: *contract,
-                results: Vec::with_capacity(self.num_deals),
-            })
-            .collect();
-        let mut raw_data = RawPayoffData::new(self.contracts);
+        // Order the solves by strain so same-strain contracts are adjacent on
+        // the context and DDS keeps the transposition table across them; a
+        // strain change resets it. `order[slot]` names the contract solved at
+        // `slot`, so results are scattered back to the caller's order after.
+        let mut order: Vec<usize> = (0..num_contracts).collect();
+        order.sort_by_key(|&index| contracts[index].strain() as u8);
 
-        // Shared batch-solve engine owns deal generation, DDS batching, and
-        // error mapping; here only the per-deal contract fan-out remains.
-        let solved = solve_tricks_batches(
-            &self.dealer,
-            self.num_deals,
+        // Deal-major: one call per deal, with all its contracts solved
+        // consecutively on the one context rayon hands to that call.
+        let solved = solve_tricks_pool(
+            solver_factory,
+            &dealer,
+            num_deals,
             num_contracts,
             "contract payoff",
-            |deal, deal_index, out| {
-                for acc in &accumulators {
-                    out.push(finish_deal(
-                        DdsDealBuilder::new()
-                            .remain_cards(deal.as_dds_deal())
-                            .contract(&acc.contract),
-                        "contract payoff",
-                        deal_index,
-                    )?);
-                }
-                Ok(())
+            |deal, _deal_index| -> Result<Vec<Position>, SqueezerError> {
+                Ok(order
+                    .iter()
+                    .map(|&index| opening_position(deal, contracts[index]))
+                    .collect())
             },
         )?;
 
-        // Drain in deal-major order (the engine yields one entry per deal).
+        // Initialize accumulators for each contract first (borrows contracts),
+        // then move the contracts into raw_data (no second allocation).
+        let mut accumulators: Vec<_> = contracts
+            .iter()
+            .map(|contract| ContractAccumulator {
+                contract: *contract,
+                results: Vec::with_capacity(num_deals),
+            })
+            .collect();
+        let mut raw_data = RawPayoffData::new(contracts);
+
+        // Scatter each deal's trick counts back to the contract they solved.
         for entry in &solved {
-            for (acc, tricks) in accumulators.iter_mut().zip(&entry.tricks) {
-                let score = acc.contract.score(*tricks);
-                acc.results
-                    .push(DealResult::new(entry.deal_index, *tricks, score));
+            for (slot, &contract_index) in order.iter().enumerate() {
+                let tricks = entry.tricks[slot];
+                let accumulator = &mut accumulators[contract_index];
+                let score = accumulator.contract.score(tricks);
+                accumulator
+                    .results
+                    .push(DealResult::new(entry.deal_index, tricks, score));
             }
         }
 
@@ -611,7 +641,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
                     acc_b.contract,
                     &acc_a.results,
                     &acc_b.results,
-                    &self.scoring_fn,
+                    &scoring_fn,
                 ));
             }
         }
@@ -620,7 +650,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
         let statistics = PayoffMatrix::from_raw_data(&raw_data);
 
         // Create metadata
-        let metadata = SimulationMetadata::new(self.num_deals, num_contracts)
+        let metadata = SimulationMetadata::new(num_deals, num_contracts)
             .with_custom("simulation_type".into(), "contract_payoff".into());
 
         Ok(SimulationOutput::new(raw_data, statistics, metadata))
@@ -646,6 +676,7 @@ pub struct CardPayoffBuilder<D: Dealer> {
     scoring_fn: Option<Box<dyn Fn(i32, i32) -> i32>>,
     seat: Option<Seat>,
     play_trace: Vec<Card>,
+    solver_factory: Option<Box<dyn ContextFactory>>,
 }
 
 impl<D: Dealer> CardPayoffBuilder<D> {
@@ -661,6 +692,7 @@ impl<D: Dealer> CardPayoffBuilder<D> {
             scoring_fn: None,
             seat: None,
             play_trace: Vec::with_capacity(47),
+            solver_factory: None,
         }
     }
 
@@ -740,6 +772,17 @@ impl<D: Dealer> CardPayoffBuilder<D> {
         self
     }
 
+    /// Use a specific solver backend, by its object-safe factory.
+    ///
+    /// Defaults to the DDS backend; see
+    /// [`ContractPayoffBuilder::solver_factory`].
+    #[must_use]
+    #[inline]
+    pub fn solver_factory(mut self, factory: Box<dyn ContextFactory>) -> Self {
+        self.solver_factory = Some(factory);
+        self
+    }
+
     /// Build the simulation
     /// # Errors
     /// When you did not define the number of deals, the scoring function, contracts, seat or the dealer.
@@ -803,6 +846,9 @@ impl<D: Dealer> CardPayoffBuilder<D> {
             scoring_fn,
             seat,
             play_trace: self.play_trace,
+            solver_factory: self
+                .solver_factory
+                .unwrap_or_else(|| Box::new(DdsSolver::new())),
         })
     }
 }
@@ -832,6 +878,8 @@ pub struct CardPayoffSimulation<D: Dealer> {
     /// The trace contents are not cross-checked against predealt hands;
     /// that combination remains the caller's responsibility.
     play_trace: Vec<Card>,
+    /// The solver backend, boxed so no solver type parameter enters the API.
+    solver_factory: Box<dyn ContextFactory>,
 }
 
 impl<D: Dealer> CardPayoffSimulation<D> {
@@ -890,26 +938,9 @@ impl<D: Dealer> CardPayoffSimulation<D> {
             scoring_fn: Box::new(scoring_fn),
             seat,
             play_trace,
+            solver_factory: Box::new(DdsSolver::new()),
         })
     }
-}
-
-fn create_current_trick(play_trace: &[Card]) -> ([Option<Card>; 3], Option<usize>) {
-    let mut last_trick = [None; 3];
-    let rest = play_trace.len() % 4;
-    let mut insertion_point = 0;
-    for (i, &card) in play_trace.iter().rev().take(rest).enumerate() {
-        last_trick[i] = Some(card);
-        insertion_point = i + 1;
-    }
-    (
-        last_trick,
-        if rest == 3 {
-            None
-        } else {
-            Some(insertion_point)
-        },
-    )
 }
 
 impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
@@ -918,62 +949,81 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
 
     #[inline]
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
-        let num_cards = self.cards.len();
+        let CardPayoffSimulation {
+            num_deals,
+            dealer,
+            cards,
+            contract,
+            scoring_fn,
+            seat,
+            play_trace,
+            solver_factory,
+        } = self;
+        let num_cards = cards.len();
 
-        // Initialize accumulators first (borrows self), then move cards into
+        // Reconstruct the seats of the cards played before the candidate: the
+        // last trace card was played by `seat`'s predecessor, the one before by
+        // theirs, and so on. The board then validates that every card really
+        // belongs to the seat that played it.
+        let mut prefix: Vec<Play> = Vec::with_capacity(play_trace.len());
+        let mut player = seat;
+        for &card in play_trace.iter().rev() {
+            player = player.previous();
+            prefix.push(Play::new(player, card));
+        }
+        prefix.reverse();
+        let prefix_len = prefix.len();
+        let vulnerability = vulnerability_for(contract);
+
+        // Deal-major: one call per deal, with every candidate solved
+        // consecutively on the one context rayon hands to that call.
+        let solved = solve_tricks_pool(
+            solver_factory,
+            &dealer,
+            num_deals,
+            num_cards,
+            "card payoff",
+            |deal, deal_index| -> Result<Vec<Position>, SqueezerError> {
+                let mut positions = Vec::with_capacity(num_cards);
+                for &candidate in &cards {
+                    let mut plays = prefix.clone();
+                    plays.push(Play::new(seat, candidate));
+                    let board = Board::builder(*deal, contract.declarer(), vulnerability)
+                        .contract(contract)
+                        .play(PlayRecord::new(plays))
+                        .build()
+                        .map_err(|cause| {
+                            SqueezerError::DealingError(DealerError::new(format!(
+                                "card payoff: invalid board for deal {deal_index}: {cause}"
+                            )))
+                        })?;
+                    let position =
+                        Position::after_play(&board, prefix_len + 1).map_err(|cause| {
+                            SqueezerError::DealingError(DealerError::new(format!(
+                                "card payoff: cannot derive position for deal {deal_index}: {cause}"
+                            )))
+                        })?;
+                    positions.push(position);
+                }
+                Ok(positions)
+            },
+        )?;
+
+        // Initialize accumulators first (borrows cards), then move cards into
         // raw_data instead of cloning.
-        let mut accumulators: Vec<CardAccumulator> = self
-            .cards
+        let mut accumulators: Vec<CardAccumulator> = cards
             .iter()
             .map(|&card| CardAccumulator {
                 card,
-                results: Vec::with_capacity(self.num_deals),
+                results: Vec::with_capacity(num_deals),
             })
             .collect();
-        let mut raw_data = RawPayoffData::new(self.cards);
-
-        let play_trace_cards = Cards::from(&self.play_trace);
-        let (mut current_trick, insertion_point) = create_current_trick(&self.play_trace);
-
-        // Shared batch-solve engine; only the per-deal card fan-out
-        // (mid-trick setup per candidate card) remains here.
-        let solved = solve_tricks_batches(
-            &self.dealer,
-            self.num_deals,
-            num_cards,
-            "card payoff",
-            |deal, deal_index, out| {
-                for acc in &accumulators {
-                    let mut hands = *deal.hands();
-
-                    // Remove already played cards and the card being tested
-                    let played_cards_after_new_card = play_trace_cards.insert(acc.card);
-                    for hand in &mut hands {
-                        hand.set_cards(hand.cards() - played_cards_after_new_card);
-                    }
-
-                    if let Some(index) = insertion_point {
-                        current_trick[index] = Some(acc.card);
-                    }
-
-                    out.push(finish_deal(
-                        DdsDealBuilder::new()
-                            .remain_cards(Deal::from_hands_unchecked(hands).as_dds_deal())
-                            .current_trick(current_trick)
-                            .contract(&self.contract)
-                            .first(self.seat.into()),
-                        "card payoff",
-                        deal_index,
-                    )?);
-                }
-                Ok(())
-            },
-        )?;
+        let mut raw_data = RawPayoffData::new(cards);
 
         // Drain in deal-major order (the engine yields one entry per deal).
         for entry in &solved {
             for (acc, tricks) in accumulators.iter_mut().zip(&entry.tricks) {
-                let score = self.contract.score(*tricks);
+                let score = contract.score(*tricks);
 
                 acc.results
                     .push(DealResult::new(entry.deal_index, *tricks, score));
@@ -998,7 +1048,7 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
                     acc_b.card,
                     &acc_a.results,
                     &acc_b.results,
-                    &self.scoring_fn,
+                    &scoring_fn,
                 ));
             }
         }
@@ -1007,10 +1057,10 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
         let statistics = PayoffMatrix::from_raw_data(&raw_data);
 
         // Create metadata
-        let metadata = SimulationMetadata::new(self.num_deals, num_cards)
+        let metadata = SimulationMetadata::new(num_deals, num_cards)
             .with_custom("simulation_type".into(), "card_payoff".into())
-            .with_custom("contract".into(), self.contract.to_string())
-            .with_custom("seat".into(), self.seat.to_string());
+            .with_custom("contract".into(), contract.to_string())
+            .with_custom("seat".into(), seat.to_string());
 
         Ok(SimulationOutput::new(raw_data, statistics, metadata))
     }
@@ -1316,21 +1366,14 @@ mod tests {
         assert!(build_with(dealer, trace, contract).is_ok());
     }
 
-    /// Deterministic end-to-end through the shared batch-solve engine.
+    /// Deterministic end-to-end through the shared pool-solve engine.
     ///
     /// A fully predealt dealer can only produce one deal, so two simulated
     /// deals are identical and the exact tricks/scores are pinned. This is
     /// the no-behavior-change proof for the engine migration: expected
     /// values were captured from the pre-refactor `run()`.
-    ///
-    /// DDS global state segfaults under parallel test threads: run the
-    /// simulation suite single-threaded (`cargo test -- --test-threads=1`)
-    /// and hold the solver lock for the whole test.
     #[test]
     fn test_contract_payoff_fully_predealt_is_deterministic() {
-        use crate::simulation::solver::dds_test_lock;
-
-        let _guard = dds_test_lock();
         let dealer = DealerBuilder::new()
             .predeal(Seat::North, Cards::from_str("SAKQJT98765432").unwrap())
             .unwrap()
@@ -1360,6 +1403,137 @@ mod tests {
         }
         for deal in second {
             assert_eq!((deal.tricks, deal.score), (13, 260));
+        }
+    }
+
+    /// Records the context, deal and strain of every solve, so the scheduling
+    /// can be asserted without the native solver.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct SolveRecord {
+        context: usize,
+        north: Cards,
+        trump: Strain,
+    }
+
+    struct RecordingContext {
+        id: usize,
+        log: std::sync::Arc<std::sync::Mutex<Vec<SolveRecord>>>,
+    }
+
+    struct RecordingFactory {
+        log: std::sync::Arc<std::sync::Mutex<Vec<SolveRecord>>>,
+    }
+
+    impl ContextFactory for RecordingFactory {
+        fn new_context(&self) -> Box<dyn SolverContext> {
+            static NEXT_CONTEXT: std::sync::atomic::AtomicUsize =
+                std::sync::atomic::AtomicUsize::new(0);
+            Box::new(RecordingContext {
+                id: NEXT_CONTEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                log: std::sync::Arc::clone(&self.log),
+            })
+        }
+    }
+
+    impl SolverContext for RecordingContext {
+        fn solve(
+            &mut self,
+            position: &Position,
+            _mode: SolveMode,
+            _solutions: Solutions,
+        ) -> Result<SolveResults, SolverError> {
+            self.log
+                .lock()
+                .expect("recording log is never poisoned")
+                .push(SolveRecord {
+                    context: self.id,
+                    north: position.hand(Seat::North),
+                    trump: position.trump(),
+                });
+            let cards = position
+                .legal_plays()
+                .into_iter()
+                .next()
+                .map(|card| {
+                    vec![CardSolve {
+                        card,
+                        tricks: 7,
+                        equivalents: Cards::EMPTY.insert(card),
+                    }]
+                })
+                .unwrap_or_default();
+            Ok(SolveResults { cards })
+        }
+
+        fn clear_tt(&mut self) {}
+
+        fn reset(&mut self) {}
+    }
+
+    /// The contract payoff must issue all of a deal's solves on one context,
+    /// grouped by strain, rather than fanning individual solves across workers.
+    ///
+    /// With one context per rayon job, a job's recorded sequence is the exact
+    /// solve order. We assert two properties per job: a deal's solves are
+    /// contiguous (deal-major, never contract-major) and its strains are
+    /// non-decreasing (same-strain contracts adjacent, so the TT survives).
+    #[test]
+    fn contract_payoff_is_deal_major_with_same_strain_adjacent() {
+        use std::collections::{HashMap, HashSet};
+        use std::sync::{Arc, Mutex};
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        // Deliberately interleave the strains: input order is S, NT, H, S.
+        let contracts = vec![
+            Contract::from_str("1SN").expect("fixed contract parses"),
+            Contract::from_str("1NN").expect("fixed contract parses"),
+            Contract::from_str("1HN").expect("fixed contract parses"),
+            Contract::from_str("1SN").expect("fixed contract parses"),
+        ];
+        let output = ContractPayoffBuilder::new()
+            .num_deals(16)
+            .dealer(StandardDealer::new())
+            .contracts(contracts)
+            .scoring_function(imps)
+            .solver_factory(Box::new(RecordingFactory {
+                log: Arc::clone(&log),
+            }))
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect("the mock never fails");
+        assert_eq!(output.raw.option_results.len(), 4);
+
+        let records = log.lock().expect("log is never poisoned").clone();
+        assert_eq!(records.len(), 16 * 4);
+
+        let mut by_context: HashMap<usize, Vec<SolveRecord>> = HashMap::new();
+        for record in records {
+            by_context.entry(record.context).or_default().push(record);
+        }
+
+        for sequence in by_context.values() {
+            let mut seen_deals = HashSet::new();
+            let mut current: Option<Cards> = None;
+            let mut previous_strain: Option<u8> = None;
+            for record in sequence {
+                if current.as_ref() != Some(&record.north) {
+                    assert!(
+                        seen_deals.insert(record.north),
+                        "a context returned to an earlier deal, so deals are not contiguous"
+                    );
+                    current = Some(record.north);
+                    previous_strain = None;
+                }
+                let strain = record.trump as u8;
+                if let Some(previous) = previous_strain {
+                    assert!(
+                        strain >= previous,
+                        "strains within a deal are not adjacent: {previous} then {strain}"
+                    );
+                }
+                previous_strain = Some(strain);
+            }
         }
     }
 }

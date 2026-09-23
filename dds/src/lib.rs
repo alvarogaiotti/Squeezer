@@ -29,5 +29,4 @@ pub mod solver;
 pub mod tables;
 pub mod traits;
 pub mod utils;
-pub use bindings::MAXNOOFBOARDS;
 pub use core::ffi::c_int;

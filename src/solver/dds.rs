@@ -306,4 +306,46 @@ mod tests {
         context.clear_tt();
         context.reset();
     }
+
+    #[test]
+    fn concurrent_contexts_match_sequential_results() {
+        use rayon::prelude::*;
+
+        // Three positions from the example deal: opening lead, after one play,
+        // after two. They differ enough that a shared transposition table would
+        // be caught by a wrong trick count.
+        let boards = [
+            example_board(),
+            example_board_with(vec![Play::new(Seat::North, Card::S6)]),
+            example_board_with(vec![
+                Play::new(Seat::North, Card::S6),
+                Play::new(Seat::East, Card::S3),
+            ]),
+        ];
+        let positions: Vec<Position> = boards
+            .iter()
+            .enumerate()
+            .map(|(n, board)| Position::after_play(board, n).expect("contract present"))
+            .collect();
+
+        // The oracle solves every position on one context, sequentially.
+        let mut oracle = context();
+        let sequential: Vec<u8> = positions
+            .iter()
+            .map(|position| oracle.solve_tricks(position).expect("example hand solves"))
+            .collect();
+
+        // Each concurrent solve gets its own context, so no solver state is
+        // shared between threads: this is the property the global mutex used to
+        // stand in for.
+        let concurrent: Vec<u8> = positions
+            .par_iter()
+            .map(|position| {
+                let mut context = context();
+                context.solve_tricks(position).expect("example hand solves")
+            })
+            .collect();
+
+        assert_eq!(sequential, concurrent);
+    }
 }

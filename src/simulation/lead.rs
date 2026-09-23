@@ -38,9 +38,8 @@
 //! # }
 //! ```
 
-use super::{finish_deal, solve_all_cards_batches};
+use super::{opening_position, solve_all_cards_pool};
 use crate::prelude::*;
-use dds::deal::{AsDDSDeal, DdsDealBuilder};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -454,6 +453,7 @@ pub struct LeadSimulationBuilder<D: Dealer = StandardDealer> {
     dealer: Option<D>,
     contract: Option<Contract>,
     store_deal_details: bool,
+    solver_factory: Option<Box<dyn ContextFactory>>,
 }
 
 impl<D: Dealer> LeadSimulationBuilder<D> {
@@ -466,6 +466,7 @@ impl<D: Dealer> LeadSimulationBuilder<D> {
             dealer: None,
             contract: None,
             store_deal_details: false,
+            solver_factory: None,
         }
     }
 
@@ -501,6 +502,18 @@ impl<D: Dealer> LeadSimulationBuilder<D> {
         self
     }
 
+    /// Use a specific solver backend, by its object-safe factory.
+    ///
+    /// Defaults to the DDS backend. This is the seam that keeps a solver type
+    /// parameter out of the public simulation API and lets tests inject a mock
+    /// (ADR-0005).
+    #[must_use]
+    #[inline]
+    pub fn solver_factory(mut self, factory: Box<dyn ContextFactory>) -> Self {
+        self.solver_factory = Some(factory);
+        self
+    }
+
     /// Build the simulation
     #[inline]
     /// # Errors
@@ -521,6 +534,9 @@ impl<D: Dealer> LeadSimulationBuilder<D> {
             dealer,
             contract,
             store_deal_details: self.store_deal_details,
+            solver_factory: self
+                .solver_factory
+                .unwrap_or_else(|| Box::new(DdsSolver::new())),
         })
     }
 }
@@ -537,6 +553,7 @@ pub struct LeadSimulation<D: Dealer = StandardDealer> {
     dealer: D,
     contract: Contract,
     store_deal_details: bool,
+    solver_factory: Box<dyn ContextFactory>,
 }
 
 impl<D: Dealer + Default> LeadSimulation<D> {
@@ -556,6 +573,7 @@ impl<D: Dealer> LeadSimulation<D> {
             dealer,
             contract,
             store_deal_details: false,
+            solver_factory: Box::new(DdsSolver::new()),
         }
     }
 }
@@ -565,57 +583,41 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
     type Statistics = LeadStatistics;
 
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
-        let mut raw_data = RawLeadData::new(self.contract);
+        let LeadSimulation {
+            num_deals,
+            dealer,
+            contract,
+            store_deal_details,
+            solver_factory,
+        } = self;
+        let mut raw_data = RawLeadData::new(contract);
         // Cards are keyed directly by their compact offset (0..=63), which is
         // cheaper than hashing and also avoids the per-card entry allocation.
         let mut card_accumulators: [Option<CardLeadResult>; 64] = std::array::from_fn(|_| None);
 
-        // Shared batch-solve engine; only per-lead accumulation remains here.
-        let solved = solve_all_cards_batches(
-            &self.dealer,
-            self.num_deals,
-            "lead",
-            |deal, deal_index, out| {
-                out.push(finish_deal(
-                    DdsDealBuilder::new()
-                        .remain_cards(deal.as_dds_deal())
-                        .contract(&self.contract),
-                    "lead",
-                    deal_index,
-                )?);
-                Ok(())
-            },
-        )?;
+        // Shared pool-solve engine; only per-lead accumulation remains here.
+        // Deal-major: one call per deal, all its leads solved on one context.
+        let solved =
+            solve_all_cards_pool(solver_factory, &dealer, num_deals, |deal, _deal_index| {
+                Ok(opening_position(deal, contract))
+            })?;
 
         // Process results: one entry per deal, in global deal order.
         for entry in &solved {
-            let future_tricks = &entry.future;
-            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-            for card_idx in 0..future_tricks.cards as usize {
-                let rank = future_tricks.rank[card_idx];
-                let suit = future_tricks.suit[card_idx];
-                let tricks = future_tricks.score[card_idx] as u8;
-
-                let card = Card::new(
-                    Suit::try_from(suit).map_err(|_| {
-                        SqueezerError::DealingError(DealerError::new(format!(
-                            "lead: DDS returned invalid suit {suit} for deal {}",
-                            entry.deal_index
-                        )))
-                    })?,
-                    rank as u8,
-                );
+            for solve in &entry.results.cards {
+                let card = solve.card;
+                let tricks = solve.tricks;
 
                 let accumulator =
                     card_accumulators[card.as_u8() as usize].get_or_insert_with(|| {
-                        if self.store_deal_details {
-                            CardLeadResult::with_deal_details(card, self.num_deals)
+                        if store_deal_details {
+                            CardLeadResult::with_deal_details(card, num_deals)
                         } else {
                             CardLeadResult::new(card)
                         }
                     });
 
-                let deal_idx = if self.store_deal_details {
+                let deal_idx = if store_deal_details {
                     Some(entry.deal_index)
                 } else {
                     None
@@ -636,15 +638,15 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
         });
 
         // Calculate tricks needed to beat contract
-        let tricks_to_beat = 8u8.saturating_sub(self.contract.level());
+        let tricks_to_beat = 8u8.saturating_sub(contract.level());
 
         // Compute statistics
         let statistics = LeadStatistics::from_raw_data(&raw_data, tricks_to_beat);
 
         // Create metadata
-        let metadata = SimulationMetadata::new(self.num_deals, raw_data.cards.len())
+        let metadata = SimulationMetadata::new(num_deals, raw_data.cards.len())
             .with_custom("simulation_type".into(), "lead".into())
-            .with_custom("contract".into(), self.contract.to_string())
+            .with_custom("contract".into(), contract.to_string())
             .with_custom("tricks_to_beat".into(), tricks_to_beat.to_string());
 
         Ok(SimulationOutput::new(raw_data, statistics, metadata))

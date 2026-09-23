@@ -28,7 +28,16 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Commands
 
 - Default features are `lin`, `dds`, `bbo_async`: `cargo check` / `cargo test`.
-- DDS keeps global state that segfaults under parallel test threads. Run `cargo test -- --test-threads=1`; simulation tests additionally serialize through a `dds_test_lock`.
+- Solver concurrency is owned by our own pool: each rayon *job* (chunk of work)
+  gets its own DDS context (`SolverPool`/`DynSolverPool`), with at most one
+  context live per worker at a time, so `workers × TT-cap` bounds instantaneous
+  memory and plain `cargo test` (no thread cap) is safe. `AnalysePlayBin`
+  builds its own local context per call, so the legacy play-analysis path is
+  concurrent-safe too.
+- The `dds` crate's own tests are parallel-safe under 3.1: the context shim
+  takes a caller-owned context, and the legacy `SolveBoard`/`CalcDDtable`/
+  `CalcAllTables` entry points draw their context from a `thread_local`. Run
+  `cargo test --manifest-path dds/Cargo.toml` with the default harness.
 - `cargo fmt --all`. CI (`.github/workflows/rust.yml`) runs `cargo test --verbose --features dds` then `cargo fmt --all`.
 - `cargo bench --bench <name>` (criterion, `harness = false`; see `Cargo.toml`).
 

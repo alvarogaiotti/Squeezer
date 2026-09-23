@@ -157,6 +157,31 @@ impl Position {
         })
     }
 
+    /// Builds a position directly from its parts, bypassing [`Board`]
+    /// validation.
+    ///
+    /// This is the crate-internal seam for callers that already hold a deal
+    /// and a contract and do not want to assemble a full [`Board`] just to
+    /// derive an opening position — the simulation engine, whose deals come
+    /// from a [`Dealer`] rather than a file. The public path stays
+    /// board-derived; the caller is responsible for the parts being mutually
+    /// consistent (a `table` of at most three cards drawn from `hands`, and a
+    /// `to_play` that matches the table).
+    #[must_use]
+    pub(crate) fn from_parts(
+        trump: Strain,
+        to_play: Seat,
+        table: Vec<Play>,
+        hands: [Cards; 4],
+    ) -> Self {
+        Self {
+            trump,
+            to_play,
+            table,
+            hands,
+        }
+    }
+
     /// The strain solved for; `NoTrumps` means no trump.
     #[must_use]
     pub const fn trump(&self) -> Strain {

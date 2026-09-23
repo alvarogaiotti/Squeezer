@@ -1,36 +1,29 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use std::sync::{Mutex, OnceLock, TryLockError};
-
 use crate::{
-    analyseplay::{CHUNK_SIZE, PlayAnalyzer, PlayTraceBin, PlayTracesBin, SolvedPlay, SolvedPlays},
-    bindings::{
-        AnalyseAllPlaysBin, MAXNOOFBOARDS, SolveAllBoardsBin, SolveBoard,
-        ddsffi::RETURN_UNKNOWN_FAULT,
-    },
+    analyseplay::{PlayAnalyzer, PlayTraceBin, SolvedPlay},
+    bindings::SolveBoard,
     context::AnalysePlayBin,
     ddserror::DdsError,
-    deal::{AsDDSDeal, Boards, ConstructDdsDealError, DdsDeal},
+    deal::{AsDDSDeal, DdsDeal},
     future_tricks::FutureTricks,
-    solver::{BridgeSolver, SolvedBoards},
-    tables::{
-        DdTableCalculator, DdTableDeal, DdTableResults, DdTablesRes, ParCalcMode, Populated,
-        TrumpFilter,
-    },
+    solver::BridgeSolver,
     traits::AsDDSContract,
     utils::{Mode, Solutions, Target, ThreadIndex, build_c_deal, if_no_fault_return},
 };
 
 /// A single threaded double dummy solver.
-/// DO NOT USE this in multithreaded code as it will SEGFAULT.
-/// YOU ARE RESPONSIBLE FOR THIS. If you want to be sure and not have to worry,
-/// use the [`MultiThreadDoubleDummySolver`], which manages the DLL's
-/// resources for you.
+///
+/// In DDS 3.1 the legacy entry points this wraps draw their solver context from
+/// a `thread_local`, so calling one from several threads is safe (each thread
+/// gets its own context); the older "SEGFAULT under threads" warning applied to
+/// DDS 2.9's global state. For transposition-table reuse, still prefer the
+/// `squeezer` solver seam's pool, which keeps one context per worker.
 /// This struct implements all the needed traits linked to a double dummy analysis
 /// such as:
 /// - Play analysis [`PlayAnalyzer`]
-/// - Par calculation [`DdTableCalculator`]
+/// - Par calculation [`DdTableCalculator`](crate::tables::DdTableCalculator)
 /// - Board solution [`BridgeSolver`]
 ///
 /// To use it, import the required trait, instantiate this struct and use it.
@@ -140,129 +133,6 @@ impl Default for DoubleDummySolver {
     }
 }
 
-#[non_exhaustive]
-pub struct MultiThreadDoubleDummySolver {
-    inner: &'static Mutex<DoubleDummySolver>,
-}
-
-impl Default for MultiThreadDoubleDummySolver {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MultiThreadDoubleDummySolver {
-    #[inline]
-    #[must_use]
-    /// Creates a new `DDSPlayAnalyzer` ready to be used
-    pub fn new() -> Self {
-        /// The Singleton instance of the raw DDS library
-        static INSTANCE: OnceLock<Mutex<DoubleDummySolver>> = OnceLock::new();
-        Self {
-            inner: INSTANCE.get_or_init(|| Mutex::new(DoubleDummySolver::new())),
-        }
-    }
-}
-
-impl BridgeSolver for MultiThreadDoubleDummySolver {
-    fn dd_tricks(&self, deal: &DdsDeal) -> Result<u8, DdsError> {
-        match self.inner.lock() {
-            Ok(guard) => guard.dd_tricks(deal),
-            Err(error) => {
-                let guard = error.into_inner();
-                // Try to recover by freeing the memory, hoping to get clean dll slate.
-                guard.free_memory();
-                self.inner.clear_poison();
-                guard.dd_tricks(deal)
-            }
-        }
-    }
-
-    fn dd_tricks_all_cards(&self, deal: &DdsDeal) -> Result<FutureTricks, DdsError> {
-        match self.inner.lock() {
-            Ok(guard) => guard.dd_tricks_all_cards(deal),
-            Err(error) => {
-                let guard = error.into_inner();
-                // Try to recover by freeing the memory, hoping to get clean dll slate.
-                guard.free_memory();
-                self.inner.clear_poison();
-                guard.dd_tricks_all_cards(deal)
-            }
-        }
-    }
-
-    fn dd_tricks_parallel(
-        &self,
-        number_of_deals: i32,
-        deals: &[DdsDeal],
-    ) -> Result<Vec<u8>, DdsError> {
-        match self.inner.lock() {
-            Ok(guard) => guard.dd_tricks_parallel(number_of_deals, deals),
-            Err(error) => {
-                let guard = error.into_inner();
-                // Try to recover by freeing the memory, hoping to get clean dll slate.
-                guard.free_memory();
-                guard.dd_tricks_parallel(number_of_deals, deals)
-            }
-        }
-    }
-    fn dd_tricks_all_cards_parallel(
-        &self,
-        number_of_deals: i32,
-        deals: &[DdsDeal],
-    ) -> Result<SolvedBoards, DdsError> {
-        match self.inner.lock() {
-            Ok(guard) => guard.dd_tricks_all_cards_parallel(number_of_deals, deals),
-            Err(error) => {
-                let guard = error.into_inner();
-                // Try to recover by freeing the memory, hoping to get clean dll slate.
-                guard.free_memory();
-                guard.dd_tricks_all_cards_parallel(number_of_deals, deals)
-            }
-        }
-    }
-    fn solve_with_params(
-        &self,
-        deal: &DdsDeal,
-        mode: Mode,
-        solutions: Solutions,
-        target: Target,
-    ) -> Result<FutureTricks, DdsError> {
-        match self.inner.lock() {
-            Ok(guard) => guard.solve_with_params(deal, mode, solutions, target),
-            Err(error) => {
-                let guard = error.into_inner();
-                // Try to recover by freeing the memory, hoping to get clean dll slate.
-                guard.free_memory();
-                self.inner.clear_poison();
-                guard.solve_with_params(deal, mode, solutions, target)
-            }
-        }
-    }
-    fn solve_with_params_parallel(
-        &self,
-        number_of_deals: i32,
-        deals: &[DdsDeal],
-        mode: &[Mode],
-        solutions: &[Solutions],
-        target: &[Target],
-    ) -> Result<SolvedBoards, DdsError> {
-        match self.inner.lock() {
-            Ok(guard) => {
-                guard.solve_with_params_parallel(number_of_deals, deals, mode, solutions, target)
-            }
-            Err(error) => {
-                let guard = error.into_inner();
-                // Try to recover by freeing the memory, hoping to get clean dll slate.
-                guard.free_memory();
-                self.inner.clear_poison();
-                guard.solve_with_params_parallel(number_of_deals, deals, mode, solutions, target)
-            }
-        }
-    }
-}
-
 impl BridgeSolver for DoubleDummySolver {
     #[inline]
     fn dd_tricks(&self, deal: &DdsDeal) -> Result<u8, DdsError> {
@@ -313,75 +183,6 @@ impl BridgeSolver for DoubleDummySolver {
         }
     }
 
-    #[inline]
-    fn dd_tricks_parallel(
-        &self,
-        number_of_deals: i32,
-        deals: &[DdsDeal],
-    ) -> Result<Vec<u8>, DdsError> {
-        #[allow(
-            clippy::cast_possible_truncation,
-            clippy::cast_possible_wrap,
-            clippy::cast_sign_loss
-        )]
-        let mut boards = Boards::from_deals_uniform(
-            number_of_deals,
-            deals,
-            Target::MaxTricks,
-            Solutions::Best,
-            Mode::AutoReuseAlwaysSearch,
-        )?;
-        let mut solved_boards = SolvedBoards::new(number_of_deals);
-        let result;
-        {
-            let bop: *mut Boards = &raw mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &raw mut solved_boards;
-            unsafe {
-                result = SolveAllBoardsBin(bop, solved_boards_ptr);
-            }
-        };
-        if result != 1 {
-            return Err(result.into());
-        }
-        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        Ok(solved_boards
-            .into_iter()
-            .map(|ft| 13 - ft.score[0] as u8)
-            .take(number_of_deals as usize)
-            .collect())
-    }
-    #[inline]
-    fn dd_tricks_all_cards_parallel(
-        &self,
-        number_of_deals: i32,
-        deals: &[DdsDeal],
-    ) -> Result<SolvedBoards, DdsError> {
-        #[allow(
-            clippy::cast_possible_truncation,
-            clippy::cast_possible_wrap,
-            clippy::cast_sign_loss
-        )]
-        let mut boards = Boards::from_deals_uniform(
-            number_of_deals,
-            deals,
-            Target::MaxTricks,
-            Solutions::AllLegal,
-            Mode::AutoReuseAlwaysSearch,
-        )?;
-        let mut solved_boards = SolvedBoards::new(number_of_deals);
-        let result;
-        {
-            let bop: *mut Boards = &raw mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &raw mut solved_boards;
-            unsafe {
-                result = SolveAllBoardsBin(bop, solved_boards_ptr);
-            }
-        };
-        if result != 1 {
-            return Err(result.into());
-        }
-        Ok(solved_boards)
-    }
     fn solve_with_params(
         &self,
         deal: &DdsDeal,
@@ -413,167 +214,9 @@ impl BridgeSolver for DoubleDummySolver {
             Err(DdsError::from(result))
         }
     }
-    fn solve_with_params_parallel(
-        &self,
-        number_of_deals: i32,
-        deals: &[DdsDeal],
-        mode: &[Mode],
-        solutions: &[Solutions],
-        target: &[Target],
-    ) -> Result<SolvedBoards, DdsError> {
-        #[allow(
-            clippy::cast_possible_truncation,
-            clippy::cast_possible_wrap,
-            clippy::cast_sign_loss
-        )]
-        let mut boards = Boards::from_deals(number_of_deals, deals, target, solutions, mode)?;
-        let mut solved_boards = SolvedBoards::new(number_of_deals);
-        let result;
-        {
-            let bop: *mut Boards = &raw mut boards;
-            let solved_boards_ptr: *mut SolvedBoards = &raw mut solved_boards;
-            unsafe {
-                result = SolveAllBoardsBin(bop, solved_boards_ptr);
-            }
-        };
-        if result != 1 {
-            return Err(result.into());
-        }
-        Ok(solved_boards)
-    }
-}
-
-impl DdTableCalculator for MultiThreadDoubleDummySolver {
-    fn calculate_complete_table<T>(
-        &self,
-        table_deal: &T,
-    ) -> Result<DdTableResults<Populated>, DdsError>
-    where
-        for<'a> &'a T: Into<DdTableDeal>,
-    {
-        loop {
-            match self.inner.try_lock() {
-                Ok(guard) => break guard.calculate_complete_table(table_deal),
-                Err(TryLockError::WouldBlock) => {}
-                Err(TryLockError::Poisoned(guard)) => {
-                    break guard.into_inner().calculate_complete_table(table_deal);
-                }
-            }
-        }
-    }
-
-    fn calculate_all_complete_tables<T>(
-        &self,
-        table_deals: &[T],
-        mode: ParCalcMode,
-        trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DdsError>
-    where
-        for<'a> &'a T: Into<DdTableDeal>,
-    {
-        match self.inner.lock() {
-            Ok(guard) => guard.calculate_all_complete_tables(table_deals, mode, trump_filter),
-            Err(error) => {
-                error
-                    .into_inner()
-                    .calculate_all_complete_tables(table_deals, mode, trump_filter)
-            }
-        }
-    }
-}
-
-impl PlayAnalyzer for MultiThreadDoubleDummySolver {
-    #[inline]
-    fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deal: &D,
-        contract: &C,
-        play: PlayTraceBin,
-    ) -> Result<SolvedPlay, DdsError> {
-        let Ok(guard) = self.inner.lock() else {
-            #[allow(clippy::print_stderr, clippy::use_debug)]
-            {
-                use std::thread;
-                eprintln!("Thread {:?} found Mutex poisoned", thread::current().id());
-                return Err(RETURN_UNKNOWN_FAULT.into());
-            }
-        };
-        guard.analyze_play(deal, contract, play)
-    }
-
-    #[inline]
-    fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deals: &[D],
-        contracts: &[C],
-        plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DdsError> {
-        let Ok(guard) = self.inner.lock() else {
-            #[allow(clippy::print_stderr, clippy::use_debug)]
-            {
-                use std::thread;
-                eprintln!("Thread {:?} found Mutex poisoned", thread::current().id());
-                return Err(RETURN_UNKNOWN_FAULT.into());
-            }
-        };
-        guard.analyze_all_plays(deals, contracts, plays)
-    }
 }
 
 impl PlayAnalyzer for DoubleDummySolver {
-    #[allow(clippy::unwrap_in_result, clippy::unwrap_used)]
-    #[inline]
-    fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deals: &[D],
-        contracts: &[C],
-        plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DdsError> {
-        let deals_len = i32::try_from(deals.len().clamp(0, MAXNOOFBOARDS)).unwrap();
-        let contracts_len = i32::try_from(contracts.len().clamp(0, MAXNOOFBOARDS)).unwrap();
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-        if deals_len != contracts_len
-            || deals_len == 0i32
-            || contracts_len == 0i32
-            || deals_len != plays.len() as i32
-        {
-            return Err(RETURN_UNKNOWN_FAULT.into());
-        }
-        let mut c_deals: Vec<DdsDeal> = match contracts
-            .iter()
-            .zip(deals.iter())
-            .map(build_c_deal)
-            .collect::<Result<Vec<_>, ConstructDdsDealError>>()
-        {
-            Ok(vec) => vec,
-            Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
-        };
-        c_deals.resize(MAXNOOFBOARDS, DdsDeal::sentinel());
-        let mut boards = Boards {
-            no_of_boards: deals_len,
-            // We know vec has the right length
-            deals: match c_deals.into_iter().collect::<Vec<DdsDeal>>().try_into() {
-                Ok(ddsdeals) => ddsdeals,
-                Err(_) => return Err(RETURN_UNKNOWN_FAULT.into()),
-            },
-            target: [Target::MaxTricks.into(); MAXNOOFBOARDS],
-            solutions: [Solutions::Best.into(); MAXNOOFBOARDS],
-            mode: [Mode::AutoReuseAlwaysSearch.into(); MAXNOOFBOARDS],
-        };
-        let mut solved_plays = SolvedPlays {
-            no_of_boards: deals_len,
-            solved: [SolvedPlay::new(); MAXNOOFBOARDS],
-        };
-
-        let bop: *mut Boards = &raw mut boards;
-        let solved: *mut SolvedPlays = &raw mut solved_plays;
-        let play_trace: *mut PlayTracesBin = plays;
-
-        //SAFETY: calling C
-        let result = unsafe { AnalyseAllPlaysBin(bop, play_trace, solved, CHUNK_SIZE) };
-        if_no_fault_return!(result, solved_plays)
-    }
-
     #[inline]
     fn analyze_play<D: AsDDSDeal, C: AsDDSContract>(
         &self,
@@ -582,7 +225,7 @@ impl PlayAnalyzer for DoubleDummySolver {
         play: PlayTraceBin,
     ) -> Result<SolvedPlay, DdsError> {
         let Ok(dds_deal) = build_c_deal((contract, deal)) else {
-            return Err(RETURN_UNKNOWN_FAULT.into());
+            return Err(crate::bindings::ddsffi::RETURN_UNKNOWN_FAULT.into());
         };
         let mut solved_play = SolvedPlay::new();
         let solved: *mut SolvedPlay = &raw mut solved_play;
@@ -590,158 +233,5 @@ impl PlayAnalyzer for DoubleDummySolver {
         // SAFETY: calling an external C function
         let result = unsafe { AnalysePlayBin(dds_deal, play_trace, solved, 0) };
         if_no_fault_return!(result, solved_play);
-    }
-}
-
-#[allow(unused_imports, clippy::wildcard_imports)]
-mod test {
-    use doubledummy::MultiThreadDoubleDummySolver;
-    use tables::{DdTableCalculator, DdTableResults, DdTablesRes, ParCalcMode, Populated};
-
-    use crate::*;
-
-    const HOLDINGS: [[[u32; 4]; 4]; 3] = [
-        [
-            // Spades
-            [
-                // North
-                1 << 12 | 1 << 11 | 1 << 6,
-                // East
-                1 << 8 | 1 << 7 | 1 << 3,
-                // South
-                1 << 13 | 1 << 5,
-                // South
-                1 << 14 | 1 << 10 | 1 << 9 | 1 << 4 | 1 << 2,
-            ],
-            // Hearts
-            [
-                1 << 13 | 1 << 6 | 1 << 5 | 1 << 2,
-                1 << 11 | 1 << 9 | 1 << 7,
-                1 << 10 | 1 << 8 | 1 << 3,
-                1 << 14 | 1 << 12 | 1 << 4,
-            ],
-            // Diamonds
-            [
-                1 << 11 | 1 << 8 | 1 << 5,
-                1 << 14 | 1 << 10 | 1 << 7 | 1 << 6 | 1 << 4,
-                1 << 13 | 1 << 12 | 1 << 9,
-                1 << 3 | 1 << 2,
-            ],
-            // Clubs
-            [
-                1 << 10 | 1 << 9 | 1 << 8,
-                1 << 12 | 1 << 4,
-                1 << 14 | 1 << 7 | 1 << 6 | 1 << 5 | 1 << 2,
-                1 << 13 | 1 << 11 | 1 << 3,
-            ],
-        ],
-        [
-            [
-                1 << 14 | 1 << 13 | 1 << 9 | 1 << 6,
-                1 << 12 | 1 << 11 | 1 << 10 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2,
-                0,
-                1 << 8 | 1 << 7,
-            ],
-            [
-                1 << 13 | 1 << 12 | 1 << 8,
-                1 << 10,
-                1 << 11 | 1 << 9 | 1 << 7 | 1 << 5 | 1 << 4 | 1 << 3,
-                1 << 14 | 1 << 6 | 1 << 2,
-            ],
-            [
-                1 << 14 | 1 << 9 | 1 << 8,
-                1 << 6,
-                1 << 13 | 1 << 7 | 1 << 5 | 1 << 3 | 1 << 2,
-                1 << 12 | 1 << 11 | 1 << 10 | 1 << 4,
-            ],
-            [
-                1 << 13 | 1 << 6 | 1 << 3,
-                1 << 12 | 1 << 11 | 1 << 8 | 1 << 2,
-                1 << 9 | 1 << 4,
-                1 << 14 | 1 << 10 | 1 << 7 | 1 << 5,
-            ],
-        ],
-        [
-            [
-                1 << 7 | 1 << 3,
-                1 << 12 | 1 << 10 | 1 << 6,
-                1 << 5,
-                1 << 14 | 1 << 13 | 1 << 11 | 1 << 9 | 1 << 8 | 1 << 4 | 1 << 2,
-            ],
-            [
-                1 << 12 | 1 << 11 | 1 << 10,
-                1 << 8 | 1 << 7 | 1 << 6,
-                1 << 14 | 1 << 9 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2,
-                1 << 13,
-            ],
-            [
-                1 << 14 | 1 << 12 | 1 << 5 | 1 << 4,
-                1 << 13 | 1 << 11 | 1 << 9,
-                1 << 7 | 1 << 6 | 1 << 3 | 1 << 2,
-                1 << 10 | 1 << 8,
-            ],
-            [
-                1 << 10 | 1 << 7 | 1 << 5 | 1 << 2,
-                1 << 14 | 1 << 12 | 1 << 8 | 1 << 4,
-                1 << 13 | 1 << 6,
-                1 << 11 | 1 << 9 | 1 << 3,
-            ],
-        ],
-    ];
-
-    const DDTABLE: [[i32; 20]; 3] = [
-        [5, 8, 5, 8, 6, 6, 6, 6, 5, 7, 5, 7, 7, 5, 7, 5, 6, 6, 6, 6],
-        [4, 9, 4, 9, 10, 2, 10, 2, 8, 3, 8, 3, 6, 7, 6, 7, 9, 3, 9, 3],
-        [3, 10, 3, 10, 9, 4, 9, 4, 8, 4, 8, 4, 3, 9, 3, 9, 4, 8, 4, 8],
-    ];
-
-    fn check_all_tables(table: &DdTablesRes<Populated>) {
-        for index in 0..3 {
-            check_table(&table.results[index], index);
-        }
-    }
-
-    fn check_table(table: &DdTableResults<Populated>, hand_no: usize) {
-        for strain in 0..5 {
-            for player in 0..4 {
-                assert_eq!(
-                    table.res_table[strain][player],
-                    DDTABLE[hand_no][4 * strain + player]
-                );
-            }
-        }
-    }
-
-    #[test]
-    #[allow(clippy::needless_range_loop)]
-    fn test_multithread_calculate_table_works() {
-        let mut table_deal = [[0; 4]; 4];
-        let solver = MultiThreadDoubleDummySolver::new();
-        for deal in 0..3 {
-            for h in 0..4 {
-                for s in 0..4 {
-                    table_deal[h][s] = HOLDINGS[deal][s][h];
-                }
-            }
-            let table = solver.calculate_complete_table(&table_deal).unwrap();
-            check_table(&table, deal);
-        }
-    }
-
-    #[test]
-    fn test_multithread_calculate_all_table_works() {
-        let mut table_deal = [[[0; 4]; 4]; 3];
-        let solver = MultiThreadDoubleDummySolver::new();
-        for deal in 0..3 {
-            for h in 0..4 {
-                for s in 0..4 {
-                    table_deal[deal][h][s] = HOLDINGS[deal][s][h];
-                }
-            }
-        }
-        let table = solver
-            .calculate_all_complete_tables(&table_deal, ParCalcMode::None, [0, 0, 0, 0, 0])
-            .unwrap();
-        check_all_tables(&table);
     }
 }

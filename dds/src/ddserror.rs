@@ -11,7 +11,7 @@ use crate::bindings::ddsffi::{
     RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
     RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_ZERO_CARDS,
 };
-use crate::deal::{ConstructDdsBoardError, ConstructDdsDealError};
+use crate::deal::ConstructDdsDealError;
 use core::ffi::c_int;
 use core::fmt;
 use std::fmt::Debug;
@@ -29,11 +29,6 @@ impl From<DdsErrorKind> for DdsError {
     #[inline]
     fn from(value: DdsErrorKind) -> Self {
         Self { kind: value }
-    }
-}
-impl From<ConstructDdsBoardError> for DdsError {
-    fn from(value: ConstructDdsBoardError) -> Self {
-        Self::from(DdsErrorKind::from(value))
     }
 }
 
@@ -96,7 +91,6 @@ pub enum DdsErrorKind {
     // This will allow us to make errors more trasnparent to the user, providing them with the
     // ability to take corrective action in a more natural way, since the error are decoupled.
     UnbuildableDeal(ConstructDdsDealError),
-    UnbuildableBoards(ConstructDdsBoardError),
 }
 
 impl Debug for DdsErrorKind {
@@ -148,12 +142,6 @@ impl From<ConstructDdsDealError> for DdsErrorKind {
     }
 }
 
-impl From<ConstructDdsBoardError> for DdsErrorKind {
-    #[inline]
-    fn from(value: ConstructDdsBoardError) -> Self {
-        Self::UnbuildableBoards(value)
-    }
-}
 impl fmt::Display for DdsErrorKind {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -202,9 +190,6 @@ impl fmt::Display for DdsErrorKind {
             ),
             Self::UnbuildableDeal(ref inner) => {
                 write!(formatter, "unable to build DdsDeal: \n{inner}")
-            }
-            Self::UnbuildableBoards(ref inner) => {
-                write!(formatter, "unable to build Boards: \n{inner}")
             }
         }
     }

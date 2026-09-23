@@ -2,11 +2,8 @@
 // See end of file for license information
 
 use crate::{
-    ddserror::DdsError,
     deal::{AsDDSDeal, ConstructDdsDealError, DdsDeal, DdsDealBuilder},
-    doubledummy::MultiThreadDoubleDummySolver,
-    solver::BridgeSolver,
-    traits::{AsDDSContract, ContractScorer, IntoRawDDS},
+    traits::{AsDDSContract, IntoRawDDS},
 };
 use core::{ffi::c_int, num::NonZeroI32};
 use squeezer_macros::IntoRawDDS;
@@ -418,22 +415,4 @@ pub(crate) fn build_c_deal<C: AsDDSContract, D: AsDDSDeal>(
         .first(first)
         .remain_cards(deal.as_dds_deal())
         .build()
-}
-
-/// Utility function for score of a contract based on double dummy solved hand.
-///
-/// # Errors
-/// See [`crate::solver::BridgeSolver`] for errors
-///
-#[inline]
-pub fn dd_score<D: AsDDSDeal, C: AsDDSContract + ContractScorer>(
-    deal: &D,
-    contract: &C,
-) -> Result<i32, DdsError> {
-    let solver = MultiThreadDoubleDummySolver::new();
-    let builder = DdsDealBuilder::new()
-        .remain_cards(deal.as_dds_deal())
-        .contract(contract);
-    let tricks = solver.dd_tricks(&builder.build()?)?;
-    Ok(contract.score(tricks))
 }

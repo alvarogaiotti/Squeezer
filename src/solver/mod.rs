@@ -40,7 +40,7 @@ mod pool;
 
 #[cfg(feature = "dds")]
 pub use dds::{DdsContext, DdsSolver};
-pub use pool::SolverPool;
+pub use pool::{DynSolverPool, SolverPool};
 
 use crate::prelude::*;
 use std::fmt;
@@ -440,6 +440,64 @@ mod tests {
     #[test]
     fn try_map_propagates_the_first_error() {
         let pool = SolverPool::new(MockSolver, 2);
+        let result: Result<Vec<usize>, &'static str> =
+            pool.try_map(
+                8,
+                |_context, index| {
+                    if index == 3 { Err("boom") } else { Ok(index) }
+                },
+            );
+        assert_eq!(result, Err("boom"));
+    }
+
+    #[test]
+    fn the_dyn_pool_reuses_a_context_within_each_job() {
+        use std::sync::Arc;
+
+        /// Counts only the contexts this factory creates, so the assertion is
+        /// unaffected by other tests creating `MockContext`s in parallel.
+        struct CountingFactory {
+            created: Arc<AtomicUsize>,
+        }
+
+        impl ContextFactory for CountingFactory {
+            fn new_context(&self) -> Box<dyn SolverContext> {
+                self.created.fetch_add(1, Ordering::Relaxed);
+                Box::new(MockContext {
+                    id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+                })
+            }
+        }
+
+        let created = Arc::new(AtomicUsize::new(0));
+        let pool = DynSolverPool::new(
+            Box::new(CountingFactory {
+                created: Arc::clone(&created),
+            }),
+            2,
+        );
+        let position = test_fixtures::opening_position();
+
+        let seen = pool.map(64, |context, index| {
+            let _ = context.solve_tricks(&position);
+            index
+        });
+
+        assert_eq!(seen.len(), 64);
+        let created = created.load(Ordering::Relaxed);
+        // One context per rayon job; a stolen chunk can add one more, so we
+        // assert a small count rather than exactly two.
+        assert!(
+            created <= 3,
+            "expected a small per-job context count, created {created}"
+        );
+        assert!(created < 64, "contexts should be reused across items");
+    }
+
+    #[test]
+    fn the_dyn_pool_try_map_propagates_the_first_error() {
+        let factory: Box<dyn ContextFactory> = Box::new(MockSolver);
+        let pool = DynSolverPool::new(factory, 2);
         let result: Result<Vec<usize>, &'static str> =
             pool.try_map(
                 8,

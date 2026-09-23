@@ -2,88 +2,12 @@
 // See end of file for license information
 
 use crate::{
-    bindings::{MAXNOOFBOARDS, ddsffi::RETURN_UNKNOWN_FAULT},
     ddserror::DdsError,
     deal::AsDDSDeal,
     traits::{AsDDSContract, IntoRawDDS},
     utils::{RankSeq, SuitSeq},
 };
-use core::{ffi::c_int, slice::Iter};
-
-/// Number of consecutive boards in a sequence a thread gets when we call
-/// [`PlayAnalyzer::analyze_play()`].
-/// 1 means thread1 takes number 1, thread2 takes number 2 and so on
-/// 10 means thread1 takes 1..10, thread2 takes 11..20 etc.
-pub const CHUNK_SIZE: i32 = 5;
-
-#[non_exhaustive]
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-/// Struct containing at most 200 [`SolvedPlay`], with `no_of_boards` number of them.
-pub struct SolvedPlays {
-    pub no_of_boards: c_int,
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub solved: [SolvedPlay; 200usize],
-}
-
-#[allow(clippy::cast_sign_loss)]
-impl AsRef<[SolvedPlay]> for SolvedPlays {
-    fn as_ref(&self) -> &[SolvedPlay] {
-        &self.solved[..self.no_of_boards as usize]
-    }
-}
-
-impl<'a> IntoIterator for &'a SolvedPlays {
-    type Item = &'a SolvedPlay;
-    type IntoIter = Iter<'a, SolvedPlay>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl SolvedPlays {
-    #[allow(clippy::cast_sign_loss)]
-    /// Standard iteration, returns a `[std::slice::Iter<'_, SolvedPlay]`.
-    fn iter(&self) -> Iter<'_, SolvedPlay> {
-        self.solved[..self.no_of_boards as usize].iter()
-    }
-}
-
-impl IntoIterator for SolvedPlays {
-    type Item = SolvedPlay;
-    type IntoIter = IntoIter;
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            counter: 0,
-            no_of_boards: self.no_of_boards,
-            solved_plays: self.solved,
-        }
-    }
-}
-
-/// [`SolvedPlays`]'s iterator over [`SolvedPlay`] contained within it.
-pub struct IntoIter {
-    counter: u8,
-    no_of_boards: i32,
-    solved_plays: [SolvedPlay; 200],
-}
-
-impl Iterator for IntoIter {
-    type Item = SolvedPlay;
-    fn next(&mut self) -> Option<Self::Item> {
-        let value;
-        if i32::from(self.counter) >= self.no_of_boards {
-            value = None;
-        } else {
-            value = Some(self.solved_plays[self.counter as usize]);
-            self.counter += 1;
-        }
-        value
-    }
-}
+use core::slice::Iter;
 
 /// Module to keep namespace clean. We use it to disambiguate between [`IntoIter`] which iterates
 /// over [`SolvedPlay`] and [`crate::analyseplay::solved_play::IntoIter`], which iterates over
@@ -195,51 +119,8 @@ impl<'a> IntoIterator for &'a SolvedPlay {
     }
 }
 
-impl PlayTracesBin {
-    #[allow(
-        clippy::unwrap_in_result,
-        clippy::unwrap_used,
-        clippy::missing_panics_doc
-    )]
-    #[inline]
-    /// Create a [`PlayTracesBin`] from the length of the sequence you want to be analyzed against
-    /// double dummy, the suit of the cards played and their's rank.
-    /// # Errors
-    /// Returns an error if suits and ranks have different length
-    pub fn from_sequences(suits: Vec<SuitSeq>, ranks: Vec<RankSeq>) -> Result<Self, DdsError> {
-        if suits.len() != ranks.len() {
-            return Err(RETURN_UNKNOWN_FAULT.into());
-        }
-        let suits_len = suits.len().clamp(0, MAXNOOFBOARDS);
-        let mut plays: Vec<PlayTraceBin> = suits
-            .into_iter()
-            .zip(ranks)
-            .map(|(suit, rank)| PlayTraceBin::from_sequences(suit, rank))
-            .collect();
-        plays.resize(MAXNOOFBOARDS, PlayTraceBin::new());
-        Ok(Self {
-            // SAFETY: capped at 200
-            no_of_boards: suits_len.try_into().unwrap(),
-            // SAFETY: We now the length of the Vec
-            plays: plays.try_into().unwrap(),
-        })
-    }
-
-    #[inline]
-    #[must_use]
-    #[allow(clippy::cast_sign_loss)]
-    pub fn len(&self) -> usize {
-        self.no_of_boards as usize
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
 impl Default for PlayTraceBin {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -263,12 +144,6 @@ impl PlayTraceBin {
             suit: suit.into_raw(),
             rank: rank.into_raw(),
         }
-    }
-    #[inline]
-    #[must_use]
-    /// Creates a new [`PlayTraceBin`] from data
-    const fn from(number: c_int, suit: [c_int; 52], rank: [c_int; 52]) -> Self {
-        Self { number, suit, rank }
     }
 
     #[inline]
@@ -351,6 +226,10 @@ impl<'a> Iterator for PlayTraceBinIter<'a> {
 /// in the future. Kinda like a Strategy Pattern. Now depends on dds for the
 /// generics with traits used but the idea is to create marker traits for deals and
 /// contracts to swap them in.
+///
+/// Batch analysis (`AnalyseAllPlaysBin`) was removed with the batch surface;
+/// per-hand `AnalysePlayBin` builds its own context and is safe to call
+/// concurrently, so our pool drives the parallelism instead.
 pub trait PlayAnalyzer {
     /// Analyzes a single hand
     /// # Errors
@@ -361,16 +240,6 @@ pub trait PlayAnalyzer {
         contract: &C,
         play: PlayTraceBin,
     ) -> Result<SolvedPlay, DdsError>;
-    /// Analyzes a bunch of hands in paraller.
-    /// # Errors
-    /// Will return an Error when DDS fails in some way or the deals and contracts vecs have
-    /// different length.
-    fn analyze_all_plays<D: AsDDSDeal, C: AsDDSContract>(
-        &self,
-        deals: &[D],
-        contracts: &[C],
-        plays: &mut PlayTracesBin,
-    ) -> Result<SolvedPlays, DdsError>;
 }
 
 #[repr(C)]
@@ -394,42 +263,6 @@ impl AsRef<[::std::os::raw::c_int]> for SolvedPlay {
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Copy, Clone, Hash)]
-/// The [`PlayTracesBin`] is an array of [`PlayTraceBin`]. It can store up to 200 elements,
-/// with the field `no_of_boards` representing the number of initialized boards.
-pub struct PlayTracesBin {
-    pub no_of_boards: ::std::os::raw::c_int,
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub plays: [PlayTraceBin; 200usize],
-}
-
-#[allow(clippy::cast_sign_loss)]
-impl AsRef<[PlayTraceBin]> for PlayTracesBin {
-    fn as_ref(&self) -> &[PlayTraceBin] {
-        &self.plays[..self.no_of_boards as usize]
-    }
-}
-
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-/// The [`PlayTracesPBN`] is an array of [`PlayTracePBN`]. It can store up to 200 elements,
-/// with the field `no_of_boards` representing the number of initialized boards.
-pub struct PlayTracesPBN {
-    pub no_of_boards: ::std::os::raw::c_int,
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub plays: [PlayTracePBN; 200usize],
-}
-
-#[allow(clippy::cast_sign_loss)]
-impl AsRef<[PlayTracePBN]> for PlayTracesPBN {
-    fn as_ref(&self) -> &[PlayTracePBN] {
-        &self.plays[..self.no_of_boards as usize]
-    }
-}
-
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
 /// The [`PlayTraceBin`] struct stores two arrays of 52 element each representing played card's rank and
 /// suit, then an integer stating the real lenght of the play sequence.
 pub struct PlayTraceBin {
@@ -438,17 +271,6 @@ pub struct PlayTraceBin {
     pub suit: [::std::os::raw::c_int; 52usize],
     #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub rank: [::std::os::raw::c_int; 52usize],
-}
-
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-/// The [`PlayTracePBN`] stores one array of `c_char`, representing the play sequence in PBN format
-/// and the number of cards effectively played.
-pub struct PlayTracePBN {
-    pub number: ::std::os::raw::c_int,
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub cards: [::std::os::raw::c_char; 106usize],
 }
 
 #[allow(clippy::pedantic, unused_imports, deref_nullptr)]
@@ -479,60 +301,6 @@ mod test {
         assert_eq!(play.iter().collect::<Vec<_>>().len(), 3);
     }
 
-    #[test]
-    fn play_traces_bin_is_empty_tracks_length() {
-        let empty = PlayTracesBin::from_sequences(Vec::new(), Vec::new()).expect("empty batch");
-        assert!(empty.is_empty());
-
-        let one = PlayTracesBin::from_sequences(
-            vec![SuitSeq::try_from([0]).expect("valid suit")],
-            vec![RankSeq::try_from([2]).expect("valid rank")],
-        )
-        .expect("single-play batch");
-        assert!(!one.is_empty());
-    }
-
-    #[test]
-    fn bindgen_test_layout_solved_plays() {
-        assert_eq!(
-            core::mem::size_of::<SolvedPlays>(),
-            43204usize,
-            concat!("Size of: ", stringify!(solvedPlays))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<SolvedPlays>(),
-            4usize,
-            concat!("Alignment of ", stringify!(solvedPlays))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<SolvedPlays>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(solvedPlays),
-                "::",
-                stringify!(noOfBoards)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<SolvedPlays>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).solved) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(solvedPlays),
-                "::",
-                stringify!(solved)
-            )
-        );
-    }
     #[test]
     fn bindgen_test_layout_solved_play() {
         assert_eq!(
@@ -574,88 +342,7 @@ mod test {
             )
         );
     }
-    #[test]
-    fn bindgen_test_layout_play_traces_bin() {
-        assert_eq!(
-            ::std::mem::size_of::<PlayTracesBin>(),
-            84004usize,
-            concat!("Size of: ", stringify!(playTracesBin))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<PlayTracesBin>(),
-            4usize,
-            concat!("Alignment of ", stringify!(playTracesBin))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<PlayTracesBin>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(playTracesBin),
-                "::",
-                stringify!(noOfBoards)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<PlayTracesBin>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).plays) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(playTracesBin),
-                "::",
-                stringify!(plays)
-            )
-        );
-    }
-    #[test]
-    fn bindgen_test_layout_play_traces_pbn() {
-        assert_eq!(
-            ::std::mem::size_of::<PlayTracesPBN>(),
-            22404usize,
-            concat!("Size of: ", stringify!(playTracesPBN))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<PlayTracesPBN>(),
-            4usize,
-            concat!("Alignment of ", stringify!(playTracesPBN))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<PlayTracesPBN>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(playTracesPBN),
-                "::",
-                stringify!(noOfBoards)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<PlayTracesPBN>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).plays) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(playTracesPBN),
-                "::",
-                stringify!(plays)
-            )
-        );
-    }
+
     #[test]
     fn bindgen_test_layout_play_trace_bin() {
         assert_eq!(
@@ -708,47 +395,6 @@ mod test {
                 stringify!(playTraceBin),
                 "::",
                 stringify!(rank)
-            )
-        );
-    }
-    #[test]
-    fn bindgen_test_layout_play_trace_pbn() {
-        assert_eq!(
-            ::std::mem::size_of::<PlayTracePBN>(),
-            112usize,
-            concat!("Size of: ", stringify!(playTracePBN))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<PlayTracePBN>(),
-            4usize,
-            concat!("Alignment of ", stringify!(playTracePBN))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<PlayTracePBN>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).number) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(playTracePBN),
-                "::",
-                stringify!(number)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<PlayTracePBN>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).cards) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(playTracePBN),
-                "::",
-                stringify!(cards)
             )
         );
     }

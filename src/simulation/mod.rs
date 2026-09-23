@@ -8,4 +8,6 @@ pub use core::*;
 pub use formatters::*;
 pub use lead::*;
 pub use payoff::*;
-pub(crate) use solver::{finish_deal, solve_all_cards_batches, solve_tricks_batches};
+pub(crate) use solver::{
+    opening_position, solve_all_cards_pool, solve_tricks_pool, vulnerability_for,
+};

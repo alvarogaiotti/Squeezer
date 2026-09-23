@@ -10,10 +10,7 @@
 //! | Type | Role |
 //! |---|---|
 //! [`DdsDeal`] | A single deal in binary (bitfield) form, ready for DDS |
-//! [`DdsDealPbn`] | A single deal in PBN string form |
 //! [`DdsDealBuilder`] | The ergonomic, validating constructor for [`DdsDeal`] |
-//! [`Boards`] | Up to 200 [`DdsDeal`]s bundled with solver parameters |
-//! [`BoardsPbn`] | The PBN equivalent of [`Boards`] |
 //! [`DdsSuit`] | Suit / trump encoding that DDS uses (0 = ♠ … 4 = NT) |
 //! [`DdsRank`] | Sequential card rank (2 … 14, where 14 = Ace) |
 //! [`DdsHandEncoding`] | Seat encoding (0 = North … 3 = West) |
@@ -48,118 +45,13 @@
 use squeezer_macros::RawDDSRef;
 
 use crate::{
-    MAXNOOFBOARDS,
-    ddserror::DdsError,
     traits::{AsDDSCard, AsDDSContract, RawDDSRef},
-    utils::{BuildSequenceError, Mode, Solutions, Target},
+    utils::BuildSequenceError,
 };
 use core::{
-    convert::{Into, TryFrom},
+    convert::TryFrom,
     ffi::{c_char, c_int},
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Boards – batch containers sent to DDS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// A batch of up to [`MAXNOOFBOARDS`] (200) deals together with the solver
-/// parameters that DDS needs to analyse each one.
-///
-/// This struct is `#[repr(C)]` and is passed directly to DDS via FFI.  You
-/// should **not** construct it by hand; use one of the associated
-/// constructors instead.
-///
-/// ### Fields
-///
-/// * `no_of_boards` – how many of the 200 slots are actually in use.  DDS
-///   only reads the first `no_of_boards` entries of every array.
-/// * `deals` – the deal data for each board.
-/// * `target` – per-board target trick count (see [`Target`]).
-/// * `solutions` – per-board output detail level (see [`Solutions`]).
-/// * `mode` – per-board search strategy (see [`Mode`]).
-///
-/// ### Example
-///
-/// ```ignore
-/// # use dds::deal::*;
-/// # use dds::utils::*;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-///
-/// // Uniform: every board uses the same target/solutions/mode.
-/// let boards = Boards::new_uniform(
-///     deals.len() as i32,
-///     &deals,
-///     &contracts,
-///     Target::MaxTricks,
-///     Solutions::Best,
-///     Mode::AutoReuseLazySearch,
-/// )?;
-/// # Ok(())
-/// # }
-/// ```
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Boards {
-    /// Number of boards to be analysed.  Must be in `1..=`[`MAXNOOFBOARDS`].
-    pub no_of_boards: ::std::os::raw::c_int,
-
-    /// The deals to solve.  Only the first [`Boards::no_of_boards`] entries
-    /// are read by DDS; the remainder are ignored.
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub deals: [DdsDeal; 200usize],
-
-    /// Per-board target trick count passed to DDS.  See [`Target`] for the
-    /// range of meaningful values.  Only the first [`Boards::no_of_boards`]
-    /// entries are used.
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub target: [::std::os::raw::c_int; 200usize],
-
-    /// Per-board solution detail level.  See [`Solutions`].  Only the first
-    /// [`Boards::no_of_boards`] entries are used.
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub solutions: [::std::os::raw::c_int; 200usize],
-
-    /// Per-board search strategy / mode.  See [`Mode`].  Only the first
-    /// [`Boards::no_of_boards`] entries are used.
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub mode: [::std::os::raw::c_int; 200usize],
-}
-
-/// The PBN-string equivalent of [`Boards`].
-///
-/// Identical layout and semantics; the only difference is that each deal is
-/// stored as a [`DdsDealPbn`] (an 80-byte PBN string) rather than as a
-/// binary bitfield deal.
-///
-/// > **Note:** No constructors are provided in this module.  If you need to
-/// > build a `BoardsPbn`, construct each [`DdsDealPbn`] separately and
-/// > assemble the struct fields directly, or add a builder in a future
-/// > iteration.
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-pub struct BoardsPbn {
-    /// Number of boards to be analysed.  Must be in `1..=`[`MAXNOOFBOARDS`].
-    pub no_of_boards: ::std::os::raw::c_int,
-
-    /// PBN-encoded deals.  Only the first [`BoardsPbn::no_of_boards`] entries
-    /// are read by DDS.
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub deals: [DdsDealPbn; 200usize],
-
-    /// Per-board target trick count.  See [`Target`].
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub target: [::std::os::raw::c_int; 200usize],
-
-    /// Per-board solution detail level.  See [`Solutions`].
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub solutions: [::std::os::raw::c_int; 200usize],
-
-    /// Per-board search strategy / mode.  See [`Mode`].
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub mode: [::std::os::raw::c_int; 200usize],
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Individual deal representations
@@ -199,32 +91,6 @@ pub struct DdsDeal {
     /// Remaining cards.  `remain_cards[hand][suit]` is a bitmask of the
     /// ranks held by `hand` in `suit`.
     remain_cards: [[::std::os::raw::c_uint; 4usize]; 4usize],
-}
-
-/// A single bridge deal in PBN-string format that DDS expects.
-///
-/// This is a direct `#[repr(C)]` mirror of DDS's `dealPbn` struct.  **Fields
-/// are private.**  All fields have the same semantics as in [`DdsDeal`]; the
-/// only difference is that remaining cards are stored as an 80-byte PBN
-/// string rather than a bitfield matrix.
-///
-/// Use the accessor methods to read fields back out.
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-pub struct DdsDealPbn {
-    /// Trump suit.  Must be a valid [`DdsSuit`] discriminant (0–4).
-    trump: ::std::os::raw::c_int,
-    /// Hand on lead.  Must be a valid [`DdsHandEncoding`] discriminant (0–3).
-    first: ::std::os::raw::c_int,
-    /// Suits of cards already played in the current trick (see [`DdsDeal`]).
-    current_trick_suit: [::std::os::raw::c_int; 3usize],
-    /// Ranks of cards already played in the current trick (see [`DdsDeal`]).
-    current_trick_rank: [::std::os::raw::c_int; 3usize],
-    /// An 80-byte PBN deal string.  Must be null-terminated and follow the
-    /// `Deal:` tag format expected by DDS.
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    remain_cards: [::std::os::raw::c_char; 80usize],
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -627,8 +493,8 @@ pub struct DDSDealPBNRepr(
 /// Trait for types that can produce a [`DDSDealRepr`] (the binary card
 /// matrix).
 ///
-/// Implement this for your own deal representation so that it can be passed
-/// directly into [`Boards::new`] or [`Boards::new_uniform`].
+/// Implement this for your own deal representation so that it can be converted
+/// into a [`DdsDeal`] through [`DdsDealBuilder::remain_cards`].
 ///
 /// ### Encoding contract
 ///
@@ -750,30 +616,30 @@ pub enum ConstructDdsDealError {
     IncorrectSequence(#[from] BuildSequenceError),
 }
 
-/// Errors that can occur while constructing a [`Boards`] batch.
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Formats a `(suit_index, rank_bitflag)` pair into a human-readable card
+/// string (e.g. `"♠A"`).
 ///
-/// | Variant | When it happens |
-/// |---|---|
-/// [`TooManyBoards`][`ConstructDdsBoardError::TooManyBoards`] | `no_of_boards` > [`MAXNOOFBOARDS`] (200) |
-/// [`ZeroLength`][`ConstructDdsBoardError::ZeroLength`] | `no_of_boards` == 0 |
-/// [`NegativeLength`][`ConstructDdsBoardError::NegativeLength`] | `no_of_boards` < 0 |
-/// [`ParamLengthTooShort`][`ConstructDdsBoardError::ParamLengthTooShort`] | One of the slice arguments is shorter than `no_of_boards` |
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash, thiserror::Error)]
-pub enum ConstructDdsBoardError {
-    /// The caller requested more boards than [`MAXNOOFBOARDS`] allows.
-    #[error("number of boards provided over MAXNOOFBOARDS: 200")]
-    TooManyBoards,
-    /// At least one of the parameter slices (deals, contracts, targets, …)
-    /// is shorter than `no_of_boards`.
-    #[error("one of the parameter provided was shorter than the number of boards requested")]
-    ParamLengthTooShort,
-    /// `no_of_boards` was `0`; DDS requires at least one board.
-    #[error("unable to create Boards with no_of_boards=0")]
-    ZeroLength,
-    /// `no_of_boards` was negative.  Board counts must be positive.
-    #[error("no_of_boards must not be negative")]
-    NegativeLength,
+/// This function **never panics**.  If either value cannot be decoded it
+/// returns a diagnostic string like `"?suit=99,rank=7?"` so that error
+/// messages remain useful without risking an unwind.
+fn format_bitflag_card(suit: c_int, rank: c_int) -> String {
+    let suit_str = match suit {
+        0 => "♠",
+        1 => "♥",
+        2 => "♦",
+        3 => "♣",
+        _ => return format!("?suit={suit},rank={rank}?"),
+    };
+
+    // Decode rank bit-flag via DdsRank so the logic lives in one place.
+    match DdsRank::from_bitflag(rank) {
+        Some(r) => format!("{suit_str}{r}"),
+        None => format!("?suit={suit},rank={rank}?"),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -998,499 +864,11 @@ impl DdsDeal {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DdsDealPbn – accessors
-// ─────────────────────────────────────────────────────────────────────────────
-
-impl DdsDealPbn {
-    #[inline]
-    #[must_use]
-    /// Returns the trump suit as a raw `c_int` discriminant.
-    pub fn trump(&self) -> c_int {
-        self.trump
-    }
-
-    #[inline]
-    #[must_use]
-    /// Returns the hand on lead as a raw `c_int` discriminant.
-    pub fn first(&self) -> c_int {
-        self.first
-    }
-
-    #[inline]
-    #[must_use]
-    /// Returns the suits of the cards already played in the current trick.
-    pub fn current_trick_suit(&self) -> [c_int; 3] {
-        self.current_trick_suit
-    }
-
-    #[inline]
-    #[must_use]
-    /// Returns the ranks of the cards already played in the current trick.
-    pub fn current_trick_rank(&self) -> [c_int; 3] {
-        self.current_trick_rank
-    }
-
-    #[inline]
-    #[must_use]
-    /// Returns a reference to the 80-byte PBN deal string.
-    pub fn remain_cards(&self) -> &[c_char; 80] {
-        &self.remain_cards
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Formats a `(suit_index, rank_bitflag)` pair into a human-readable card
-/// string (e.g. `"♠A"`).
-///
-/// This function **never panics**.  If either value cannot be decoded it
-/// returns a diagnostic string like `"?suit=99,rank=7?"` so that error
-/// messages remain useful without risking an unwind.
-fn format_bitflag_card(suit: c_int, rank: c_int) -> String {
-    let suit_str = match suit {
-        0 => "♠",
-        1 => "♥",
-        2 => "♦",
-        3 => "♣",
-        _ => return format!("?suit={suit},rank={rank}?"),
-    };
-
-    // Decode rank bit-flag via DdsRank so the logic lives in one place.
-    match DdsRank::from_bitflag(rank) {
-        Some(r) => format!("{suit_str}{r}"),
-        None => format!("?suit={suit},rank={rank}?"),
-    }
-}
-
-/// Validates that `$len` (the requested board count) is in `1..=MAXNOOFBOARDS`
-/// and that every additional slice (`$rest`) has length ≥ `$len`.
-///
-/// Returns `Err(DdsError)` early from the enclosing function on failure.
-///
-/// The negativity check runs **before** the `as usize` cast, so a negative
-/// `c_int` is caught explicitly rather than silently wrapping to a huge
-/// `usize`.
-macro_rules! check_inputs_are_within_bounds {
-    ($len: expr $(, $rest: ident)+) => {
-        if $len < 0 {
-            return Err(DdsError::from(ConstructDdsBoardError::NegativeLength));
-        }
-        #[allow(clippy::cast_sign_loss)]
-        let len = $len as usize;   // safe: we just proved $len >= 0
-        if len == 0 {
-            return Err(DdsError::from(ConstructDdsBoardError::ZeroLength));
-        }
-        if len > MAXNOOFBOARDS {
-            return Err(DdsError::from(ConstructDdsBoardError::TooManyBoards));
-        }
-        $(
-            let other_len = $rest.len();
-            if other_len < len {
-                return Err(DdsError::from(ConstructDdsBoardError::ParamLengthTooShort))
-            }
-        )*
-    };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Boards – shared construction helper
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// The single place where a `Boards` value is assembled from validated,
-/// already-converted inputs.  Every public constructor on [`Boards`]
-/// ultimately delegates here.
-///
-/// ### Pre-conditions (caller's responsibility)
-///
-/// * `no_of_boards` is in `1..=MAXNOOFBOARDS`.
-/// * Every slice has length ≥ `no_of_boards`.
-///
-/// The first `no_of_boards` elements of each slice are copied into the
-/// 200-element fixed arrays.  Padding slots are filled with safe defaults
-/// (sentinel deals, zeros for parameters) — DDS never reads past
-/// `no_of_boards` anyway.
-fn assemble_boards(
-    no_of_boards: i32,
-    deals: &[DdsDeal],
-    target: &[c_int],
-    solutions: &[c_int],
-    mode: &[c_int],
-) -> Boards {
-    let n = no_of_boards as usize; // safe: caller validated >= 0
-
-    let mut deal_buf = [DdsDeal::sentinel(); MAXNOOFBOARDS];
-    let mut target_buf = [0i32; MAXNOOFBOARDS];
-    let mut sol_buf = [0i32; MAXNOOFBOARDS];
-    let mut mode_buf = [0i32; MAXNOOFBOARDS];
-
-    deal_buf[..n].copy_from_slice(&deals[..n]);
-    target_buf[..n].copy_from_slice(&target[..n]);
-    sol_buf[..n].copy_from_slice(&solutions[..n]);
-    mode_buf[..n].copy_from_slice(&mode[..n]);
-
-    Boards {
-        no_of_boards,
-        deals: deal_buf,
-        target: target_buf,
-        solutions: sol_buf,
-        mode: mode_buf,
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Boards – public constructors (thin wrappers around assemble_boards)
-// ─────────────────────────────────────────────────────────────────────────────
-
-impl Boards {
-    /// Creates a [`Boards`] batch where every board shares the same
-    /// [`Target`], [`Solutions`], and [`Mode`].
-    ///
-    /// The `deals` and `contracts` slices are zipped: `deals[i]` is solved
-    /// under `contracts[i]`.  Both slices must have length ≥ `no_of_boards`.
-    ///
-    /// # Errors
-    ///
-    /// | Error | Condition |
-    /// |---|---|
-    /// [`ConstructDdsBoardError::NegativeLength`] | `no_of_boards < 0` |
-    /// [`ConstructDdsBoardError::ZeroLength`] | `no_of_boards == 0` |
-    /// [`ConstructDdsBoardError::TooManyBoards`] | `no_of_boards > MAXNOOFBOARDS` |
-    /// [`ConstructDdsBoardError::ParamLengthTooShort`] | A slice is shorter than `no_of_boards` |
-    pub fn new_uniform<D: AsDDSDeal, C: AsDDSContract>(
-        no_of_boards: i32,
-        deals: &[D],
-        contracts: &[C],
-        target: Target,
-        solutions: Solutions,
-        mode: Mode,
-    ) -> Result<Self, DdsError> {
-        check_inputs_are_within_bounds!(no_of_boards, deals, contracts);
-        let n = no_of_boards as usize; // safe: macro proved >= 0
-
-        // Convert generic deals+contracts → DdsDeal.  Only the first n
-        // elements — no cycling, no wasted work.
-        let converted: Vec<DdsDeal> = deals[..n]
-            .iter()
-            .zip(contracts[..n].iter())
-            .map(|(deal, contract)| {
-                let (trump, first) = contract.as_dds_contract();
-                DdsDeal {
-                    trump: trump as i32,
-                    first: first as i32,
-                    current_trick_suit: [0i32; 3],
-                    current_trick_rank: [0i32; 3],
-                    remain_cards: deal.as_dds_deal().as_array(),
-                }
-            })
-            .collect();
-
-        // Uniform arrays: every slot gets the same value.  assemble_boards
-        // will only copy the first n anyway, but the arrays must be full-
-        // length for the signature.
-        let target_arr = [target.into(); MAXNOOFBOARDS];
-        let sol_arr = [solutions as i32; MAXNOOFBOARDS];
-        let mode_arr = [mode as i32; MAXNOOFBOARDS];
-
-        Ok(assemble_boards(
-            no_of_boards,
-            &converted,
-            &target_arr,
-            &sol_arr,
-            &mode_arr,
-        ))
-    }
-
-    /// Creates a [`Boards`] batch with **per-board** solver parameters.
-    ///
-    /// Each of `deals`, `contracts`, `target`, `solutions`, and `mode` must
-    /// have length ≥ `no_of_boards`.  Element `i` of each slice corresponds
-    /// to board `i`.
-    ///
-    /// # Errors
-    ///
-    /// Same error conditions as [`new_uniform`][`Boards::new_uniform`].
-    pub fn new<D: AsDDSDeal, C: AsDDSContract>(
-        no_of_boards: i32,
-        deals: &[D],
-        contracts: &[C],
-        target: &[Target],
-        solutions: &[Solutions],
-        mode: &[Mode],
-    ) -> Result<Self, DdsError> {
-        check_inputs_are_within_bounds!(no_of_boards, deals, contracts, target, solutions, mode);
-        let n = no_of_boards as usize;
-
-        let converted: Vec<DdsDeal> = deals[..n]
-            .iter()
-            .zip(contracts[..n].iter())
-            .map(|(deal, contract)| {
-                let (trump, first) = contract.as_dds_contract();
-                DdsDeal {
-                    trump: trump as i32,
-                    first: first as i32,
-                    current_trick_suit: [0i32; 3],
-                    current_trick_rank: [0i32; 3],
-                    remain_cards: deal.as_dds_deal().as_array(),
-                }
-            })
-            .collect();
-
-        let target_arr: Vec<c_int> = target[..n].iter().map(|&t| t.into()).collect();
-        let sol_arr: Vec<c_int> = solutions[..n].iter().map(|&s| s.into()).collect();
-        let mode_arr: Vec<c_int> = mode[..n].iter().map(|&m| m.into()).collect();
-
-        Ok(assemble_boards(
-            no_of_boards,
-            &converted,
-            &target_arr,
-            &sol_arr,
-            &mode_arr,
-        ))
-    }
-
-    #[inline]
-    /// Creates a [`Boards`] batch from pre-built [`DdsDeal`] values with
-    /// uniform solver parameters.
-    ///
-    /// Use this when you have already assembled your deals (e.g. via
-    /// [`DdsDealBuilder`]) and do not need the generic
-    /// `AsDDSDeal`/`AsDDSContract` conversion.
-    ///
-    /// # Errors
-    ///
-    /// Same error conditions as [`new_uniform`][`Boards::new_uniform`].
-    pub fn from_deals_uniform(
-        no_of_boards: i32,
-        deals: &[DdsDeal],
-        target: Target,
-        solutions: Solutions,
-        mode: Mode,
-    ) -> Result<Self, DdsError> {
-        check_inputs_are_within_bounds!(no_of_boards, deals);
-
-        let target_arr = [target.into(); MAXNOOFBOARDS];
-        let sol_arr = [solutions.into(); MAXNOOFBOARDS];
-        let mode_arr = [mode.into(); MAXNOOFBOARDS];
-
-        Ok(assemble_boards(
-            no_of_boards,
-            deals,
-            &target_arr,
-            &sol_arr,
-            &mode_arr,
-        ))
-    }
-
-    #[inline]
-    /// Creates a [`Boards`] batch from pre-built [`DdsDeal`] values with
-    /// **per-board** solver parameters.
-    ///
-    /// Use this when you have already assembled your deals and want
-    /// individual control over target, solutions, and mode for each board.
-    ///
-    /// # Errors
-    ///
-    /// Same error conditions as [`new`][`Boards::new`].
-    pub fn from_deals(
-        no_of_boards: i32,
-        deals: &[DdsDeal],
-        target: &[Target],
-        solutions: &[Solutions],
-        mode: &[Mode],
-    ) -> Result<Self, DdsError> {
-        check_inputs_are_within_bounds!(no_of_boards, deals, target, solutions, mode);
-        let n = no_of_boards as usize;
-
-        let target_arr: Vec<c_int> = target[..n].iter().map(|&t| t.into()).collect();
-        let sol_arr: Vec<c_int> = solutions[..n].iter().map(|&s| s.into()).collect();
-        let mode_arr: Vec<c_int> = mode[..n].iter().map(|&m| m.into()).collect();
-
-        Ok(assemble_boards(
-            no_of_boards,
-            deals,
-            &target_arr,
-            &sol_arr,
-            &mode_arr,
-        ))
-    }
-}
-
 #[allow(clippy::pedantic, deref_nullptr)]
 #[allow(dead_code)]
 #[cfg(test)]
 mod test {
     use super::*;
-    #[test]
-    fn bindgen_test_layout_boards() {
-        assert_eq!(
-            ::std::mem::size_of::<Boards>(),
-            21604usize,
-            concat!("Size of: ", stringify!(boards))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<Boards>(),
-            4usize,
-            concat!("Alignment of ", stringify!(boards))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<Boards>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boards),
-                "::",
-                stringify!(noOfBoards)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<Boards>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).deals) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boards),
-                "::",
-                stringify!(deals)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<Boards>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).target) as usize - ptr as usize
-            },
-            19204usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boards),
-                "::",
-                stringify!(target)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<Boards>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).solutions) as usize - ptr as usize
-            },
-            20004usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boards),
-                "::",
-                stringify!(solutions)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<Boards>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).mode) as usize - ptr as usize
-            },
-            20804usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boards),
-                "::",
-                stringify!(mode)
-            )
-        );
-    }
-
-    #[test]
-    fn bindgen_test_layout_boards_pbn() {
-        assert_eq!(
-            ::std::mem::size_of::<BoardsPbn>(),
-            24804usize,
-            concat!("Size of: ", stringify!(boardsPBN))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<BoardsPbn>(),
-            4usize,
-            concat!("Alignment of ", stringify!(boardsPBN))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<BoardsPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).no_of_boards) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boardsPBN),
-                "::",
-                stringify!(noOfBoards)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<BoardsPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).deals) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boardsPBN),
-                "::",
-                stringify!(deals)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<BoardsPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).target) as usize - ptr as usize
-            },
-            22404usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boardsPBN),
-                "::",
-                stringify!(target)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<BoardsPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).solutions) as usize - ptr as usize
-            },
-            23204usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boardsPBN),
-                "::",
-                stringify!(solutions)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<BoardsPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).mode) as usize - ptr as usize
-            },
-            24004usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(boardsPBN),
-                "::",
-                stringify!(mode)
-            )
-        );
-    }
-
     #[test]
     fn bindgen_test_layout_deal() {
         assert_eq!(
@@ -1569,89 +947,6 @@ mod test {
             concat!(
                 "Offset of field: ",
                 stringify!(deal),
-                "::",
-                stringify!(remainCards)
-            )
-        );
-    }
-    #[test]
-    fn bindgen_test_layout_dds_deal_pbn() {
-        assert_eq!(
-            ::std::mem::size_of::<DdsDealPbn>(),
-            112usize,
-            concat!("Size of: ", stringify!(dealPBN))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<DdsDealPbn>(),
-            4usize,
-            concat!("Alignment of ", stringify!(dealPBN))
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<DdsDealPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).trump) as usize - ptr as usize
-            },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(dealPBN),
-                "::",
-                stringify!(trump)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<DdsDealPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).first) as usize - ptr as usize
-            },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(dealPBN),
-                "::",
-                stringify!(first)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<DdsDealPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).current_trick_suit) as usize - ptr as usize
-            },
-            8usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(dealPBN),
-                "::",
-                stringify!(currentTrickSuit)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<DdsDealPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).current_trick_rank) as usize - ptr as usize
-            },
-            20usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(dealPBN),
-                "::",
-                stringify!(currentTrickRank)
-            )
-        );
-        assert_eq!(
-            unsafe {
-                let uninit = ::std::mem::MaybeUninit::<DdsDealPbn>::uninit();
-                let ptr = uninit.as_ptr();
-                ::std::ptr::addr_of!((*ptr).remain_cards) as usize - ptr as usize
-            },
-            32usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(dealPBN),
                 "::",
                 stringify!(remainCards)
             )
