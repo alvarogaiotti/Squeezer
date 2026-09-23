@@ -12,8 +12,10 @@ pub mod auction;
 pub mod board;
 pub mod deal;
 pub mod play;
+pub mod position;
 
 pub use auction::*;
 pub use board::*;
 pub use deal::*;
 pub use play::*;
+pub use position::*;

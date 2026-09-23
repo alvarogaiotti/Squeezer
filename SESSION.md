@@ -48,6 +48,24 @@
   `dds` crate (`cast_possible_*`, `large_stack_arrays`, …).
 - `Cargo.lock` is git-tracked yet also listed in `.gitignore`; the ignore
   rule has no effect on tracked files, which is confusing.
+- `record::position::Position` is only constructible by deriving from a
+  `Board`, yet the design calls it a pure function of `Deal` + `PlayRecord`
+  prefix + `Strain`. The DDS/solver-port ticket will likely need a
+  parts constructor (`Position::new` or similar) to hand a conditioned deal's
+  position to the solver without first assembling a full `Board`.
+- `record::position::trick_winner` reimplements the winner rule already in
+  `performance_analysis::find_trick_winner_naive`. `record` is deliberately
+  `dds`/`lin`-free, so it cannot reuse that function; a future consolidation
+  could move the winner rule down into `record` and have the analysis port
+  call it.
+- `Position::after_play` requires a contract even mid-trick, because
+  `Position::trump` is mandatory. The design's wording ("requires a contract
+  once play crosses a trick boundary") can be misread as allowing
+  contract-free mid-trick derivation; the struct cannot represent an unknown
+  strain.
+- `Playthrough::new` starts at index 0 (before the opening lead); the design
+  never fixed a starting index, so this is an unforced choice a later ticket
+  could revisit if callers want the cursor to begin at the current play.
 
 ## Resolved
 
