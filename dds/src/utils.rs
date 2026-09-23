@@ -8,7 +8,7 @@ use crate::{
     solver::BridgeSolver,
     traits::{AsDDSContract, ContractScorer, IntoRawDDS},
 };
-use core::{ffi::c_int, fmt::Display, num::NonZeroI32};
+use core::{ffi::c_int, num::NonZeroI32};
 use squeezer_macros::IntoRawDDS;
 
 /// The length of a sequence of suits or ranks
@@ -145,25 +145,14 @@ pub enum Side {
 
 #[allow(clippy::exhaustive_enums)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, thiserror::Error)]
 pub enum BuildSequenceError {
+    #[error("sequence length is longer than {SEQUENCE_LENGTH}")]
     SequenceTooLong,
+    #[error("sequence length is shorter than 1")]
     SequenceTooShort,
+    #[error("sequence contains invalid values")]
     SequenceNotValid,
-}
-
-impl std::error::Error for BuildSequenceError {}
-
-impl Display for BuildSequenceError {
-    #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let string = match *self {
-            Self::SequenceTooLong => format!("sequence length is longer than {SEQUENCE_LENGTH}"),
-            Self::SequenceTooShort => format!("sequence length is shorter than {}", 1),
-            Self::SequenceNotValid => "sequence contains invalid values".to_owned(),
-        };
-        write!(f, "{string}")
-    }
 }
 
 /// Macro for implementing `TryFrom` from different integer types to a sequence

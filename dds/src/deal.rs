@@ -56,7 +56,6 @@ use crate::{
 use core::{
     convert::{Into, TryFrom},
     ffi::{c_char, c_int},
-    fmt::Display,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -707,87 +706,49 @@ pub struct DdsDealBuilder {
 /// [`IncorrectSequence`][`ConstructDdsDealError::IncorrectSequence`] | A card sequence failed validation (wraps [`BuildSequenceError`]) |
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Debug, Copy, Clone, Hash, thiserror::Error)]
 pub enum ConstructDdsDealError {
     /// A card identified by `(suit, rank)` bit-flags appears more than once
     /// in the deal.  The two `c_int` values are the suit index and the rank
     /// bit-flag respectively.
+    ///
+    /// `format_bitflag_card` never panics; it returns a diagnostic fallback
+    /// string for values it cannot decode.
+    #[error("duplicated card: {}", format_bitflag_card(*.0, *.1))]
     DuplicatedCard(c_int, c_int),
     /// The builder has `current_trick_suit` set but `current_trick_rank` is
     /// missing (or vice-versa — see [`CurrentTrickSuitNotSet`][`ConstructDdsDealError::CurrentTrickSuitNotSet`]).
+    #[error("current trick rank is not set while current trick suit is")]
     CurrentTrickRankNotSet,
     /// The builder has `current_trick_rank` set but `current_trick_suit` is
     /// missing.
+    #[error("current trick suit is not set while current trick rank is")]
     CurrentTrickSuitNotSet,
     /// [`DdsDealBuilder::remain_cards`] was never called before
     /// [`DdsDealBuilder::build`].
+    #[error("deal not loaded")]
     CardsNotProvided,
     /// [`DdsDealBuilder::trump`] (or a contract that sets trump) was never
     /// called before [`DdsDealBuilder::build`].
+    #[error("trump not declared")]
     TrumpNotDeclared,
     /// [`DdsDealBuilder::first`] (or a contract that sets the leader) was
     /// never called before [`DdsDealBuilder::build`].
+    #[error("leader not declared")]
     FirstNotDeclared,
     /// An integer value could not be mapped to any [`DdsHandEncoding`]
     /// variant.  The inner `i32` is the offending value.
+    #[error("seat cannot be converted from the value you provided: {0}")]
     SeatUnconvertable(i32),
     /// An integer value could not be mapped to any [`DdsSuit`] variant.
     /// The inner `i32` is the offending value.
+    #[error("trump cannot be converted from the value you provided: {0}")]
     TrumpUnconvertable(i32),
     /// A card sequence (e.g. a trick) failed structural validation.
     /// Wraps the underlying [`BuildSequenceError`].
-    IncorrectSequence(BuildSequenceError),
+    #[error("sequence has incorrect encoding:\n\t{0}")]
+    IncorrectSequence(#[from] BuildSequenceError),
 }
-
-impl From<BuildSequenceError> for ConstructDdsDealError {
-    #[inline]
-    fn from(value: BuildSequenceError) -> Self {
-        Self::IncorrectSequence(value)
-    }
-}
-
-impl Display for ConstructDdsDealError {
-    #[inline]
-    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match *self {
-            Self::CurrentTrickRankNotSet => write!(
-                formatter,
-                "current trick rank is not set while current trick suit is"
-            ),
-            Self::CurrentTrickSuitNotSet => write!(
-                formatter,
-                "current trick suit is not set while current trick rank is"
-            ),
-            Self::DuplicatedCard(suit, rank) => {
-                // format_bitflag_card never panics; it returns a diagnostic
-                // fallback string for values it cannot decode.
-                let card = format_bitflag_card(suit, rank);
-                write!(formatter, "duplicated card: {card}")
-            }
-            Self::CardsNotProvided => write!(formatter, "deal not loaded"),
-            Self::FirstNotDeclared => write!(formatter, "leader not declared"),
-            Self::TrumpNotDeclared => write!(formatter, "trump not declared"),
-            Self::SeatUnconvertable(value) => {
-                write!(
-                    formatter,
-                    "seat cannot be converted from the value you provided: {value}",
-                )
-            }
-            Self::TrumpUnconvertable(value) => {
-                write!(
-                    formatter,
-                    "trump cannot be converted from the value you provided: {value}",
-                )
-            }
-            Self::IncorrectSequence(error) => {
-                write!(formatter, "sequence has incorrect encoding:\n\t{error}")
-            }
-        }
-    }
-}
-
-#[allow(clippy::missing_trait_methods, clippy::absolute_paths)]
-impl std::error::Error for ConstructDdsDealError {}
 
 /// Errors that can occur while constructing a [`Boards`] batch.
 ///
@@ -798,34 +759,22 @@ impl std::error::Error for ConstructDdsDealError {}
 /// [`NegativeLength`][`ConstructDdsBoardError::NegativeLength`] | `no_of_boards` < 0 |
 /// [`ParamLengthTooShort`][`ConstructDdsBoardError::ParamLengthTooShort`] | One of the slice arguments is shorter than `no_of_boards` |
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Debug, Copy, Clone, Hash, thiserror::Error)]
 pub enum ConstructDdsBoardError {
     /// The caller requested more boards than [`MAXNOOFBOARDS`] allows.
+    #[error("number of boards provided over MAXNOOFBOARDS: 200")]
     TooManyBoards,
     /// At least one of the parameter slices (deals, contracts, targets, …)
     /// is shorter than `no_of_boards`.
+    #[error("one of the parameter provided was shorter than the number of boards requested")]
     ParamLengthTooShort,
     /// `no_of_boards` was `0`; DDS requires at least one board.
+    #[error("unable to create Boards with no_of_boards=0")]
     ZeroLength,
     /// `no_of_boards` was negative.  Board counts must be positive.
+    #[error("no_of_boards must not be negative")]
     NegativeLength,
 }
-
-impl std::fmt::Display for ConstructDdsBoardError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::TooManyBoards => write!(f, "number of boards provided over MAXNOOFBOARDS: 200"),
-            Self::ZeroLength => write!(f, "unable to create Boards with no_of_boards=0"),
-            Self::NegativeLength => write!(f, "no_of_boards must not be negative"),
-            Self::ParamLengthTooShort => write!(
-                f,
-                "one of the parameter provided was shorter than the number of boards requested"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for ConstructDdsBoardError {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Builder impl

@@ -19,6 +19,7 @@ pub mod analyseplay;
 )]
 pub(crate) mod bindings;
 
+pub mod context;
 pub mod ddserror;
 pub mod deal;
 pub mod doubledummy;

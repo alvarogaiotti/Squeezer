@@ -6,16 +6,17 @@ use std::sync::{Mutex, OnceLock, TryLockError};
 use crate::{
     analyseplay::{CHUNK_SIZE, PlayAnalyzer, PlayTraceBin, PlayTracesBin, SolvedPlay, SolvedPlays},
     bindings::{
-        AnalyseAllPlaysBin, AnalysePlayBin, MAXNOOFBOARDS, SolveAllBoardsBin, SolveBoard,
+        AnalyseAllPlaysBin, MAXNOOFBOARDS, SolveAllBoardsBin, SolveBoard,
         ddsffi::RETURN_UNKNOWN_FAULT,
     },
+    context::AnalysePlayBin,
     ddserror::DdsError,
     deal::{AsDDSDeal, Boards, ConstructDdsDealError, DdsDeal},
     future_tricks::FutureTricks,
     solver::{BridgeSolver, SolvedBoards},
     tables::{
-        DdTableCalculator, DdTableDeal, DdTableDealPbn, DdTableResults, DdTablesRes, ParCalcMode,
-        Populated, TrumpFilter,
+        DdTableCalculator, DdTableDeal, DdTableResults, DdTablesRes, ParCalcMode, Populated,
+        TrumpFilter,
     },
     traits::AsDDSContract,
     utils::{Mode, Solutions, Target, ThreadIndex, build_c_deal, if_no_fault_return},
@@ -131,35 +132,6 @@ impl DoubleDummySolver {
             _marker: std::marker::PhantomData,
         }
     }
-
-    /// Get infos from the DLL
-    ///
-    /// # Errors
-    /// When the DLL memory gets corrupted and returns a non UTF-8 string.
-    pub fn info(&self) -> Result<String, std::string::FromUtf8Error> {
-        let mut info = crate::bindings::ddsffi::DDSInfo {
-            major: 0,
-            minor: 0,
-            versionString: [0; 10],
-            system: 0,
-            compiler: 0,
-            constructor: 0,
-            threading: 0,
-            noOfThreads: 0,
-            systemString: [0; 1024],
-            patch: 0,
-            numBits: 0,
-            numCores: 0,
-            threadSizes: [0; 128],
-        };
-        unsafe {
-            crate::bindings::ddsffi::GetDDSInfo(std::ptr::from_mut::<
-                crate::bindings::ddsffi::DDSInfo,
-            >(&mut info));
-        }
-        #[allow(clippy::cast_sign_loss)]
-        String::from_utf8(info.systemString.iter().map(|x| *x as u8).collect())
-    }
 }
 
 impl Default for DoubleDummySolver {
@@ -190,13 +162,6 @@ impl MultiThreadDoubleDummySolver {
         Self {
             inner: INSTANCE.get_or_init(|| Mutex::new(DoubleDummySolver::new())),
         }
-    }
-    fn set_max_threads(user_threads: ThreadIndex) {
-        unsafe { crate::bindings::ffi::SetMaxThreads(user_threads.into()) }
-    }
-
-    fn set_resources(max_memory_mb: i32, max_threads: ThreadIndex) {
-        unsafe { crate::bindings::ffi::SetResources(max_memory_mb, max_threads.into()) }
     }
 }
 
@@ -497,26 +462,6 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
         }
     }
 
-    fn calculate_complete_table_pbn<P>(
-        &self,
-        table_deal_pbn: &P,
-    ) -> Result<DdTableResults<Populated>, DdsError>
-    where
-        for<'a> &'a P: Into<DdTableDealPbn>,
-    {
-        loop {
-            match self.inner.try_lock() {
-                Ok(guard) => break guard.calculate_complete_table_pbn(table_deal_pbn),
-                Err(TryLockError::WouldBlock) => {}
-                Err(TryLockError::Poisoned(guard)) => {
-                    break guard
-                        .into_inner()
-                        .calculate_complete_table_pbn(table_deal_pbn);
-                }
-            }
-        }
-    }
-
     fn calculate_all_complete_tables<T>(
         &self,
         table_deals: &[T],
@@ -533,27 +478,6 @@ impl DdTableCalculator for MultiThreadDoubleDummySolver {
                     .into_inner()
                     .calculate_all_complete_tables(table_deals, mode, trump_filter)
             }
-        }
-    }
-
-    fn calculate_all_complete_tables_pbn<P>(
-        &self,
-        table_deals_pbn: &[P],
-        mode: ParCalcMode,
-        trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DdsError>
-    where
-        for<'a> &'a P: Into<DdTableDealPbn>,
-    {
-        match self.inner.lock() {
-            Ok(guard) => {
-                guard.calculate_all_complete_tables_pbn(table_deals_pbn, mode, trump_filter)
-            }
-            Err(error) => error.into_inner().calculate_all_complete_tables_pbn(
-                table_deals_pbn,
-                mode,
-                trump_filter,
-            ),
         }
     }
 }

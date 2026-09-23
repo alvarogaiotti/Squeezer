@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     bindings::{
-        CalcAllTables, CalcAllTablesPBN, CalcDDtable, CalcDDtablePBN,
+        CalcAllTables, CalcDDtable,
         ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES},
     },
     ddserror::DdsError,
@@ -35,20 +35,6 @@ pub trait DdTableCalculator {
     where
         for<'a> &'a T: Into<DdTableDeal>;
 
-    /// Calculates all the table for a given deal in PBN format (or a deal which can be converted
-    /// in PBN format), returning the maximum result for every contract played by every player.
-    /// Disregards information about seat, e.g. if both the pairs can make 1NT, this function will
-    /// return 1NT as makable for both.
-    /// Use [`DdTableCalculator::calculate_all_complete_tables_pbn`] for parallel calculation of more
-    /// deals, as starting from a couple of dozens deals will get slow using this function.
-    /// # Errors
-    /// Should error only if the underlying solver errors out.
-    fn calculate_complete_table_pbn<P>(
-        &self,
-        table_deal_pbn: &P,
-    ) -> Result<DdTableResults<Populated>, DdsError>
-    where
-        for<'a> &'a P: Into<DdTableDealPbn>;
     /// Same as [`DdTableCalculator::calculate_complete_table`], but parallel: use this function if
     /// you have more than a dozen deals.
     /// Calculates all the table for a given deal, returning the maximum result for every contract
@@ -64,22 +50,6 @@ pub trait DdTableCalculator {
     ) -> Result<DdTablesRes<Populated>, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>;
-    /// Same as [`DdTableCalculator::calculate_complete_table_pbn`], but parallel: use this
-    /// function if you have more than a couple of dozens deals.
-    /// Calculates all the table for a given deal in PBN format (or a deal which can be converted
-    /// in PBN format), returning the maximum result for every contract played by every player.
-    /// Disregards information about seat, e.g. if both the pairs can make 1NT, this function will
-    /// return 1NT as makable for both.
-    /// # Errors
-    /// Should error only if the underlying solver errors out.
-    fn calculate_all_complete_tables_pbn<P>(
-        &self,
-        table_deals_pbn: &[P],
-        mode: ParCalcMode,
-        trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DdsError>
-    where
-        for<'a> &'a P: Into<DdTableDealPbn>;
 }
 
 impl DdTableCalculator for DoubleDummySolver {
@@ -94,22 +64,6 @@ impl DdTableCalculator for DoubleDummySolver {
         let result = unsafe {
             CalcDDtable(
                 table_deal.into(),
-                std::ptr::from_mut::<DdTableResults<NotPopulated>>(&mut tablep),
-            )
-        };
-        if_no_fault_return!(result, tablep.populated());
-    }
-    fn calculate_complete_table_pbn<P>(
-        &self,
-        table_deal_pbn: &P,
-    ) -> Result<DdTableResults<Populated>, DdsError>
-    where
-        for<'a> &'a P: Into<DdTableDealPbn>,
-    {
-        let mut tablep = DdTableResults::new();
-        let result = unsafe {
-            CalcDDtablePBN(
-                table_deal_pbn.into(),
                 std::ptr::from_mut::<DdTableResults<NotPopulated>>(&mut tablep),
             )
         };
@@ -140,32 +94,6 @@ impl DdTableCalculator for DoubleDummySolver {
             )
         };
 
-        if_no_fault_return!(result, resp.populated());
-    }
-
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-    fn calculate_all_complete_tables_pbn<P>(
-        &self,
-        table_deals_pbn: &[P],
-        mode: ParCalcMode,
-        mut trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DdsError>
-    where
-        for<'a> &'a P: Into<DdTableDealPbn>,
-    {
-        let mut resp = DdTablesRes::new(table_deals_pbn.len() as i32);
-
-        let mut presp = AllParResults::new();
-        let mut dealsp = DdTableDealsPbn::new(table_deals_pbn);
-        let result = unsafe {
-            CalcAllTablesPBN(
-                std::ptr::from_mut::<DdTableDealsPbn>(&mut dealsp),
-                mode as i32,
-                trump_filter.as_mut_ptr(),
-                std::ptr::from_mut::<DdTablesRes<NotPopulated>>(&mut resp),
-                std::ptr::from_mut::<AllParResults>(&mut presp),
-            )
-        };
         if_no_fault_return!(result, resp.populated());
     }
 }

@@ -160,7 +160,7 @@ impl SolvedPlay {
     /// Creates a new [`SolvedPlay`] instance
     #[inline]
     #[must_use]
-    pub(crate) const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             number: 0i32,
             tricks: [-1i32; 53],
@@ -175,6 +175,13 @@ impl SolvedPlay {
             .try_into()
             .expect("it's a lenght so it's always positive")]
             .iter()
+    }
+}
+
+impl Default for SolvedPlay {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -228,7 +235,7 @@ impl PlayTracesBin {
     #[inline]
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.len() != 0
+        self.len() == 0
     }
 }
 
@@ -283,7 +290,7 @@ impl PlayTraceBin {
         PlayTraceBinIter {
             index: 0,
             suit: &self.suit[..number],
-            rank: &self.suit[..number],
+            rank: &self.rank[..number],
         }
     }
 }
@@ -322,6 +329,7 @@ impl<'a> Iterator for PlayTraceBinIter<'a> {
         // Guaranteed to have the same length
         if let Some(suit) = self.suit.get(self.index) {
             if let Some(rank) = self.rank.get(self.index) {
+                self.index += 1;
                 Some((suit, rank))
             } else {
                 unreachable!()
@@ -446,9 +454,44 @@ pub struct PlayTracePBN {
 #[allow(clippy::pedantic, unused_imports, deref_nullptr)]
 #[cfg(test)]
 mod test {
-    use crate::bindings::ddsffi::DDSInfo;
-
     use super::*;
+
+    #[test]
+    fn play_trace_bin_iter_yields_rank_not_suit() {
+        let mut play = PlayTraceBin::new();
+        play.number = 2;
+        play.suit[0] = 3;
+        play.suit[1] = 1;
+        play.rank[0] = 10;
+        play.rank[1] = 4;
+
+        let pairs: Vec<(i32, i32)> = play.iter().map(|(suit, rank)| (*suit, *rank)).collect();
+        assert_eq!(pairs, vec![(3, 10), (1, 4)]);
+    }
+
+    #[test]
+    fn play_trace_bin_iter_advances_index() {
+        let mut play = PlayTraceBin::new();
+        play.number = 3;
+        play.suit[..3].copy_from_slice(&[0, 1, 2]);
+        play.rank[..3].copy_from_slice(&[14, 13, 12]);
+
+        assert_eq!(play.iter().collect::<Vec<_>>().len(), 3);
+    }
+
+    #[test]
+    fn play_traces_bin_is_empty_tracks_length() {
+        let empty = PlayTracesBin::from_sequences(Vec::new(), Vec::new()).expect("empty batch");
+        assert!(empty.is_empty());
+
+        let one = PlayTracesBin::from_sequences(
+            vec![SuitSeq::try_from([0]).expect("valid suit")],
+            vec![RankSeq::try_from([2]).expect("valid rank")],
+        )
+        .expect("single-play batch");
+        assert!(!one.is_empty());
+    }
+
     #[test]
     fn bindgen_test_layout_solved_plays() {
         assert_eq!(
