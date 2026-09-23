@@ -301,6 +301,12 @@ impl Contract {
         self.declarer
     }
 
+    /// Returns whether the declarer's side is vulnerable under this contract.
+    #[must_use]
+    pub const fn vulnerable(&self) -> Vulnerable {
+        self.vuln
+    }
+
     /// Returns a non-unicode string representation of the contract.
     #[must_use]
     pub fn not_unicode_str(&self) -> String {

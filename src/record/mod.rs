@@ -8,6 +8,12 @@
 //! same types can be built by the LIN importer, by the dealer, or by hand
 //! without pulling in a parser or a solver.
 
+pub mod auction;
+pub mod board;
 pub mod deal;
+pub mod play;
 
+pub use auction::*;
+pub use board::*;
 pub use deal::*;
+pub use play::*;

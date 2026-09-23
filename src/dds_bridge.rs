@@ -8,7 +8,9 @@
 //! no-default-features build never links the C++ library.
 
 use crate::prelude::*;
+use dds::analyseplay::PlayTraceBin;
 use dds::deal::{AsDDSDeal, DDSDealRepr, DdsHandEncoding};
+use dds::utils::{BuildSequenceError, RankSeq, SEQUENCE_LENGTH, SuitSeq};
 
 impl From<Seat> for DdsHandEncoding {
     fn from(value: Seat) -> Self {
@@ -34,5 +36,29 @@ impl AsDDSDeal for Deal {
             }
         }
         remain_cards.into()
+    }
+}
+
+impl TryFrom<&PlayRecord> for PlayTraceBin {
+    type Error = BuildSequenceError;
+
+    /// Builds DDS's flat suit/rank play trace from the recorded cards.
+    fn try_from(record: &PlayRecord) -> Result<Self, Self::Error> {
+        let len = record.len();
+        if len == 0 {
+            return Err(BuildSequenceError::SequenceTooShort);
+        }
+        if len > SEQUENCE_LENGTH {
+            return Err(BuildSequenceError::SequenceTooLong);
+        }
+
+        let (suitseq, rankseq): (Vec<_>, Vec<_>) = record
+            .cards()
+            .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
+            .unzip();
+        Ok(Self::from_sequences(
+            SuitSeq::try_from(suitseq.as_slice())?,
+            RankSeq::try_from(rankseq.as_slice())?,
+        ))
     }
 }

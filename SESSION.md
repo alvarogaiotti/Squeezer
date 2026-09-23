@@ -28,9 +28,17 @@
   and `parse_vugraph_data` use `unwrap_or(0)`, and
   `parse_room_and_board_number` `unwrap()`s the board-number parse. Relevant
   to ticket 02's goal of failing at import rather than yielding corrupt data.
-- `From<LinDeal> for Deal` (`src/deal.rs:1574`) ignores the parsed
-  `lin_deal.vulnerability` and recomputes it from the board number, so a
-  non-standard vulnerability is silently dropped.
+- `linparser::compute_contract` still recomputes vulnerability from the board
+  number (`Vulnerable::from_number_and_seat`) instead of using the parsed
+  `sv|` vulnerability, so a non-standard vulnerability is silently dropped.
+  It now also duplicates `record::auction::Auction::contract`; ticket 07 should
+  delete the parser copy.
+- `DealError::MissingCard` is unreachable: `Deal::new` checks each seat holds
+  exactly 13 cards first, so once duplicates are ruled out the union is
+  necessarily all 52 cards.
+- `dds_bridge::TryFrom<&PlayRecord> for PlayTraceBin` has no caller yet; ticket
+  07/13 should route the analysis port through `PlayRecord` and drop
+  `PlaySequence`.
 - Pre-existing clippy warnings: `decimal_bitwise_operands` at
   `src/performance_analysis.rs:834` (test code), plus ~10 warnings in the
   `dds` crate (`cast_possible_*`, `large_stack_arrays`, …).
