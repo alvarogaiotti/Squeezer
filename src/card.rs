@@ -316,7 +316,6 @@ impl CardSampler for UniformSampler {
 }
 
 /// A bunch of [`Card`]s.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Cards {
     bits: u64,
@@ -329,6 +328,20 @@ impl serde::Serialize for Cards {
         S: serde::Serializer,
     {
         serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Cards {
+    /// Parses the suit-symbol string emitted by `Cards`' `Serialize`, keeping
+    /// the two directions symmetric (a derived `Deserialize` would expect the
+    /// private `bits` field instead).
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
     }
 }
 

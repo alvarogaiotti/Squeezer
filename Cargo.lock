@@ -1729,6 +1729,7 @@ dependencies = [
  "safe_arch",
  "scraper",
  "serde",
+ "serde_json",
  "squeezer_macros",
  "time",
  "url",

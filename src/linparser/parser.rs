@@ -9,7 +9,7 @@ use nom::{
 use std::{fmt::Debug, str::FromStr};
 
 use crate::{
-    Card, Cards, Contract, Doubled, Hand, Hands, Seat, Strain, Vulnerability, Vulnerable,
+    Card, Cards, Contract, Doubled, Hand, Seat, Strain, Vulnerability, Vulnerable,
     linparser::{Bid, LinDeal, LinFile, PlaySequence, Players, Results, TournamentInfo},
 };
 
@@ -133,7 +133,7 @@ fn consume_start_table_tag(input: &str) -> IResult<&str, ()> {
 }
 
 // MD line parser: md|dealer,hand1,hand2,hand3|
-fn parse_dealer_and_hands(input: &str) -> IResult<&str, (Seat, Hands)> {
+fn parse_dealer_and_hands(input: &str) -> IResult<&str, (Seat, [Hand; 4])> {
     let (input, _) = ws(tag("md|"))(input)?;
     let (input, content) = ws(take_until("|"))(input)?;
     let (input, _) = ws(char('|'))(input)?;
@@ -164,7 +164,15 @@ fn parse_dealer_and_hands(input: &str) -> IResult<&str, (Seat, Hands)> {
     // Special case to remove board number information since the LIN format sucks
     let (input, _) = opt((tag("rh||ah|Board "), digit1, char('|'))).parse(input)?;
 
-    Ok((input, (dealer, Hands::new_from(hands.try_into().unwrap()))))
+    Ok((
+        input,
+        (
+            dealer,
+            hands
+                .try_into()
+                .expect("three hands plus the remainder is exactly four"),
+        ),
+    ))
 }
 
 fn build_hands_from_str<'a>(hand_str: &'a str, deck: &mut Cards) -> Result<Hand, &'a str> {

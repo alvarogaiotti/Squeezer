@@ -8,7 +8,7 @@ use std::{error::Error, num::ParseIntError};
 
 use itertools::Itertools;
 
-use crate::{Card, Cards, Contract, Hands, Seat, Strain, Vulnerability};
+use crate::{Card, Cards, Contract, Deal, Hand, Seat, Strain, Vulnerability};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -542,7 +542,7 @@ pub struct LinDeal {
     pub room: Option<Room>,
     pub number: u8,
     pub dealer: Seat,
-    pub hands: Hands,
+    pub hands: [Hand; 4],
     pub vulnerability: Vulnerability,
     pub bidding: LinBidding,
     pub play: Option<PlaySequence>,
@@ -550,9 +550,18 @@ pub struct LinDeal {
     pub contract: Option<Contract>,
 }
 
+impl From<LinDeal> for Deal {
+    /// Ticket 07 replaces this shim with a fallible importer that builds
+    /// [`crate::record::Board`] directly, so the temporary DTO's hands are
+    /// adopted unchecked here.
+    fn from(lin_deal: LinDeal) -> Deal {
+        Deal::from_hands_unchecked(lin_deal.hands)
+    }
+}
+
 impl LinDeal {
     #[must_use]
-    pub fn hands(&self) -> Hands {
+    pub fn hands(&self) -> [Hand; 4] {
         self.hands
     }
 
@@ -585,12 +594,6 @@ impl LinDeal {
 #[cfg(feature = "dds")]
 impl dds::deal::AsDDSDeal for LinDeal {
     fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
-        let mut remain_cards = [[0; 4]; 4];
-        for (seat, hand) in self.hands.into_iter().enumerate() {
-            for (index, suit) in hand.into_iter().enumerate() {
-                remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
-            }
-        }
-        remain_cards.into()
+        Deal::from_hands_unchecked(self.hands).as_dds_deal()
     }
 }

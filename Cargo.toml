@@ -31,6 +31,10 @@ serde = ["dep:serde", "dds?/serde", "bitvec/serde"]
 
 [dev-dependencies]
 criterion = { version = "*", features = ["html_reports"] }
+# Pinned to the already-locked release: serde_json is only needed by the
+# feature-gated round-trip tests, and a newer release would drag in new
+# transitive crates.
+serde_json = "=1.0.143"
 
 [[bench]]
 name = "bench_payoff"

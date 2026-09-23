@@ -62,10 +62,10 @@
   fn main() -> Result<(), Box<dyn std::error::Error>> {
       use crate::*;
 
-      // Create a new random deal, Board 1 etc.
+      // Create a new random deal.
       // If you don't care about the characteristics of the deal
       // then this is the best method.
-      let _deal = Deal::new();
+      let _deal = DealerBuilder::new().build()?.deal()?;
 
       // If you want a much finer approach, you should use a DealerBuilder:
 
@@ -112,7 +112,8 @@ mod bbo_async;
 mod bbohelpers;
 pub mod card;
 mod contract;
-mod deal;
+#[cfg(feature = "dds")]
+mod dds_bridge;
 mod dealproduction;
 mod error;
 mod evaluator;
@@ -125,6 +126,7 @@ pub mod linparser;
 #[cfg(all(feature = "dds", feature = "lin"))]
 pub mod performance_analysis;
 mod range;
+pub mod record;
 mod shape;
 mod shapeparser;
 #[cfg(feature = "dds")]
@@ -151,12 +153,12 @@ pub mod prelude {
     #[cfg(any(feature = "bbo", feature = "bbo_async"))]
     pub use crate::bbohelpers::*;
     pub use crate::card::*;
-    pub use crate::deal::*;
     pub use crate::dealproduction::*;
     pub use crate::error::*;
     pub use crate::evaluator::*;
     pub use crate::hand::*;
     pub use crate::hand_constraint::*;
+    pub use crate::record::*;
     pub use crate::shape::*;
     pub use crate::shapeparser::*;
     #[cfg(feature = "dds")]

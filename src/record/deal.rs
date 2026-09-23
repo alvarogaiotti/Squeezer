@@ -44,9 +44,9 @@
 //!
 //! // Complex constraint: NS 8+ card major fit
 //! let dealer = DealerBuilder::new()
-//!     .with_function(|hands: &Hands| {
-//!         let ns_spades = hands.north().spades().len() + hands.south().spades().len();
-//!         let ns_hearts = hands.north().hearts().len() + hands.south().hearts().len();
+//!     .with_function(|deal: &Deal| {
+//!         let ns_spades = deal.north().spades().len() + deal.south().spades().len();
+//!         let ns_hearts = deal.north().hearts().len() + deal.south().hearts().len();
 //!         ns_spades >= 8 || ns_hearts >= 8
 //!     })
 //!     .with_hand_descriptor(
@@ -58,10 +58,6 @@
 //! # }
 //! ```
 
-use std::sync::atomic::{AtomicU8, Ordering};
-
-#[cfg(feature = "lin")]
-use crate::linparser::LinDeal;
 use crate::prelude::*;
 
 /// Type alias for functions that validate whether a deal should be accepted.
@@ -77,9 +73,9 @@ use crate::prelude::*;
 /// ```rust
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # use squeezer::*;
-/// let accept: AcceptFunction = Box::new(|hands: &Hands| {
+/// let accept: AcceptFunction = Box::new(|deal: &Deal| {
 ///     // Accept only if North-South have game-forcing values combined
-///     hands.north().hcp() + hands.south().hcp() >= 25
+///     deal.north().hcp() + deal.south().hcp() >= 25
 /// });
 /// # Ok(())
 /// # }
@@ -89,16 +85,19 @@ use crate::prelude::*;
 /// `Send + Sync` bound: dealers are shared across simulation threads, so the
 /// predicate must be too. Plain (non-capturing or plain-data-capturing)
 /// closures satisfy this automatically.
-pub type AcceptFunction = Box<dyn Fn(&Hands) -> bool + Send + Sync>;
+pub type AcceptFunction = Box<dyn Fn(&Deal) -> bool + Send + Sync>;
 
 /// A complete bridge deal consisting of four 13-card hands.
 ///
 /// This is the fundamental structure representing a bridge deal. Hands are stored
 /// in array order: [North, East, South, West] (indices 0-3).
 ///
+/// A `Deal` owns *only* the four hands: board number, dealer, vulnerability and
+/// display choice belong to a [`crate::record::Board`], not to the cards.
+///
 /// # Memory Layout
 ///
-/// Each `Hand` is typically 8 bytes (bitboard representation), so `Hands` is
+/// Each `Hand` is typically 8 bytes (bitboard representation), so a `Deal` is
 /// 32 bytes total - very cache-friendly.
 ///
 /// # Indexing
@@ -107,20 +106,290 @@ pub type AcceptFunction = Box<dyn Fn(&Hands) -> bool + Send + Sync>;
 /// ```rust
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # use squeezer::*;
-/// let hands: Hands = Hands::deal();
-/// let north = hands[Seat::North];
-/// let north = hands[0]; // Equivalent
+/// let deal = DealerBuilder::new().build()?.deal()?;
+/// let north = deal[Seat::North];
+/// let north = deal[0]; // Equivalent
 /// # Ok(())
 /// # }
 /// ```
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Hands {
+pub struct Deal {
     /// Array of hands in order: [North, East, South, West]
     hands: [Hand; 4],
 }
 
-impl std::fmt::Display for Hands {
+/// Why a set of four hands is not a valid bridge deal.
+///
+/// The only invariant a [`Deal`] carries is the 52-card partition: each seat
+/// holds exactly 13 distinct cards, and the four hands together hold the whole
+/// deck. This error reports a violation of that invariant.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DealError {
+    /// A seat does not hold exactly 13 cards.
+    WrongHandSize {
+        /// The offending seat.
+        seat: Seat,
+        /// How many cards that seat actually holds.
+        len: u8,
+    },
+    /// The same card appears in more than one hand.
+    DuplicatedCard(Card),
+    /// A card from the deck is missing from every hand.
+    MissingCard(Card),
+}
+
+impl std::fmt::Display for DealError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::WrongHandSize { seat, len } => {
+                write!(f, "{seat} holds {len} cards, expected 13")
+            }
+            Self::DuplicatedCard(card) => write!(f, "card {card} appears in more than one hand"),
+            Self::MissingCard(card) => write!(f, "card {card} is missing from the deal"),
+        }
+    }
+}
+
+impl std::error::Error for DealError {}
+
+impl Deal {
+    /// Creates a deal from four hands, validating the 52-card partition.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DealError`] unless every seat holds exactly 13 distinct cards
+    /// and the four hands together hold all 52 cards.
+    pub fn new(hands: [Hand; 4]) -> Result<Self, DealError> {
+        for (index, hand) in hands.iter().enumerate() {
+            let len = hand.cards().len();
+            if len != 13 {
+                return Err(DealError::WrongHandSize {
+                    seat: Seat::from(index),
+                    len,
+                });
+            }
+        }
+
+        // Fold the four hands into one bitboard, reporting the first card that
+        // was already seen. This avoids materialising a separate deck.
+        let mut seen = Cards::EMPTY;
+        for hand in &hands {
+            for card in hand.cards() {
+                if seen.has_card(card) {
+                    return Err(DealError::DuplicatedCard(card));
+                }
+                seen = seen.insert(card);
+            }
+        }
+
+        if seen.len() != 52
+            && let Some(card) = Cards::ALL.difference(seen).into_iter().next()
+        {
+            return Err(DealError::MissingCard(card));
+        }
+
+        Ok(Self { hands })
+    }
+
+    /// Creates a deal from four hands without checking the partition.
+    ///
+    /// The caller takes full responsibility for the invariant: each seat must
+    /// hold exactly 13 distinct cards and the four hands must cover the whole
+    /// deck. Prefer [`Deal::new`] unless you are on a hot path that has already
+    /// established the invariant (for example [`StandardDealer`], which deals
+    /// from a shuffled deck).
+    #[must_use]
+    #[inline]
+    pub const fn from_hands_unchecked(hands: [Hand; 4]) -> Self {
+        Self { hands }
+    }
+
+    /// Returns a reference to the internal array of hands.
+    ///
+    /// Hands are in order: [North, East, South, West]
+    #[must_use]
+    #[inline]
+    pub fn hands(&self) -> &[Hand; 4] {
+        &self.hands
+    }
+
+    /// Returns North's hand.
+    #[must_use]
+    #[inline]
+    pub fn north(&self) -> Hand {
+        self.hands[Seat::North as usize]
+    }
+
+    /// Returns South's hand.
+    #[must_use]
+    #[inline]
+    pub fn south(&self) -> Hand {
+        self.hands[Seat::South as usize]
+    }
+
+    /// Returns East's hand.
+    #[must_use]
+    #[inline]
+    pub fn east(&self) -> Hand {
+        self.hands[Seat::East as usize]
+    }
+
+    /// Returns West's hand.
+    #[must_use]
+    #[inline]
+    pub fn west(&self) -> Hand {
+        self.hands[Seat::West as usize]
+    }
+
+    /// Returns an iterator over the four hands.
+    ///
+    /// Iterates in order: North, East, South, West
+    #[inline]
+    pub fn iter(&self) -> std::slice::Iter<'_, Hand> {
+        self.hands.iter()
+    }
+
+    /// Applies a validation function to this deal.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let deal = DealerBuilder::new().build()?.deal()?;
+    /// if deal.check(|d: &Deal| d.north().hcp() >= 12) {
+    ///     println!("North has opening hand");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn check<T: Fn(&Deal) -> bool>(&self, f: T) -> bool {
+        f(self)
+    }
+
+    /// Formats the deal as a Portable Bridge Notation (PBN) hand record.
+    ///
+    /// This is the minimal `[Deal "N:..."]` line; a full recorded board also
+    /// carries a `[Board "..."]` line, which belongs to [`crate::record::Board`].
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// [Deal "N:SAKQ.HAK.DAK.CAK S743.HT9.D8.CJT9 ..."]
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn as_pbn(&self) -> String {
+        // Linear build: reserve once, push per hand (high -> low rank order).
+        let mut pbn = String::with_capacity(128);
+        pbn.push_str("[Deal \"N:");
+        for (hi, hand) in self.into_iter().enumerate() {
+            if hi != 0 {
+                pbn.push(' ');
+            }
+            for (si, holding) in hand.into_iter().enumerate() {
+                if si != 0 {
+                    pbn.push('.');
+                }
+                for card in holding {
+                    pbn.push(card.rankchar());
+                }
+            }
+        }
+        pbn.push_str("\"]");
+        pbn
+    }
+
+    /// Formats the deal as a minimal BBO LIN hand record.
+    ///
+    /// # Parameters
+    ///
+    /// - `board_n`: Board number (automatically wraps beyond 128). It selects
+    ///   the `md|` dealer digit; a full recorded board takes the dealer from its
+    ///   own [`crate::record::Board`] instead.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn as_lin(&self, board_n: u8) -> String {
+        let board_n = if board_n.is_multiple_of(MAX_N_OF_BOARDS + 1) {
+            1
+        } else {
+            board_n % (MAX_N_OF_BOARDS + 1)
+        };
+
+        let mut stringa = String::with_capacity(96);
+        {
+            use std::fmt::Write as _;
+            let _ = write!(
+                stringa,
+                "st||md|{}",
+                (((board_n % NUMBER_OF_HANDS as u8) + 1) % NUMBER_OF_HANDS as u8) + 1
+            );
+        }
+
+        for (position, hand) in self.into_iter().enumerate() {
+            if position != 0 {
+                stringa.push(',');
+            }
+            for (index, holding) in hand.into_iter().enumerate() {
+                stringa.push(match index {
+                    0 => 'S',
+                    1 => 'H',
+                    2 => 'D',
+                    3 => 'C',
+                    _ => unreachable!(),
+                });
+                // Linear push per card (high -> low); avoids quadratic
+                // `stringa = format!("{stringa}...")` reallocations.
+                for card in holding {
+                    stringa.push(card.rankchar());
+                }
+            }
+        }
+
+        let data1 = (board_n - 1) / NUMBER_OF_HANDS as u8;
+        let data2 = (board_n - 1) % NUMBER_OF_HANDS as u8;
+        let data3 = match (data1 + data2) % NUMBER_OF_HANDS as u8 {
+            0 => "o",
+            1 => "n",
+            2 => "e",
+            3 => "b",
+            _ => unreachable!(),
+        };
+        format!("{stringa}|sv|{data3}|rh||ah|Board {board_n}|")
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Deal {
+    /// Serializes the deal as its four hands, mirroring the array shape that
+    /// [`Deal`]'s `Deserialize` re-validates.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(&self.hands, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Deal {
+    /// Deserializes four hands and re-checks the partition via [`Deal::new`], so
+    /// a standalone deserialized `Deal` cannot carry corruption.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hands = <[Hand; 4]>::deserialize(deserializer)?;
+        Deal::new(hands).map_err(serde::de::Error::custom)
+    }
+}
+
+impl std::fmt::Display for Deal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let west = self.hands[Seat::West as usize].to_string();
         let east = self.hands[Seat::East as usize].to_string();
@@ -136,7 +405,7 @@ impl std::fmt::Display for Hands {
     }
 }
 
-impl IntoIterator for Hands {
+impl IntoIterator for Deal {
     type IntoIter = IntoIter<Hand, 4>;
     type Item = Hand;
 
@@ -145,7 +414,7 @@ impl IntoIterator for Hands {
     }
 }
 
-impl std::ops::Index<Seat> for Hands {
+impl std::ops::Index<Seat> for Deal {
     type Output = Hand;
 
     #[inline]
@@ -154,7 +423,7 @@ impl std::ops::Index<Seat> for Hands {
     }
 }
 
-impl std::ops::Index<usize> for Hands {
+impl std::ops::Index<usize> for Deal {
     type Output = Hand;
 
     #[inline]
@@ -163,104 +432,7 @@ impl std::ops::Index<usize> for Hands {
     }
 }
 
-impl<'a> IntoIterator for &'a mut Hands {
-    type IntoIter = std::slice::IterMut<'a, Hand>;
-    type Item = &'a mut Hand;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_mut()
-    }
-}
-
-impl Hands {
-    /// Creates a new `Hands` from an array of four hands.
-    ///
-    /// # Parameters
-    ///
-    /// - `hands`: Array of 4 hands in order [North, East, South, West]
-    #[inline]
-    pub(crate) fn new_from(hands: [Hand; 4]) -> Self {
-        Self { hands }
-    }
-
-    /// Returns a reference to the internal array of hands.
-    ///
-    /// Hands are in order: [North, East, South, West]
-    #[must_use]
-    #[inline]
-    pub fn hands(&self) -> &[Hand; 4] {
-        &self.hands
-    }
-
-    /// Returns a reference to North's hand.
-    #[must_use]
-    #[inline]
-    pub fn north(&self) -> Hand {
-        self.hands[Seat::North as usize]
-    }
-
-    /// Returns a reference to South's hand.
-    #[must_use]
-    #[inline]
-    pub fn south(&self) -> Hand {
-        self.hands[Seat::South as usize]
-    }
-
-    /// Returns a reference to East's hand.
-    #[must_use]
-    #[inline]
-    pub fn east(&self) -> Hand {
-        self.hands[Seat::East as usize]
-    }
-
-    /// Returns a reference to West's hand.
-    #[must_use]
-    #[inline]
-    pub fn west(&self) -> Hand {
-        self.hands[Seat::West as usize]
-    }
-
-    /// Returns an iterator over the four hands.
-    ///
-    /// Iterates in order: North, East, South, West
-    #[inline]
-    pub fn iter(&self) -> std::slice::Iter<'_, Hand> {
-        self.hands.iter()
-    }
-
-    /// Creates a new random set of 4 `Hand`s.
-    ///
-    /// # Panics
-    /// Should never panic as we build a new deck to deal.
-    #[inline]
-    #[must_use]
-    pub fn deal() -> Self {
-        let mut deck = Cards::new_deck();
-        Self {
-            hands: [
-                Hand {
-                    cards: deck.pick(13).expect("new deck is full"),
-                },
-                Hand {
-                    cards: deck.pick(13).expect("new deck is full"),
-                },
-                Hand {
-                    cards: deck.pick(13).expect("new deck is full"),
-                },
-                Hand { cards: deck },
-            ],
-        }
-    }
-
-    /// Returns a mutable iterator over the four hands.
-    ///
-    /// Iterates in order: North, East, South, West
-    #[inline]
-    pub(crate) fn iter_mut(&'_ mut self) -> std::slice::IterMut<'_, Hand> {
-        self.hands.iter_mut()
-    }
-}
-
-impl<'a> IntoIterator for &'a Hands {
+impl<'a> IntoIterator for &'a Deal {
     type IntoIter = std::slice::Iter<'a, Hand>;
     type Item = &'a Hand;
 
@@ -320,18 +492,6 @@ impl TryFrom<char> for Seat {
             'W' | 'w' => Ok(Self::West),
             'E' | 'e' => Ok(Self::East),
             _ => Err(DealerError::new(format!("'{value}' is not a valid seat"))),
-        }
-    }
-}
-
-#[cfg(feature = "dds")]
-impl From<Seat> for dds::deal::DdsHandEncoding {
-    fn from(value: Seat) -> Self {
-        match value {
-            Seat::North => Self::North,
-            Seat::East => Self::East,
-            Seat::South => Self::South,
-            Seat::West => Self::West,
         }
     }
 }
@@ -774,8 +934,7 @@ impl IntoIterator for Vulnerability {
 /// let dealer = DealerBuilder::new()
 ///     .predeal(Seat::North, Card::HQ.into())?
 ///     .with_hand_descriptor(Seat::South, HandDescriptor::hcp(2..15))
-///     .with_function(|hands| /* validation */ true)
-///     .with_vulnerability(Vulnerability::All)
+///     .with_function(|deal| /* validation */ true)
 ///     .build()?;
 /// # Ok(())
 /// # }
@@ -798,9 +957,9 @@ impl IntoIterator for Vulnerability {
 ///         Seat::South,
 ///         HandDescriptor::hcp(12..14)
 ///     )
-///     .with_function(|hands| {
+///     .with_function(|deal| {
 ///         // NS must have 8+ spade fit
-///         hands.north().spades().len() + hands.south().spades().len() >= 8
+///         deal.north().spades().len() + deal.south().spades().len() >= 8
 ///     })
 ///     .build()?;
 /// # Ok(())
@@ -813,17 +972,11 @@ pub struct DealerBuilder {
     /// Available cards for random dealing (cards not predealed)
     deck: Cards,
 
-    /// How board numbers should be assigned to generated deals
-    numbering: Option<BoardNumbering>,
-
     /// Per-seat constraints (shape, HCP, controls, etc.)
     hand_constraints: [Option<HandConstraint>; NUMBER_OF_HANDS],
 
     /// Cards to predeal to specific seats (can be partial hands)
     predealt_hands: [Option<Cards>; NUMBER_OF_HANDS],
-
-    /// Vulnerability state for generated deals
-    vulnerability: Vulnerability,
 }
 
 impl std::fmt::Debug for DealerBuilder {
@@ -831,7 +984,6 @@ impl std::fmt::Debug for DealerBuilder {
         f.debug_struct("DealerBuilder")
             .field("hand_constraints", &self.hand_constraints)
             .field("predealt_hands", &self.predealt_hands)
-            .field("vulnerability", &self.vulnerability)
             .finish_non_exhaustive()
     }
 }
@@ -845,18 +997,15 @@ impl Default for DealerBuilder {
 impl DealerBuilder {
     /// Creates a new builder with no constraints.
     ///
-    /// The default configuration accepts all deals, has no predealing, uses
-    /// sequential board numbering, and has no vulnerability.
+    /// The default configuration accepts all deals and has no predealing.
     #[must_use]
     #[inline]
     pub fn new() -> Self {
         Self {
-            accept: Box::new(|_: &Hands| true),
+            accept: Box::new(|_: &Deal| true),
             hand_constraints: [None, None, None, None],
             predealt_hands: [None; 4],
-            vulnerability: Vulnerability::default(),
             deck: Cards::ALL,
-            numbering: None,
         }
     }
 
@@ -1005,9 +1154,9 @@ impl DealerBuilder {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
-    ///     .with_function(|hands: &Hands| {
+    ///     .with_function(|deal: &Deal| {
     ///         // Require NS to have game-forcing values
-    ///         let ns_hcp = hands.north().hcp() + hands.south().hcp();
+    ///         let ns_hcp = deal.north().hcp() + deal.south().hcp();
     ///         ns_hcp >= 25
     ///     });
     /// # Ok(())
@@ -1015,7 +1164,7 @@ impl DealerBuilder {
     /// ```
     #[inline]
     #[must_use]
-    pub fn with_function<T: Fn(&Hands) -> bool + Send + Sync + 'static>(
+    pub fn with_function<T: Fn(&Deal) -> bool + Send + Sync + 'static>(
         mut self,
         accept_function: T,
     ) -> Self {
@@ -1121,35 +1270,6 @@ impl DealerBuilder {
         self
     }
 
-    /// Sets the vulnerability for all generated deals.
-    ///
-    /// By default, deals have no vulnerability (`Vulnerability::None`).
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
-    /// let builder = DealerBuilder::new()
-    ///     .with_vulnerability(Vulnerability::All);
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    #[must_use]
-    pub fn with_vulnerability(mut self, vulnerability: Vulnerability) -> Self {
-        self.vulnerability = vulnerability;
-        self
-    }
-
-    /// Sets how board numbers are assigned to generated deals.
-    #[inline]
-    #[must_use]
-    pub fn with_board_numbering(mut self, numbering: BoardNumbering) -> Self {
-        self.numbering = Some(numbering);
-        self
-    }
-
     /// Builds the dealer from this configuration.
     ///
     /// Consumes the builder and returns a `StandardDealer` ready to generate deals.
@@ -1176,11 +1296,9 @@ impl DealerBuilder {
     pub fn build(self) -> Result<impl Dealer, DealerError> {
         Ok(StandardDealer {
             predeal: self.predealt_hands,
-            vulnerability: self.vulnerability,
             deck_starting_state: self.deck,
             accept_function: self.accept,
             hand_constraints: self.hand_constraints,
-            output_as_subsequent: self.numbering.unwrap_or_default(),
         })
     }
 
@@ -1218,17 +1336,6 @@ impl DealerBuilder {
         self.with_hand_descriptors_all(descriptors.try_into().unwrap())
             .predeal_all(cards.try_into().unwrap())
     }
-
-    /// Disables sequential board numbering.
-    ///
-    /// All generated deals will be numbered as board 1. Useful when you don't
-    /// care about board numbers or want to number deals externally.
-    #[inline]
-    #[must_use]
-    pub fn no_board_numbering(mut self) -> Self {
-        self.numbering = Some(BoardNumbering::OutputAlwaysOne);
-        self
-    }
 }
 
 /// Trait for objects that can generate bridge deals.
@@ -1255,55 +1362,6 @@ pub trait Dealer {
     ///
     /// Used internally and for inspection/debugging.
     fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS];
-}
-
-/// Controls how board numbers are assigned to generated deals.
-///
-/// Board numbers are important in duplicate bridge for determining dealer
-/// and vulnerability, though this dealer allows overriding those.
-///
-/// The sequential counter is an `AtomicU8`, so dealers stay `Send + Sync`
-/// and can be shared across threads. (Each `deal()` call itself still
-/// generates serially; no simulation loop parallelizes dealing yet.)
-/// The field is private with a clamping constructor, keeping board numbers
-/// in `1..=128`.
-#[derive(Debug)]
-#[repr(u8)]
-pub enum BoardNumbering {
-    /// Increment board number with each deal (1, 2, 3, ..., 128, 1, ...)
-    Sequential {
-        /// Next board number to hand out.
-        next: AtomicU8,
-    },
-    /// Always output board number 1
-    OutputAlwaysOne,
-}
-
-impl Clone for BoardNumbering {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Sequential { next } => Self::Sequential {
-                next: AtomicU8::new(next.load(Ordering::Relaxed)),
-            },
-            Self::OutputAlwaysOne => Self::OutputAlwaysOne,
-        }
-    }
-}
-
-impl BoardNumbering {
-    /// Sequential numbering starting at `board` (clamped to `1..=128`).
-    #[must_use]
-    pub fn sequential_starting_at(board: u8) -> Self {
-        Self::Sequential {
-            next: AtomicU8::new(board.clamp(1, MAX_N_OF_BOARDS)),
-        }
-    }
-}
-
-impl Default for BoardNumbering {
-    fn default() -> Self {
-        Self::sequential_starting_at(1)
-    }
 }
 
 /// Standard implementation of the `Dealer` trait.
@@ -1333,23 +1391,18 @@ impl Default for BoardNumbering {
 pub struct StandardDealer {
     /// Cards to predeal to each seat
     predeal: [Option<Cards>; NUMBER_OF_HANDS],
-    /// Vulnerability for generated deals
-    vulnerability: Vulnerability,
     /// Available cards for random dealing
     deck_starting_state: Cards,
     /// Per-seat constraints
     hand_constraints: [Option<HandConstraint>; NUMBER_OF_HANDS],
     /// Cross-hand validation function
     accept_function: AcceptFunction,
-    /// Board numbering scheme
-    output_as_subsequent: BoardNumbering,
 }
 
 impl std::fmt::Debug for StandardDealer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StandardDealer")
             .field("predeal", &self.predeal)
-            .field("vulnerability", &self.vulnerability)
             .field("hand_constraints", &self.hand_constraints)
             .finish_non_exhaustive()
     }
@@ -1363,11 +1416,9 @@ impl StandardDealer {
     pub fn new() -> Self {
         Self {
             predeal: [None; 4],
-            vulnerability: Vulnerability::default(),
             deck_starting_state: Cards::ALL,
             hand_constraints: [None, None, None, None],
-            accept_function: Box::new(|_: &Hands| true),
-            output_as_subsequent: BoardNumbering::default(),
+            accept_function: Box::new(|_: &Deal| true),
         }
     }
 }
@@ -1451,36 +1502,17 @@ impl Dealer for StandardDealer {
                 }
             }
 
-            let hands = Hands { hands };
+            // Dealing from a single deck guarantees the 52-card partition, so
+            // the hot path uses the unchecked constructor and skips re-checking
+            // 52 cards on every rejection-sampling attempt.
+            let deal = Deal::from_hands_unchecked(hands);
 
             // Continue loop if constraints NOT satisfied (negated condition)
-            !((self.accept_function)(&hands) && self.constraints_respected(hands.hands()))
+            !((self.accept_function)(&deal) && self.constraints_respected(deal.hands()))
         } {}
 
         // Constraints satisfied - create the deal
-        Ok(Deal {
-            hands: Hands::new_from(hands),
-            number: match self.output_as_subsequent {
-                BoardNumbering::Sequential { ref next } => {
-                    // Atomically claim the current number and advance,
-                    // wrapping 128 -> 1. Infallible: the closure always
-                    // returns `Some`. The clamp self-heals a counter that
-                    // was (impossibly, via the public constructor) zero.
-                    next.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
-                        Some(if (1..MAX_N_OF_BOARDS).contains(&n) {
-                            n + 1
-                        } else {
-                            1
-                        })
-                    })
-                    .expect("board counter update is infallible")
-                    .clamp(1, MAX_N_OF_BOARDS)
-                }
-                BoardNumbering::OutputAlwaysOne => 1,
-            },
-            vulnerability: self.vulnerability,
-            ..Default::default()
-        })
+        Ok(Deal::from_hands_unchecked(hands))
     }
 }
 
@@ -1506,439 +1538,6 @@ impl StandardDealer {
                     true
                 }
             })
-    }
-}
-
-/// Output format for displaying deals.
-///
-/// Different formats are used for different purposes:
-/// - **Short**: Human-readable table view
-/// - **Long**: Verbose human-readable format
-/// - **PBN**: Portable Bridge Notation (standard interchange format)
-/// - **LIN**: Format used by BBO and other bridge software
-#[derive(Default, Debug, Copy, Clone)]
-#[non_exhaustive]
-pub enum Printer {
-    /// Portable Bridge Notation - standard interchange format
-    Pbn,
-    /// LIN format used by Bridge Base Online
-    Lin,
-    /// Compact table view (default)
-    #[default]
-    Short,
-    /// Verbose human-readable format
-    Long,
-}
-
-/// A complete bridge deal with cards, vulnerability, and metadata.
-///
-/// This is the primary output of a `Dealer`. It contains:
-/// - Four 13-card hands (one per seat)
-/// - Vulnerability state
-/// - Board number
-/// - Display format preference
-///
-/// # Display Formats
-///
-/// The deal can be displayed in multiple formats via the `Printer` enum:
-///
-/// ```rust
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # use squeezer::*;
-/// let mut deal = Deal::new();
-/// deal.short();  // Compact table
-/// println!("{}", deal);
-///
-/// deal.pbn();    // Portable Bridge Notation
-/// println!("{}", deal);
-/// # Ok(())
-/// # }
-/// ```
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone)]
-pub struct Deal {
-    /// Vulnerability state for this deal
-    vulnerability: Vulnerability,
-    /// The four hands, solely owned here: every accessor, index, iterator,
-    /// and formatter below delegates to `Hands` so the table layout and
-    /// seat order exist in exactly one place.
-    hands: Hands,
-    /// Display format preference (not serialized)
-    #[cfg_attr(feature = "serde", serde(skip))]
-    printer: Printer,
-    /// Board number (1-255)
-    number: u8,
-}
-
-#[cfg(feature = "lin")]
-impl From<LinDeal> for Deal {
-    fn from(lin_deal: LinDeal) -> Deal {
-        Deal {
-            hands: lin_deal.hands(),
-            number: lin_deal.number(),
-            vulnerability: Vulnerability::from_number(lin_deal.number()),
-            ..Default::default()
-        }
-    }
-}
-
-#[cfg(feature = "dds")]
-impl dds::deal::AsDDSDeal for Deal {
-    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
-        self.hands().as_dds_deal()
-    }
-}
-
-#[cfg(feature = "dds")]
-impl dds::deal::AsDDSDeal for Hands {
-    fn as_dds_deal(&self) -> dds::deal::DDSDealRepr {
-        let mut remain_cards = [[0; 4]; 4];
-        for (seat, hand) in self.into_iter().enumerate() {
-            for (index, suit) in hand.into_iter().enumerate() {
-                remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
-            }
-        }
-        remain_cards.into()
-    }
-}
-
-impl Default for Deal {
-    fn default() -> Self {
-        Deal::new()
-    }
-}
-
-impl Deal {
-    /// Creates a new random deal with no constraints.
-    ///
-    /// This is a convenience method for quick random deal generation.
-    /// For constrained deals, use `DealerBuilder`.
-    #[must_use]
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            vulnerability: Vulnerability::None,
-            hands: Hands::deal(),
-            printer: Printer::Short,
-            number: 1,
-        }
-    }
-
-    /// Generates four random 13-card hands from a full deck.
-    ///
-    /// Delegates to [`Hands::deal`]: a single random-partition
-    /// implementation serves both types.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the random card picking fails (should never happen with a full deck).
-    #[must_use]
-    #[inline]
-    pub fn deal() -> [Hand; NUMBER_OF_HANDS] {
-        Hands::deal().hands
-    }
-
-    /// Applies a validation function to this deal.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
-    /// let deal = Deal::new();
-    /// if deal.check(|d: &Deal| d.north().hcp() >= 12) {
-    ///     println!("North has opening hand");
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn check<T: Fn(&Deal) -> bool>(&self, f: T) -> bool {
-        f(self)
-    }
-
-    /// Sets the vulnerability for this deal.
-    #[inline]
-    pub fn set_vuln(&mut self, vuln: Vulnerability) {
-        self.vulnerability = vuln;
-    }
-
-    /// Returns West's hand.
-    #[must_use]
-    #[inline]
-    pub fn west(&self) -> Hand {
-        self.hands.west()
-    }
-
-    /// Returns North's hand.
-    #[must_use]
-    #[inline]
-    pub fn north(&self) -> Hand {
-        self.hands.north()
-    }
-
-    /// Returns East's hand.
-    #[must_use]
-    #[inline]
-    pub fn east(&self) -> Hand {
-        self.hands.east()
-    }
-
-    /// Returns South's hand.
-    #[must_use]
-    #[inline]
-    pub fn south(&self) -> Hand {
-        self.hands.south()
-    }
-
-    /// Sets the display format for this deal.
-    #[inline]
-    pub fn set_print_style(&mut self, style: Printer) {
-        self.printer = style;
-    }
-
-    /// Switches to long (verbose) display format.
-    #[inline]
-    pub fn long(&mut self) {
-        self.set_print_style(Printer::Long);
-    }
-
-    /// Switches to PBN (Portable Bridge Notation) format.
-    #[inline]
-    pub fn pbn(&mut self) {
-        self.set_print_style(Printer::Pbn);
-    }
-
-    /// Switches to short (compact table) display format.
-    #[inline]
-    pub fn short(&mut self) {
-        self.set_print_style(Printer::Short);
-    }
-
-    /// Switches to LIN display format.
-    #[inline]
-    pub fn lin(&mut self) {
-        self.set_print_style(Printer::Lin);
-    }
-
-    /// Returns the deal as a string in the current display format.
-    #[must_use]
-    #[inline]
-    pub fn as_string(&self) -> String {
-        match self.printer {
-            Printer::Pbn => self.as_pbn(),
-            Printer::Lin => self.as_lin(self.number),
-            Printer::Short => self.as_short(),
-            Printer::Long => self.as_long(),
-        }
-    }
-
-    /// Formats the deal in Portable Bridge Notation (PBN).
-    ///
-    /// PBN is the standard interchange format for bridge deals.
-    ///
-    /// # Format
-    ///
-    /// ```text
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// [Board "1"]
-    /// [Deal "N:SAKQ.HAK.DAK.CAK S743.HT9.D8.CJT9 ..."]
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn as_pbn(&self) -> String {
-        use std::fmt::Write as _;
-        // Linear build: reserve once, push per hand (high -> low rank order).
-        let mut pbn = String::with_capacity(128);
-        let _ = write!(pbn, "[Board \"{}\"]\n[Deal \"N:", self.number);
-        for (hi, hand) in self.into_iter().enumerate() {
-            if hi != 0 {
-                pbn.push(' ');
-            }
-            for (si, holding) in hand.into_iter().enumerate() {
-                if si != 0 {
-                    pbn.push('.');
-                }
-                for card in holding {
-                    pbn.push(card.rankchar());
-                }
-            }
-        }
-        pbn.push_str("\"]");
-        pbn
-    }
-
-    /// Returns the four hands as a `Hands` struct.
-    #[must_use]
-    #[inline]
-    pub fn hands(&self) -> Hands {
-        self.hands
-    }
-
-    /// Formats the deal in LIN format (used by Bridge Base Online).
-    ///
-    /// # Parameters
-    ///
-    /// - `board_n`: Board number (automatically wraps beyond 128)
-    #[must_use]
-    #[inline]
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn as_lin(&self, board_n: u8) -> String {
-        let board_n = if board_n.is_multiple_of(MAX_N_OF_BOARDS + 1) {
-            1
-        } else {
-            board_n % (MAX_N_OF_BOARDS + 1)
-        };
-
-        let mut stringa = String::with_capacity(96);
-        {
-            use std::fmt::Write as _;
-            let _ = write!(
-                stringa,
-                "st||md|{}",
-                (((board_n % NUMBER_OF_HANDS as u8) + 1) % NUMBER_OF_HANDS as u8) + 1
-            );
-        }
-
-        for (position, hand) in self.into_iter().enumerate() {
-            if position != 0 {
-                stringa.push(',');
-            }
-            for (index, holding) in hand.into_iter().enumerate() {
-                stringa.push(match index {
-                    0 => 'S',
-                    1 => 'H',
-                    2 => 'D',
-                    3 => 'C',
-                    _ => unreachable!(),
-                });
-                // Linear push per card (high -> low); avoids quadratic
-                // `stringa = format!("{stringa}...")` reallocations.
-                for card in holding {
-                    stringa.push(card.rankchar());
-                }
-            }
-        }
-
-        let data1 = (board_n - 1) / NUMBER_OF_HANDS as u8;
-        let data2 = (board_n - 1) % NUMBER_OF_HANDS as u8;
-        let data3 = match (data1 + data2) % NUMBER_OF_HANDS as u8 {
-            0 => "o",
-            1 => "n",
-            2 => "e",
-            3 => "b",
-            _ => unreachable!(),
-        };
-        format!("{stringa}|sv|{data3}|rh||ah|Board {board_n}|")
-    }
-
-    /// Formats the deal in short (compact table) format.
-    ///
-    /// This is the default human-readable format showing all four hands
-    /// arranged around a table. Delegates to the `Hands` display: one table
-    /// layout implementation for the whole crate.
-    fn as_short(&self) -> String {
-        self.hands.to_string()
-    }
-
-    /// Formats the deal in long (verbose) format with suit symbols.
-    fn as_long(&self) -> String {
-        let west_len = self.extract_long_strlen(Seat::West);
-        let east_len = self.extract_long_strlen(Seat::East);
-        let north_len = self.extract_long_strlen(Seat::North);
-        let south_len = self.extract_long_strlen(Seat::South);
-        let ns_len = if south_len < north_len {
-            north_len
-        } else {
-            south_len
-        };
-        let width = west_len + east_len + ns_len - 2;
-
-        let mut stringa = String::with_capacity(210);
-        for line in self.hands[Seat::North].long_str().split('\n') {
-            stringa = format!("{stringa}{line:^0$}\n", width - 2 - ns_len + line.len());
-        }
-        for (line_w, line_e) in self.hands[Seat::West]
-            .long_str()
-            .split('\n')
-            .zip(self.hands[Seat::East].long_str().split('\n'))
-        {
-            stringa = format!(
-                "{stringa}{line_w:<0$}{line_e:<1$}\n",
-                width - east_len,
-                east_len
-            );
-        }
-        stringa = format!(
-            "{stringa}{}",
-            self.hands[Seat::South]
-                .long_str()
-                .split('\n')
-                .map(|string| format!("{string:^0$}", width - ns_len - 2 + string.len()))
-                .format("\n"),
-        );
-        stringa
-    }
-
-    /// Helper function to calculate display width for long format.
-    fn extract_long_strlen(&self, seat: Seat) -> usize {
-        self.hands[seat]
-            .long_str()
-            .split('\n')
-            .map(str::len)
-            .max()
-            .unwrap()
-    }
-
-    /// Returns an iterator over the four hands.
-    #[inline]
-    pub fn iter(&self) -> std::slice::Iter<'_, Hand> {
-        self.hands.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a Deal {
-    type IntoIter = std::slice::Iter<'a, Hand>;
-    type Item = &'a Hand;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl std::ops::Index<Seat> for Deal {
-    type Output = Hand;
-
-    #[inline]
-    fn index(&self, index: Seat) -> &Self::Output {
-        &self.hands[index]
-    }
-}
-
-impl std::ops::Index<usize> for Deal {
-    type Output = Hand;
-
-    #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.hands[index]
-    }
-}
-
-impl fmt::Display for Deal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_string())
-    }
-}
-
-impl IntoIterator for Deal {
-    type Item = Hand;
-    type IntoIter = std::array::IntoIter<Hand, NUMBER_OF_HANDS>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIterator::into_iter(self.hands)
     }
 }
 
@@ -2042,33 +1641,6 @@ mod tests {
         assert_eq!(Vulnerability::from_number(17), Vulnerability::None);
     }
 
-    /// Tests board numbering.
-    #[test]
-    fn test_sequential_numbering() {
-        let dealer = DealerBuilder::new().build().unwrap();
-
-        let deal1 = dealer.deal().unwrap();
-        let deal2 = dealer.deal().unwrap();
-        let deal3 = dealer.deal().unwrap();
-
-        assert_eq!(deal1.number, 1);
-        assert_eq!(deal2.number, 2);
-        assert_eq!(deal3.number, 3);
-    }
-
-    /// Tests sequential wrap-around (128 -> 1).
-    #[test]
-    fn test_sequential_numbering_wraps_after_128() {
-        let dealer = DealerBuilder::new()
-            .with_board_numbering(BoardNumbering::sequential_starting_at(128))
-            .build()
-            .unwrap();
-        let deal1 = dealer.deal().unwrap();
-        let deal2 = dealer.deal().unwrap();
-        assert_eq!(deal1.number, 128);
-        assert_eq!(deal2.number, 1);
-    }
-
     /// Dealers are shareable across simulation threads: no `Cell`, and the
     /// acceptance predicate is `Send + Sync`.
     #[test]
@@ -2104,9 +1676,9 @@ mod tests {
     #[test]
     fn test_accept_function() {
         let dealer = DealerBuilder::new()
-            .with_function(|hands: &Hands| {
+            .with_function(|deal: &Deal| {
                 // Only accept if North has at least 20 HCP
-                hands.north().hcp() >= 20
+                deal.north().hcp() >= 20
             })
             .build()
             .unwrap();
@@ -2131,13 +1703,14 @@ mod tests {
         );
     }
 
-    /// Tests PBN format output.
+    /// Tests PBN format output. A `Deal` is a hand record only; the `[Board]`
+    /// line belongs to the recorded board, not to the four hands.
     #[test]
     fn test_pbn_format() {
-        let deal = Deal::new();
+        let deal = DealerBuilder::new().build().unwrap().deal().unwrap();
         let pbn = deal.as_pbn();
 
-        assert!(pbn.contains("[Board"));
+        assert!(!pbn.contains("[Board"));
         assert!(pbn.contains("[Deal"));
     }
 
@@ -2146,15 +1719,14 @@ mod tests {
     fn test_hands_indexing() {
         let dealer = DealerBuilder::new().build().unwrap();
         let deal = dealer.deal().unwrap();
-        let hands = deal.hands();
 
-        assert_eq!(hands[Seat::North], hands.north());
-        assert_eq!(hands[Seat::East], hands.east());
-        assert_eq!(hands[Seat::South], hands.south());
-        assert_eq!(hands[Seat::West], hands.west());
+        assert_eq!(deal[Seat::North], deal.north());
+        assert_eq!(deal[Seat::East], deal.east());
+        assert_eq!(deal[Seat::South], deal.south());
+        assert_eq!(deal[Seat::West], deal.west());
 
-        assert_eq!(hands[0], hands.north());
-        assert_eq!(hands[1], hands.east());
+        assert_eq!(deal[0], deal.north());
+        assert_eq!(deal[1], deal.east());
     }
 
     /// Tests adding predealt cards incrementally.
@@ -2216,7 +1788,7 @@ mod tests {
     }
     #[test]
     fn can_deal_test() {
-        _ = Deal::new();
+        _ = DealerBuilder::new().build().unwrap().deal().unwrap();
     }
     #[test]
     #[should_panic]
@@ -2303,12 +1875,73 @@ mod tests {
         let dealer = DealerBuilder::new()
             .predeal(Seat::North, hand)
             .unwrap()
-            .with_function(Box::new(|hands: &Hands| {
-                hands.north().slen() + hands.south().slen() > 8
+            .with_function(Box::new(|deal: &Deal| {
+                deal.north().slen() + deal.south().slen() > 8
             }))
             .build()
             .unwrap();
         let deal = dealer.deal().unwrap();
         assert!(deal.north().slen() + deal.south().slen() > 8);
+    }
+
+    /// One hand per suit: a valid partition with no duplicates.
+    fn sample_deal() -> [Hand; 4] {
+        [
+            Hand::from_str("SAKQJT98765432").expect("spades hand parses"),
+            Hand::from_str("HAKQJT98765432").expect("hearts hand parses"),
+            Hand::from_str("DAKQJT98765432").expect("diamonds hand parses"),
+            Hand::from_str("CAKQJT98765432").expect("clubs hand parses"),
+        ]
+    }
+
+    #[test]
+    fn deal_new_accepts_valid_partition() {
+        let deal = Deal::new(sample_deal()).expect("one suit per seat is a valid deal");
+        for seat in Seat::iter() {
+            assert_eq!(deal[seat].cards().len(), 13);
+        }
+    }
+
+    #[test]
+    fn deal_new_rejects_wrong_hand_size() {
+        let mut hands = sample_deal();
+        hands[Seat::South as usize] =
+            Hand::try_from(Cards::from_str("DAKQJT9876543").expect("12 diamonds parse"))
+                .expect("12 cards fit in a hand");
+        assert_eq!(
+            Deal::new(hands),
+            Err(DealError::WrongHandSize {
+                seat: Seat::South,
+                len: 12,
+            })
+        );
+    }
+
+    #[test]
+    fn deal_new_rejects_duplicated_card() {
+        let repeated = sample_deal()[Seat::North as usize];
+        let hands = [repeated; 4];
+        assert!(matches!(
+            Deal::new(hands),
+            Err(DealError::DuplicatedCard(_))
+        ));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn deal_deserialize_round_trips_through_validation() {
+        let deal = Deal::new(sample_deal()).expect("valid deal");
+        let json = serde_json::to_string(&deal).expect("deal serializes");
+        let parsed: Deal = serde_json::from_str(&json).expect("deal deserializes");
+        assert_eq!(parsed, deal);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn deal_deserialize_rejects_corrupt_partition() {
+        // Four copies of one hand: each holds 13 cards, but every card repeats.
+        let corrupt = [sample_deal()[Seat::North as usize]; 4];
+        let json = serde_json::to_string(&corrupt).expect("hands serialize");
+        assert!(serde_json::from_str::<Deal>(&json).is_err());
     }
 }

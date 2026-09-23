@@ -1105,7 +1105,7 @@ mod tests {
         let contract = deal.contract().unwrap();
         let play_sequence = deal.play_sequence().unwrap();
         let players = file.players();
-        let hands = deal.hands();
+        let hands = Deal::from_hands_unchecked(deal.hands());
         let bidding = deal.bidding();
         println!(
             "Players: {} Dealer: {} Contract: {contract}\n {hands}\nBidding: {bidding}\nPlay sequence:\n{play_sequence}",

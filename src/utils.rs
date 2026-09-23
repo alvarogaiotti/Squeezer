@@ -180,13 +180,12 @@ pub fn dealer_of_lavazza_3nt_opening(seat: Option<Seat>) -> impl Dealer {
         .expect("fixed Lavazza shape pattern parses")
         .build()
         .expect("fixed Lavazza constraint is non-empty");
-    let builder = DealerBuilder::new().with_function(Box::new(move |hands: &Hands| {
+    let builder = DealerBuilder::new().with_function(Box::new(move |deal: &Deal| {
         if let Some(seat) = seat {
-            hand_type.check(hands[seat as usize])
-                && (26..33).contains(&zar_points(hands[seat as usize]))
+            hand_type.check(deal[seat as usize])
+                && (26..33).contains(&zar_points(deal[seat as usize]))
         } else {
-            hands
-                .iter()
+            deal.iter()
                 .any(|hand| hand_type.check(*hand) && (26..33).contains(&zar_points(*hand)))
         }
     }));

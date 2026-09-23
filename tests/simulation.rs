@@ -25,7 +25,7 @@ fn simulation() {
         .unwrap()
         .with_hand_constraint(Seat::South, south_specs)
         .with_hand_constraint(Seat::West, west_spec)
-        .with_function(|hands: &Hands| hands.south().spades().high_card_points() > 2)
+        .with_function(|deal: &Deal| deal.south().spades().high_card_points() > 2)
         .build()
         .unwrap();
     let deal = dealer.deal().unwrap();

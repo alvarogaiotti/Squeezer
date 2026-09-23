@@ -944,7 +944,7 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
             "card payoff",
             |deal, deal_index, out| {
                 for acc in &accumulators {
-                    let mut hands = deal.hands();
+                    let mut hands = *deal.hands();
 
                     // Remove already played cards and the card being tested
                     let played_cards_after_new_card = play_trace_cards.insert(acc.card);
@@ -958,7 +958,7 @@ impl<D: Dealer> Simulation for CardPayoffSimulation<D> {
 
                     out.push(finish_deal(
                         DdsDealBuilder::new()
-                            .remain_cards(hands.as_dds_deal())
+                            .remain_cards(Deal::from_hands_unchecked(hands).as_dds_deal())
                             .current_trick(current_trick)
                             .contract(&self.contract)
                             .first(self.seat.into()),
