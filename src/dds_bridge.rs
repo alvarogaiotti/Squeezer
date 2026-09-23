@@ -9,7 +9,9 @@
 
 use crate::prelude::*;
 use dds::analyseplay::PlayTraceBin;
-use dds::deal::{AsDDSDeal, DDSDealRepr, DdsHandEncoding};
+use dds::deal::{
+    AsDDSDeal, ConstructDdsDealError, DDSDealRepr, DdsDeal, DdsDealBuilder, DdsHandEncoding,
+};
 use dds::utils::{BuildSequenceError, RankSeq, SEQUENCE_LENGTH, SuitSeq};
 
 impl From<Seat> for DdsHandEncoding {
@@ -36,6 +38,42 @@ impl AsDDSDeal for Deal {
             }
         }
         remain_cards.into()
+    }
+}
+
+impl TryFrom<&Position> for DdsDeal {
+    type Error = ConstructDdsDealError;
+
+    /// Builds DDS's raw solver input for a partially played [`Position`].
+    ///
+    /// DDS's `first` names the *leader of the current trick*, not the seat to
+    /// play next: it attributes `currentTrickSuit`/`currentTrickRank` entries
+    /// to `first`, `first + 1`, ... (`HAND_ID` in `init.cpp`). For an opening
+    /// lead the two coincide; for a partial trick the leader is the seat that
+    /// played the first card still on the table.
+    fn try_from(position: &Position) -> Result<Self, Self::Error> {
+        let mut remain_cards = [[0u32; 4]; 4];
+        for (seat, cards) in position.hands().iter().enumerate() {
+            for card in *cards {
+                remain_cards[seat][usize::from(card.suit())] |= 1u32 << card.rank();
+            }
+        }
+
+        let mut current_trick = [None; 3];
+        for (index, play) in position.table().iter().enumerate() {
+            current_trick[index] = Some(play.card);
+        }
+        let leader = position
+            .table()
+            .first()
+            .map_or(position.to_play(), |play| play.seat);
+
+        DdsDealBuilder::new()
+            .trump(position.trump().into())
+            .first(leader.into())
+            .remain_cards(DDSDealRepr::from(remain_cards))
+            .current_trick(current_trick)
+            .build()
     }
 }
 

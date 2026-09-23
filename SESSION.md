@@ -66,6 +66,29 @@
 - `Playthrough::new` starts at index 0 (before the opening lead); the design
   never fixed a starting index, so this is an unforced choice a later ticket
   could revisit if callers want the cursor to begin at the current play.
+- `dds/src/deal.rs` documents `DdsDeal::current_trick_rank` and
+  `DDSCurrTrickRank` as rank *bit-flags*, but DDS reads them as sequential
+  ranks 2..14: `init.cpp` does `bit_map_rank[dl.currentTrickRank[k]]` and
+  `bit_map_rank` is indexed by absolute rank. `DdsDealBuilder::current_trick`
+  already writes sequential ranks (via `DdsRank::new`), so the code is right
+  and the docs are wrong; fix the comments when the batch surface is reworked.
+- The blanket `impl<S: Solver + Send + Sync> ContextFactory for S` gives every
+  concrete solver two `new_context` methods with different return types, so
+  `my_solver.new_context()` is ambiguous and callers must write
+  `Solver::new_context(&my_solver)` or go through a `Box<dyn ContextFactory>`.
+  The shared name is mandated by the design (ADR-0005); a future rename of one
+  of the two would remove the footgun.
+- The cold capability traits in `src/solver` have no implementor yet: the DDS
+  backend should be wired to `DdTableCalculator`/`ParCalculator` with tickets
+  10/11 and to `PlayAnalyser` with ticket 13, alongside those traits' first
+  consumers.
+- `SolverPool` reuses one context per rayon *job*, not per worker: `map_init`
+  calls the initializer for each chunk, so a stolen chunk creates an extra
+  context and the design's "one context per worker, reused across the run" is
+  only approximated. `with_min_len` keeps the count near the worker count and
+  `workers × TT-cap` still bounds *instantaneous* memory, but true per-worker
+  reuse would need a thread-local/per-worker context table. Revisit in ticket
+  04/10 if the approximation hurts TT warmth or memory.
 
 ## Resolved
 

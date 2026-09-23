@@ -4,6 +4,7 @@
 #[cfg(feature = "lin")]
 use crate::linparser::ParseLinError;
 use crate::prelude::{ConstraintError, CreationShapeError, DealerError};
+use crate::solver::SolverError;
 use std::error::Error;
 
 /// Error wrapper for the entire library, so we expose just this one at the highest level.
@@ -17,6 +18,9 @@ pub enum SqueezerError {
     CreationShape(CreationShapeError),
     ConstraintError(ConstraintError),
     DealingError(DealerError),
+    /// A backend-agnostic solver failure; feature-independent, so the core
+    /// error never names DDS (ticket 12 will restructure this boundary).
+    Solver(SolverError),
     #[cfg(feature = "dds")]
     DDSError(dds::ddserror::DdsError),
     #[cfg(feature = "dds")]
@@ -32,6 +36,7 @@ impl Error for SqueezerError {
             SqueezerError::CreationShape(err) => Some(err),
             SqueezerError::ConstraintError(err) => Some(err),
             SqueezerError::DealingError(err) => Some(err),
+            SqueezerError::Solver(err) => Some(err),
             #[cfg(feature = "dds")]
             SqueezerError::DDSError(err) => Some(err),
             #[cfg(feature = "dds")]
@@ -69,6 +74,12 @@ impl From<DealerError> for SqueezerError {
 impl From<ConstraintError> for SqueezerError {
     fn from(value: ConstraintError) -> Self {
         Self::ConstraintError(value)
+    }
+}
+
+impl From<SolverError> for SqueezerError {
+    fn from(value: SolverError) -> Self {
+        Self::Solver(value)
     }
 }
 

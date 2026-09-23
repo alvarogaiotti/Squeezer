@@ -131,6 +131,9 @@ mod shape;
 mod shapeparser;
 #[cfg(feature = "dds")]
 pub mod simulation;
+/// Backend-agnostic double-dummy solver seam; feature-independent, so the core
+/// builds without the native `dds` library.
+pub mod solver;
 mod utils;
 
 pub mod prelude {
@@ -163,6 +166,7 @@ pub mod prelude {
     pub use crate::shapeparser::*;
     #[cfg(feature = "dds")]
     pub use crate::simulation::*;
+    pub use crate::solver::*;
     pub use crate::utils::*;
     pub(crate) use itertools::Itertools;
     pub use std::str::FromStr;
