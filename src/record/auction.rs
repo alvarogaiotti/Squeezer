@@ -259,6 +259,11 @@ impl Auction {
 
     /// Checks that the calls form a legal auction in four-seat rotation.
     ///
+    /// A double is legal only immediately after an opponent's bid, and a
+    /// redouble only immediately after an opponent's double; passes do not
+    /// change the entitlement. `NonStarter` is reserved for a double or
+    /// redouble that opens the auction with no prior call.
+    ///
     /// # Errors
     ///
     /// Returns [`AuctionError`] when the auction opens with a double or
@@ -266,8 +271,9 @@ impl Auction {
     /// is made by a side not entitled to it.
     pub fn validate(&self, dealer: Seat) -> Result<(), AuctionError> {
         let mut highest_bid: Option<Call> = None;
-        let mut last_bid_seat: Option<Seat> = None;
-        let mut last_double_seat: Option<Seat> = None;
+        // The most recent non-pass call and the seat that made it; this is what
+        // decides whether the next double or redouble is entitled.
+        let mut last_non_pass: Option<(Call, Seat)> = None;
 
         for (index, recorded) in self.calls.iter().enumerate() {
             let seat = dealer + index;
@@ -290,41 +296,47 @@ impl Auction {
                         }
                     }
                     highest_bid = Some(bid);
-                    last_bid_seat = Some(seat);
-                    last_double_seat = None;
+                    last_non_pass = Some((bid, seat));
                 }
                 Call::Double => {
-                    let Some(bidder) = last_bid_seat else {
-                        return Err(AuctionError::NonStarter {
-                            call: recorded.call,
-                            seat,
-                        });
-                    };
-                    if last_double_seat.is_some() || seat.is_same_line(&bidder) {
-                        return Err(AuctionError::IllegalDouble {
-                            call: recorded.call,
-                            seat,
+                    let entitled = matches!(
+                        last_non_pass,
+                        Some((Call::Bid { .. }, bidder)) if !seat.is_same_line(&bidder)
+                    );
+                    if !entitled {
+                        return Err(if last_non_pass.is_none() {
+                            AuctionError::NonStarter {
+                                call: recorded.call,
+                                seat,
+                            }
+                        } else {
+                            AuctionError::IllegalDouble {
+                                call: recorded.call,
+                                seat,
+                            }
                         });
                     }
-                    last_double_seat = Some(seat);
+                    last_non_pass = Some((recorded.call, seat));
                 }
                 Call::Redouble => {
-                    let Some(doubler) = last_double_seat else {
-                        return Err(AuctionError::NonStarter {
-                            call: recorded.call,
-                            seat,
-                        });
-                    };
-                    if seat.is_same_line(&doubler) {
-                        return Err(AuctionError::IllegalDouble {
-                            call: recorded.call,
-                            seat,
+                    let entitled = matches!(
+                        last_non_pass,
+                        Some((Call::Double, doubler)) if !seat.is_same_line(&doubler)
+                    );
+                    if !entitled {
+                        return Err(if last_non_pass.is_none() {
+                            AuctionError::NonStarter {
+                                call: recorded.call,
+                                seat,
+                            }
+                        } else {
+                            AuctionError::IllegalDouble {
+                                call: recorded.call,
+                                seat,
+                            }
                         });
                     }
-                    // After a redouble neither side may double again until a
-                    // new bid reopens the auction.
-                    last_bid_seat = None;
-                    last_double_seat = None;
+                    last_non_pass = Some((recorded.call, seat));
                 }
             }
         }
@@ -457,5 +469,34 @@ mod tests {
         assert_eq!(contract.declarer(), Seat::North);
         assert_eq!(contract.level(), 1);
         assert_eq!(contract.strain(), Strain::Spades);
+    }
+
+    #[test]
+    fn doubling_after_a_redouble_is_illegal_not_a_non_starter() {
+        // N 1S, E doubles, S redoubles, W doubles: W is not entitled, but the
+        // auction did have a prior call, so this is an illegal double.
+        let auction = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            RecordedCall::new(Call::Redouble),
+            RecordedCall::new(Call::Double),
+        ]);
+        assert!(matches!(
+            auction.validate(Seat::North),
+            Err(AuctionError::IllegalDouble { .. })
+        ));
+    }
+
+    #[test]
+    fn redoubling_without_a_double_is_illegal_not_a_non_starter() {
+        // N 1S, E redoubles: there was a prior bid, so it is not a non-starter.
+        let auction = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Redouble),
+        ]);
+        assert!(matches!(
+            auction.validate(Seat::North),
+            Err(AuctionError::IllegalDouble { .. })
+        ));
     }
 }

@@ -120,9 +120,12 @@ pub struct Deal {
 
 /// Why a set of four hands is not a valid bridge deal.
 ///
-/// The only invariant a [`Deal`] carries is the 52-card partition: each seat
-/// holds exactly 13 distinct cards, and the four hands together hold the whole
-/// deck. This error reports a violation of that invariant.
+/// The only invariant a [`Deal`] carries is the 52-card partition. It is
+/// checked as two conditions — each seat holds exactly 13 cards, and no card
+/// appears in two hands — which together already imply the third condition,
+/// that the four hands cover the whole deck: 4 × 13 = 52 pairwise-distinct
+/// cards can only be the 52-card deck. There is therefore no separate
+/// "missing card" failure to report.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -136,8 +139,6 @@ pub enum DealError {
     },
     /// The same card appears in more than one hand.
     DuplicatedCard(Card),
-    /// A card from the deck is missing from every hand.
-    MissingCard(Card),
 }
 
 impl std::fmt::Display for DealError {
@@ -147,7 +148,6 @@ impl std::fmt::Display for DealError {
                 write!(f, "{seat} holds {len} cards, expected 13")
             }
             Self::DuplicatedCard(card) => write!(f, "card {card} appears in more than one hand"),
-            Self::MissingCard(card) => write!(f, "card {card} is missing from the deal"),
         }
     }
 }
@@ -157,10 +157,13 @@ impl std::error::Error for DealError {}
 impl Deal {
     /// Creates a deal from four hands, validating the 52-card partition.
     ///
+    /// Every seat must hold exactly 13 cards and no card may appear twice; as
+    /// documented on [`DealError`], those two conditions already imply the four
+    /// hands cover the whole deck.
+    ///
     /// # Errors
     ///
-    /// Returns [`DealError`] unless every seat holds exactly 13 distinct cards
-    /// and the four hands together hold all 52 cards.
+    /// Returns [`DealError`] unless every seat holds exactly 13 distinct cards.
     pub fn new(hands: [Hand; 4]) -> Result<Self, DealError> {
         for (index, hand) in hands.iter().enumerate() {
             let len = hand.cards().len();
@@ -173,7 +176,7 @@ impl Deal {
         }
 
         // Fold the four hands into one bitboard, reporting the first card that
-        // was already seen. This avoids materialising a separate deck.
+        // was already seen.
         let mut seen = Cards::EMPTY;
         for hand in &hands {
             for card in hand.cards() {
@@ -182,12 +185,6 @@ impl Deal {
                 }
                 seen = seen.insert(card);
             }
-        }
-
-        if seen.len() != 52
-            && let Some(card) = Cards::ALL.difference(seen).into_iter().next()
-        {
-            return Err(DealError::MissingCard(card));
         }
 
         Ok(Self { hands })
@@ -364,6 +361,18 @@ impl Deal {
     }
 }
 
+impl TryFrom<[Hand; 4]> for Deal {
+    type Error = DealError;
+
+    /// Validates the four hands via [`Deal::new`].
+    ///
+    /// This is the named conversion that [`Deal`]'s `Deserialize` goes
+    /// through.
+    fn try_from(hands: [Hand; 4]) -> Result<Self, Self::Error> {
+        Self::new(hands)
+    }
+}
+
 #[cfg(feature = "serde")]
 impl serde::Serialize for Deal {
     /// Serializes the deal as its four hands, mirroring the array shape that
@@ -378,14 +387,15 @@ impl serde::Serialize for Deal {
 
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Deal {
-    /// Deserializes four hands and re-checks the partition via [`Deal::new`], so
-    /// a standalone deserialized `Deal` cannot carry corruption.
+    /// Deserializes four hands and re-checks the partition through
+    /// [`TryFrom`], so a standalone deserialized `Deal` cannot carry
+    /// corruption.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let hands = <[Hand; 4]>::deserialize(deserializer)?;
-        Deal::new(hands).map_err(serde::de::Error::custom)
+        Deal::try_from(hands).map_err(serde::de::Error::custom)
     }
 }
 
@@ -1707,7 +1717,11 @@ mod tests {
     /// line belongs to the recorded board, not to the four hands.
     #[test]
     fn test_pbn_format() {
-        let deal = DealerBuilder::new().build().unwrap().deal().unwrap();
+        let deal = DealerBuilder::new()
+            .build()
+            .expect("unconstrained dealer builds")
+            .deal()
+            .expect("unconstrained dealer deals");
         let pbn = deal.as_pbn();
 
         assert!(!pbn.contains("[Board"));
@@ -1788,7 +1802,11 @@ mod tests {
     }
     #[test]
     fn can_deal_test() {
-        _ = DealerBuilder::new().build().unwrap().deal().unwrap();
+        _ = DealerBuilder::new()
+            .build()
+            .expect("unconstrained dealer builds")
+            .deal()
+            .expect("unconstrained dealer deals");
     }
     #[test]
     #[should_panic]
