@@ -39,6 +39,10 @@
 - `dds_bridge::TryFrom<&PlayRecord> for PlayTraceBin` has no caller yet; ticket
   07/13 should route the analysis port through `PlayRecord` and drop
   `PlaySequence`.
+- The LIN DTOs (`LinDeal`, `LinBidding`, `RecordedBid`, `PlaySequence`) were
+  kept in ticket 05 because deleting them forces the full parser rework; ticket
+  07 deletes them and rewires the parser to build `Board`/`Auction`/
+  `PlayRecord`. `LinDeal` now stores `[Hand; 4]`.
 - Pre-existing clippy warnings: `decimal_bitwise_operands` at
   `src/performance_analysis.rs:834` (test code), plus ~10 warnings in the
   `dds` crate (`cast_possible_*`, `large_stack_arrays`, …).
