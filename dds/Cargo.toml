@@ -2,7 +2,8 @@
 name = "dds"
 version = "0.1.0"
 edition = "2024"
-#build = "build.rs"
+build = "build.rs"
+links = "dds"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
