@@ -110,6 +110,10 @@ pub struct Board {
 impl Board {
     /// Builds a board, validating the cross-part consistency of what is present.
     ///
+    /// An empty [`PlayRecord`] is normalised to `None`: it carries no
+    /// information, and LIN cannot distinguish it from no play (both write no
+    /// `pc|` tags), so keeping `Some(empty)` would break the round trip.
+    ///
     /// # Errors
     ///
     /// Returns [`BoardError`] when the auction is illegal, a stored contract or
@@ -149,6 +153,11 @@ impl Board {
                 });
             }
         }
+
+        // An empty play is no play: normalising it here keeps `Some(empty)` from
+        // being a second, indistinguishable representation that the writers and
+        // importer would collapse anyway.
+        let play = play.filter(|play| !play.is_empty());
 
         if let Some(play) = &play {
             if play.len() > 52 {
@@ -404,6 +413,17 @@ mod tests {
             .expect("a bare deal is a valid board");
         assert_eq!(board.number(), None);
         assert!(board.auction().is_none());
+    }
+
+    #[test]
+    fn empty_play_normalises_to_no_play() {
+        // `Some(empty)` and `None` are indistinguishable in LIN, so the
+        // constructor collapses the former onto the latter.
+        let board = Board::builder(sample_deal(), Seat::North, Vulnerability::None)
+            .play(PlayRecord::new(vec![]))
+            .build()
+            .expect("an empty play is valid");
+        assert_eq!(board.play(), None);
     }
 
     #[test]

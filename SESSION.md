@@ -158,6 +158,39 @@
   `Player`, `Claim`, `Board`, `Metadata`) that ticket 08/12 will likely absorb
   into the crate-wide error model; it is currently only consumed by the
   importer's own tests.
+- An empty `Auction` (`Some(Auction::new(vec![]))`) cannot survive a LIN round
+  trip: the writer emits no `mb|` lines and the importer reconstructs `None`.
+  `Board::new` permits the empty auction, so the model is wider than the
+  format. The round-trip property generator avoids it; a future writer could
+  reject or document it. (The analogous empty `PlayRecord` was fixed: `Board::new`
+  now normalises `Some(empty)` to `None`.)
+- `LinFile::write_lin` comma-joins `vg|`/`rs|`/`pn|` fields and the importer
+  splits on `,`, so a player name, team or result containing a comma re-parses
+  as extra fields. LIN has no escaping, so this is inherently lossy; documented
+  on the writer, and the fixture round-trip test only covers comma-free values.
+- A `Board` with `contract: Some` but `auction: None`, or a `PlayRecord` whose
+  seats do not follow the contract's leader/`trick_winner` rotation, also cannot
+  round-trip through LIN: the format derives the contract from the auction and
+  attributes seats by rotation. `Board::new` accepts these, so LIN output is
+  lossy for them (as the module docs say); a PBN board writer (deferred) could
+  carry the contract explicitly.
+- `Card::from_str` is order-sensitive and silently defaults the suit to spades:
+  `"3C"` parses as the three of *spades* (the `'3'` sets the card under the
+  current suit before `'C'` changes it), while `"C3"` is the intended three of
+  clubs. LIN's `pc|` cards must be written suit-first; this is a footgun worth
+  fixing or documenting in `card.rs`.
+- The design ticket's LIN sketch writes `sv|…|rh||ah|Board N|` (vulnerability
+  before the board-number tag), but the importer and the real BBO fixtures put
+  `rh||ah|Board N|` before `sv|`. Ticket 08's writer follows the parser and the
+  fixtures; the sketch is the inaccurate side.
+- The PBN board writer remains deferred per design ticket 07: only
+  `Deal::as_pbn`/`write_pbn` (the hand record) exist, and `Board` has no
+  `as_pbn`/`write_pbn`. A future ticket adding the PBN parser should land the
+  board writer beside it so the two agree.
+- The quickcheck round-trip property's `AnyBoard` has no `shrink`
+  implementation, so a failure reports "No Arguments Provided" instead of the
+  offending board. Implementing `shrink` (or returning a `TestResult` that
+  embeds the board) would make future failures debuggable.
 
 ## Resolved
 

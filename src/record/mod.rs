@@ -13,6 +13,7 @@ pub mod board;
 pub mod deal;
 pub mod play;
 pub mod position;
+pub mod serialize;
 
 pub use auction::*;
 pub use board::*;
