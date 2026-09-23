@@ -68,3 +68,8 @@ required-features = ["dds", "lin"]
 [[test]]
 name = "performance_analysis_test"
 required-features = ["dds", "lin"]
+
+# The importer is gated on `lin`; without it `linparser` does not exist.
+[[test]]
+name = "lin_parser"
+required-features = ["lin"]

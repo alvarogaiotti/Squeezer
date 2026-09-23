@@ -55,7 +55,7 @@ impl std::error::Error for PositionError {}
 /// A card can only win by being a trump or by following the led suit; among
 /// cards of the same class the higher rank wins, and any trump beats any
 /// non-trump. `trick` must be a complete trick, led by its first play.
-fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
+pub(crate) fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
     debug_assert_eq!(trick.len(), 4, "a completed trick has four plays");
     let led = trick[0].card.suit();
     let trump = Suit::try_from(trump).ok();

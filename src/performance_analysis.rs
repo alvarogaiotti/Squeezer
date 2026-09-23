@@ -16,7 +16,7 @@
 //! 4. **Cache-friendly**: Preprocessed data is contiguous and aligned
 #![allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
 
-use crate::{linparser::PlaySequence, prelude::*};
+use crate::prelude::*;
 use dds::analyseplay::SolvedPlay;
 use std::fmt;
 
@@ -730,7 +730,7 @@ fn evaluate_play(prev_tricks: i32, curr_tricks: i32) -> CardResult {
 #[derive(Debug, Clone)]
 pub struct AnalysisInput {
     pub contract: Contract,
-    pub play_sequence: PlaySequence,
+    pub play_sequence: PlayRecord,
     pub dd_results: SolvedPlay,
 }
 
@@ -744,10 +744,11 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
     let trump = Suit::try_from(contract.strain()).ok();
 
     let mut cards_array: [Card; 48] = [Card::NONCE; 48];
-    let seq_len = input.play_sequence.sequence.len();
+    let seq_len = input.play_sequence.len();
     let tricks_to_analyze = seq_len / 4;
     let extra_cards = seq_len % 4;
-    cards_array[0..seq_len].copy_from_slice(&input.play_sequence.sequence);
+    let played_cards: Vec<Card> = input.play_sequence.cards().collect();
+    cards_array[0..seq_len].copy_from_slice(&played_cards);
 
     let mut records = [
         PlayerRecord::new(),
@@ -977,6 +978,25 @@ mod tests {
         }
     }
 
+    /// Attributes an ordered card list to seats, trick by trick, so the test
+    /// exercises `PlayRecord` data rather than a bare card sequence.
+    fn record_with_seats(cards: &[Card], contract: Contract) -> PlayRecord {
+        let mut plays = Vec::new();
+        let mut leader = contract.leader();
+        for trick in cards.chunks(4) {
+            let grouped: Vec<Play> = trick
+                .iter()
+                .enumerate()
+                .map(|(offset, &card)| Play::new(leader + offset, card))
+                .collect();
+            if grouped.len() == 4 {
+                leader = crate::record::position::trick_winner(&grouped, contract.strain());
+            }
+            plays.extend(grouped);
+        }
+        PlayRecord::new(plays)
+    }
+
     #[test]
     #[allow(clippy::too_many_lines)]
     fn test_analyse_players_performance() {
@@ -994,7 +1014,7 @@ mod tests {
         //  H7  HT  HJ  HQ*
         //  S5  S8  SK* H9
         //  S6  CJ  C7  CT
-        let play_seq = PlaySequence::new(vec![
+        let cards = vec![
             Card::new(Suit::Spades, 2), // N
             Card::new(Suit::Spades, 3),
             Card::new(Suit::Spades, 4),
@@ -1019,7 +1039,8 @@ mod tests {
             Card::new(Suit::Clubs, 10),
             Card::new(Suit::Spades, 6), // Winner N
             Card::new(Suit::Clubs, 11),
-        ]);
+        ];
+        let play_seq = record_with_seats(&cards, contract);
         let solved_play = SolvedPlay::from_seq(vec![
             7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 9,
         ]);
@@ -1100,27 +1121,27 @@ mod tests {
         //let lin = "qx|c37|st||md|3SKJT2HK84DA6CAT75,S54HJT7532DK97C84,SAQ763H96DQJ54CKJ,S98HAQDT832CQ9632|rh||ah|Board 1|sv|n|mb|1S|mb|p|mb|2N|mb|p|mb|3C|mb|p|mb|3D|mb|p|mb|3S|mb|p|mb|3N|mb|p|mb|4D|mb|p|mb|4H|mb|p|mb|4S|mb|p|mb|p|mb|p|pc|c2";
         //let lin = "qx|o47|st||md|1SJ852HADKT742CJT5,SAT96HJ6D3CAK8743,SK743HK8543DQJ5CQ,SQHQT972DA986C962|rh||ah|Board 1|sv|n|mb|p|mb|1C|mb|d|mb|1H|mb|d|an|t/o|mb|2C|mb|2S|mb|3C|mb|3S|mb|p|mb|p|mb|p|pc|c2|pc|c5|pc|cA|pc|cQ|pg||pc|c3|pc|s3|pc|c6|pc|cT|pg||pc|h4|pc|h2|pc|hA|pc|h6|pg||pc|s2|pc|s6|pc|sK|pc|sQ|pg||pc|hK|pc|h7|pc|cJ|pc|hJ|pg||pc|dQ|pc|dA|pc|d2|pc|d3|pg||pc|hQ|pc|s5|pc|s9|pc|h3|pg||pc|cK|pc|s4|pc|c9|pc|d4|pg||pc|dJ|pc|d6|pc|d7|mc|8|pg||";
         let file = crate::linparser::LinFile::from_str(lin).unwrap();
-        let deal = file.deals.first().unwrap();
+        let board = file.boards.first().unwrap();
         let dds_solver = dds::doubledummy::DoubleDummySolver::new();
-        let contract = deal.contract().unwrap();
-        let play_sequence = deal.play_sequence().unwrap();
+        let contract = board.contract().unwrap();
+        let play_record = board.play().unwrap();
         let players = file.players();
-        let hands = Deal::from_hands_unchecked(deal.hands());
-        let bidding = deal.bidding();
+        let hands = board.deal();
+        let auction = board.auction().unwrap();
         println!(
-            "Players: {} Dealer: {} Contract: {contract}\n {hands}\nBidding: {bidding}\nPlay sequence:\n{play_sequence}",
+            "Players: {} Dealer: {} Contract: {contract}\n {hands}\nAuction: {auction:?}\nPlay record:\n{play_record:?}",
             players.iter().format(", "),
-            deal.dealer(),
+            board.dealer(),
         );
-        let dds_playsequence = play_sequence.try_into().unwrap();
+        let dds_playsequence = play_record.try_into().unwrap();
         println!("{dds_playsequence:?}");
         let solved = dds_solver
-            .analyze_play(deal, &contract, dds_playsequence)
+            .analyze_play(hands, &contract, dds_playsequence)
             .unwrap();
         println!("{solved:?}");
         let analysis_input = AnalysisInput {
             contract,
-            play_sequence: play_sequence.clone(),
+            play_sequence: play_record.clone(),
             dd_results: solved,
         };
         let p_performance = analyze_hand(analysis_input);

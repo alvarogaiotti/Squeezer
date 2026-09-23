@@ -2,7 +2,6 @@
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use dds::analyseplay::SolvedPlay;
 use rand::{Rng, rng};
-use squeezer::linparser::PlaySequence;
 use squeezer::performance_analysis::AnalysisInput;
 use squeezer::performance_analysis::PreprocessedDeal;
 use squeezer::performance_analysis::analyze_hand;
@@ -110,8 +109,14 @@ fn benchmark_full_hand_analysis(c: &mut Criterion) {
     // Generate a complete hand with mock data
     let cards = generate_random_cards();
 
-    // Create a mock PlaySequence (you'll need to adjust based on your actual type)
-    let play_sequence = PlaySequence::from_iter(cards.iter().copied());
+    // `analyze_hand` only reads the cards, so the seat attribution is arbitrary.
+    let play_sequence = PlayRecord::new(
+        cards
+            .iter()
+            .enumerate()
+            .map(|(index, &card)| Play::new(Seat::from(index), card))
+            .collect(),
+    );
 
     // Create mock DD results (initial state + 4 results per trick = 49 values)
     let mut dd_results = Vec::with_capacity(49);

@@ -140,6 +140,24 @@
 - `dds::utils::dd_score` was deleted with the batch surface. A future
   score-from-deal helper should go through the seam's `SolverContext`, not a
   fresh DDS solver.
+- `linparser::LinMetadata` stores rooms as `rooms: Vec<Option<Room>>`
+  parallel to `boards`, because `Board` has no room field and LIN's `qx|` is
+  per-board (design ticket 02 says "room", singular). If a file-level room is
+  really wanted, collapse the vec; ticket 08's `LinFile::as_lin` should decide
+  which it consumes.
+- The `md|` dealer/hand-order mismatch is now one-sided: the importer reads
+  real LIN (`<dealer digit 1=S..4=E>` followed by hands `S,W,N,E`, fourth
+  omitted hand = remainder), while `Deal::as_lin` still emits `[N,E,S,W]` with
+  a dealer digit derived from the board number. Ticket 08 must fix the writer
+  (`Deal::as_lin`/`Board::as_lin`), not the parser.
+- `linparser` needs a derivable contract to attribute `pc|` seats (it reuses
+  `record::position::trick_winner`, now `pub(crate)`); a board with a play but
+  no auction fails at import rather than guessing a leader. The `PlayRecord`
+  type itself is contract-free; this is only the LIN importer's constraint.
+- `linparser::ParseLinErrorKind` is a categorised taxonomy (including
+  `Player`, `Claim`, `Board`, `Metadata`) that ticket 08/12 will likely absorb
+  into the crate-wide error model; it is currently only consumed by the
+  importer's own tests.
 
 ## Resolved
 
