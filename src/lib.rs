@@ -18,7 +18,7 @@
     clippy::needless_doctest_main
 )]
 /*!This crate offers you every tool you might need for Bridge (the card game) related stuff.
- We support some variegated functionality: random single deal creation (via [`Deal::new()`]),
+ We support some variegated functionality: random single deal creation (via [`DealerBuilder`]),
  creation of specific deals (via a [`DealerBuilder`] and all its related method, giving you a
  [`Dealer`] with all the feature you asked for), predealing etc.
  We provide you, under a feature flag (`dds`) various tools for analyzing playes, calculating
