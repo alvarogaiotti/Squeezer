@@ -13,3 +13,9 @@ Cargo.lock
 .replit*
 dds/target
 hash_testing.py
+
+# Local working directories and third-party reference checkouts; not part of
+# the crate. The issue tracker lives in `.scratch/` locally.
+/.scratch/
+/tmp/
+/references/
