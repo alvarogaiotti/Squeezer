@@ -1,10 +1,14 @@
+pub mod card_ev;
 pub mod core;
+pub mod denomination;
 pub mod formatters;
 pub mod lead;
 pub mod payoff;
 mod solver;
 
+pub use card_ev::*;
 pub use core::*;
+pub use denomination::*;
 pub use formatters::*;
 pub use lead::*;
 pub use payoff::*;

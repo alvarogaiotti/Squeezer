@@ -38,7 +38,6 @@
 //! # }
 //! ```
 
-use super::{opening_position, solve_all_cards_pool};
 use crate::prelude::*;
 use std::collections::HashMap;
 
@@ -67,6 +66,40 @@ impl RawLeadData {
             cards: Vec::new(),
             contract,
         }
+    }
+
+    /// Derives lead results from a card evaluation at the opening position.
+    ///
+    /// Each card's distribution is the side-to-play trick histogram (the
+    /// opening leader is a defender, so this is the defenders' trick count).
+    /// `store_deal_details` keeps one detail entry per deal.
+    #[must_use]
+    pub fn from_evaluation(
+        evaluation: &CardEvaluation,
+        contract: Contract,
+        store_deal_details: bool,
+    ) -> Self {
+        let mut raw = Self::new(contract);
+        raw.cards = evaluation
+            .values
+            .iter()
+            .map(|value| {
+                let mut result = if store_deal_details {
+                    CardLeadResult::with_deal_details(value.card, value.deals.len())
+                } else {
+                    CardLeadResult::new(value.card)
+                };
+                for outcome in &value.deals {
+                    let deal_index = store_deal_details.then_some(outcome.deal_index);
+                    result.record_tricks(outcome.dd_tricks, deal_index);
+                }
+                result
+            })
+            .collect();
+        // Sort cards for consistent ordering (by suit and rank).
+        raw.cards
+            .sort_by(|a, b| super::card_ev::compare_cards_by_suit_then_rank(a.card, b.card));
+        raw
     }
 
     /// Get results for a specific card
@@ -582,6 +615,9 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
     type RawResult = RawLeadData;
     type Statistics = LeadStatistics;
 
+    /// Runs the lead analysis as a view over [`CardEvaluation`] at the opening
+    /// position: one all-legal solve per deal, then the lead-specific view
+    /// (`tricks_to_beat`, set percentage, distributions, per-suit) is derived.
     fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
         let LeadSimulation {
             num_deals,
@@ -590,66 +626,107 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
             store_deal_details,
             solver_factory,
         } = self;
-        let mut raw_data = RawLeadData::new(contract);
-        // Cards are keyed directly by their compact offset (0..=63), which is
-        // cheaper than hashing and also avoids the per-card entry allocation.
-        let mut card_accumulators: [Option<CardLeadResult>; 64] = std::array::from_fn(|_| None);
 
-        // Shared pool-solve engine; only per-lead accumulation remains here.
-        // Deal-major: one call per deal, all its leads solved on one context.
-        let solved =
-            solve_all_cards_pool(solver_factory, &dealer, num_deals, |deal, _deal_index| {
-                Ok(opening_position(deal, contract))
-            })?;
+        let evaluation = CardEvaluation::builder()
+            .num_deals(num_deals)
+            .dealer(dealer)
+            .contract(contract)
+            .solver_factory(solver_factory)
+            .build()?
+            .run()?;
 
-        // Process results: one entry per deal, in global deal order.
-        for entry in &solved {
-            for solve in &entry.results.cards {
-                let card = solve.card;
-                let tricks = solve.tricks;
-
-                let accumulator =
-                    card_accumulators[card.as_u8() as usize].get_or_insert_with(|| {
-                        if store_deal_details {
-                            CardLeadResult::with_deal_details(card, num_deals)
-                        } else {
-                            CardLeadResult::new(card)
-                        }
-                    });
-
-                let deal_idx = if store_deal_details {
-                    Some(entry.deal_index)
-                } else {
-                    None
-                };
-
-                accumulator.record_tricks(tricks, deal_idx);
-            }
-        }
-
-        // Populate raw data
-        raw_data.cards = card_accumulators.into_iter().flatten().collect();
-        // Sort cards for consistent ordering (by suit and rank)
-        raw_data.cards.sort_by(|a, b| {
-            a.card
-                .suit()
-                .cmp(&b.card.suit())
-                .then_with(|| b.card.rank().cmp(&a.card.rank()))
-        });
-
-        // Calculate tricks needed to beat contract
+        let raw_data = RawLeadData::from_evaluation(&evaluation, contract, store_deal_details);
         let tricks_to_beat = 8u8.saturating_sub(contract.level());
-
-        // Compute statistics
         let statistics = LeadStatistics::from_raw_data(&raw_data, tricks_to_beat);
 
-        // Create metadata
         let metadata = SimulationMetadata::new(num_deals, raw_data.cards.len())
             .with_custom("simulation_type".into(), "lead".into())
             .with_custom("contract".into(), contract.to_string())
             .with_custom("tricks_to_beat".into(), tricks_to_beat.to_string());
 
         Ok(SimulationOutput::new(raw_data, statistics, metadata))
+    }
+}
+
+// ============================================================================
+// LEAD ANALYSIS VIEW
+// ============================================================================
+
+/// A lead-specific view over a [`CardEvaluation`] at the opening position.
+///
+/// The evaluation is the primitive; this view adds the lead concepts that only
+/// make sense for an opening lead — `tricks_to_beat`, the contract, set
+/// percentage, cumulative trick distributions and per-suit grouping — without
+/// solving anything again.
+pub struct LeadAnalysis<'a> {
+    /// The underlying card evaluation.
+    pub evaluation: &'a CardEvaluation,
+    /// The contract being led against.
+    pub contract: Contract,
+}
+
+impl<'a> LeadAnalysis<'a> {
+    /// Wraps `evaluation` as a lead analysis for `contract`.
+    #[must_use]
+    pub fn new(evaluation: &'a CardEvaluation, contract: Contract) -> Self {
+        Self {
+            evaluation,
+            contract,
+        }
+    }
+
+    /// The number of defensive tricks needed to beat the contract.
+    #[must_use]
+    pub fn tricks_to_beat(&self) -> u8 {
+        8u8.saturating_sub(self.contract.level())
+    }
+
+    /// The cards that can be led, in the evaluation's order.
+    #[must_use]
+    pub fn cards(&self) -> &[CardValue] {
+        &self.evaluation.values
+    }
+
+    /// The set percentage of `card`, if it was a legal lead.
+    #[must_use]
+    pub fn set_percentage(&self, card: Card) -> Option<f64> {
+        self.evaluation
+            .value_for(card)
+            .map(|value| value.statistics.set_percentage)
+    }
+
+    /// Cumulative declarer-trick distribution for `card`.
+    #[must_use]
+    pub fn cumulative_declarer_tricks(&self, card: Card) -> Option<[(usize, usize); 14]> {
+        self.evaluation
+            .value_for(card)
+            .map(|value| value.statistics.cumulative_declarer_tricks())
+    }
+
+    /// Groups the leads by suit.
+    #[must_use]
+    pub fn cards_by_suit(&self) -> HashMap<Suit, Vec<&CardValue>> {
+        self.evaluation.by_suit()
+    }
+
+    /// The lead with the highest set percentage.
+    #[must_use]
+    pub fn best_by_set_percentage(&self) -> Option<&CardValue> {
+        self.evaluation.values.iter().max_by(|a, b| {
+            a.statistics
+                .set_percentage
+                .total_cmp(&b.statistics.set_percentage)
+        })
+    }
+
+    /// The lead with the highest mean side-to-play trick count.
+    #[must_use]
+    pub fn best_by_avg_tricks(&self) -> Option<&CardValue> {
+        self.evaluation.values.iter().max_by(|a, b| {
+            a.statistics
+                .mean_dd_tricks()
+                .total_cmp(&b.statistics.mean_dd_tricks())
+        })
     }
 }
 
@@ -1157,5 +1234,104 @@ mod tests {
             .with_deal_details()
             .build();
         assert!(result.is_ok());
+    }
+
+    /// A dealer that always returns DDS's example hand 0.
+    fn example_dealer() -> impl Dealer {
+        let deal = crate::solver::test_fixtures::example_deal();
+        DealerBuilder::new()
+            .predeal(Seat::North, deal[Seat::North].cards())
+            .expect("north parses")
+            .predeal(Seat::East, deal[Seat::East].cards())
+            .expect("east parses")
+            .predeal(Seat::South, deal[Seat::South].cards())
+            .expect("south parses")
+            .predeal(Seat::West, deal[Seat::West].cards())
+            .expect("west parses")
+            .build()
+            .expect("the example deal is a partition")
+    }
+
+    /// The lead view over `CardEvaluation` reproduces `LeadSimulation`'s set
+    /// percentage, and both agree with the hand-computed fixture.
+    #[test]
+    fn lead_view_reproduces_lead_simulation_set_percentage() {
+        // 3S by West needs 9 tricks. A diamond lead holds declarer to 8 (set);
+        // a heart lead gives 9 (making).
+        let contract = Contract::new(
+            3,
+            Strain::Spades,
+            Seat::West,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
+
+        let output = LeadSimulation::new(1, example_dealer(), contract)
+            .run()
+            .expect("the example hand solves");
+        let d5 = output.statistics.stats_for(Card::D5).expect("D5 is led");
+        let h2 = output.statistics.stats_for(Card::H2).expect("H2 is led");
+        assert!((d5.set_percentage - 100.0).abs() < 1.0e-9);
+        assert!(h2.set_percentage.abs() < 1.0e-9);
+
+        let evaluation = CardEvaluation::builder()
+            .num_deals(1)
+            .dealer(example_dealer())
+            .contract(contract)
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect("the example hand solves");
+        let view = LeadAnalysis::new(&evaluation, contract);
+
+        assert_eq!(view.tricks_to_beat(), 5);
+        assert!(
+            (view.set_percentage(Card::D5).expect("D5 is legal") - d5.set_percentage).abs()
+                < 1.0e-9
+        );
+        assert!(
+            (view.set_percentage(Card::H2).expect("H2 is legal") - h2.set_percentage).abs()
+                < 1.0e-9
+        );
+
+        // The cumulative distribution is reachable from the view.
+        let cumulative = view
+            .cumulative_declarer_tricks(Card::D5)
+            .expect("D5 is legal");
+        assert_eq!(cumulative[8].1, 1);
+        assert_eq!(cumulative[13].1, 1);
+    }
+
+    /// The lead view is per **physical** card, not per DDS equivalence-class
+    /// representative.
+    ///
+    /// DDS returns 9 class representatives for example hand 0's opening lead
+    /// (e.g. only C10 for the C10/C9/C8 class); `CardEvaluation` expands each
+    /// class, so the lead view must list all 13 physical cards of the opening
+    /// leader's hand. This is the intended design-ticket-06 behaviour, so it is
+    /// pinned here rather than left implicit.
+    #[test]
+    fn lead_view_lists_every_physical_card_not_just_class_representatives() {
+        let contract = Contract::new(
+            1,
+            Strain::Spades,
+            Seat::West,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
+        let output = LeadSimulation::new(1, example_dealer(), contract)
+            .run()
+            .expect("the example hand solves");
+
+        // North holds 13 cards and all are legal opening leads.
+        assert_eq!(output.raw.cards.len(), 13);
+        assert_eq!(output.statistics.cards.len(), 13);
+        // The class collapsed by DDS is still fully represented.
+        for card in [Card::C10, Card::C9, Card::C8] {
+            assert!(
+                output.statistics.stats_for(card).is_some(),
+                "{card} is a physical lead and must appear"
+            );
+        }
     }
 }

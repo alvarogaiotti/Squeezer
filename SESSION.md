@@ -206,6 +206,44 @@
 - `CardPayoffSimulation`'s `play_trace` field and trace-to-prefix
   reconstruction still exist despite ticket 09 assuming ticket 04 removed them
   (`create_current_trick` is gone); ticket 10 deletes the type.
+- `CardEvaluation`/`LeadSimulation` derive a mid-trick position by assembling a
+  full `Board` from each sampled deal and re-deriving it via
+  `Position::after_play`, because `Position::from_parts` is `pub(crate)` and
+  there is no public prefix constructor. `opening_position` (the empty-prefix
+  case) is the only fast path. A public conditioned-position constructor would
+  remove the per-deal `Board` heap work for non-opening card-EV.
+- `CardEvaluation.position` is the *first* sampled deal's position. Positions
+  are identical across deals at the opening lead, but with a play trace the
+  position depends only on the (deal-independent) prefix, so it is still
+  identical; it is `Clone`-cloned rather than shared.
+- `LeadAnalysis` is a thin view over a borrowed `CardEvaluation`, but
+  `LeadSimulation::run` still materialises the legacy `RawLeadData`/
+  `LeadStatistics` so the formatters, CSV/chart helpers and the bench keep
+  working. A later ticket could port those consumers onto `LeadAnalysis` and
+  delete the legacy types.
+- `Denomination` and its `Baseline`/`Scoring` are built by hand (no
+  `Clone`/`PartialEq`/`Eq` derives) because `Custom` boxes a closure; ticket 11
+  will need to decide what `ContractPayoffBuilder` does with a non-`Clone`
+  denomination.
+- The deleted `validate_candidates` in `payoff.rs` was the last caller of
+  `Dealer::current_hand()`; that method is now public API with no in-crate
+  reader, like `Dealer::predealt()`.
+- `simulation::formatters::export::lead_*` and the `charts` module still
+  compute from `LeadStatistics`; they predate `CardStatistics` and duplicate
+  the percentile/histogram logic that now lives in `card_ev.rs`. A future
+  consolidation could route them through `CardStatistics`.
+- Public-output change in `LeadSimulation` (ticket 10): `LeadStatistics.cards`
+  / `RawLeadData.cards` now hold every **physical** legal lead (13 for example
+  hand 0) instead of the DDS equivalence-class representatives (9). Rankings
+  and any length-based consumer of the legacy lead output therefore shifted.
+  This matches design ticket 06's per-physical-card requirement, and
+  `lead_view_lists_every_physical_card_not_just_class_representatives` pins
+  it, but downstream code that assumed one entry per class must be updated.
+- `CardEvaluation`'s DD-optimal field/accessors are `dd_optimal` /
+  `dd_optimal_cards()` / `is_dd_optimal()` to satisfy ADR-0003's ban on an
+  unqualified "optimal". `performance_analysis.rs` still has
+  `is_optimal`/`CardResult::Optimal`/`optimal_plays`; that is ticket 13's port,
+  and the naming there needs the same treatment.
 
 ## Resolved
 

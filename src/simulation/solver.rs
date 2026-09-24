@@ -43,11 +43,15 @@ pub(crate) struct DealTricks {
     pub tricks: Vec<u8>,
 }
 
-/// Per-deal all-cards result with the global deal index.
+/// Per-deal all-cards result with the global deal index and the solved
+/// position, so a caller can keep the representative position without
+/// re-deriving it.
 #[derive(Debug, Clone)]
 pub(crate) struct DealCards {
     /// Index of the deal in `0..num_deals`.
     pub deal_index: usize,
+    /// The position that was solved for this deal.
+    pub position: Position,
     /// Every legal play of the solved position, with DD tricks and classes.
     pub results: SolveResults,
 }
@@ -158,6 +162,7 @@ where
         let results = context.solve_all_cards(&position)?;
         Ok(DealCards {
             deal_index,
+            position,
             results,
         })
     })
