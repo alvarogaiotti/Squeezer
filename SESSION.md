@@ -256,6 +256,22 @@
   want the field-relative value of a contract, `DealResult` would need a
   `value` field computed with `Denomination::value`.
 
+- `src/performance_analysis.rs:837` trips clippy's `decimal_bitwise_operands`
+  (`14 ^ 0b0001_0000_u8` in a test); it predates ticket 12 and is not in the
+  crate allow list, so `cargo clippy --all-targets` is not warning-free.
+- The deprecated `std::error::Error::description` impl on `DealerError` that
+  ticket 12 asked to drop is already absent from the tree; no code change was
+  needed for it.
+- `InvalidCardError` (`src/card.rs`) is a public module error that
+  `SqueezerError` does not wrap; card strings that fail to parse surface it
+  directly, not through the boundary.
+- Card-EV reports board/position derivation failures as
+  `SqueezerError::InvalidInput` carrying the per-deal index, not as the typed
+  `BoardError`/`PositionError` boundary variants (the index cannot ride on the
+  typed variant without a dedicated wrapper).
+- `ParseLinError` is public under `squeezer::linparser` but is not re-exported
+  by `squeezer::prelude`, unlike the other module errors.
+
 ## Resolved
 
 - Benches/tests vs feature gates: `[[bench]]`/`[[test]]` targets that need

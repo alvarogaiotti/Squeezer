@@ -8,8 +8,9 @@ use crate::{prelude::*, shapeparser::CreationShapeError};
 /// The historical free-form messages live in [`Self::Message`]. The
 /// conditioning failures are typed, so a caller can tell an impossible
 /// conditioning seed (a card fixed to two seats) from a rejection budget that
-/// merely ran out ([`Self::Unsatisfiable`]). Ticket 12 folds this into the
-/// crate-wide error boundary.
+/// merely ran out ([`Self::Unsatisfiable`]). The shape and constraint variants
+/// carry their module error as the [`std::error::Error::source`] rather than
+/// flattening it into a string.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Hash)]
 #[non_exhaustive]
@@ -45,6 +46,10 @@ pub enum DealerError {
         /// How many candidate deals were rejected before giving up.
         attempts: u32,
     },
+    /// A shape pattern failed to scan, parse or interpret.
+    Shape(CreationShapeError),
+    /// A hand constraint could not be built.
+    Constraint(ConstraintError),
 }
 
 impl DealerError {
@@ -76,14 +81,33 @@ impl fmt::Display for DealerError {
                     "no deal satisfied the constraints within {attempts} attempts"
                 )
             }
+            Self::Shape(cause) => write!(f, "{cause}"),
+            Self::Constraint(cause) => write!(f, "{cause}"),
         }
     }
 }
 
-impl Error for DealerError {}
+impl Error for DealerError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Shape(cause) => Some(cause),
+            Self::Constraint(cause) => Some(cause),
+            Self::Message(_)
+            | Self::CardAttributedToTwoSeats { .. }
+            | Self::TooManyKnownForSeat { .. }
+            | Self::Unsatisfiable { .. } => None,
+        }
+    }
+}
 
 impl From<CreationShapeError> for DealerError {
     fn from(value: CreationShapeError) -> Self {
-        DealerError::new(value.to_string())
+        DealerError::Shape(value)
+    }
+}
+
+impl From<ConstraintError> for DealerError {
+    fn from(value: ConstraintError) -> Self {
+        DealerError::Constraint(value)
     }
 }

@@ -501,19 +501,20 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
     /// TODO: Fix with typestate
     #[inline]
     pub fn build(self) -> Result<ContractPayoffSimulation<D>, SqueezerError> {
-        let num_deals = self
-            .num_deals
-            .ok_or_else(|| SqueezerError::InvalidInput("num_deals must be set".into()))?;
+        let num_deals = self.num_deals.ok_or_else(|| {
+            SqueezerError::invalid_input("contract payoff", "num_deals must be set")
+        })?;
         let dealer = self
             .dealer
-            .ok_or_else(|| SqueezerError::InvalidInput("dealer must be set".into()))?;
+            .ok_or_else(|| SqueezerError::invalid_input("contract payoff", "dealer must be set"))?;
         let solver_factory: Box<dyn ContextFactory> = self
             .solver_factory
             .unwrap_or_else(|| Box::new(DdsSolver::new()));
 
         if self.contracts.len() < 2 {
-            return Err(SqueezerError::InvalidInput(
-                "at least 2 contracts required".into(),
+            return Err(SqueezerError::invalid_input(
+                "contract payoff",
+                "at least 2 contracts required",
             ));
         }
 

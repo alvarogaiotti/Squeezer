@@ -68,7 +68,7 @@ const fn longest_patterns(suit: Suit) -> [&'static str; 3] {
 /// (a display string, detail discarded) while `remove_shape` returned
 /// `Box<dyn Error>`. Every variant preserves its cause for `source()`-based
 /// inspection and testing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum ConstraintError {
@@ -113,16 +113,6 @@ impl std::error::Error for ConstraintError {
             Self::InvalidPattern { cause, .. } => Some(cause),
             Self::EmptyConstraint | Self::ConflictingLongest { .. } => None,
         }
-    }
-}
-
-impl From<ConstraintError> for DealerError {
-    /// Compatibility bridge: the dealer core historically reports
-    /// `DealerError`, so the typed error converts losslessly-in-display
-    /// (message preserved; structure available to callers using this module
-    /// directly).
-    fn from(value: ConstraintError) -> Self {
-        DealerError::new(value.to_string())
     }
 }
 

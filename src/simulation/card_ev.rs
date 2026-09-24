@@ -373,22 +373,24 @@ impl<D: Dealer> CardEvBuilder<D> {
     pub fn build(self) -> Result<CardEvSimulation<D>, SqueezerError> {
         let num_deals = self
             .num_deals
-            .ok_or_else(|| SqueezerError::InvalidInput("num_deals must be set".into()))?;
+            .ok_or_else(|| SqueezerError::invalid_input("card ev", "num_deals must be set"))?;
         let dealer = self
             .dealer
-            .ok_or_else(|| SqueezerError::InvalidInput("dealer must be set".into()))?;
+            .ok_or_else(|| SqueezerError::invalid_input("card ev", "dealer must be set"))?;
         let contract = self
             .contract
-            .ok_or_else(|| SqueezerError::InvalidInput("contract must be set".into()))?;
+            .ok_or_else(|| SqueezerError::invalid_input("card ev", "contract must be set"))?;
 
         if num_deals == 0 {
-            return Err(SqueezerError::InvalidInput(
-                "num_deals must be at least 1".into(),
+            return Err(SqueezerError::invalid_input(
+                "card ev",
+                "num_deals must be at least 1",
             ));
         }
         if self.play_trace.len() >= 52 {
-            return Err(SqueezerError::InvalidInput(
-                "the play trace leaves no card to play".into(),
+            return Err(SqueezerError::invalid_input(
+                "card ev",
+                "the play trace leaves no card to play",
             ));
         }
 
@@ -462,14 +464,16 @@ impl<D: Dealer> CardEvSimulation<D> {
                     .play(PlayRecord::new(prefix.clone()))
                     .build()
                     .map_err(|cause| {
-                        SqueezerError::DealingError(DealerError::new(format!(
-                            "card ev: invalid board for deal {deal_index}: {cause}"
-                        )))
+                        SqueezerError::invalid_input(
+                            "card ev",
+                            format!("invalid board for deal {deal_index}: {cause}"),
+                        )
                     })?;
                 Position::after_play(&board, prefix.len()).map_err(|cause| {
-                    SqueezerError::DealingError(DealerError::new(format!(
-                        "card ev: cannot derive position for deal {deal_index}: {cause}"
-                    )))
+                    SqueezerError::invalid_input(
+                        "card ev",
+                        format!("cannot derive position for deal {deal_index}: {cause}"),
+                    )
                 })
             },
         )?;
@@ -477,7 +481,7 @@ impl<D: Dealer> CardEvSimulation<D> {
         let position = solved
             .first()
             .map(|entry| entry.position.clone())
-            .ok_or_else(|| SqueezerError::InvalidInput("no deals were solved".into()))?;
+            .ok_or_else(|| SqueezerError::invalid_input("card ev", "no deals were solved"))?;
 
         // Expand DDS's equivalence classes into physical cards; each physical
         // card carries its class's value. The per-deal `Compared` baseline is

@@ -117,19 +117,23 @@ where
     F: Fn(&Deal, usize) -> Result<Vec<Position>, SqueezerError> + Send + Sync,
 {
     if variants_per_deal == 0 {
-        return Err(SqueezerError::InvalidInput(format!(
-            "{sim}: variants per deal must be at least 1"
-        )));
+        return Err(SqueezerError::invalid_input(
+            sim,
+            "variants per deal must be at least 1",
+        ));
     }
     let deals = generate_deals(dealer, num_deals)?;
     let pool = DynSolverPool::with_available_workers(factory);
     pool.try_map(num_deals, |context, deal_index| {
         let positions = fan_out(&deals[deal_index], deal_index)?;
         if positions.len() != variants_per_deal {
-            return Err(SqueezerError::InvalidInput(format!(
-                "{sim}: fan-out produced {} variants for deal {deal_index}, expected {variants_per_deal}",
-                positions.len()
-            )));
+            return Err(SqueezerError::invalid_input(
+                sim,
+                format!(
+                    "fan-out produced {} variants for deal {deal_index}, expected {variants_per_deal}",
+                    positions.len()
+                ),
+            ));
         }
         let mut tricks = Vec::with_capacity(positions.len());
         for position in &positions {
@@ -317,7 +321,7 @@ mod test {
     #[test]
     fn tricks_pool_propagates_fan_out_errors() {
         let failing = |_: &Deal, _: usize| -> Result<Vec<Position>, SqueezerError> {
-            Err(SqueezerError::InvalidInput("boom".into()))
+            Err(SqueezerError::invalid_input("test", "boom"))
         };
         assert!(
             solve_tricks_pool(

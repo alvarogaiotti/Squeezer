@@ -552,15 +552,15 @@ impl<D: Dealer> LeadSimulationBuilder<D> {
     /// # Errors
     /// ATM errors if some field is not set. TODO: evolve into typestate
     pub fn build(self) -> Result<LeadSimulation<D>, SqueezerError> {
-        let num_deals = self
-            .num_deals
-            .ok_or_else(|| SqueezerError::InvalidInput("num_deals must be set".into()))?;
-        let dealer = self
-            .dealer
-            .ok_or_else(|| SqueezerError::InvalidInput("dealer must be defined".into()))?;
-        let contract = self
-            .contract
-            .ok_or_else(|| SqueezerError::InvalidInput("contract must be set".into()))?;
+        let num_deals = self.num_deals.ok_or_else(|| {
+            SqueezerError::invalid_input("lead simulation", "num_deals must be set")
+        })?;
+        let dealer = self.dealer.ok_or_else(|| {
+            SqueezerError::invalid_input("lead simulation", "dealer must be defined")
+        })?;
+        let contract = self.contract.ok_or_else(|| {
+            SqueezerError::invalid_input("lead simulation", "contract must be set")
+        })?;
 
         Ok(LeadSimulation {
             num_deals,

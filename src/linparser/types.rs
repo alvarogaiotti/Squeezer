@@ -51,6 +51,7 @@ pub enum ParseLinErrorKind {
 
 /// The error returned when a LIN file cannot be imported.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ParseLinError {
     lin: String,
     kind: ParseLinErrorKind,

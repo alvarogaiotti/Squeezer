@@ -564,7 +564,7 @@ impl HandTypeBuilder {
 
     /// # Errors
     /// Errors if the shape is not parsable
-    pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, DealerError> {
+    pub fn add_shape(&mut self, pattern: &str) -> Result<&mut Self, CreationShapeError> {
         if let Some(ref mut shapes) = self.shapes {
             shapes.add_shape(pattern)?;
         } else {
@@ -576,7 +576,7 @@ impl HandTypeBuilder {
     }
     /// # Errors
     /// Errors if the shape is not parsable
-    pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, Box<dyn Error + 'static>> {
+    pub fn remove_shape(&mut self, pattern: &str) -> Result<&mut Self, CreationShapeError> {
         if let Some(ref mut shapes) = self.shapes {
             shapes.remove_shape(pattern)?;
         } else {

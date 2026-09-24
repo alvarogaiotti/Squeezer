@@ -228,6 +228,7 @@ impl TryFrom<Vec<Pattern>> for ShapeCreator {
 /// Represents an error that can occur during the creation of shapes.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Hash)]
+#[non_exhaustive]
 pub struct CreationShapeError {
     /// The origin of the creation error.
     origin: CreationShapeErrorKind,
@@ -236,6 +237,7 @@ pub struct CreationShapeError {
 /// Represents the types of errors that can occur during the creation of shapes.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Hash)]
+#[non_exhaustive]
 pub enum CreationShapeErrorKind {
     /// Error during the interpretation of shapes.
     Interpretation(InterpretationShapeError),

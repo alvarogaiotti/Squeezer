@@ -108,7 +108,7 @@ pub enum Shape {
 }
 
 impl FromStr for Shape {
-    type Err = DealerError;
+    type Err = CreationShapeError;
 
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
         Shape::new_from_pattern(pattern)
@@ -116,7 +116,7 @@ impl FromStr for Shape {
 }
 
 impl TryFrom<&str> for Shape {
-    type Error = DealerError;
+    type Error = CreationShapeError;
     fn try_from(pattern: &str) -> Result<Self, Self::Error> {
         Shape::new_from_pattern(pattern)
     }
@@ -132,8 +132,8 @@ impl Shape {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if the pattern string is malformed or represents invalid
-    /// bridge shapes (e.g., suits don't sum to 13).
+    /// Returns [`CreationShapeError`] if the pattern string is malformed or
+    /// represents invalid bridge shapes (e.g., suits don't sum to 13).
     ///
     /// # Example
     ///
@@ -144,7 +144,7 @@ impl Shape {
     /// let shape = Shape::new_from_pattern("5422")?;
     /// # Ok(())}
     /// ```
-    pub fn new_from_pattern(pattern: &str) -> Result<Self, DealerError> {
+    pub fn new_from_pattern(pattern: &str) -> Result<Self, CreationShapeError> {
         let mut shape = Shapes::new();
         shape.add_shape(pattern)?;
         Ok(Self::Custom(shape))
@@ -165,7 +165,7 @@ impl Shape {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if any pattern is invalid.
+    /// Returns [`CreationShapeError`] if any pattern is invalid.
     ///
     /// # Example
     ///
@@ -176,7 +176,7 @@ impl Shape {
     /// let shape = Shape::new_from_patterns(&["4333", "4432", "5332"])?;
     /// # Ok(())}
     /// ```
-    pub fn new_from_patterns(patterns: &[&str]) -> Result<Self, DealerError> {
+    pub fn new_from_patterns(patterns: &[&str]) -> Result<Self, CreationShapeError> {
         let mut shape = Shapes::new();
         for pattern in patterns {
             shape.add_shape(pattern)?;
@@ -191,8 +191,8 @@ impl Shape {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if the pattern string is invalid.
-    pub fn remove_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
+    /// Returns [`CreationShapeError`] if the pattern string is invalid.
+    pub fn remove_shape(&mut self, pattern: &str) -> Result<(), CreationShapeError> {
         match *self {
             Self::Custom(ref mut shape) => shape.remove_shape(pattern),
             Self::All => {
@@ -208,8 +208,8 @@ impl Shape {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if the pattern string is invalid.
-    pub fn add_shape(&mut self, pattern: &str) -> Result<(), DealerError> {
+    /// Returns [`CreationShapeError`] if the pattern string is invalid.
+    pub fn add_shape(&mut self, pattern: &str) -> Result<(), CreationShapeError> {
         match *self {
             Self::Custom(ref mut shape) => shape.add_shape(pattern),
             Self::All => Ok(()),
@@ -491,22 +491,22 @@ impl Shapes {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if the pattern string is malformed.
+    /// Returns [`CreationShapeError`] if the pattern string is malformed.
     ///
     /// # Note
     ///
     /// This does NOT update the min/max length arrays. Those represent conservative
     /// bounds and may include excluded shapes in their ranges.
     #[allow(clippy::missing_panics_doc)]
-    pub fn remove_shape(&mut self, shape: &str) -> Result<(), DealerError> {
-        Ok(self.try_remove_pattern(shape)?)
+    pub fn remove_shape(&mut self, shape: &str) -> Result<(), CreationShapeError> {
+        self.try_remove_pattern(shape)
     }
 
     /// Removes all shapes matching the given pattern, preserving the typed error.
     ///
-    /// Crate-internal core behind [`Shapes::remove_shape`]: same bit-clearing
-    /// behavior, but returns the parser's [`CreationShapeError`] instead of
-    /// flattening it into a `DealerError` string.
+    /// Crate-internal core behind [`Shapes::remove_shape`]: parses the pattern
+    /// and clears the matching bits, returning the parser's
+    /// [`CreationShapeError`] on a malformed pattern.
     pub(crate) fn try_remove_pattern(&mut self, pattern: &str) -> Result<(), CreationShapeError> {
         let patterns = ShapeCreator::build_shape(pattern)?;
 
@@ -626,11 +626,9 @@ impl Shapes {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if the pattern string is invalid.
-    pub fn but(shape: &str) -> Result<Self, DealerError> {
-        let mut table = Self::new_filled();
-        table.remove_shape(shape)?;
-        Ok(table)
+    /// Returns [`CreationShapeError`] if the pattern string is invalid.
+    pub fn but(shape: &str) -> Result<Self, CreationShapeError> {
+        Self::all_but(shape)
     }
 
     /// Adds all shapes matching the given pattern string.
@@ -640,10 +638,10 @@ impl Shapes {
     ///
     /// # Errors
     ///
-    /// Returns `DealerError` if the pattern string is malformed.
+    /// Returns [`CreationShapeError`] if the pattern string is malformed.
     #[allow(clippy::missing_panics_doc)]
-    pub fn add_shape(&mut self, shape: &str) -> Result<(), DealerError> {
-        Ok(self.try_add_pattern(shape)?)
+    pub fn add_shape(&mut self, shape: &str) -> Result<(), CreationShapeError> {
+        self.try_add_pattern(shape)
     }
 
     /// Adds all shapes matching the given pattern, preserving the typed error.

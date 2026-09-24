@@ -70,6 +70,7 @@ impl fmt::Display for Tricks {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TricksError {
     OutOfRange(u8),
 }
@@ -126,6 +127,7 @@ impl fmt::Display for TrickDelta {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TrickDeltaError {
     OutOfRange(u8),
 }

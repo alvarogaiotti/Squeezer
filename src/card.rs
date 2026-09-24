@@ -234,7 +234,10 @@ impl TryFrom<&[Card]> for Cards {
         let mut cards = Cards::EMPTY;
         for card in card_slice {
             if cards.has_card(*card) {
-                return Err(SqueezerError::Generic("duplicate card".to_string()));
+                return Err(SqueezerError::invalid_input(
+                    "building a card set from a slice",
+                    format!("duplicate card {card}"),
+                ));
             }
             cards = cards.insert(*card);
         }
