@@ -276,8 +276,16 @@ pub trait PlayAnalyser {
 
     /// Returns the double-dummy trick count after each recorded play.
     ///
-    /// The vector has one entry per play plus the starting position, matching
-    /// DDS's `SolvedPlay` length convention.
+    /// The vector has one entry per play plus the starting position, so a
+    /// board with `n` recorded plays yields `n + 1` entries. A backend may
+    /// omit the forced final trick internally (DDS caps its sequence at 49);
+    /// it is responsible for restoring the full length.
+    ///
+    /// The result is a raw `Vec<u8>` of trick counts in `0..=13`, not a typed
+    /// wrapper: the core seam must not name `performance_analysis::Tricks`
+    /// (ADR-0005 keeps the solver module independent of the analysis module),
+    /// so the count contract is documented here and on
+    /// `performance_analysis::AnalysisInput` instead.
     ///
     /// # Errors
     ///
@@ -333,6 +341,55 @@ pub(crate) mod test_fixtures {
     /// The opening position of the example board.
     pub(crate) fn opening_position() -> Position {
         Position::after_play(&example_board(), 0).expect("the board carries a contract")
+    }
+
+    /// DDS's `examples/hands.cpp` hand-0 play: 45 cards in play order.
+    ///
+    /// Its `AnalysePlayBin` oracle is 46 values, all `8` (the declarer's
+    /// double-dummy tricks), which is why this play is the independent
+    /// reference for the seam's play analysis.
+    pub(crate) const EXAMPLE_HAND0_PLAY: &str = "CTC4CACJH8H4HKH9D5DAD9D2S7S5S2SQD8D4DQD3H3HAH6H7C3C8CQC2S3SKSAS6HQH5HJHTCKC9D6C5S4SJS8C6DJ";
+
+    /// Parses a flat DDS play string (`"CTC4CA…"`, suit then rank) into cards.
+    pub(crate) fn parse_play(sequence: &str) -> Vec<Card> {
+        sequence
+            .as_bytes()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| {
+                let token = std::str::from_utf8(pair).expect("play strings are ASCII");
+                Card::from_str(token).expect("valid card token")
+            })
+            .collect()
+    }
+
+    /// Attributes an ordered card list to seats trick by trick.
+    ///
+    /// The contract supplies the opening leader and the winner rule; this is
+    /// what a [`Board`]'s play validation needs, since a DDS `PlayTraceBin` is
+    /// seat-free.
+    pub(crate) fn attribute_seats(cards: &[Card], contract: Contract) -> Vec<Play> {
+        let mut plays = Vec::with_capacity(cards.len());
+        let mut leader = contract.leader();
+        for trick in cards.chunks(4) {
+            let group: Vec<Play> = trick
+                .iter()
+                .enumerate()
+                .map(|(offset, &card)| Play::new(leader + offset, card))
+                .collect();
+            if group.len() == 4 {
+                leader = crate::record::position::trick_winner(&group, contract.strain());
+            }
+            plays.extend(group);
+        }
+        plays
+    }
+
+    /// The example board with DDS hand 0's 45-card play recorded.
+    pub(crate) fn example_board_hand0_play() -> Board {
+        let cards = parse_play(EXAMPLE_HAND0_PLAY);
+        example_board_with(attribute_seats(&cards, example_contract()))
     }
 }
 

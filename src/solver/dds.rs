@@ -8,10 +8,12 @@
 //! FFI surface: no DDS type appears in the seam's public API, and the raw
 //! context handle never leaves this module.
 
-use super::{CardSolve, Solutions, SolveMode, SolveResults, Solver, SolverContext, SolverError};
+use super::{
+    CardSolve, PlayAnalyser, Solutions, SolveMode, SolveResults, Solver, SolverContext, SolverError,
+};
 use crate::prelude::*;
 use ::core::ffi::{c_int, c_void};
-use dds::context::{self, FutureTricks};
+use dds::context::{self, FutureTricks, PlayTraceBin, SolvedPlay};
 use dds::deal::DdsDeal;
 
 /// DDS's "no fault" return code; every other code is an error.
@@ -115,6 +117,67 @@ impl SolverContext for DdsContext {
     }
 }
 
+impl PlayAnalyser for DdsSolver {
+    type Error = SolverError;
+
+    /// Wraps the legacy `AnalysePlayBin`, which builds its own solver context
+    /// per call and ignores the thread index, so it is safe to call from our
+    /// workers. The board must carry a contract and a recorded play: the
+    /// opening [`Position`] supplies the full deal and the leader, and the
+    /// [`PlayRecord`] becomes the seat-free `PlayTraceBin`.
+    fn analyse_play(&self, board: &Board) -> Result<Vec<u8>, SolverError> {
+        let position = Position::after_play(board, 0)
+            .map_err(|error| SolverError::Position(error.to_string()))?;
+        let deal = DdsDeal::try_from(&position)
+            .map_err(|error| SolverError::Position(error.to_string()))?;
+        let play = board
+            .play()
+            .ok_or_else(|| SolverError::Position("the board records no play".to_owned()))?;
+        let trace = PlayTraceBin::try_from(play)
+            .map_err(|error| SolverError::Position(error.to_string()))?;
+
+        let mut solved = SolvedPlay::new();
+        let code = unsafe { context::AnalysePlayBin(deal, trace, &raw mut solved, 0) };
+        if code != RETURN_NO_FAULT {
+            let error = dds::ddserror::DdsError::from(code);
+            return Err(SolverError::Backend(error.to_string()));
+        }
+        // DDS reports the starting position then the result after each card,
+        // but caps the sequence at 49 entries ("the last trick holds no
+        // excitement"). Every omitted play is in the forced final trick — once
+        // 48 cards are down, each hand holds exactly one card — so repeating
+        // the last count restores the one-entry-per-play convention.
+        //
+        // `number` and the counts are DDS output, not caller input: a negative
+        // length, a length past the fixed buffer, a count outside 0..=13 or an
+        // empty result means DDS broke its contract, so surface it rather than
+        // defaulting to a plausible-but-wrong `0`.
+        let number = usize::try_from(solved.number).map_err(|_| {
+            SolverError::Backend(format!(
+                "DDS reported a negative play-analysis length: {}",
+                solved.number
+            ))
+        })?;
+        let results = solved.tricks.get(..number).ok_or_else(|| {
+            SolverError::Backend(format!(
+                "DDS reported {number} play-analysis results for a {} slot buffer",
+                solved.tricks.len()
+            ))
+        })?;
+        let mut tricks = Vec::with_capacity(play.len() + 1);
+        for &trick in results {
+            tricks.push(u8::try_from(trick).map_err(|_| {
+                SolverError::Backend(format!("DDS returned an out-of-range trick count: {trick}"))
+            })?);
+        }
+        let last = tricks.last().copied().ok_or_else(|| {
+            SolverError::Backend("DDS returned no play-analysis results".to_owned())
+        })?;
+        tricks.resize(play.len() + 1, last);
+        Ok(tricks)
+    }
+}
+
 /// Translates the seam's solution level into DDS's `solutions` code.
 fn solutions_code(solutions: Solutions) -> c_int {
     match solutions {
@@ -181,7 +244,9 @@ fn expand_equals(card: Card, equals: c_int) -> Cards {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::test_fixtures::{example_board, example_board_with};
+    use crate::solver::test_fixtures::{
+        example_board, example_board_hand0_play, example_board_with,
+    };
 
     fn card(suit: Suit, rank: u8) -> Card {
         Card::new(suit, rank)
@@ -305,6 +370,18 @@ mod tests {
         let mut context = context();
         context.clear_tt();
         context.reset();
+    }
+
+    #[test]
+    fn play_analysis_matches_the_dds_example_hand() {
+        // DDS's own `examples/hands.cpp` oracle for hand 0: 45 cards, 46
+        // results, every one 8. This is the re-baselined DDS 3.1 semantics
+        // (issue #156), not the under-counted 2.9 values.
+        let board = example_board_hand0_play();
+        let results = DdsSolver
+            .analyse_play(&board)
+            .expect("example hand 0 analyses");
+        assert_eq!(results, vec![8u8; 46]);
     }
 
     #[test]

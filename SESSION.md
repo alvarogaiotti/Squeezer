@@ -256,7 +256,7 @@
   want the field-relative value of a contract, `DealResult` would need a
   `value` field computed with `Denomination::value`.
 
-- `src/performance_analysis.rs:837` trips clippy's `decimal_bitwise_operands`
+- `src/performance_analysis.rs:877` trips clippy's `decimal_bitwise_operands`
   (`14 ^ 0b0001_0000_u8` in a test); it predates ticket 12 and is not in the
   crate allow list, so `cargo clippy --all-targets` is not warning-free.
 - The deprecated `std::error::Error::description` impl on `DealerError` that
@@ -271,6 +271,18 @@
   typed variant without a dedicated wrapper).
 - `ParseLinError` is public under `squeezer::linparser` but is not re-exported
   by `squeezer::prelude`, unlike the other module errors.
+- `analyze_board` bounds its backend with `SqueezerError: From<A::Error>`, so a
+  third-party `PlayAnalyser` must add a `From` impl before it can use the
+  convenience entry point; a mock with a local error type cannot.
+- `PlayerRecord::plays()` yields an iterator while the `plays` field is
+  private, so index-based assertions have to use `.nth()` rather than `[i]`.
+- DDS caps `SolvedPlay.number` at 49 even for a full 52-card play; the seam
+  repeats the last count to cover the forced final trick. A backend that omits
+  non-forced plays would need its own normalization to honour the
+  one-entry-per-play contract.
+- `PreprocessedDeal` is a 48-card type unrelated to `analyze_hand`, which uses
+  a 52-card scratch buffer; the module-level SIMD/preprocessing framing no
+  longer describes the analysis path, and `find_trick_winner` is benchmark-only.
 
 ## Resolved
 

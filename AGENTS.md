@@ -50,4 +50,4 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Gotchas
 
 - Root `config.toml` is not read by Cargo (that needs `.cargo/config.toml`), so `target-cpu=native` is not applied; set `RUSTFLAGS` explicitly when needed.
-- `tests/uniformity_check.rs` and the helper in `tests/performance_analysis_test.rs` are not `#[test]` functions, so they never run.
+- `tests/uniformity_check.rs` is not a `#[test]` function, so it never runs.

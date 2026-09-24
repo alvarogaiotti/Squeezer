@@ -36,8 +36,9 @@
  Part of this library, under the features `bbo` and `bbo_async`, provides some features for
  downloading hands from BBO's My hands, so you can get the hands you played on the site, get double
  dummy results for every card you played with [`dds`] and then compute some statistics on the
- results using the utilities provided for you in this crate (e.g.
- [`performance_analysis::analyse_players_performance()`] function), like accuracy or triks
+ results using the utilities provided for you in this crate (e.g. the
+ [`performance_analysis::analyze_board()`] entry point or the lower-level
+ [`performance_analysis::analyze_hand()`]), like accuracy or triks
  lost, or trick lost per deal, etc.
 
  Another cool use that its implemented is the [`LeadSimulation`] utility, which mimics the
@@ -121,9 +122,11 @@ mod hand;
 mod hand_constraint;
 #[cfg(feature = "lin")]
 pub mod linparser;
-/// Needs both features: analysis consumes LIN play sequences via the DDS
-/// solver, so `dds` alone cannot provide it.
-#[cfg(all(feature = "dds", feature = "lin"))]
+/// Backend-agnostic performance analysis; the DDS-backed [`PlayAnalyser`]
+/// lives in [`solver`], so `dds` alone is enough.
+///
+/// [`PlayAnalyser`]: solver::PlayAnalyser
+#[cfg(feature = "dds")]
 pub mod performance_analysis;
 mod range;
 pub mod record;

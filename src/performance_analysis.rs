@@ -17,7 +17,7 @@
 #![allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
 
 use crate::prelude::*;
-use dds::analyseplay::SolvedPlay;
+use crate::solver::PlayAnalyser;
 use std::fmt;
 
 #[cfg(target_arch = "x86_64")]
@@ -167,52 +167,56 @@ impl Side {
 // ============================================================================
 
 /// Performance evaluation of a single card play.
+///
+/// Every variant is explicitly double-dummy-relative (ADR-0003): "optimal"
+/// means optimal against the fully-known deal, never the correct real-world
+/// play.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CardResult {
-    Optimal {
-        tricks: Tricks,
+    DdOptimal {
+        dd_tricks: Tricks,
     },
-    Suboptimal {
-        tricks: Tricks,
-        tricks_lost: TrickDelta,
+    DdSuboptimal {
+        dd_tricks: Tricks,
+        dd_tricks_lost: TrickDelta,
     },
 }
 
 impl CardResult {
     #[inline]
     #[must_use]
-    pub const fn tricks(self) -> Tricks {
+    pub const fn dd_tricks(self) -> Tricks {
         match self {
-            Self::Optimal { tricks } | Self::Suboptimal { tricks, .. } => tricks,
+            Self::DdOptimal { dd_tricks } | Self::DdSuboptimal { dd_tricks, .. } => dd_tricks,
         }
     }
 
     #[inline]
     #[must_use]
-    pub const fn tricks_lost(self) -> TrickDelta {
+    pub const fn dd_tricks_lost(self) -> TrickDelta {
         match self {
-            Self::Optimal { .. } => TrickDelta::ZERO,
-            Self::Suboptimal { tricks_lost, .. } => tricks_lost,
+            Self::DdOptimal { .. } => TrickDelta::ZERO,
+            Self::DdSuboptimal { dd_tricks_lost, .. } => dd_tricks_lost,
         }
     }
 
     #[inline]
     #[must_use]
-    pub const fn is_optimal(self) -> bool {
-        matches!(self, Self::Optimal { .. })
+    pub const fn is_dd_optimal(self) -> bool {
+        matches!(self, Self::DdOptimal { .. })
     }
 }
 
 impl fmt::Display for CardResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Optimal { tricks } => write!(f, "Optimal ({tricks} tricks)"),
-            Self::Suboptimal {
-                tricks,
-                tricks_lost,
+            Self::DdOptimal { dd_tricks } => write!(f, "DD-optimal ({dd_tricks} tricks)"),
+            Self::DdSuboptimal {
+                dd_tricks,
+                dd_tricks_lost,
             } => {
-                write!(f, "{tricks} tricks (-{tricks_lost} from optimal)")
+                write!(f, "{dd_tricks} tricks (-{dd_tricks_lost} from DD-optimal)")
             }
         }
     }
@@ -277,9 +281,9 @@ impl PlayerRecord {
         for play in &self.plays {
             stats.cards_played += 1;
             match play.result {
-                CardResult::Optimal { .. } => stats.optimal_plays += 1,
-                CardResult::Suboptimal { tricks_lost, .. } => {
-                    stats.total_tricks_lost += u32::from(tricks_lost.get());
+                CardResult::DdOptimal { .. } => stats.dd_optimal_plays += 1,
+                CardResult::DdSuboptimal { dd_tricks_lost, .. } => {
+                    stats.dd_total_tricks_lost += u32::from(dd_tricks_lost.get());
                 }
             }
         }
@@ -297,32 +301,37 @@ impl Default for PlayerRecord {
 // ============================================================================
 
 /// Performance statistics for a player.
+///
+/// Every double-dummy-relative quantity is named with a leading `dd_`
+/// qualifier (ADR-0003), matching [`CardResult::dd_tricks_lost`]. `CONTEXT.md`
+/// calls that quantity "DD deviation": the tricks a card lost against the
+/// deal's DD-optimal result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PlayerStats {
     pub cards_played: u32,
-    pub optimal_plays: u32,
-    pub total_tricks_lost: u32,
+    pub dd_optimal_plays: u32,
+    pub dd_total_tricks_lost: u32,
 }
 
 impl PlayerStats {
     #[inline]
     #[must_use]
-    pub fn accuracy_percent(&self) -> f64 {
+    pub fn dd_accuracy_percent(&self) -> f64 {
         if self.cards_played == 0 {
             0.0
         } else {
-            (f64::from(self.optimal_plays) / f64::from(self.cards_played)) * 100.0
+            (f64::from(self.dd_optimal_plays) / f64::from(self.cards_played)) * 100.0
         }
     }
 
     #[inline]
     #[must_use]
-    pub fn avg_tricks_lost(&self) -> f64 {
+    pub fn dd_avg_tricks_lost(&self) -> f64 {
         if self.cards_played == 0 {
             0.0
         } else {
-            f64::from(self.total_tricks_lost) / f64::from(self.cards_played)
+            f64::from(self.dd_total_tricks_lost) / f64::from(self.cards_played)
         }
     }
 
@@ -331,8 +340,8 @@ impl PlayerStats {
     pub fn combine(&self, other: &Self) -> Self {
         Self {
             cards_played: self.cards_played + other.cards_played,
-            optimal_plays: self.optimal_plays + other.optimal_plays,
-            total_tricks_lost: self.total_tricks_lost + other.total_tricks_lost,
+            dd_optimal_plays: self.dd_optimal_plays + other.dd_optimal_plays,
+            dd_total_tricks_lost: self.dd_total_tricks_lost + other.dd_total_tricks_lost,
         }
     }
 }
@@ -341,11 +350,11 @@ impl fmt::Display for PlayerStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}/{} optimal ({:.1}%), avg loss: {:.2}",
-            self.optimal_plays,
+            "{}/{} DD-optimal ({:.1}%), avg DD loss: {:.2}",
+            self.dd_optimal_plays,
             self.cards_played,
-            self.accuracy_percent(),
-            self.avg_tricks_lost()
+            self.dd_accuracy_percent(),
+            self.dd_avg_tricks_lost()
         )
     }
 }
@@ -697,29 +706,25 @@ pub fn find_trick_winner_naive(
 // ============================================================================
 
 #[inline]
-fn evaluate_play(prev_tricks: i32, curr_tricks: i32) -> CardResult {
-    let delta = prev_tricks - curr_tricks;
+fn evaluate_play(prev_tricks: u8, curr_tricks: u8) -> CardResult {
+    let delta = i32::from(prev_tricks) - i32::from(curr_tricks);
 
-    let tricks = Tricks::new_unchecked(
-        curr_tricks
-            .try_into()
-            .unwrap_or_else(|_| panic!("DD tricks should be 0-13, got {curr_tricks}")),
-    );
+    let tricks = Tricks::new_unchecked(curr_tricks);
 
-    let is_optimal = delta == 0;
+    let is_dd_optimal = delta == 0;
 
-    if is_optimal {
-        CardResult::Optimal { tricks }
+    if is_dd_optimal {
+        CardResult::DdOptimal { dd_tricks: tricks }
     } else {
-        let tricks_lost = TrickDelta::new_unchecked(
+        let dd_tricks_lost = TrickDelta::new_unchecked(
             delta
                 .unsigned_abs()
                 .try_into()
                 .unwrap_or_else(|_| panic!("Trick delta too large: {}", delta.abs())),
         );
-        CardResult::Suboptimal {
-            tricks,
-            tricks_lost,
+        CardResult::DdSuboptimal {
+            dd_tricks: tricks,
+            dd_tricks_lost,
         }
     }
 }
@@ -729,23 +734,74 @@ fn evaluate_play(prev_tricks: i32, curr_tricks: i32) -> CardResult {
 // ============================================================================
 
 /// Input for performance analysis.
+///
+/// `dd_results` is the backend-agnostic output of the solver seam's
+/// [`PlayAnalyser`]: the **declarer's cumulative double-dummy trick total** at
+/// the starting position and after each recorded play, so a board with `n`
+/// plays has `n + 1` entries (DDS's `SolvedPlay.tricks` is that declarer
+/// total, not a side-to-play count). The difference between consecutive
+/// entries is the [`CardResult::dd_tricks_lost`] DD deviation for the card
+/// just played. It carries no `dds` types, so the analysis is
+/// backend-independent.
+///
+/// The caller contract is that every entry is a trick count in `0..=13`.
+/// [`analyze_hand`] feeds them to `Tricks::new_unchecked` (only debug-checked),
+/// so an out-of-range value is a caller bug, not a recoverable error.
 #[derive(Debug, Clone)]
 pub struct AnalysisInput {
     pub contract: Contract,
     pub play_sequence: PlayRecord,
-    pub dd_results: SolvedPlay,
+    pub dd_results: Vec<u8>,
 }
 
-/// Analyzes player performance using SIMD-optimized preprocessing.
+/// Analyses a recorded board against double-dummy through the solver seam.
+///
+/// The seam's [`PlayAnalyser`] produces the backend-agnostic per-play trick
+/// counts; [`analyze_hand`] turns them into per-seat statistics. The board
+/// must carry both a contract and a recorded play.
+///
+/// # Errors
+///
+/// Returns the seam's error (wrapped in [`SqueezerError`]) when the board
+/// cannot be analysed, or an invalid-input error when it lacks a contract or
+/// a play.
+pub fn analyze_board<A>(analyser: &A, board: &Board) -> Result<HandAnalysis, SqueezerError>
+where
+    A: PlayAnalyser,
+    SqueezerError: From<A::Error>,
+{
+    let contract = board.contract().ok_or_else(|| {
+        SqueezerError::invalid_input("performance analysis", "board has no contract")
+    })?;
+    let play_sequence = board.play().cloned().ok_or_else(|| {
+        SqueezerError::invalid_input("performance analysis", "board records no play")
+    })?;
+    let dd_results = analyser.analyse_play(board).map_err(SqueezerError::from)?;
+    Ok(analyze_hand(AnalysisInput {
+        contract,
+        play_sequence,
+        dd_results,
+    }))
+}
+
+/// Turns a backend-agnostic DD sequence into per-play results and per-seat
+/// statistics.
+///
+/// The winner of each trick is re-derived from the cards and the contract's
+/// strain, so the recorded play is expected to be a legal, complete
+/// playthrough (as [`Board`] guarantees). See [`AnalysisInput`] for the
+/// `dd_results` contract.
+///
 /// # Panics
-/// Panics if DD result is empty
+/// Panics if `dd_results` does not start with the initial position, or if it
+/// runs out before the recorded play does.
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
     let contract = input.contract;
     let trump = Suit::try_from(contract.strain()).ok();
 
-    let mut cards_array: [Card; 48] = [Card::NONCE; 48];
+    let mut cards_array: [Card; 52] = [Card::NONCE; 52];
     let seq_len = input.play_sequence.len();
     let tricks_to_analyze = seq_len / 4;
     let extra_cards = seq_len % 4;
@@ -775,7 +831,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 
         let lead_suit = trick_cards[0].suit();
         // Get DD results for this trick
-        let trick_dd: Vec<i32> = dd_iter.by_ref().take(4).collect();
+        let trick_dd: Vec<u8> = dd_iter.by_ref().take(4).collect();
         assert_eq!(
             trick_dd.len(),
             4,
@@ -848,23 +904,23 @@ mod tests {
 
     #[test]
     fn test_evaluate_play_declarer() {
-        // Declarer maintains tricks - optimal
+        // Declarer maintains tricks - DD-optimal
         let result = evaluate_play(10, 10);
-        assert!(result.is_optimal());
+        assert!(result.is_dd_optimal());
 
-        // Declarer loses trick - suboptimal
+        // Declarer loses trick - DD-suboptimal
         let result = evaluate_play(10, 9);
-        assert_eq!(result.tricks_lost().get(), 1);
+        assert_eq!(result.dd_tricks_lost().get(), 1);
     }
 
     #[test]
     fn test_evaluate_play_defender() {
         let result = evaluate_play(10, 10);
-        assert!(result.is_optimal());
+        assert!(result.is_dd_optimal());
 
-        // Defender gives up trick - suboptimal
+        // Defender gives up trick - DD-suboptimal
         let result = evaluate_play(9, 10);
-        assert_eq!(result.tricks_lost().get(), 1);
+        assert_eq!(result.dd_tricks_lost().get(), 1);
     }
 
     #[test]
@@ -873,26 +929,26 @@ mod tests {
 
         record.push(CardPlay {
             card: Card::new(Suit::Spades, 14),
-            result: CardResult::Optimal {
-                tricks: Tricks::new_unchecked(10),
+            result: CardResult::DdOptimal {
+                dd_tricks: Tricks::new_unchecked(10),
             },
             seat: Seat::North,
         });
 
         record.push(CardPlay {
             card: Card::new(Suit::Hearts, 12),
-            result: CardResult::Suboptimal {
-                tricks: Tricks::new_unchecked(9),
-                tricks_lost: TrickDelta::new_unchecked(1),
+            result: CardResult::DdSuboptimal {
+                dd_tricks: Tricks::new_unchecked(9),
+                dd_tricks_lost: TrickDelta::new_unchecked(1),
             },
             seat: Seat::North,
         });
 
         let stats = record.statistics();
         assert_eq!(stats.cards_played, 2);
-        assert_eq!(stats.optimal_plays, 1);
-        assert_eq!(stats.total_tricks_lost, 1);
-        assert!(stats.accuracy_percent() - 50.0f64 < 0.001);
+        assert_eq!(stats.dd_optimal_plays, 1);
+        assert_eq!(stats.dd_total_tricks_lost, 1);
+        assert!(stats.dd_accuracy_percent() - 50.0f64 < 0.001);
     }
 
     #[test]
@@ -903,17 +959,22 @@ mod tests {
 
         assert_eq!(
             better,
-            CardResult::Suboptimal {
-                tricks: Tricks(6),
-                tricks_lost: TrickDelta(3)
+            CardResult::DdSuboptimal {
+                dd_tricks: Tricks(6),
+                dd_tricks_lost: TrickDelta(3)
             }
         );
-        assert_eq!(equal, CardResult::Optimal { tricks: Tricks(5) });
+        assert_eq!(
+            equal,
+            CardResult::DdOptimal {
+                dd_tricks: Tricks(5)
+            }
+        );
         assert_eq!(
             worse,
-            CardResult::Suboptimal {
-                tricks: Tricks(7),
-                tricks_lost: TrickDelta(2)
+            CardResult::DdSuboptimal {
+                dd_tricks: Tricks(7),
+                dd_tricks_lost: TrickDelta(2)
             }
         );
     }
@@ -980,28 +1041,38 @@ mod tests {
         }
     }
 
-    /// Attributes an ordered card list to seats, trick by trick, so the test
-    /// exercises `PlayRecord` data rather than a bare card sequence.
-    fn record_with_seats(cards: &[Card], contract: Contract) -> PlayRecord {
-        let mut plays = Vec::new();
-        let mut leader = contract.leader();
-        for trick in cards.chunks(4) {
-            let grouped: Vec<Play> = trick
-                .iter()
-                .enumerate()
-                .map(|(offset, &card)| Play::new(leader + offset, card))
-                .collect();
-            if grouped.len() == 4 {
-                leader = crate::record::position::trick_winner(&grouped, contract.strain());
-            }
-            plays.extend(grouped);
+    #[test]
+    fn dd_example_hand_analysis_is_all_optimal() {
+        // DDS's own hand-0 oracle is 46 results, all 8 (pinned by the seam
+        // test), so every recorded play is DD-optimal and no tricks are lost.
+        // This is the re-baselined DDS 3.1 semantics for the analysis.
+        let board = crate::solver::test_fixtures::example_board_hand0_play();
+        let analysis =
+            analyze_board(&crate::solver::DdsSolver, &board).expect("example hand 0 analyses");
+
+        let mut total = 0;
+        for seat in Seat::iter() {
+            let stats = analysis.player_stats(seat);
+            total += stats.cards_played;
+            assert_eq!(
+                stats.dd_optimal_plays, stats.cards_played,
+                "{seat} should be DD-optimal throughout"
+            );
+            assert_eq!(stats.dd_total_tricks_lost, 0, "{seat} lost no DD tricks");
         }
-        PlayRecord::new(plays)
+        assert_eq!(total, 45, "the whole recorded play is analysed");
+
+        // The per-side statistics are kept.
+        assert_eq!(analysis.declaring_side_stats().cards_played, 22);
+        assert_eq!(analysis.defending_side_stats().cards_played, 23);
     }
 
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn test_analyse_players_performance() {
+    fn a_backend_agnostic_dd_sequence_drives_the_analysis() {
+        // Pure-function test: the DD sequence is synthetic, so the analysis is
+        // exercised without a solver. Only the deltas between consecutive
+        // values matter, and they are what `CardResult` reports.
         let contract = Contract::new(
             2,
             Strain::Spades,
@@ -1042,114 +1113,67 @@ mod tests {
             Card::new(Suit::Spades, 6), // Winner N
             Card::new(Suit::Clubs, 11),
         ];
-        let play_seq = record_with_seats(&cards, contract);
-        let solved_play = SolvedPlay::from_seq(vec![
+        let play_sequence = PlayRecord::new(crate::solver::test_fixtures::attribute_seats(
+            &cards, contract,
+        ));
+        let dd_results = vec![
             7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 9,
-        ]);
+        ];
 
-        let analysis_input = AnalysisInput {
+        let analysis = analyze_hand(AnalysisInput {
             contract,
-            play_sequence: play_seq,
-            dd_results: solved_play,
-        };
-        let players_performance = analyze_hand(analysis_input);
+            play_sequence,
+            dd_results,
+        });
 
-        // for i in 0..=4 {
-        //     use itertools::*;
-        //         "{}",
-        //         players_performance
-        //             .records
-        //             .iter()
-        //             .format_with("-", |elt, f| f(&format_args!("{}", elt.plays[i].card)))
-        //     );
-        // }
+        let play = |seat: Seat, index: usize| {
+            *analysis
+                .player(seat)
+                .plays()
+                .nth(index)
+                .expect("index is within the recorded plays")
+        };
+
+        assert_eq!(play(Seat::North, 0).card, Card::S2);
         assert_eq!(
-            players_performance.records[Seat::North as usize].plays[0].card,
-            Card::S2
-        );
-        assert_eq!(
-            players_performance.records[Seat::North as usize].plays[0].result,
-            CardResult::Suboptimal {
-                tricks: Tricks(8),
-                tricks_lost: TrickDelta(1)
+            play(Seat::North, 0).result,
+            CardResult::DdSuboptimal {
+                dd_tricks: Tricks(8),
+                dd_tricks_lost: TrickDelta(1)
             }
         );
+        assert_eq!(play(Seat::East, 1).card, Card::HK);
+        assert_eq!(play(Seat::East, 2).card, Card::H4);
         assert_eq!(
-            players_performance.records[Seat::East as usize].plays[1].card,
-            Card::HK
-        );
-        assert_eq!(
-            players_performance.records[Seat::East as usize].plays[2].card,
-            Card::H4
-        );
-        assert_eq!(
-            players_performance.records[Seat::East as usize].plays[2].result,
-            CardResult::Suboptimal {
-                tricks: Tricks(7),
-                tricks_lost: TrickDelta(1)
+            play(Seat::East, 2).result,
+            CardResult::DdSuboptimal {
+                dd_tricks: Tricks(7),
+                dd_tricks_lost: TrickDelta(1)
             }
         );
+        assert_eq!(play(Seat::East, 4).card, Card::S8);
         assert_eq!(
-            players_performance.records[Seat::East as usize].plays[4].card,
-            Card::S8
-        );
-        assert_eq!(
-            players_performance.records[Seat::East as usize].plays[4].result,
-            CardResult::Suboptimal {
-                tricks: Tricks(8),
-                tricks_lost: TrickDelta(1)
+            play(Seat::East, 4).result,
+            CardResult::DdSuboptimal {
+                dd_tricks: Tricks(8),
+                dd_tricks_lost: TrickDelta(1)
             }
         );
+        assert_eq!(play(Seat::East, 5).card, Card::CJ);
         assert_eq!(
-            players_performance.records[Seat::East as usize].plays[5].card,
-            Card::CJ
-        );
-        assert_eq!(
-            players_performance.records[Seat::East as usize].plays[5].result,
-            CardResult::Suboptimal {
-                tricks: Tricks(9),
-                tricks_lost: TrickDelta(1)
+            play(Seat::East, 5).result,
+            CardResult::DdSuboptimal {
+                dd_tricks: Tricks(9),
+                dd_tricks_lost: TrickDelta(1)
             }
         );
     }
 
     #[test]
-    fn test_complete_analysis_pipeline() {
-        use dds::analyseplay::PlayAnalyzer;
-        //let lin = "pn|gattochef,sebyx,Inter2018,fede00|st||md|3SAQ432HQJT72DT3CQ,SKJH983D974CT9876,S965HK654DKJ6CAJ5,ST87HADAQ852CK432|rh||ah|Board 1|sv|o|mb|1C|an|2+|mb|1D|mb|1H|an|picche|mb|2D|mb|p|mb|p|mb|3H|mb|p|mb|3S|mb|p|mb|4S|mb|p|mb|p|mb|p|pg||pc|DA|pc|D3|pc|D9|pc|D6|pg||pc|HA|pc|H2|pc|H9|pc|H4|pg||pc|D8|pc|DT|pc|D7|pc|DJ|pg||pc|S5|pc|S7|pc|SA|pc|SJ|pg||pc|CQ|pc|CT|pc|CA|pc|C2|pg||pc|S6|pc|S8|pc|SQ|pc|SK|pg||pc|H8|mc|9|";
-
-        let lin = "pn|simodra,fra97,matmont,thevava|st||md|3S34JH258TQKD2JQC7,S27TH69D679TKAC23,S6QH47JD458C468JA,|rh||ah|Board 1|sv|o|mb|p|mb|1S|mb|2H|mb|2S|mb|3H|mb|4S|mb|p|mb|p|mb|p|pg||pc|C7|pc|C3|pc|CA|pc|C5|pg||pc|H4|pc|HA|pc|H5|pc|H6|pg||pc|SA|pc|S3|pc|S2|pc|S6|pg||pc|SK|pc|S4|pc|S7|pc|SQ|pg||pc|D3|pc|D2|pc|DA|pc|D5|pg||pc|DK|pc|D4|pc|H3|pc|DJ|pg||pc|C2|pc|C4|pc|C9|pc|SJ|pg||pc|HK|mc|11|";
-        //let lin = "st||md|3SK5HJ84DJT852CJT8,SAHAT9753DA93C752,SJ876432HQDK76CK9,SQT9HK62DQ4CAQ643|rh||ah|Board 1|sv|o|mb|2S|mb|p|mb|p|mb|3H|mb|p|mb|4H|mb|p|mb|p|mb|p|pc|cK|pc|cA|pc|c8|pc|c2|pg||";
-        //let lin = "qx|c37|st||md|3SKJT2HK84DA6CAT75,S54HJT7532DK97C84,SAQ763H96DQJ54CKJ,S98HAQDT832CQ9632|rh||ah|Board 1|sv|n|mb|1S|mb|p|mb|2N|mb|p|mb|3C|mb|p|mb|3D|mb|p|mb|3S|mb|p|mb|3N|mb|p|mb|4D|mb|p|mb|4H|mb|p|mb|4S|mb|p|mb|p|mb|p|pc|c2";
-        //let lin = "qx|o47|st||md|1SJ852HADKT742CJT5,SAT96HJ6D3CAK8743,SK743HK8543DQJ5CQ,SQHQT972DA986C962|rh||ah|Board 1|sv|n|mb|p|mb|1C|mb|d|mb|1H|mb|d|an|t/o|mb|2C|mb|2S|mb|3C|mb|3S|mb|p|mb|p|mb|p|pc|c2|pc|c5|pc|cA|pc|cQ|pg||pc|c3|pc|s3|pc|c6|pc|cT|pg||pc|h4|pc|h2|pc|hA|pc|h6|pg||pc|s2|pc|s6|pc|sK|pc|sQ|pg||pc|hK|pc|h7|pc|cJ|pc|hJ|pg||pc|dQ|pc|dA|pc|d2|pc|d3|pg||pc|hQ|pc|s5|pc|s9|pc|h3|pg||pc|cK|pc|s4|pc|c9|pc|d4|pg||pc|dJ|pc|d6|pc|d7|mc|8|pg||";
-        let file = crate::linparser::LinFile::from_str(lin).unwrap();
-        let board = file.boards.first().unwrap();
-        let dds_solver = dds::doubledummy::DoubleDummySolver::new();
-        let contract = board.contract().unwrap();
-        let play_record = board.play().unwrap();
-        let players = file.players();
-        let hands = board.deal();
-        let auction = board.auction().unwrap();
-        println!(
-            "Players: {} Dealer: {} Contract: {contract}\n {hands}\nAuction: {auction:?}\nPlay record:\n{play_record:?}",
-            players.iter().format(", "),
-            board.dealer(),
-        );
-        let dds_playsequence = play_record.try_into().unwrap();
-        println!("{dds_playsequence:?}");
-        let solved = dds_solver
-            .analyze_play(hands, &contract, dds_playsequence)
-            .unwrap();
-        println!("{solved:?}");
-        let analysis_input = AnalysisInput {
-            contract,
-            play_sequence: play_record.clone(),
-            dd_results: solved,
-        };
-        let p_performance = analyze_hand(analysis_input);
-        let n_perf = p_performance.player_stats(Seat::North);
-        let e_perf = p_performance.player_stats(Seat::East);
-        println!("{} {}", n_perf.optimal_plays, n_perf.total_tricks_lost);
-        println!("{} {}", e_perf.optimal_plays, e_perf.total_tricks_lost);
+    fn analyze_board_rejects_a_board_without_a_play() {
+        let board = crate::solver::test_fixtures::example_board();
+        let error = analyze_board(&crate::solver::DdsSolver, &board)
+            .expect_err("a board with no play cannot be analysed");
+        assert!(matches!(error, SqueezerError::InvalidInput { .. }));
     }
 }

@@ -59,15 +59,15 @@ harness = false
 [[bench]]
 name = "simd_benchmark"
 harness = false
-required-features = ["dds", "lin"]
+required-features = ["dds"]
 
 [[bench]]
 name = "trick_winner_bench"
 harness = false
-required-features = ["dds", "lin"]
+required-features = ["dds"]
 
-# Only this integration test needs the solver + LIN parser; the rest build
-# on every feature set.
+# The pipeline test parses a LIN fixture, so it needs the importer as well as
+# the solver; the benches above need only `dds`.
 [[test]]
 name = "performance_analysis_test"
 required-features = ["dds", "lin"]

@@ -21,7 +21,7 @@ use crate::dealproduction::DealerError;
 use crate::hand_constraint::ConstraintError;
 #[cfg(feature = "lin")]
 use crate::linparser::ParseLinError;
-#[cfg(all(feature = "dds", feature = "lin"))]
+#[cfg(feature = "dds")]
 use crate::performance_analysis::{TrickDeltaError, TricksError};
 use crate::record::{AuctionError, BoardError, DealError, PositionError};
 use crate::shapeparser::CreationShapeError;
@@ -78,11 +78,11 @@ pub enum SqueezerError {
     #[error("BBO request failed: {0}")]
     Bbo(#[from] BboError),
     /// A trick count was outside 0-13.
-    #[cfg(all(feature = "dds", feature = "lin"))]
+    #[cfg(feature = "dds")]
     #[error("invalid trick count: {0}")]
     TricksError(#[from] TricksError),
     /// A trick delta was outside 0-13.
-    #[cfg(all(feature = "dds", feature = "lin"))]
+    #[cfg(feature = "dds")]
     #[error("invalid trick delta: {0}")]
     TrickDeltaError(#[from] TrickDeltaError),
 }
@@ -260,7 +260,7 @@ mod tests {
         assert!(error.source().is_some());
     }
 
-    #[cfg(all(feature = "dds", feature = "lin"))]
+    #[cfg(feature = "dds")]
     #[test]
     fn trick_errors_convert_to_their_variants() {
         let tricks = SqueezerError::from(TricksError::OutOfRange(14));

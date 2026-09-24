@@ -1,6 +1,5 @@
 // Benchmark for SIMD vs scalar preprocessing.
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use dds::analyseplay::SolvedPlay;
 use rand::{Rng, rng};
 use squeezer::performance_analysis::AnalysisInput;
 use squeezer::performance_analysis::PreprocessedDeal;
@@ -119,13 +118,12 @@ fn benchmark_full_hand_analysis(c: &mut Criterion) {
     );
 
     // Create mock DD results (initial state + 4 results per trick = 49 values)
-    let mut dd_results = Vec::with_capacity(49);
+    let mut dd_results: Vec<u8> = Vec::with_capacity(49);
     dd_results.push(10); // Initial state
     for _ in 0..12 {
         // 4 results per trick, gradually decreasing
         dd_results.extend_from_slice(&[10, 10, 9, 9]);
     }
-    let dd_solved = SolvedPlay::from_seq(dd_results);
 
     let contract = Contract::new(
         1,
@@ -138,7 +136,7 @@ fn benchmark_full_hand_analysis(c: &mut Criterion) {
     let input = AnalysisInput {
         contract,
         play_sequence,
-        dd_results: dd_solved,
+        dd_results,
     };
 
     group.bench_function("complete_hand", |b| {
