@@ -22,7 +22,10 @@
 //!         Contract::from_str("3CN")?,
 //!         Contract::from_str("3NN")?,
 //!     ])
-//!     .scoring_function(imps)
+//!     .denomination(Denomination::Compared {
+//!         baseline: Baseline::AverageOfOptions,
+//!         scoring: Scoring::Imps,
+//!     })
 //!     .build()?;
 //!
 //! let results = sim.run()?;

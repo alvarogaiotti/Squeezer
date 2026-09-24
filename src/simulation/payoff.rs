@@ -24,7 +24,10 @@
 //!     .num_deals(1000)
 //!     .dealer(StandardDealer::new())
 //!     .contracts(contracts)
-//!     .scoring_function(imps)
+//!     .denomination(Denomination::Compared {
+//!         baseline: Baseline::AverageOfOptions,
+//!         scoring: Scoring::Imps,
+//!     })
 //!     .build()?;
 //!
 //! let results = sim.run()?;
@@ -115,19 +118,19 @@ impl<T: Clone + Eq + std::hash::Hash + std::fmt::Display> RawPayoffData<T> {
 /// Pairwise builder for contract payoff comparisons.
 ///
 /// Builds the directed comparison `option_a` vs `option_b` from aligned
-/// per-deal results, applying `scoring_fn` once per deal. Capacity for
-/// `num_deals` comparisons is reserved up front.
+/// per-deal results, applying the denomination's pairwise difference once per
+/// deal. Capacity for `num_deals` comparisons is reserved up front.
 fn build_pairwise<T: Clone + Eq + std::hash::Hash>(
     option_a: T,
     option_b: T,
     results_a: &[DealResult],
     results_b: &[DealResult],
-    scoring_fn: &dyn Fn(i32, i32) -> i32,
+    denomination: &Denomination,
 ) -> PairwiseComparison<T> {
     let capacity = results_a.len().min(results_b.len());
     let mut pairwise = PairwiseComparison::with_capacity(option_a, option_b, capacity);
     for (deal_idx, (result_a, result_b)) in results_a.iter().zip(results_b.iter()).enumerate() {
-        let difference = scoring_fn(result_a.score, result_b.score);
+        let difference = denomination.difference(result_a.score, result_b.score);
         pairwise.add_comparison(ComparisonResult::new(
             deal_idx,
             result_a.score,
@@ -417,7 +420,7 @@ pub struct ContractPayoffBuilder<D: Dealer = StandardDealer> {
     num_deals: Option<usize>,
     dealer: Option<D>,
     contracts: Vec<Contract>,
-    scoring_fn: Option<Box<dyn Fn(i32, i32) -> i32>>,
+    denomination: Denomination,
     solver_factory: Option<Box<dyn ContextFactory>>,
 }
 
@@ -430,7 +433,7 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
             num_deals: None,
             dealer: None,
             contracts: Vec::new(),
-            scoring_fn: None,
+            denomination: Denomination::RawPoints,
             solver_factory: None,
         }
     }
@@ -467,14 +470,16 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         self
     }
 
-    /// Set the scoring function (e.g., IMPs, matchpoints)
+    /// Set how outcomes are valued. Defaults to [`Denomination::RawPoints`].
+    ///
+    /// The pairwise comparison applies the denomination's
+    /// [`difference`](Denomination::difference) to each pair of contracts, so
+    /// `Compared` with an average/best baseline reproduces the old bare
+    /// `scoring_fn(a, b)` (IMPs, matchpoints, or a custom scoring).
     #[must_use]
     #[inline]
-    pub fn scoring_function<F>(mut self, f: F) -> Self
-    where
-        F: Fn(i32, i32) -> i32 + 'static,
-    {
-        self.scoring_fn = Some(Box::new(f));
+    pub fn denomination(mut self, denomination: Denomination) -> Self {
+        self.denomination = denomination;
         self
     }
 
@@ -492,7 +497,7 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
 
     /// Build the simulation
     /// # Errors
-    /// When you did not define the number of deals, the scoring function or the dealer.
+    /// When you did not define the number of deals or the dealer.
     /// TODO: Fix with typestate
     #[inline]
     pub fn build(self) -> Result<ContractPayoffSimulation<D>, SqueezerError> {
@@ -502,9 +507,6 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         let dealer = self
             .dealer
             .ok_or_else(|| SqueezerError::InvalidInput("dealer must be set".into()))?;
-        let scoring_fn = self
-            .scoring_fn
-            .ok_or_else(|| SqueezerError::InvalidInput("scoring_function must be set".into()))?;
         let solver_factory: Box<dyn ContextFactory> = self
             .solver_factory
             .unwrap_or_else(|| Box::new(DdsSolver::new()));
@@ -519,7 +521,7 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
             num_deals,
             dealer,
             contracts: self.contracts,
-            scoring_fn,
+            denomination: self.denomination,
             solver_factory,
         })
     }
@@ -536,7 +538,7 @@ pub struct ContractPayoffSimulation<D: Dealer> {
     num_deals: usize,
     dealer: D,
     contracts: Vec<Contract>,
-    scoring_fn: Box<dyn Fn(i32, i32) -> i32>,
+    denomination: Denomination,
     solver_factory: Box<dyn ContextFactory>,
 }
 
@@ -548,16 +550,19 @@ impl<D: Dealer> ContractPayoffSimulation<D> {
         ContractPayoffBuilder::new()
     }
 
-    /// Legacy constructor for backwards compatibility
-    pub fn new<F>(num_deals: usize, dealer: D, contracts: Vec<Contract>, scoring_fn: F) -> Self
-    where
-        F: Fn(i32, i32) -> i32 + 'static,
-    {
+    /// Constructor taking an explicit [`Denomination`] and the default DDS
+    /// solver. Prefer [`Self::builder`] when you need a custom solver factory.
+    pub fn new(
+        num_deals: usize,
+        dealer: D,
+        contracts: Vec<Contract>,
+        denomination: Denomination,
+    ) -> Self {
         Self {
             num_deals,
             dealer,
             contracts,
-            scoring_fn: Box::new(scoring_fn),
+            denomination,
             solver_factory: Box::new(DdsSolver::new()),
         }
     }
@@ -572,7 +577,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
             num_deals,
             dealer,
             contracts,
-            scoring_fn,
+            denomination,
             solver_factory,
         } = self;
         let num_contracts = contracts.len();
@@ -642,7 +647,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
                     acc_b.contract,
                     &acc_a.results,
                     &acc_b.results,
-                    &scoring_fn,
+                    &denomination,
                 ));
             }
         }
@@ -667,6 +672,15 @@ struct ContractAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// IMPs against the pairwise opponent: the common `Compared` config that
+    /// reproduces the old bare `imps` scoring function.
+    fn imps_against_the_opponent() -> Denomination {
+        Denomination::Compared {
+            baseline: Baseline::AverageOfOptions,
+            scoring: Scoring::Imps,
+        }
+    }
 
     #[test]
     fn test_option_results_creation() {
@@ -837,23 +851,25 @@ mod tests {
 
     #[test]
     fn test_contract_payoff_builder_validation() {
-        let dealer = StandardDealer::new();
-        let contracts = vec![Contract::from_str("3CN").unwrap()];
+        // Two contracts, so only the condition named by each case is missing.
+        let contracts = vec![
+            Contract::from_str("3CN").unwrap(),
+            Contract::from_str("3NN").unwrap(),
+        ];
 
         // Missing num_deals
         let result = ContractPayoffBuilder::new()
-            .contracts(contracts.clone())
             .dealer(StandardDealer::new())
-            .scoring_function(imps)
+            .contracts(contracts.clone())
+            .denomination(imps_against_the_opponent())
             .build();
         assert!(result.is_err());
 
         // Missing dealer
-        let result = ContractPayoffBuilder::new()
-            .dealer(StandardDealer::new())
+        let result = ContractPayoffBuilder::<StandardDealer>::new()
             .num_deals(100)
             .contracts(contracts.clone())
-            .scoring_function(imps)
+            .denomination(imps_against_the_opponent())
             .build();
         assert!(result.is_err());
 
@@ -861,7 +877,7 @@ mod tests {
         let result = ContractPayoffBuilder::new()
             .num_deals(100)
             .dealer(StandardDealer::new())
-            .scoring_function(imps)
+            .denomination(imps_against_the_opponent())
             .build();
         assert!(result.is_err());
 
@@ -870,22 +886,119 @@ mod tests {
             .num_deals(100)
             .dealer(StandardDealer::new())
             .contracts(vec![Contract::from_str("3CN").unwrap()])
-            .scoring_function(imps)
+            .denomination(imps_against_the_opponent())
             .build();
         assert!(result.is_err());
 
         // Valid configuration
-        let contracts = vec![
-            Contract::from_str("3CN").unwrap(),
-            Contract::from_str("3NN").unwrap(),
-        ];
         let result = ContractPayoffBuilder::new()
             .num_deals(100)
-            .dealer(dealer)
+            .dealer(StandardDealer::new())
             .contracts(contracts)
-            .scoring_function(imps)
+            .denomination(imps_against_the_opponent())
             .build();
         assert!(result.is_ok());
+    }
+
+    /// A fully predealt dealer: one possible deal, so every run is identical.
+    fn predealt_dealer() -> impl Dealer {
+        DealerBuilder::new()
+            .predeal(Seat::North, Cards::from_str("SAKQJT98765432").unwrap())
+            .unwrap()
+            .predeal(Seat::East, Cards::from_str("HAKQJT98765432").unwrap())
+            .unwrap()
+            .predeal(Seat::South, Cards::from_str("DAKQJT98765432").unwrap())
+            .unwrap()
+            .predeal(Seat::West, Cards::from_str("CAKQJT98765432").unwrap())
+            .unwrap()
+            .build()
+            .unwrap()
+    }
+
+    /// The `Denomination` reproduces the pre-`Denomination` pairwise scoring.
+    ///
+    /// The old builder took a bare `scoring_fn(i32, i32) -> i32` and applied it
+    /// to each pair of contracts. A `Compared` denomination with the opponent
+    /// as its baseline (`AverageOfOptions`/`BestOption` over a single other
+    /// contract) resolves to that opponent's score, so `RawPoints` matches the
+    /// old `|a, b| a - b` and `Imps`/`Matchpoints` match the old `imps` and
+    /// `matchpoints` exactly.
+    #[test]
+    fn contract_payoff_matches_the_previous_pairwise_scoring() {
+        let contracts = vec![
+            Contract::from_str("1NN").unwrap(),
+            Contract::from_str("2SN").unwrap(),
+            Contract::from_str("3HN").unwrap(),
+        ];
+
+        let run = |denomination| {
+            ContractPayoffBuilder::new()
+                .num_deals(4)
+                .dealer(predealt_dealer())
+                .contracts(contracts.clone())
+                .denomination(denomination)
+                .build()
+                .expect("valid configuration")
+                .run()
+                .expect("fixed deals solve")
+        };
+
+        let raw = run(Denomination::RawPoints);
+        let compared_imps = run(imps_against_the_opponent());
+        let compared_matchpoints = run(Denomination::Compared {
+            baseline: Baseline::BestOption,
+            scoring: Scoring::Matchpoints,
+        });
+
+        assert!(!raw.raw.items.is_empty());
+        for ((raw_item, imps_item), matchpoints_item) in raw
+            .raw
+            .items
+            .iter()
+            .zip(&compared_imps.raw.items)
+            .zip(&compared_matchpoints.raw.items)
+        {
+            for ((raw_comp, imps_comp), matchpoints_comp) in raw_item
+                .comparisons
+                .iter()
+                .zip(&imps_item.comparisons)
+                .zip(&matchpoints_item.comparisons)
+            {
+                assert_eq!(raw_comp.difference, raw_comp.score_a - raw_comp.score_b);
+                assert_eq!(
+                    imps_comp.difference,
+                    imps(imps_comp.score_a, imps_comp.score_b)
+                );
+                assert_eq!(
+                    matchpoints_comp.difference,
+                    matchpoints(matchpoints_comp.score_a, matchpoints_comp.score_b)
+                );
+            }
+        }
+    }
+
+    /// The builder's default denomination is raw points: omitting
+    /// `.denomination(...)` yields raw score differences.
+    #[test]
+    fn contract_payoff_defaults_to_raw_points() {
+        let output = ContractPayoffBuilder::new()
+            .num_deals(2)
+            .dealer(predealt_dealer())
+            .contracts(vec![
+                Contract::from_str("1NN").unwrap(),
+                Contract::from_str("2SN").unwrap(),
+            ])
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect("fixed deals solve");
+
+        assert!(!output.raw.items.is_empty());
+        for item in &output.raw.items {
+            for comp in &item.comparisons {
+                assert_eq!(comp.difference, comp.score_a - comp.score_b);
+            }
+        }
     }
 
     /// Deterministic end-to-end through the shared pool-solve engine.
@@ -896,22 +1009,12 @@ mod tests {
     /// values were captured from the pre-refactor `run()`.
     #[test]
     fn test_contract_payoff_fully_predealt_is_deterministic() {
-        let dealer = DealerBuilder::new()
-            .predeal(Seat::North, Cards::from_str("SAKQJT98765432").unwrap())
-            .unwrap()
-            .predeal(Seat::East, Cards::from_str("HAKQJT98765432").unwrap())
-            .unwrap()
-            .predeal(Seat::South, Cards::from_str("DAKQJT98765432").unwrap())
-            .unwrap()
-            .predeal(Seat::West, Cards::from_str("CAKQJT98765432").unwrap())
-            .unwrap()
-            .build()
-            .unwrap();
+        let dealer = predealt_dealer();
         let contracts = vec![
             Contract::from_str("1NN").unwrap(),
             Contract::from_str("2SN").unwrap(),
         ];
-        let output = ContractPayoffSimulation::new(2, dealer, contracts, |a, b| a - b)
+        let output = ContractPayoffSimulation::new(2, dealer, contracts, Denomination::RawPoints)
             .run()
             .expect("fixed deals solve");
 
@@ -1016,7 +1119,7 @@ mod tests {
             .num_deals(16)
             .dealer(StandardDealer::new())
             .contracts(contracts)
-            .scoring_function(imps)
+            .denomination(imps_against_the_opponent())
             .solver_factory(Box::new(RecordingFactory {
                 log: Arc::clone(&log),
             }))

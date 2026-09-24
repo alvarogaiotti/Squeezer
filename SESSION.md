@@ -244,6 +244,17 @@
   unqualified "optimal". `performance_analysis.rs` still has
   `is_optimal`/`CardResult::Optimal`/`optimal_plays`; that is ticket 13's port,
   and the naming there needs the same treatment.
+- `Denomination::difference` with `Baseline::Fixed` scores each directed pair
+  against the fixed score rather than against the opponent, so it is not
+  antisymmetric across `(a, b)`/`(b, a)`. `PayoffMatrix::calculate_rankings`
+  only aggregates `option_a`, so a `Fixed` denomination can skew rankings; it is
+  documented as unsupported in the pairwise path, but nothing enforces that at
+  runtime.
+- Contract payoff exposes the `Denomination` only through
+  `PairwiseComparison.difference`; `DealResult` still carries `score` but no
+  per-contract `value` (unlike card-EV's `CardDealOutcome.value`). If consumers
+  want the field-relative value of a contract, `DealResult` would need a
+  `value` field computed with `Denomination::value`.
 
 ## Resolved
 

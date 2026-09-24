@@ -4,6 +4,14 @@ use squeezer::Simulation;
 use squeezer::prelude::*;
 use std::hint::black_box;
 
+/// IMPs against the pairwise opponent, matching the old bare `imps` scoring.
+fn imps_against_the_opponent() -> Denomination {
+    Denomination::Compared {
+        baseline: Baseline::AverageOfOptions,
+        scoring: Scoring::Imps,
+    }
+}
+
 #[inline]
 fn payoff_report_test(_: ()) {
     let contracts = vec![
@@ -17,7 +25,7 @@ fn payoff_report_test(_: ()) {
         .unwrap()
         .build()
         .unwrap();
-    let sim = ContractPayoffSimulation::new(1000, dealer, contracts, imps);
+    let sim = ContractPayoffSimulation::new(1000, dealer, contracts, imps_against_the_opponent());
     sim.run().unwrap();
 }
 
