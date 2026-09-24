@@ -4,17 +4,22 @@
 //! A partially played state: the input to double-dummy solving.
 //!
 //! A [`Position`] is a *snapshot*, not a mutable cursor. It is a pure function
-//! of a [`Board`]'s deal, its [`PlayRecord`] and its [`Contract`]'s strain, so
-//! "rewinding" is prefix derivation ([`Position::after_play`]) rather than an
-//! undo stack. Keeping it a value type is what lets it be serialized,
-//! compared and handed to the solver unchanged.
+//! of a `Deal`, a [`PlayRecord`] prefix and a [`Strain`], so "rewinding" is
+//! prefix derivation ([`Position::after_play`]) rather than an undo stack.
+//! Keeping it a value type is what lets it be serialized, compared and handed
+//! to the solver unchanged.
 //!
-//! Deriving a position needs the contract even before the first card: the
-//! strain fills [`Position::trump`] and the contract names the opening leader.
+//! Deriving a position always needs the strain to fill [`Position::trump`], and
+//! a non-empty prefix needs it again to name the winner of a completed trick.
+//! Only the opening position needs an opening leader, which the position's own
+//! fields cannot name; [`Position::from_deal_prefix`] therefore takes it as an
+//! explicit input and [`Position::from_deal_prefix_with_contract`] reads it
+//! from a [`Contract`]. [`Position::new`] is the raw constructor for callers
+//! that already hold the parts.
 
 use crate::prelude::*;
 
-/// Why a [`Position`] cannot be derived from a [`Board`].
+/// Why a [`Position`] cannot be built from its parts or derived from a deal.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -29,6 +34,43 @@ pub enum PositionError {
         /// How many plays the board records.
         recorded: usize,
     },
+    /// The table holds more than the three cards of an incomplete trick.
+    TableTooLong {
+        /// How many cards the caller put on the table.
+        len: usize,
+    },
+    /// A hand holds more than the thirteen cards of a full bridge hand.
+    HandTooLong {
+        /// The offending seat.
+        seat: Seat,
+        /// How many cards that seat holds.
+        len: u8,
+    },
+    /// A card appears twice across the table and hands.
+    DuplicatedCard(Card),
+    /// The table is not the trailing incomplete trick: the number of cards
+    /// played does not leave exactly `table` cards on the table.
+    TableNotTrailing {
+        /// How many cards the hands imply have been played, `52 - |hands|`.
+        played: usize,
+        /// How many cards are actually on the table.
+        table: usize,
+    },
+    /// The table's plays are not consecutive in rotation.
+    TableSeatsNotConsecutive {
+        /// The seat that played out of turn.
+        seat: Seat,
+        /// The seat that should have played.
+        expected: Seat,
+    },
+    /// A prefix card is not in the hand of the seat recorded as having played
+    /// it.
+    PrefixCardNotHeld {
+        /// The offending play.
+        play: Play,
+    },
+    /// A prefix card is played more than once.
+    PrefixCardPlayedTwice(Card),
 }
 
 impl std::fmt::Display for PositionError {
@@ -44,6 +86,30 @@ impl std::fmt::Display for PositionError {
                 f,
                 "requested a position after {requested} plays, but only {recorded} are recorded"
             ),
+            Self::TableTooLong { len } => write!(
+                f,
+                "the table holds {len} cards, but an incomplete trick has at most 3"
+            ),
+            Self::HandTooLong { seat, len } => {
+                write!(f, "{seat} holds {len} cards, expected at most 13")
+            }
+            Self::DuplicatedCard(card) => write!(f, "card {card} appears more than once"),
+            Self::TableNotTrailing { played, table } => write!(
+                f,
+                "{played} cards have been played but the table holds {table}, not {played} % 4"
+            ),
+            Self::TableSeatsNotConsecutive { seat, expected } => write!(
+                f,
+                "the table plays out of rotation: {seat} played where {expected} should have"
+            ),
+            Self::PrefixCardNotHeld { play } => write!(
+                f,
+                "{} is recorded as playing {}, which the deal does not give {0}",
+                play.seat, play.card
+            ),
+            Self::PrefixCardPlayedTwice(card) => {
+                write!(f, "card {card} is played more than once in the prefix")
+            }
         }
     }
 }
@@ -52,10 +118,12 @@ impl std::error::Error for PositionError {}
 
 /// The winner of a complete four-card trick under `trump`.
 ///
-/// A card can only win by being a trump or by following the led suit; among
-/// cards of the same class the higher rank wins, and any trump beats any
-/// non-trump. `trick` must be a complete trick, led by its first play.
-pub(crate) fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
+/// This is the canonical trick-winner rule: a card can only win by being a
+/// trump or by following the led suit; among cards of the same class the higher
+/// rank wins, and any trump beats any non-trump. `trick` must be a complete
+/// trick, led by its first play.
+#[must_use]
+pub fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
     debug_assert_eq!(trick.len(), 4, "a completed trick has four plays");
     let led = trick[0].card.suit();
     let trump = Suit::try_from(trump).ok();
@@ -76,6 +144,15 @@ pub(crate) fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
         .map_or(trick[0].seat, |play| play.seat)
 }
 
+/// Inserts `card` into `seen`, returning `true` when it was absent.
+fn insert_if_absent(seen: &mut Cards, card: Card) -> bool {
+    if seen.has_card(card) {
+        return false;
+    }
+    *seen = seen.insert(card);
+    true
+}
+
 /// A snapshot of a partially played board.
 ///
 /// `NoTrumps` is encoded directly in [`Strain`] rather than as an `Option`;
@@ -91,6 +168,158 @@ pub struct Position {
 }
 
 impl Position {
+    /// Builds a position directly from its parts.
+    ///
+    /// `new` validates the shape of a snapshot past any point of the play, not
+    /// a full deck: the table holds at most the three cards of an incomplete
+    /// trick; every hand holds at most 13 cards; the table and hands are
+    /// distinct; the played count `52 - |hands|` leaves exactly `table.len()`
+    /// cards on the table; and the table's plays are consecutive in rotation.
+    /// Cards played to completed tricks are in neither the table nor the hands,
+    /// so the supplied set is smaller than 52. `to_play` is the caller's claim
+    /// and is never recomputed.
+    ///
+    /// A four-card table is rejected rather than admitted as a second
+    /// representation of a completed trick: that state is an empty table plus
+    /// the winner to play.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PositionError::TableTooLong`], [`PositionError::HandTooLong`],
+    /// [`PositionError::DuplicatedCard`], [`PositionError::TableNotTrailing`] or
+    /// [`PositionError::TableSeatsNotConsecutive`] for the corresponding
+    /// invariant.
+    pub fn new(
+        trump: Strain,
+        to_play: Seat,
+        table: Vec<Play>,
+        hands: [Cards; 4],
+    ) -> Result<Self, PositionError> {
+        if table.len() > 3 {
+            return Err(PositionError::TableTooLong { len: table.len() });
+        }
+        for (index, hand) in hands.iter().enumerate() {
+            if hand.len() > 13 {
+                return Err(PositionError::HandTooLong {
+                    seat: Seat::from(index),
+                    len: hand.len(),
+                });
+            }
+        }
+
+        let mut seen = Cards::EMPTY;
+        for play in &table {
+            if !insert_if_absent(&mut seen, play.card) {
+                return Err(PositionError::DuplicatedCard(play.card));
+            }
+        }
+        for hand in &hands {
+            for card in *hand {
+                if !insert_if_absent(&mut seen, card) {
+                    return Err(PositionError::DuplicatedCard(card));
+                }
+            }
+        }
+
+        // The hands' complement is everything played; a trailing incomplete
+        // trick means that count is `table.len()` more than a multiple of four.
+        let played = usize::from(52 - hands.iter().map(Cards::len).sum::<u8>());
+        if played % 4 != table.len() {
+            return Err(PositionError::TableNotTrailing {
+                played,
+                table: table.len(),
+            });
+        }
+
+        if let Some(first) = table.first() {
+            for (offset, play) in table.iter().enumerate() {
+                let expected = first.seat + offset;
+                if play.seat != expected {
+                    return Err(PositionError::TableSeatsNotConsecutive {
+                        seat: play.seat,
+                        expected,
+                    });
+                }
+            }
+        }
+
+        Ok(Self {
+            trump,
+            to_play,
+            table,
+            hands,
+        })
+    }
+
+    /// Derives the position after a recorded play prefix.
+    ///
+    /// `prefix` is the plays made so far, in order. The remaining hands are the
+    /// deal minus the prefix, the table is the trailing incomplete trick, and
+    /// `to_play` is `leader` for an empty prefix, the next seat mid-trick, or
+    /// the winner of the last completed trick. `leader` is only consulted when
+    /// `prefix` is empty, so a mid-play caller without a contract may pass any
+    /// seat.
+    ///
+    /// Unlike [`Position::new`]'s caller-blessed `to_play`, the prefix has a
+    /// checkable ground truth in `deal`, so every play is validated: its card
+    /// must be held by the seat recorded as having played it and must not be
+    /// played twice.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PositionError::PrefixCardNotHeld`] or
+    /// [`PositionError::PrefixCardPlayedTwice`] for an inconsistent prefix, and
+    /// propagates [`Position::new`]'s shape errors if the derived table is not
+    /// a valid snapshot (for example seats that do not rotate).
+    pub fn from_deal_prefix(
+        deal: &Deal,
+        prefix: &[Play],
+        strain: Strain,
+        leader: Seat,
+    ) -> Result<Self, PositionError> {
+        let mut seen = Cards::EMPTY;
+        for play in prefix {
+            if !deal[play.seat].has_card(play.card) {
+                return Err(PositionError::PrefixCardNotHeld { play: *play });
+            }
+            if !insert_if_absent(&mut seen, play.card) {
+                return Err(PositionError::PrefixCardPlayedTwice(play.card));
+            }
+        }
+
+        let mut hands = deal.hands().map(|hand| hand.cards());
+        for play in prefix {
+            hands[play.seat as usize] = hands[play.seat as usize].remove(play.card);
+        }
+
+        let table = prefix[prefix.len() - prefix.len() % 4..].to_vec();
+        let to_play = if prefix.is_empty() {
+            leader
+        } else if prefix.len().is_multiple_of(4) {
+            trick_winner(&prefix[prefix.len() - 4..], strain)
+        } else {
+            prefix[prefix.len() - 1].seat.next()
+        };
+
+        Self::new(strain, to_play, table, hands)
+    }
+
+    /// Derives the position after a recorded play prefix under `contract`.
+    ///
+    /// The sibling of [`Position::from_deal_prefix`] for callers holding a
+    /// [`Contract`]: the contract supplies the strain and the opening leader.
+    ///
+    /// # Errors
+    ///
+    /// See [`Position::from_deal_prefix`].
+    pub fn from_deal_prefix_with_contract(
+        deal: &Deal,
+        prefix: &[Play],
+        contract: Contract,
+    ) -> Result<Self, PositionError> {
+        Self::from_deal_prefix(deal, prefix, contract.strain(), contract.leader())
+    }
+
     /// Derives the current position: the one after every recorded play.
     ///
     /// The board's claim, if any, is ignored: a claim ends the play without
@@ -99,7 +328,8 @@ impl Position {
     /// # Errors
     ///
     /// Returns [`PositionError::MissingContract`] when the board has no
-    /// contract.
+    /// contract, and the prefix errors of [`Position::from_deal_prefix`] when
+    /// the recorded play is inconsistent with the deal.
     pub fn from_board(board: &Board) -> Result<Self, PositionError> {
         Self::after_play(board, board.play().map_or(0, PlayRecord::len))
     }
@@ -107,16 +337,16 @@ impl Position {
     /// Derives the position after `n` plays, the rewind primitive.
     ///
     /// `n == play.len()` is the current position and `n == 0` is the position
-    /// before the opening lead. Deriving a position whose play prefix crosses a
-    /// trick boundary needs the contract's strain to name the winner of the
-    /// last completed trick; the strain is needed in every case to fill
-    /// [`Position::trump`].
+    /// before the opening lead. [`Position::trump`] is mandatory, so the
+    /// contract's strain is needed in every case; the contract also supplies the
+    /// opening leader and the winner of a completed trick.
     ///
     /// # Errors
     ///
     /// Returns [`PositionError::PrefixOutOfRange`] when `n` exceeds the
-    /// recorded play, and [`PositionError::MissingContract`] when the board has
-    /// no contract.
+    /// recorded play, [`PositionError::MissingContract`] when the board has no
+    /// contract, and the prefix errors of [`Position::from_deal_prefix`] when
+    /// the recorded play does not match the deal.
     pub fn after_play(board: &Board, n: usize) -> Result<Self, PositionError> {
         let plays: &[Play] = board.play().map_or(&[], PlayRecord::plays);
         if n > plays.len() {
@@ -126,60 +356,12 @@ impl Position {
             });
         }
         let contract = board.contract().ok_or(PositionError::MissingContract)?;
-
-        // The remaining hands are the original hands minus every card in the
-        // prefix. Only the first `n` plays are removed, so a rewind to an
-        // earlier prefix restores the cards played after it.
-        let mut hands = [Cards::EMPTY; 4];
-        for (index, hand) in board.deal().hands().iter().enumerate() {
-            hands[index] = hand.cards();
-        }
-        let prefix = &plays[..n];
-        for play in prefix {
-            hands[play.seat as usize] = hands[play.seat as usize].remove(play.card);
-        }
-
-        // The table is the trailing incomplete trick, in play order.
-        let table = prefix[n - n % 4..].to_vec();
-        let to_play = if n == 0 {
-            contract.leader()
-        } else if n.is_multiple_of(4) {
-            trick_winner(&prefix[n - 4..n], contract.strain())
-        } else {
-            prefix[n - 1].seat.next()
-        };
-
-        Ok(Self {
-            trump: contract.strain(),
-            to_play,
-            table,
-            hands,
-        })
-    }
-
-    /// Builds a position directly from its parts, bypassing [`Board`]
-    /// validation.
-    ///
-    /// This is the crate-internal seam for callers that already hold a deal
-    /// and a contract and do not want to assemble a full [`Board`] just to
-    /// derive an opening position — the simulation engine, whose deals come
-    /// from a [`Dealer`] rather than a file. The public path stays
-    /// board-derived; the caller is responsible for the parts being mutually
-    /// consistent (a `table` of at most three cards drawn from `hands`, and a
-    /// `to_play` that matches the table).
-    #[must_use]
-    pub(crate) fn from_parts(
-        trump: Strain,
-        to_play: Seat,
-        table: Vec<Play>,
-        hands: [Cards; 4],
-    ) -> Self {
-        Self {
-            trump,
-            to_play,
-            table,
-            hands,
-        }
+        Self::from_deal_prefix(
+            board.deal(),
+            &plays[..n],
+            contract.strain(),
+            contract.leader(),
+        )
     }
 
     /// The strain solved for; `NoTrumps` means no trump.
@@ -383,6 +565,340 @@ mod tests {
             .play(PlayRecord::new(plays))
             .build()
             .expect("deal, contract and plays fit together")
+    }
+
+    /// The cards of every seat, copied out of a deal.
+    fn full_hands(deal: &Deal) -> [Cards; 4] {
+        deal.hands().map(|hand| hand.cards())
+    }
+
+    /// The hands left after removing `prefix` from `deal`, as `new` expects.
+    fn hands_after(deal: &Deal, prefix: &[Play]) -> [Cards; 4] {
+        let mut hands = full_hands(deal);
+        for play in prefix {
+            hands[play.seat as usize] = hands[play.seat as usize].remove(play.card);
+        }
+        hands
+    }
+
+    #[test]
+    fn new_accepts_a_completed_partition_with_an_empty_table() {
+        let deal = round_robin_deal();
+        let hands = full_hands(&deal);
+        let position = Position::new(Strain::NoTrumps, Seat::West, Vec::new(), hands)
+            .expect("a full deal plus an empty table is a valid position");
+
+        assert_eq!(position.trump(), Strain::NoTrumps);
+        assert_eq!(position.to_play(), Seat::West);
+        assert!(position.is_opening_lead());
+        assert_eq!(position.hands(), &hands);
+    }
+
+    #[test]
+    fn new_accepts_a_valid_mid_trick_position() {
+        let deal = round_robin_deal();
+        let table = vec![Play::new(Seat::North, Card::S2)];
+        let hands = hands_after(&deal, &table);
+        let position = Position::new(Strain::Spades, Seat::East, table.clone(), hands)
+            .expect("a mid-trick position is valid");
+
+        assert_eq!(position.table(), table);
+        assert_eq!(position.trick_len(), 1);
+        assert_eq!(position.to_play(), Seat::East);
+        assert!(!position.is_opening_lead());
+        assert_eq!(position.hand(Seat::North).len(), 12);
+    }
+
+    #[test]
+    fn new_trusts_the_callers_to_play() {
+        // A mid-trick table whose `to_play` is not the next seat: `new` never
+        // recomputes it, so the caller's claim stands.
+        let deal = round_robin_deal();
+        let table = vec![Play::new(Seat::North, Card::S2)];
+        let hands = hands_after(&deal, &table);
+        let position = Position::new(Strain::Spades, Seat::South, table, hands)
+            .expect("the partition is what `new` validates");
+
+        assert_eq!(position.to_play(), Seat::South);
+    }
+
+    #[test]
+    fn new_rejects_a_table_of_four_cards() {
+        let deal = round_robin_deal();
+        let table = vec![
+            Play::new(Seat::North, Card::S2),
+            Play::new(Seat::East, Card::H2),
+            Play::new(Seat::South, Card::D2),
+            Play::new(Seat::West, Card::C2),
+        ];
+        // The table bound is checked before the duplicate fold, so the
+        // duplicated cards do not mask the real complaint.
+        assert_eq!(
+            Position::new(Strain::NoTrumps, Seat::North, table, full_hands(&deal)),
+            Err(PositionError::TableTooLong { len: 4 })
+        );
+    }
+
+    #[test]
+    fn new_rejects_a_card_duplicated_between_table_and_hands() {
+        let deal = round_robin_deal();
+        let duplicated = Play::new(Seat::North, Card::S2);
+        assert_eq!(
+            Position::new(
+                Strain::NoTrumps,
+                Seat::East,
+                vec![duplicated],
+                full_hands(&deal),
+            ),
+            Err(PositionError::DuplicatedCard(Card::S2))
+        );
+    }
+
+    #[test]
+    fn new_accepts_a_position_past_the_third_play() {
+        // A completed trick leaves its four cards in neither the table nor the
+        // hands, so the supplied set is smaller than a full deck.
+        let deal = round_robin_deal();
+        let completed = [
+            Play::new(Seat::North, Card::S2),
+            Play::new(Seat::East, Card::H2),
+            Play::new(Seat::South, Card::D2),
+            Play::new(Seat::West, Card::C2),
+        ];
+        let hands = hands_after(&deal, &completed);
+        let position = Position::new(Strain::NoTrumps, Seat::East, Vec::new(), hands)
+            .expect("a completed-trick snapshot is a valid position");
+
+        assert!(position.table().is_empty());
+        assert!(!position.is_opening_lead());
+        assert_eq!(position.to_play(), Seat::East);
+        assert_eq!(position.hand(Seat::North).len(), 12);
+    }
+
+    #[test]
+    fn new_rejects_a_hand_of_more_than_thirteen_cards() {
+        let deal = one_suit_deal();
+        let mut hands = full_hands(&deal);
+        hands[Seat::North as usize] = hands[Seat::North as usize].insert(Card::H2);
+        assert_eq!(
+            Position::new(Strain::NoTrumps, Seat::North, Vec::new(), hands),
+            Err(PositionError::HandTooLong {
+                seat: Seat::North,
+                len: 14,
+            })
+        );
+    }
+
+    #[test]
+    fn new_rejects_a_table_that_is_not_the_trailing_trick() {
+        // One card is missing from the hands, but the table is empty: the
+        // played card belongs to no incomplete trick.
+        let deal = round_robin_deal();
+        let mut hands = full_hands(&deal);
+        hands[Seat::North as usize] = hands[Seat::North as usize].remove(Card::S2);
+        assert_eq!(
+            Position::new(Strain::NoTrumps, Seat::North, Vec::new(), hands),
+            Err(PositionError::TableNotTrailing {
+                played: 1,
+                table: 0
+            })
+        );
+    }
+
+    #[test]
+    fn new_rejects_a_table_whose_seats_are_not_consecutive() {
+        let deal = round_robin_deal();
+        let table = vec![
+            Play::new(Seat::North, Card::S2),
+            Play::new(Seat::South, Card::D2),
+        ];
+        let hands = hands_after(&deal, &table);
+        assert_eq!(
+            Position::new(Strain::NoTrumps, Seat::West, table, hands),
+            Err(PositionError::TableSeatsNotConsecutive {
+                seat: Seat::South,
+                expected: Seat::East,
+            })
+        );
+    }
+
+    #[test]
+    fn from_deal_prefix_rejects_a_card_not_held_by_its_seat() {
+        let deal = round_robin_deal();
+        // S2 belongs to North; East cannot lead it.
+        let prefix = [Play::new(Seat::East, Card::S2)];
+        assert_eq!(
+            Position::from_deal_prefix(&deal, &prefix, Strain::NoTrumps, Seat::North),
+            Err(PositionError::PrefixCardNotHeld {
+                play: Play::new(Seat::East, Card::S2),
+            })
+        );
+    }
+
+    #[test]
+    fn from_deal_prefix_rejects_a_card_played_twice() {
+        let deal = round_robin_deal();
+        let prefix = [
+            Play::new(Seat::North, Card::S2),
+            Play::new(Seat::East, Card::S3),
+            Play::new(Seat::North, Card::S2),
+        ];
+        assert_eq!(
+            Position::from_deal_prefix(&deal, &prefix, Strain::NoTrumps, Seat::North),
+            Err(PositionError::PrefixCardPlayedTwice(Card::S2))
+        );
+    }
+
+    #[test]
+    fn from_deal_prefix_rejects_a_table_that_is_not_consecutive() {
+        // North and South cannot be the first two plays of a trick.
+        let deal = round_robin_deal();
+        let prefix = [
+            Play::new(Seat::North, Card::S2),
+            Play::new(Seat::South, Card::D2),
+        ];
+        assert_eq!(
+            Position::from_deal_prefix(&deal, &prefix, Strain::NoTrumps, Seat::West),
+            Err(PositionError::TableSeatsNotConsecutive {
+                seat: Seat::South,
+                expected: Seat::East,
+            })
+        );
+    }
+
+    #[test]
+    fn from_deal_prefix_opening_lead_uses_the_explicit_leader() {
+        let deal = one_suit_deal();
+        for (strain, leader) in [
+            (Strain::Spades, Seat::North),
+            (Strain::Hearts, Seat::East),
+            (Strain::Diamonds, Seat::South),
+            (Strain::Clubs, Seat::West),
+            (Strain::NoTrumps, Seat::North),
+        ] {
+            let position = Position::from_deal_prefix(&deal, &[], strain, leader)
+                .expect("the empty prefix derives the opening position");
+
+            assert_eq!(position.trump(), strain);
+            assert_eq!(position.to_play(), leader, "leader under {strain}");
+            assert!(position.is_opening_lead());
+            assert!(position.table().is_empty());
+            for seat in Seat::iter() {
+                assert_eq!(position.hand(seat), deal[seat].cards());
+            }
+        }
+    }
+
+    #[test]
+    fn from_deal_prefix_mid_trick_hands_the_turn_to_the_next_seat() {
+        let deal = one_suit_deal();
+        let prefix = [Play::new(Seat::North, Card::S2)];
+        for strain in Strain::ALL {
+            let position = Position::from_deal_prefix(&deal, &prefix, strain, Seat::West)
+                .expect("a valid prefix derives a position");
+
+            assert_eq!(position.trump(), strain);
+            assert_eq!(position.to_play(), Seat::East, "after North comes East");
+            assert_eq!(position.table(), &prefix);
+            assert_eq!(position.hand(Seat::North).len(), 12);
+        }
+    }
+
+    #[test]
+    fn from_deal_prefix_completed_trick_hands_the_turn_to_the_winner() {
+        let deal = one_suit_deal();
+        // North leads a spade; every other seat answers in its own suit, so
+        // the winner moves with the strain.
+        let prefix = [
+            Play::new(Seat::North, Card::S2),
+            Play::new(Seat::East, Card::H2),
+            Play::new(Seat::South, Card::D2),
+            Play::new(Seat::West, Card::C2),
+        ];
+        let expected = [
+            (Strain::Spades, Seat::North),
+            (Strain::Hearts, Seat::East),
+            (Strain::Diamonds, Seat::South),
+            (Strain::Clubs, Seat::West),
+            (Strain::NoTrumps, Seat::North),
+        ];
+        for (strain, winner) in expected {
+            let position = Position::from_deal_prefix(&deal, &prefix, strain, Seat::West)
+                .expect("a valid prefix derives a position");
+
+            assert_eq!(position.trump(), strain);
+            assert_eq!(position.to_play(), winner, "winner under {strain}");
+            assert!(position.table().is_empty());
+            assert!(!position.is_opening_lead());
+        }
+    }
+
+    #[test]
+    fn from_deal_prefix_with_contract_reads_strain_and_leader_from_the_contract() {
+        let deal = one_suit_deal();
+        // West declares, so North is the opening leader.
+        let position = Position::from_deal_prefix_with_contract(
+            &deal,
+            &[],
+            contract(3, Strain::Hearts, Seat::West),
+        )
+        .expect("the contract supplies the leader and strain");
+
+        assert_eq!(position.trump(), Strain::Hearts);
+        assert_eq!(position.to_play(), Seat::North);
+    }
+
+    #[test]
+    fn trick_winner_rule_covers_the_edge_cases() {
+        let cases = [
+            // A low trump beats the highest card of the led suit.
+            (
+                [
+                    Play::new(Seat::North, Card::HA),
+                    Play::new(Seat::South, Card::S2),
+                    Play::new(Seat::West, Card::H2),
+                    Play::new(Seat::East, Card::H3),
+                ],
+                Strain::Spades,
+                Seat::South,
+            ),
+            // An off-suit, non-trump discard never wins: the highest led card does.
+            (
+                [
+                    Play::new(Seat::North, Card::HA),
+                    Play::new(Seat::East, Card::CK),
+                    Play::new(Seat::South, Card::H2),
+                    Play::new(Seat::West, Card::H3),
+                ],
+                Strain::Diamonds,
+                Seat::North,
+            ),
+            // No trump: the highest led card wins.
+            (
+                [
+                    Play::new(Seat::North, Card::H10),
+                    Play::new(Seat::East, Card::HA),
+                    Play::new(Seat::South, Card::C2),
+                    Play::new(Seat::West, Card::D5),
+                ],
+                Strain::NoTrumps,
+                Seat::East,
+            ),
+            // The led suit is the trump suit: ranks decide, no ruff exists.
+            (
+                [
+                    Play::new(Seat::North, Card::S10),
+                    Play::new(Seat::East, Card::SA),
+                    Play::new(Seat::South, Card::S2),
+                    Play::new(Seat::West, Card::S3),
+                ],
+                Strain::Spades,
+                Seat::East,
+            ),
+        ];
+        for (trick, trump, expected) in cases {
+            assert_eq!(trick_winner(&trick, trump), expected, "{trick:?}");
+        }
     }
 
     #[test]

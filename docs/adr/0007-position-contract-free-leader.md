@@ -27,8 +27,11 @@ on its own.
 
 - `from_deal_prefix` requires `leader: Seat`; callers holding a `Contract` use
   the sibling and pass none.
-- The raw `Position::new` validates only the 52-card partition; `to_play` is the
-  caller's claim, because at an empty table it cannot be recomputed without the
-  leader.
+- The raw `Position::new` validates the shape of a snapshot past any point of
+  the play, not a full deck: `table.len() <= 3`, each hand holds at most 13
+  cards, the table and hands are distinct, the played count `52 - |hands|`
+  leaves exactly `table.len()` cards on the table, and the table's plays are
+  consecutive in rotation. `to_play` is the caller's claim, because at an empty
+  table it cannot be recomputed without the leader.
 - A fourth `table` card is rejected: a completed trick is represented as an
   empty `table` with the trick winner to play, so there is one shape per state.

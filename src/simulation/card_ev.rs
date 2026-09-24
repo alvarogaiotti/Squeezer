@@ -28,7 +28,7 @@
 //! also the only legal play, so the card-EV surface stays consistent without a
 //! special case.
 
-use super::{opening_position, solve_all_cards_pool, vulnerability_for};
+use super::solve_all_cards_pool;
 use crate::prelude::*;
 use crate::solver::ContextFactory;
 use std::collections::{BTreeMap, HashMap};
@@ -446,30 +446,17 @@ impl<D: Dealer> CardEvSimulation<D> {
 
         let declarer = contract.declarer();
         let prefix = prefix_plays(seat, &play_trace);
-        let vulnerability = vulnerability_for(contract);
 
         // The shared engine generates the deals sequentially and solves every
         // legal card of each deal in one call; only the derivation below
-        // remains here.
+        // remains here. The opening position is the empty-prefix case, which
+        // `from_deal_prefix` handles with the contract's leader.
         let solved = solve_all_cards_pool(
             solver_factory,
             &dealer,
             num_deals,
             |deal, deal_index| -> Result<Position, SqueezerError> {
-                if prefix.is_empty() {
-                    return Ok(opening_position(deal, contract));
-                }
-                let board = Board::builder(*deal, contract.declarer(), vulnerability)
-                    .contract(contract)
-                    .play(PlayRecord::new(prefix.clone()))
-                    .build()
-                    .map_err(|cause| {
-                        SqueezerError::invalid_input(
-                            "card ev",
-                            format!("invalid board for deal {deal_index}: {cause}"),
-                        )
-                    })?;
-                Position::after_play(&board, prefix.len()).map_err(|cause| {
+                Position::from_deal_prefix_with_contract(deal, &prefix, contract).map_err(|cause| {
                     SqueezerError::invalid_input(
                         "card ev",
                         format!("cannot derive position for deal {deal_index}: {cause}"),

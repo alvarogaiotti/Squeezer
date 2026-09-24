@@ -56,29 +56,15 @@ pub(crate) struct DealCards {
     pub results: SolveResults,
 }
 
-/// The vulnerability a [`Board`] must carry for `contract` to validate.
-///
-/// The solver only reads the contract's strain and leader, so any vulnerability
-/// that agrees with the contract's declarer-side answer will do. This keeps the
-/// board-derived path available to the card-payoff fan-out without changing the
-/// contract the caller asked us to score.
-pub(crate) fn vulnerability_for(contract: Contract) -> Vulnerability {
-    match contract.vulnerable() {
-        Vulnerable::No => Vulnerability::None,
-        Vulnerable::Yes if (contract.declarer() as usize).is_multiple_of(2) => Vulnerability::NS,
-        Vulnerable::Yes => Vulnerability::EW,
-    }
-}
-
 /// The opening position for `deal` under `contract`.
 ///
 /// The deal's hands are unchanged and the table is empty, so the only inputs
-/// that matter are the strain and the opening leader. Going through
-/// [`Position::from_parts`] avoids assembling a full [`Board`] for every
-/// contract of every sampled deal.
+/// that matter are the strain and the opening leader;
+/// [`Position::from_deal_prefix_with_contract`] derives it without assembling a
+/// full [`Board`] for every contract of every sampled deal.
 pub(crate) fn opening_position(deal: &Deal, contract: Contract) -> Position {
-    let hands = (*deal.hands()).map(|hand| hand.cards());
-    Position::from_parts(contract.strain(), contract.leader(), Vec::new(), hands)
+    Position::from_deal_prefix_with_contract(deal, &[], contract)
+        .expect("an empty prefix over a deal is always a valid position")
 }
 
 /// Generates `num_deals` deals sequentially, preserving the dealer's order.

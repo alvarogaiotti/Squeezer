@@ -659,46 +659,27 @@ pub fn find_trick_winner(
         .unwrap()
 }
 
+/// Finds the winner of a single trick as the index into `original_cards`.
+///
+/// Kept as a distinct public entry point with its original signature, but the
+/// rule itself lives in [`trick_winner`](crate::record::position::trick_winner),
+/// which this delegates to. `lead_suit` is redundant with
+/// `original_cards[0].suit()` — every caller passes exactly that — and is
+/// retained only for signature compatibility; it is not consulted. A `None`
+/// trump means no trump.
 #[inline]
 #[must_use]
-#[allow(clippy::cast_possible_truncation)]
 pub fn find_trick_winner_naive(
     original_cards: [Card; 4],
-    lead_suit: Suit,
+    _lead_suit: Suit,
     trump: Option<Suit>,
 ) -> usize {
-    if let Some(trump) = trump {
-        original_cards
-            .iter()
-            .enumerate()
-            .fold((0, 0), |acc, (i, card)| {
-                let is_trump = u8::from((trump as u8 ^ card.suit() as u8) == 0);
-                let is_lead = u8::from((lead_suit as u8 ^ card.suit() as u8) == 0);
-
-                let new_best: u8 = acc.1.max(card.as_u8() | (is_trump * 128) | (is_lead * 64));
-                (
-                    i as u8 * u8::from(new_best - acc.1 != 0)
-                        + acc.0 * u8::from(new_best - acc.1 == 0),
-                    new_best,
-                )
-            })
-            .0 as usize
-    } else {
-        original_cards
-            .iter()
-            .enumerate()
-            .fold((0, 0), |acc, (i, card)| {
-                let is_lead = u8::from((lead_suit as u8 ^ card.suit() as u8) == 0);
-
-                let new_best: u8 = acc.1.max(card.as_u8() | (is_lead * 64));
-                let is_equal = new_best.wrapping_sub(acc.1) == 0;
-                (
-                    i as u8 * u8::from(!is_equal) + acc.0 * u8::from(is_equal),
-                    new_best,
-                )
-            })
-            .0 as usize
-    }
+    // The canonical rule works on `Play`s and returns the winning `Seat`; this
+    // analysis path has no seats, so bind the four positions to seats in order
+    // and map the winner back.
+    let trick: [Play; 4] =
+        std::array::from_fn(|index| Play::new(Seat::from(index), original_cards[index]));
+    trick_winner(&trick, trump.map_or(Strain::NoTrumps, Strain::from)) as usize
 }
 
 // ============================================================================

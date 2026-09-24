@@ -964,6 +964,17 @@ impl TryFrom<Strain> for Suit {
     }
 }
 
+impl From<Suit> for Strain {
+    fn from(suit: Suit) -> Self {
+        match suit {
+            Suit::Spades => Self::Spades,
+            Suit::Hearts => Self::Hearts,
+            Suit::Diamonds => Self::Diamonds,
+            Suit::Clubs => Self::Clubs,
+        }
+    }
+}
+
 impl std::fmt::Debug for Suit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {

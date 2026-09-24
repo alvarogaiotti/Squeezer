@@ -77,6 +77,15 @@
 - `CardEvaluation.position` is the *first* sampled deal's `Position`, cloned
   rather than shared. Positions are identical across deals (the prefix is
   deal-independent), so this is only a clone cost.
+- `Position::after_play`/`from_board`/`Playthrough` now inherit
+  `from_deal_prefix`'s prefix validation, so a play record that is inconsistent
+  with the deal (a card not held by its seat, a card played twice, or a
+  non-rotating table) is rejected at derivation as well as at `Board` import.
+  Fine for board-derived positions; worth knowing for direct callers.
+- `Position::new` is now a shape check for a snapshot past any point of the
+  play, not a 52-card check: it accepts a completed-trick snapshot (table
+  empty, 12 cards per hand) because that state has no full deck to compare
+  against.
 
 ### Parsing and serialization
 - `Card::from_str` and `Cards::from_str` share an order-sensitive state machine
@@ -148,6 +157,10 @@
 - `CardEvaluation` reports board/position derivation failures as
   `SqueezerError::InvalidInput` carrying the per-deal index, not as the typed
   `BoardError`/`PositionError` boundary variants.
+- `CardEvBuilder::seat` is ignored for an empty play trace: the opening
+  position always uses `contract.leader()` (now via
+  `from_deal_prefix_with_contract`). Passing `.seat()` with no trace silently
+  does nothing.
 
 ### Analysis and miscellaneous
 - `analyze_board` bounds its backend with `SqueezerError: From<A::Error>`, so a
@@ -160,6 +173,12 @@
 - `PreprocessedDeal` is a 48-card type unrelated to `analyze_hand`, which uses a
   52-card scratch buffer; the module-level SIMD/preprocessing framing no longer
   describes the analysis path, and `find_trick_winner` is benchmark-only.
+- `find_trick_winner_naive` now delegates to the canonical
+  `record::position::trick_winner` and ignores its `lead_suit` parameter, which
+  is redundant with `original_cards[0].suit()` for every caller. The canonical
+  rule's `max_by_key` keeps the *last* equal-strength play, whereas the old fold
+  kept the first: irrelevant for a real, distinct-card trick, but a behavior
+  difference on degenerate duplicate-card input such as the random bench.
 - `Cargo.lock` is git-tracked yet also listed in `.gitignore`; the ignore rule
   has no effect on tracked files, which is confusing.
 - Pre-existing clippy warnings: `decimal_bitwise_operands` at
