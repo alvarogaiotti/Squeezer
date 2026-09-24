@@ -667,6 +667,28 @@ struct ContractAccumulator {
 // CARD PAYOFF SIMULATION - For comparing card plays
 // ============================================================================
 
+/// Rejects candidates that are not in `seat`'s current hand.
+///
+/// The conditioning layer owns "which cards a seat holds now"
+/// ([`Dealer::current_hand`], i.e. known minus already-played); the simulation
+/// only formats the failure. Both the builder and the legacy constructor route
+/// through here.
+fn validate_candidates<D: Dealer>(
+    dealer: &D,
+    seat: Seat,
+    candidates: Cards,
+) -> Result<(), SqueezerError> {
+    let current = dealer.current_hand(seat);
+    if current.contains(candidates) {
+        Ok(())
+    } else {
+        Err(SqueezerError::InvalidInput(format!(
+            "{} is not in {seat}'s current hand",
+            candidates.difference(current)
+        )))
+    }
+}
+
 /// Builder for configuring a card payoff simulation
 pub struct CardPayoffBuilder<D: Dealer> {
     num_deals: Option<usize>,
@@ -714,9 +736,10 @@ impl<D: Dealer> CardPayoffBuilder<D> {
 
     /// Set the cards to compare.
     ///
-    /// Every candidate must be predealt to `seat` (see [`Self::seat`]):
-    /// `build()` rejects candidates missing from that hand instead of
-    /// silently solving nonsense deals.
+    /// Every candidate must be in `seat`'s current hand (see [`Self::seat`]),
+    /// i.e. known to the dealer's conditioning and not already played by that
+    /// seat. `build()` rejects candidates that are not, instead of silently
+    /// solving nonsense deals.
     #[must_use]
     #[inline]
     pub fn cards(mut self, cards: Vec<Card>) -> Self {
@@ -764,7 +787,7 @@ impl<D: Dealer> CardPayoffBuilder<D> {
     /// Must hold 1 to 47 cards: an empty trace is a lead problem (use
     /// `LeadSimulation`), and 48+ played cards leave nothing to simulate.
     /// `build()` enforces the window; the trace contents themselves are
-    /// not validated against the predealt hands.
+    /// not cross-checked against the dealer's conditioning.
     #[must_use]
     #[inline]
     pub fn play_trace(mut self, trace: Vec<Card>) -> Self {
@@ -817,26 +840,9 @@ impl<D: Dealer> CardPayoffBuilder<D> {
             ));
         }
 
-        // Validate cards are in the predealt hand, mirroring `new()`: a
-        // missing predeal is an error here, not a silent pass (there is no
-        // other way for the engine to place the candidates).
-        let hands = dealer.predealt();
-        match hands[seat as usize] {
-            Some(hand) => {
-                let cards_as_cards = Cards::from(&self.cards);
-                if hand & cards_as_cards != cards_as_cards {
-                    return Err(SqueezerError::InvalidInput(format!(
-                        "{} is not in {seat}'s hand",
-                        hand.difference(cards_as_cards) & cards_as_cards
-                    )));
-                }
-            }
-            None => {
-                return Err(SqueezerError::InvalidInput(format!(
-                    "{seat} hand is not predealt"
-                )));
-            }
-        }
+        // Validate candidates against the conditioning layer: a candidate must
+        // be in `seat`'s current hand (known and not yet played).
+        validate_candidates(&dealer, seat, Cards::from(&self.cards))?;
 
         Ok(CardPayoffSimulation {
             num_deals,
@@ -865,8 +871,8 @@ pub struct CardPayoffSimulation<D: Dealer> {
     num_deals: usize,
     /// What dealer you want to use? Here you set your dealing parameters
     dealer: D,
-    /// Cards that you want to compare. Must all be predealt to `seat`;
-    /// enforced at construction.
+    /// Cards that you want to compare. Must all be in `seat`'s current hand
+    /// (known to the dealer and not already played); enforced at construction.
     cards: Vec<Card>,
     /// Contract you are playing in
     contract: Contract,
@@ -875,8 +881,8 @@ pub struct CardPayoffSimulation<D: Dealer> {
     /// Seat of the player ho has to play, and possesses the cards.
     seat: Seat,
     /// Cards played until now: 1 to 47 cards (enforced at construction).
-    /// The trace contents are not cross-checked against predealt hands;
-    /// that combination remains the caller's responsibility.
+    /// The trace contents are not cross-checked against the dealer's
+    /// conditioning; that combination remains the caller's responsibility.
     play_trace: Vec<Card>,
     /// The solver backend, boxed so no solver type parameter enters the API.
     solver_factory: Box<dyn ContextFactory>,
@@ -892,10 +898,10 @@ impl<D: Dealer> CardPayoffSimulation<D> {
 
     /// Legacy constructor for backwards compatibility
     /// This method will deduplicate your cards when checking for their presence
-    /// in the predealt hands.
+    /// in the seat's current hand.
     /// # Errors
-    /// If one of the cards we are running the simulation is not present in
-    /// the hand predealt to `seat`
+    /// If one of the cards we are running the simulation is not in the current
+    /// hand of `seat` (known to the dealer and not already played).
     #[inline]
     pub fn new<F>(
         num_deals: usize,
@@ -915,20 +921,7 @@ impl<D: Dealer> CardPayoffSimulation<D> {
                 "play trace cannot be shorter than 1 card (use LeadSimulation in this case) or longer than 47 cards (only one trick left and already deterministic)".to_string()
             ));
         }
-        let hands = dealer.predealt();
-        let cards_as_cards = Cards::from(&cards);
-        if let Some(hand) = hands[seat as usize] {
-            if hand & cards_as_cards != cards_as_cards {
-                return Err(SqueezerError::InvalidInput(format!(
-                    "{} is not in {seat}'s hand",
-                    hand.difference(cards_as_cards) & cards_as_cards
-                )));
-            }
-        } else {
-            return Err(SqueezerError::InvalidInput(format!(
-                "{seat} hand is not predealt"
-            )));
-        }
+        validate_candidates(&dealer, seat, Cards::from(&cards))?;
 
         Ok(Self {
             num_deals,
@@ -1364,6 +1357,34 @@ mod tests {
             .build()
             .unwrap();
         assert!(build_with(dealer, trace, contract).is_ok());
+    }
+
+    /// A candidate the seat has already played is not in its current hand and
+    /// must be rejected, even though conditioning still fixes it to the seat.
+    #[test]
+    fn test_card_payoff_rejects_already_played_candidate() {
+        let contract = Contract::from_str("3CN").unwrap();
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, Cards::from_str("SAK").unwrap())
+            .unwrap()
+            .with_played(&PlayRecord::new(vec![Play::new(Seat::North, Card::SA)]))
+            .build()
+            .unwrap();
+
+        let result = CardPayoffBuilder::new()
+            .num_deals(1)
+            .contract(contract)
+            .cards(vec![Card::SA, Card::SK])
+            .scoring_function(imps)
+            .seat(Seat::North)
+            .play_trace(vec![Card::C2])
+            .dealer(dealer)
+            .build();
+
+        assert!(
+            result.is_err(),
+            "SA was already played by North and is not a legal candidate"
+        );
     }
 
     /// Deterministic end-to-end through the shared pool-solve engine.

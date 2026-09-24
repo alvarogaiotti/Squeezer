@@ -87,6 +87,16 @@ use crate::prelude::*;
 /// closures satisfy this automatically.
 pub type AcceptFunction = Box<dyn Fn(&Deal) -> bool + Send + Sync>;
 
+/// Default cap on rejection-sampling attempts.
+///
+/// The dealer never samples forever: once this many candidate deals have been
+/// rejected it returns [`DealerError::Unsatisfiable`]. The value is chosen so
+/// the tightest constraints shipped with the crate (a joint 18-20 HCP, six-card
+/// minor and spades-longest filter, averaging ~10⁵ attempts) succeed with a
+/// wide margin, while a genuinely impossible spec returns in bounded time
+/// instead of hanging. Override it with [`DealerBuilder::with_attempt_budget`].
+pub const DEFAULT_ATTEMPT_BUDGET: u32 = 2_000_000;
+
 /// A complete bridge deal consisting of four 13-card hands.
 ///
 /// This is the fundamental structure representing a bridge deal. Hands are stored
@@ -895,6 +905,20 @@ pub struct DealerBuilder {
 
     /// Cards to predeal to specific seats (can be partial hands)
     predealt_hands: [Option<Cards>; NUMBER_OF_HANDS],
+
+    /// Cards fixed to a seat by conditioning beyond `predeal`: played cards
+    /// (via [`DealerBuilder::with_played`]) and cards seeded directly (via
+    /// [`DealerBuilder::with_known`]). The dealer's known set is this unioned
+    /// with the predealt cards, per seat.
+    conditioned_by: [Cards; NUMBER_OF_HANDS],
+
+    /// The subset of `conditioned_by` that the seat has already played. Kept
+    /// separately from `conditioned_by` so a candidate check can tell a card
+    /// still in hand from one that is already gone.
+    played_by: [Cards; NUMBER_OF_HANDS],
+
+    /// Bounded rejection-sampling budget.
+    attempt_budget: u32,
 }
 
 impl std::fmt::Debug for DealerBuilder {
@@ -902,6 +926,9 @@ impl std::fmt::Debug for DealerBuilder {
         f.debug_struct("DealerBuilder")
             .field("hand_constraints", &self.hand_constraints)
             .field("predealt_hands", &self.predealt_hands)
+            .field("conditioned_by", &self.conditioned_by)
+            .field("played_by", &self.played_by)
+            .field("attempt_budget", &self.attempt_budget)
             .finish_non_exhaustive()
     }
 }
@@ -923,7 +950,10 @@ impl DealerBuilder {
             accept: Box::new(|_: &Deal| true),
             hand_constraints: [None, None, None, None],
             predealt_hands: [None; 4],
+            conditioned_by: [Cards::EMPTY; 4],
+            played_by: [Cards::EMPTY; 4],
             deck: Cards::ALL,
+            attempt_budget: DEFAULT_ATTEMPT_BUDGET,
         }
     }
 
@@ -1052,6 +1082,93 @@ impl DealerBuilder {
             *self.predealt_hands[seat as usize].get_or_insert(Cards::EMPTY) += to_insert;
             Ok(())
         }
+    }
+
+    /// Seeds every played card as a known card for the seat that played it.
+    ///
+    /// This is how a partially-known deal is modelled: the cards already
+    /// played are fixed to their seats, and the rejection sampler fills each
+    /// hand to 13 from the remaining deck. Calling it more than once unions
+    /// the records; a card that ends up fixed to two different seats (played
+    /// by two seats, or predealt to one and played by another) is rejected by
+    /// [`DealerBuilder::build`], while a card both predealt and played by the
+    /// same seat is simply one known card.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let record = PlayRecord::new(vec![
+    ///     Play::new(Seat::West, Card::C2),
+    ///     Play::new(Seat::North, Card::C3),
+    /// ]);
+    /// let dealer = DealerBuilder::new().with_played(&record).build()?;
+    /// let deal = dealer.deal()?;
+    /// assert!(deal.west().cards().has_card(Card::C2));
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn with_played(mut self, record: &PlayRecord) -> Self {
+        for play in record.plays() {
+            let seat = play.seat as usize;
+            self.conditioned_by[seat] = self.conditioned_by[seat].insert(play.card);
+            // Record the played subset too: a played card is fixed to the
+            // seat's reconstructed original hand, but is no longer playable.
+            self.played_by[seat] = self.played_by[seat].insert(play.card);
+        }
+        self
+    }
+
+    /// Seeds cards as known for a seat directly.
+    ///
+    /// The escape hatch for information that is not a `PlayRecord` (for
+    /// example, cards revealed by a claim or an opponent's explanation). The
+    /// cards join the predealt and played cards in the seat's known set and,
+    /// unlike played cards, are treated as still in hand by
+    /// [`Dealer::current_hand`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let known = Cards::from_str("HAK")?;
+    /// let dealer = DealerBuilder::new().with_known(Seat::South, known).build()?;
+    /// let deal = dealer.deal()?;
+    /// assert!(deal.south().cards().contains(known));
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn with_known(mut self, seat: Seat, cards: Cards) -> Self {
+        self.conditioned_by[seat as usize] = self.conditioned_by[seat as usize].union(cards);
+        self
+    }
+
+    /// Sets the bounded rejection-sampling budget.
+    ///
+    /// The dealer rejects at most this many candidate deals before returning
+    /// [`DealerError::Unsatisfiable`]. Defaults to
+    /// [`DEFAULT_ATTEMPT_BUDGET`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let dealer = DealerBuilder::new().with_attempt_budget(500).build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn with_attempt_budget(mut self, attempts: u32) -> Self {
+        self.attempt_budget = attempts;
+        self
     }
 
     /// Sets a custom acceptance function for cross-hand validation.
@@ -1194,8 +1311,9 @@ impl DealerBuilder {
     ///
     /// # Errors
     ///
-    /// Currently doesn't return errors, but the return type allows for future
-    /// validation during the build phase.
+    /// Returns [`DealerError`] when the conditioning is structurally
+    /// impossible before any sampling happens: a card fixed to two different
+    /// seats, or more than 13 known cards for a seat.
     ///
     /// # Example
     ///
@@ -1212,12 +1330,72 @@ impl DealerBuilder {
     /// ```
     #[inline]
     pub fn build(self) -> Result<impl Dealer, DealerError> {
+        let known = self.resolve_known()?;
+
+        // The random deck is whatever the known cards leave. Computing it
+        // here (rather than trusting the incremental `deck` bookkeeping) means
+        // conditioning seeded by `with_played`/`with_known` is excluded too.
+        let mut deck = Cards::ALL;
+        for cards in known {
+            deck -= cards;
+        }
+
         Ok(StandardDealer {
             predeal: self.predealt_hands,
-            deck_starting_state: self.deck,
+            known,
+            played: self.played_by,
+            deck_starting_state: deck,
             accept_function: self.accept,
             hand_constraints: self.hand_constraints,
+            attempt_budget: self.attempt_budget,
         })
+    }
+
+    /// Resolves the per-seat known set and validates it up front.
+    ///
+    /// `known[seat] = predeal[seat] ∪ conditioned_by[seat]`, deduplicated per
+    /// seat. A card fixed to two different seats cannot be placed in a hand,
+    /// so it is an error here rather than a silent misdeal.
+    ///
+    /// Two bounds from the design need no separate check once those hold: a
+    /// per-suit overflow (`> 13` of one suit) is impossible when the whole
+    /// hand is at most 13 cards, and a deck overflow (`> 52` across seats) is
+    /// impossible when no card is shared and each seat is at most 13.
+    #[inline]
+    fn resolve_known(&self) -> Result<[Cards; NUMBER_OF_HANDS], DealerError> {
+        let mut known = [Cards::EMPTY; NUMBER_OF_HANDS];
+        for seat in Seat::iter() {
+            let predealt = self.predealt_hands[seat as usize].unwrap_or(Cards::EMPTY);
+            known[seat as usize] = predealt.union(self.conditioned_by[seat as usize]);
+        }
+
+        // Walk the seats once, accumulating what has already been assigned.
+        // Any overlap is a card attributed to two seats.
+        let mut assigned = Cards::EMPTY;
+        for seat in Seat::iter() {
+            let overlap = known[seat as usize] & assigned;
+            if !overlap.is_empty() {
+                let card = overlap.into_iter().next().expect("overlap is non-empty");
+                let first = Seat::iter()
+                    .find(|earlier| known[*earlier as usize].has_card(card))
+                    .expect("overlap came from an earlier seat");
+                return Err(DealerError::CardAttributedToTwoSeats {
+                    card,
+                    first,
+                    second: seat,
+                });
+            }
+            assigned += known[seat as usize];
+        }
+
+        for seat in Seat::iter() {
+            let count = known[seat as usize].len();
+            if count > 13 {
+                return Err(DealerError::TooManyKnownForSeat { seat, count });
+            }
+        }
+
+        Ok(known)
     }
 
     /// Sets both predealing and hand descriptors for all seats at once.
@@ -1268,7 +1446,8 @@ pub trait Dealer {
     ///
     /// Returns `DealerError` if:
     /// - The deck doesn't have enough cards (invalid predeal configuration)
-    /// - Constraints are impossible to satisfy (extremely rare with proper config)
+    /// - The bounded rejection budget is exhausted before a deal satisfies the
+    ///   constraints ([`DealerError::Unsatisfiable`])
     ///
     /// # Performance
     ///
@@ -1278,8 +1457,24 @@ pub trait Dealer {
 
     /// Returns the predealed cards for each seat.
     ///
-    /// Used internally and for inspection/debugging.
+    /// Used internally and for inspection/debugging. This is the raw
+    /// predeal only; see [`Dealer::known`] for the full conditioning seed.
     fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS];
+
+    /// Returns the known cards for each seat.
+    ///
+    /// The conditioning seed: predealt ∪ played ∪ directly-known, deduplicated
+    /// per seat. These are the cards the sampler fixes before filling each
+    /// hand to 13.
+    fn known(&self) -> [Cards; NUMBER_OF_HANDS];
+
+    /// Returns the cards `seat` can still play.
+    ///
+    /// This is [`Dealer::known`] minus the cards `seat` has already played:
+    /// conditioning fixes a played card to the seat's reconstructed original
+    /// hand, but that card is no longer available. Card-EV candidate validation
+    /// uses this so a played card cannot pass as a candidate.
+    fn current_hand(&self, seat: Seat) -> Cards;
 }
 
 /// Standard implementation of the `Dealer` trait.
@@ -1309,19 +1504,28 @@ pub trait Dealer {
 pub struct StandardDealer {
     /// Cards to predeal to each seat
     predeal: [Option<Cards>; NUMBER_OF_HANDS],
+    /// Cards fixed to each seat: `predeal ∪ played ∪ directly-known`.
+    known: [Cards; NUMBER_OF_HANDS],
+    /// Cards each seat has already played; a subset of `known`.
+    played: [Cards; NUMBER_OF_HANDS],
     /// Available cards for random dealing
     deck_starting_state: Cards,
     /// Per-seat constraints
     hand_constraints: [Option<HandConstraint>; NUMBER_OF_HANDS],
     /// Cross-hand validation function
     accept_function: AcceptFunction,
+    /// Bounded rejection-sampling budget.
+    attempt_budget: u32,
 }
 
 impl std::fmt::Debug for StandardDealer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StandardDealer")
             .field("predeal", &self.predeal)
+            .field("known", &self.known)
+            .field("played", &self.played)
             .field("hand_constraints", &self.hand_constraints)
+            .field("attempt_budget", &self.attempt_budget)
             .finish_non_exhaustive()
     }
 }
@@ -1334,9 +1538,12 @@ impl StandardDealer {
     pub fn new() -> Self {
         Self {
             predeal: [None; 4],
+            known: [Cards::EMPTY; 4],
+            played: [Cards::EMPTY; 4],
             deck_starting_state: Cards::ALL,
             hand_constraints: [None, None, None, None],
             accept_function: Box::new(|_: &Deal| true),
+            attempt_budget: DEFAULT_ATTEMPT_BUDGET,
         }
     }
 }
@@ -1353,30 +1560,42 @@ impl Dealer for StandardDealer {
         self.predeal
     }
 
+    #[inline]
+    fn known(&self) -> [Cards; NUMBER_OF_HANDS] {
+        self.known
+    }
+
+    #[inline]
+    fn current_hand(&self, seat: Seat) -> Cards {
+        self.known[seat as usize].difference(self.played[seat as usize])
+    }
+
     /// Generates a deal using rejection sampling.
     ///
-    /// This implementation uses a do-while pattern to ensure at least one
-    /// candidate is generated before checking constraints.
+    /// This implementation fixes each seat's known cards, fills the remainder
+    /// from the available deck, then checks the constraints. It tries at most
+    /// `attempt_budget` candidate deals.
     ///
     /// # Algorithm
     ///
     /// ```text
-    /// loop {
-    ///     1. Start with available deck
+    /// for _ in 0..attempt_budget {
+    ///     1. Start with the deck left by the known cards
     ///     2. For each seat:
-    ///        - Add predealed cards
-    ///        - Fill remainder from deck
+    ///        - Start from its known cards
+    ///        - Fill the remainder from the deck
     ///     3. Check hand constraints
     ///     4. Check acceptance function
     ///     5. If all pass: return deal
     ///     6. Otherwise: try again
     /// }
+    /// return Unsatisfiable
     /// ```
     ///
     /// # Errors
     ///
-    /// Returns an error if the deck doesn't have enough cards to complete
-    /// a hand (indicates invalid predeal configuration).
+    /// Returns [`DealerError::Unsatisfiable`] when the budget is exhausted, or
+    /// a deck error if the conditioning left too few cards to complete a hand.
     #[inline]
     fn deal(&self) -> Result<Deal, DealerError> {
         let mut hands: [Hand; 4] = [Hand::default(); 4];
@@ -1384,53 +1603,33 @@ impl Dealer for StandardDealer {
         // for every one of the four picks per attempt is needlessly expensive.
         let mut rng = rand::rng();
 
-        // Do-while loop: generate at least once, then check constraints
-        while {
+        for _ in 0..self.attempt_budget {
             let mut deck = self.deck_starting_state;
 
-            // Deal to each seat
+            // Deal to each seat: known cards first, then the remainder from
+            // the shared deck. Dealing from one deck keeps the 52-card
+            // partition, so the hot path skips re-checking it.
             for seat in Seat::iter() {
-                if let Some(&Some(cards)) = self.predeal.get(seat as usize) {
-                    let predeal_len = cards.len();
-
-                    if predeal_len < 13 {
-                        // Partial predeal: fill remaining cards from deck
-                        let Some(cards_to_add) =
-                            deck.pick_rng::<_, FastSampler>(&mut rng, 13 - predeal_len as usize)
-                        else {
-                            return Err(DealerError::new(
-                                "Deck doesn't contain enough cards. Check predeal configuration.",
-                            ));
-                        };
-                        hands[seat as usize].set_cards(cards + cards_to_add);
-                    } else {
-                        // Full predeal: use exactly the predealed cards
-                        hands[seat as usize].set_cards(cards);
-                    }
-                } else {
-                    // No predeal: deal 13 random cards
-                    hands[seat as usize] =
-                        if let Some(cards) = deck.pick_rng::<_, FastSampler>(&mut rng, 13) {
-                            Hand { cards }
-                        } else {
-                            return Err(DealerError::new(
-                                "Deck doesn't contain enough cards. Check predeal configuration.",
-                            ));
-                        };
-                }
+                let known = self.known[seat as usize];
+                let fill = 13 - usize::from(known.len());
+                let Some(cards_to_add) = deck.pick_rng::<_, FastSampler>(&mut rng, fill) else {
+                    return Err(DealerError::new(
+                        "Deck doesn't contain enough cards. Check predeal configuration.",
+                    ));
+                };
+                hands[seat as usize].set_cards(known + cards_to_add);
             }
 
-            // Dealing from a single deck guarantees the 52-card partition, so
-            // the hot path uses the unchecked constructor and skips re-checking
-            // 52 cards on every rejection-sampling attempt.
             let deal = Deal::from_hands_unchecked(hands);
 
-            // Continue loop if constraints NOT satisfied (negated condition)
-            !((self.accept_function)(&deal) && self.constraints_respected(deal.hands()))
-        } {}
+            if (self.accept_function)(&deal) && self.constraints_respected(deal.hands()) {
+                return Ok(deal);
+            }
+        }
 
-        // Constraints satisfied - create the deal
-        Ok(Deal::from_hands_unchecked(hands))
+        Err(DealerError::Unsatisfiable {
+            attempts: self.attempt_budget,
+        })
     }
 }
 
@@ -1619,6 +1818,196 @@ mod tests {
                 Seat::North
             ]
         );
+    }
+
+    /// A card predealt and played by the same seat is one known card, not a
+    /// duplicate error.
+    #[test]
+    fn conditioning_dedups_same_seat_overlap() {
+        let predeal = Cards::from_str("SAK").expect("predeal parses");
+        let record = PlayRecord::new(vec![
+            Play::new(Seat::North, Card::SA),
+            Play::new(Seat::East, Card::H2),
+        ]);
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, predeal)
+            .expect("predeal is unique")
+            .with_played(&record)
+            .build()
+            .expect("same-seat overlap is not a conflict");
+
+        assert_eq!(dealer.known()[Seat::North as usize], predeal);
+        assert_eq!(dealer.known()[Seat::East as usize], Cards::from(Card::H2));
+
+        // A played card stays in the known (original-hand) seed but drops out
+        // of the current hand.
+        assert_eq!(dealer.current_hand(Seat::North), Cards::from(Card::SK));
+        assert_eq!(dealer.current_hand(Seat::East), Cards::EMPTY);
+
+        let deal = dealer.deal().expect("dealer deals");
+        assert!(deal.north().cards().contains(predeal));
+        assert!(deal.east().cards().has_card(Card::H2));
+        // A played card is fixed to its seat, so no other hand can hold it.
+        for seat in [Seat::North, Seat::South, Seat::West] {
+            assert!(!deal[seat].cards().has_card(Card::H2));
+        }
+    }
+
+    /// `with_known` seeds the known set directly, without a `PlayRecord`.
+    #[test]
+    fn with_known_seeds_cards_directly() {
+        let known = Cards::from_str("HAK").expect("known cards parse");
+        let dealer = DealerBuilder::new()
+            .with_known(Seat::South, known)
+            .build()
+            .expect("directly-known cards are valid");
+        assert_eq!(dealer.known()[Seat::South as usize], known);
+        let deal = dealer.deal().expect("dealer deals");
+        assert!(deal.south().cards().contains(known));
+    }
+
+    /// A card fixed to two different seats is a structural error.
+    #[test]
+    fn card_attributed_to_two_seats_is_an_error() {
+        // Predealt to North, played by East.
+        let record = PlayRecord::new(vec![Play::new(Seat::East, Card::SA)]);
+        let Err(err) = DealerBuilder::new()
+            .predeal(Seat::North, Cards::from(Card::SA))
+            .expect("predeal is unique")
+            .with_played(&record)
+            .build()
+        else {
+            panic!("a card cannot be in two seats");
+        };
+        match err {
+            DealerError::CardAttributedToTwoSeats {
+                card,
+                first,
+                second,
+            } => {
+                assert_eq!(card, Card::SA);
+                assert_eq!(first, Seat::North);
+                assert_eq!(second, Seat::East);
+            }
+            other => panic!("expected a cross-seat conflict, got {other:?}"),
+        }
+
+        // Played by two different seats.
+        let record = PlayRecord::new(vec![
+            Play::new(Seat::North, Card::SA),
+            Play::new(Seat::East, Card::SA),
+        ]);
+        let Err(err) = DealerBuilder::new().with_played(&record).build() else {
+            panic!("a card cannot be played by two seats");
+        };
+        assert!(matches!(
+            err,
+            DealerError::CardAttributedToTwoSeats { card, .. } if card == Card::SA
+        ));
+    }
+
+    /// More than 13 known cards for one seat is rejected before sampling.
+    #[test]
+    fn too_many_known_for_one_seat_is_an_error() {
+        let fourteen = Cards::from_str("SAKQJT98765432H2").expect("14 distinct cards parse");
+        assert_eq!(fourteen.len(), 14);
+        let Err(err) = DealerBuilder::new()
+            .with_known(Seat::North, fourteen)
+            .build()
+        else {
+            panic!("a hand holds at most 13 cards");
+        };
+        assert!(matches!(
+            err,
+            DealerError::TooManyKnownForSeat {
+                seat: Seat::North,
+                count: 14
+            }
+        ));
+    }
+
+    /// Constraints run on the reconstructed 13-card hand, not the remainder.
+    ///
+    /// North has nine known black cards, so its remainder is four cards. The
+    /// constraint can only be satisfied by the reconstructed hand: the four
+    /// random cards must all be hearts.
+    #[test]
+    fn conditioning_constraints_check_reconstructed_full_hands() {
+        let predeal = Cards::from_str("SAK").expect("predeal parses");
+        let played: Vec<Play> = ["S2", "S3", "S4", "S5", "S6", "S7", "S8"]
+            .iter()
+            .map(|rank| Play::new(Seat::North, Card::from_str(rank).expect("card parses")))
+            .collect();
+        let record = PlayRecord::new(played);
+
+        let dealer = DealerBuilder::new()
+            .predeal(Seat::North, predeal)
+            .expect("predeal is unique")
+            .with_played(&record)
+            .with_function(|deal: &Deal| deal.north().hearts().len() == 4)
+            .build()
+            .expect("conditioning is valid");
+
+        let deal = dealer.deal().expect("dealer finds a 4-heart hand");
+        assert_eq!(deal.north().cards().len(), 13);
+        assert_eq!(deal.north().hearts().len(), 4);
+        assert!(deal.north().cards().contains(predeal));
+    }
+
+    /// Nine spades fixed to North (two predealt, seven played); the caller adds
+    /// the constraint under test.
+    fn conditioned_north_spades_dealer(builder: DealerBuilder) -> impl Dealer {
+        let predeal = Cards::from_str("SAK").expect("predeal parses");
+        let played: Vec<Play> = ["S2", "S3", "S4", "S5", "S6", "S7", "S8"]
+            .iter()
+            .map(|rank| Play::new(Seat::North, Card::from_str(rank).expect("card parses")))
+            .collect();
+        builder
+            .predeal(Seat::North, predeal)
+            .expect("predeal is unique")
+            .with_played(&PlayRecord::new(played))
+            .build()
+            .expect("conditioning is valid")
+    }
+
+    /// A `HandConstraint` also runs on the reconstructed 13-card hand: the
+    /// nine known spades force the shape `9400`, so the four random cards must
+    /// all be hearts.
+    #[test]
+    fn conditioning_hand_constraint_checks_reconstructed_full_hand() {
+        let dealer = conditioned_north_spades_dealer(DealerBuilder::new().with_hand_constraint(
+            Seat::North,
+            HandConstraint::new(&["9400"], HcpRange::new(0, 37)).expect("shape parses"),
+        ));
+        let deal = dealer.deal().expect("dealer finds a 9-4-0-0 hand");
+        assert_eq!(deal.north().spades().len(), 9);
+        assert_eq!(deal.north().hearts().len(), 4);
+    }
+
+    /// The legacy `HandDescriptor` wrapper shares the same full-hand path.
+    #[test]
+    fn conditioning_hand_descriptor_checks_reconstructed_full_hand() {
+        let shape = Shape::try_from("9400").expect("shape parses");
+        let descriptor = HandDescriptor::new(vec![HandType::new(shape, HcpRange::new(0, 37))]);
+        let dealer = conditioned_north_spades_dealer(
+            DealerBuilder::new().with_hand_descriptor(Seat::North, descriptor),
+        );
+        let deal = dealer.deal().expect("dealer finds a 9-4-0-0 hand");
+        assert_eq!(deal.north().hearts().len(), 4);
+    }
+
+    /// A bounded budget returns a distinct error instead of sampling forever.
+    #[test]
+    fn exhausted_attempt_budget_is_a_bounded_error() {
+        let dealer = DealerBuilder::new()
+            .with_attempt_budget(10)
+            .with_function(|_: &Deal| false)
+            .build()
+            .expect("a rejecting dealer still builds");
+        let err = dealer
+            .deal()
+            .expect_err("no deal can satisfy the rejection");
+        assert!(matches!(err, DealerError::Unsatisfiable { attempts: 10 }));
     }
 
     /// Tests PBN format output. A `Deal` is a hand record only; the `[Board]`

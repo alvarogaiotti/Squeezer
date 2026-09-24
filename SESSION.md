@@ -191,6 +191,21 @@
   implementation, so a failure reports "No Arguments Provided" instead of the
   offending board. Implementing `shrink` (or returning a `TestResult` that
   embeds the board) would make future failures debuggable.
+- `DealerBuilder` keeps two sources of truth for the available deck: `deck`
+  (incremental, for eager duplicate rejection in `predeal*`) and the `known`
+  set recomputed in `build()`. Cross-seat conflicts surface in `resolve_known`
+  while predeal-vs-predeal conflicts surface in `predeal`; unifying them would
+  move `predeal`'s error to build time (relied on by a should-panic test).
+- The bounded rejection budget default (`2_000_000`) is tuned to the tightest
+  shipped test constraint (mean ~10⁵ attempts); rarer constraints — notably
+  the untested `utils::dealer_of_lavazza_3nt_opening` — can now return
+  `Unsatisfiable` where the old unbounded sampler would eventually succeed.
+- `Dealer::predealt()` has no in-crate reader now that candidate validation
+  uses `Dealer::current_hand()`; kept only as public API. Ticket 10/12 could
+  retire it.
+- `CardPayoffSimulation`'s `play_trace` field and trace-to-prefix
+  reconstruction still exist despite ticket 09 assuming ticket 04 removed them
+  (`create_current_trick` is gone); ticket 10 deletes the type.
 
 ## Resolved
 
