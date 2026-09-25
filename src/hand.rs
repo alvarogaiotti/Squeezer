@@ -766,7 +766,7 @@ mod test {
         assert!(descriptor.check(weak_two_hand));
 
         // Valid three-level preempt
-        let preempt_hand = Hand::from_str("KQJ4321.32.32.32").unwrap();
+        let preempt_hand = Hand::from_str("KQJT432.32.32.32").unwrap();
         assert!(descriptor.check(preempt_hand));
 
         // Invalid hand (too strong)

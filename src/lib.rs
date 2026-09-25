@@ -84,7 +84,8 @@
       )?;
 
       // Give everything to the DealerBuilder, which will craft a brand new impl Dealer for you!
-      // Note that we are strict on the case of the string for the predealt hand: ALWAYS UPPERCASE.
+      // The predeal grammar is positional: each space (or `.`) advances a suit,
+      // starting from spades, and suit and rank letters are case-insensitive.
       let dealer_builder = DealerBuilder::new()
          .predeal(Seat::South, Cards::from_str("AKQ AJT9 T3 AK95")?)?
          .with_hand_constraint(

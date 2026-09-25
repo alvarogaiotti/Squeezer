@@ -607,28 +607,19 @@ impl Cards {
     #[must_use]
     #[inline]
     pub const fn high_card_points(self) -> u8 {
-        let mut bits = self.bits;
-        let mut points = 0u8;
-        while bits != 0 {
-            let tz = bits.trailing_zeros() as u8;
-            // Rank lives in the low nibble of the card offset.
-            let rank = tz & 15;
-            // A=14 -> 4, K=13 -> 3, Q=12 -> 2, J=11 -> 1, else 0.
-            let add = if rank == 14 {
-                4
-            } else if rank == 13 {
-                3
-            } else if rank == 12 {
-                2
-            } else if rank == 11 {
-                1
-            } else {
-                0
-            };
-            points += add;
-            bits &= bits - 1;
-        }
-        points
+        // Each suit occupies a 16-bit field and each rank is one bit in that
+        // field. Masking the four honour ranks lets the CPU count all cards of
+        // a rank at once instead of walking every set bit in the hand.
+        const ACES: u64 = (1u64 << 14) | (1u64 << 30) | (1u64 << 46) | (1u64 << 62);
+        const KINGS: u64 = (1u64 << 13) | (1u64 << 29) | (1u64 << 45) | (1u64 << 61);
+        const QUEENS: u64 = (1u64 << 12) | (1u64 << 28) | (1u64 << 44) | (1u64 << 60);
+        const JACKS: u64 = (1u64 << 11) | (1u64 << 27) | (1u64 << 43) | (1u64 << 59);
+
+        let points = 4 * (self.bits & ACES).count_ones()
+            + 3 * (self.bits & KINGS).count_ones()
+            + 2 * (self.bits & QUEENS).count_ones()
+            + (self.bits & JACKS).count_ones();
+        points as u8
     }
 
     /// Returns the inner u64 type representing this [`Cards`] instance.
@@ -806,154 +797,193 @@ impl std::fmt::Display for Cards {
     }
 }
 
+/// A string that is not a valid [`Card`] or [`Cards`].
+///
+/// Carries the offending input so the diagnostic names what was rejected.
+/// `Card` and `Cards` share the type because they share the grammar.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct InvalidCardError;
+pub struct InvalidCardError {
+    input: String,
+}
+
+impl InvalidCardError {
+    fn new(input: impl Into<String>) -> Self {
+        Self {
+            input: input.into(),
+        }
+    }
+
+    /// The input that failed to parse.
+    #[must_use]
+    pub fn input(&self) -> &str {
+        &self.input
+    }
+}
 
 impl std::fmt::Debug for InvalidCardError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "InvalidCardError")
+        write!(f, "InvalidCardError({:?})", self.input)
     }
 }
 
 impl std::fmt::Display for InvalidCardError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "InvalidCardError")
+        write!(f, "invalid card \"{}\"", self.input)
     }
 }
 
 impl Error for InvalidCardError {}
 
+/// The suit a designator names: ASCII either case, or the Unicode symbol.
+const fn suit_designator(c: char) -> Option<Suit> {
+    match c {
+        '♠' | 'S' | 's' => Some(Suit::Spades),
+        '♥' | 'H' | 'h' => Some(Suit::Hearts),
+        '♦' | 'D' | 'd' => Some(Suit::Diamonds),
+        '♣' | 'C' | 'c' => Some(Suit::Clubs),
+        _ => None,
+    }
+}
+
+/// The rank a designator names, ignoring `"10"`'s leading `'1'`.
+const fn rank_designator(c: char) -> Option<u8> {
+    match c {
+        '2' => Some(2),
+        '3' => Some(3),
+        '4' => Some(4),
+        '5' => Some(5),
+        '6' => Some(6),
+        '7' => Some(7),
+        '8' => Some(8),
+        '9' => Some(9),
+        'T' | 't' => Some(10),
+        'J' | 'j' => Some(11),
+        'Q' | 'q' => Some(12),
+        'K' | 'k' => Some(13),
+        'A' | 'a' => Some(14),
+        _ => None,
+    }
+}
+
+/// One lexical token of the shared card grammar.
+#[derive(Copy, Clone)]
+enum CardToken {
+    /// A suit designator.
+    Suit(Suit),
+    /// A positional separator (`' '` or `'.'`) advancing to the next suit.
+    NextSuit,
+    /// A rank.
+    Rank(u8),
+}
+
+/// Splits input into [`CardToken`]s.
+///
+/// `Card` and `Cards` both consume this, so they classify every character the
+/// same way and cannot drift.
+struct CardTokenizer<'a> {
+    chars: std::str::Chars<'a>,
+    input: &'a str,
+}
+
+impl<'a> CardTokenizer<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            chars: input.chars(),
+            input,
+        }
+    }
+}
+
+impl Iterator for CardTokenizer<'_> {
+    type Item = Result<CardToken, InvalidCardError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let c = self.chars.next()?;
+        let token = match c {
+            ' ' | '.' => CardToken::NextSuit,
+            // `'1'` is a rank only as part of `"10"`; a bare `'1'` is invalid.
+            '1' => match self.chars.next() {
+                Some('0') => CardToken::Rank(10),
+                _ => return Some(Err(InvalidCardError::new(self.input))),
+            },
+            _ => match suit_designator(c) {
+                Some(suit) => CardToken::Suit(suit),
+                None => match rank_designator(c) {
+                    Some(rank) => CardToken::Rank(rank),
+                    None => return Some(Err(InvalidCardError::new(self.input))),
+                },
+            },
+        };
+        Some(Ok(token))
+    }
+}
+
 impl std::str::FromStr for Card {
     type Err = InvalidCardError;
 
+    /// Parses exactly one card as `suit rank` (`"C3"`, `"ST"`, `"S10"`, `"♠A"`).
+    ///
+    /// The grammar is strict: a rank-first string (`"3C"`), a bare rank
+    /// (`"3"`) and a suit with no rank (`"C"`) are all rejected. The old
+    /// lenient parser read those as the three of spades, the three of spades
+    /// and the two of clubs respectively, which is the silent corruption this
+    /// grammar removes.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut suit = Suit::Spades;
-        let mut card = Card::new(suit, 2);
-        for c in s.chars() {
-            match c {
-                '♣' | 'C' | 'c' => {
-                    suit = Suit::Clubs;
+        let mut suit = None;
+        let mut rank = None;
+        for token in CardTokenizer::new(s) {
+            match token? {
+                CardToken::Suit(found) => {
+                    if suit.is_some() || rank.is_some() {
+                        return Err(InvalidCardError::new(s));
+                    }
+                    suit = Some(found);
                 }
-                '♦' | 'D' | 'd' => {
-                    suit = Suit::Diamonds;
+                CardToken::Rank(found) => {
+                    if rank.is_some() {
+                        return Err(InvalidCardError::new(s));
+                    }
+                    rank = Some(found);
                 }
-                '♥' | 'H' | 'h' => {
-                    suit = Suit::Hearts;
-                }
-                '♠' | 'S' | 's' => {
-                    suit = Suit::Spades;
-                }
-                '2' => {
-                    card = Card::new(suit, 2);
-                }
-                '3' => {
-                    card = Card::new(suit, 3);
-                }
-                '4' => {
-                    card = Card::new(suit, 4);
-                }
-                '5' => {
-                    card = Card::new(suit, 5);
-                }
-                '6' => {
-                    card = Card::new(suit, 6);
-                }
-                '7' => {
-                    card = Card::new(suit, 7);
-                }
-                '8' => {
-                    card = Card::new(suit, 8);
-                }
-                '9' => {
-                    card = Card::new(suit, 9);
-                }
-                'T' | '1' => {
-                    card = Card::new(suit, 10);
-                }
-                'J' => {
-                    card = Card::new(suit, 11);
-                }
-                'Q' => {
-                    card = Card::new(suit, 12);
-                }
-                'K' => {
-                    card = Card::new(suit, 13);
-                }
-                'A' => {
-                    card = Card::new(suit, 14);
-                }
-                _ => return Err(InvalidCardError),
+                CardToken::NextSuit => return Err(InvalidCardError::new(s)),
             }
         }
-        Ok(card)
+        match (suit, rank) {
+            (Some(suit), Some(rank)) => Ok(Card::new(suit, rank)),
+            _ => Err(InvalidCardError::new(s)),
+        }
     }
 }
 
 impl std::str::FromStr for Cards {
-    type Err = DealerError;
+    type Err = InvalidCardError;
 
+    /// Parses a run of cards.
+    ///
+    /// The grammar accepts two equivalent shapes, both used in-crate:
+    ///
+    /// - **positional**: the suit starts at spades and a space or `.` advances
+    ///   to the next suit, so `"AKQ AJT9 T3 AK95"` and `"AKQ2.KQ32.AK2.32"`
+    ///   are four-suit holdings. A leading run of ranks is therefore spades.
+    /// - **lettered**: an explicit suit designator (`S`/`H`/`D`/`C`, either
+    ///   case, or the Unicode symbol) switches the current suit.
+    ///
+    /// Ranks (`2`-`9`, `T`/`10`, `J`, `Q`, `K`, `A`, either case) join the
+    /// current suit. Any other character is an error rather than being
+    /// silently skipped, and a fifth positional suit is an error.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut cards = Cards::EMPTY;
         let mut suit = Suit::Spades;
-        for c in s.chars() {
-            match c {
-                '♣' | 'C' | 'c' => {
-                    suit = Suit::Clubs;
+        for token in CardTokenizer::new(s) {
+            match token? {
+                CardToken::Suit(found) => suit = found,
+                CardToken::NextSuit => {
+                    suit = suit.next().ok_or_else(|| InvalidCardError::new(s))?;
                 }
-                '♦' | 'D' | 'd' => {
-                    suit = Suit::Diamonds;
+                CardToken::Rank(rank) => {
+                    cards = cards.insert(Card::new(suit, rank));
                 }
-                '♥' | 'H' | 'h' => {
-                    suit = Suit::Hearts;
-                }
-                '♠' | 'S' | 's' => {
-                    suit = Suit::Spades;
-                }
-                ' ' | '.' => {
-                    suit = suit.next().ok_or(DealerError::new(
-                        "more than 4 suits, check input string for spaces",
-                    ))?;
-                }
-                '2' => {
-                    cards = cards.insert(Card::new(suit, 2));
-                }
-                '3' => {
-                    cards = cards.insert(Card::new(suit, 3));
-                }
-                '4' => {
-                    cards = cards.insert(Card::new(suit, 4));
-                }
-                '5' => {
-                    cards = cards.insert(Card::new(suit, 5));
-                }
-                '6' => {
-                    cards = cards.insert(Card::new(suit, 6));
-                }
-                '7' => {
-                    cards = cards.insert(Card::new(suit, 7));
-                }
-                '8' => {
-                    cards = cards.insert(Card::new(suit, 8));
-                }
-                '9' => {
-                    cards = cards.insert(Card::new(suit, 9));
-                }
-                'T' | '1' => {
-                    cards = cards.insert(Card::new(suit, 10));
-                }
-                'J' => {
-                    cards = cards.insert(Card::new(suit, 11));
-                }
-                'Q' => {
-                    cards = cards.insert(Card::new(suit, 12));
-                }
-                'K' => {
-                    cards = cards.insert(Card::new(suit, 13));
-                }
-                'A' => {
-                    cards = cards.insert(Card::new(suit, 14));
-                }
-                _ => (),
             }
         }
         Ok(cards)
@@ -996,4 +1026,123 @@ fn high_card_points_single_pass_matches_classic() {
     assert_eq!(hand.high_card_points(), 10);
     assert_eq!(Cards::EMPTY.high_card_points(), 0);
     assert_eq!(Cards::ALL.high_card_points(), 40);
+}
+
+#[test]
+fn high_card_points_matches_reference_for_every_rank_layout() {
+    fn reference(bits: u64) -> u8 {
+        let mut points = 0;
+        for bit in 0..64 {
+            if bits & (1u64 << bit) != 0 {
+                points += match bit & 15 {
+                    14 => 4,
+                    13 => 3,
+                    12 => 2,
+                    11 => 1,
+                    _ => 0,
+                };
+            }
+        }
+        points
+    }
+
+    // Every possible rank nibble in every suit catches an off-by-one shift in
+    // a mask-based implementation, including the non-card rank 15.
+    for spades in 0..16_u64 {
+        for hearts in 0..16_u64 {
+            for diamonds in 0..16_u64 {
+                for clubs in 0..16_u64 {
+                    let bits = spades | (hearts << 16) | (diamonds << 32) | (clubs << 48);
+                    assert_eq!(
+                        Cards { bits }.high_card_points(),
+                        reference(bits),
+                        "bits {bits:#018x}"
+                    );
+                }
+            }
+        }
+    }
+
+    for cards in [
+        Cards::ALL,
+        Cards { bits: 1 << 63 },
+        Cards { bits: u64::MAX },
+    ] {
+        assert_eq!(cards.high_card_points(), reference(cards.bits));
+    }
+}
+
+#[test]
+fn card_from_str_requires_a_suit_before_the_rank() {
+    use std::str::FromStr;
+    assert_eq!(
+        Card::from_str("C3").expect("suit-first three of clubs"),
+        Card::C3
+    );
+    assert_eq!(
+        Card::from_str("S10").expect("\"10\" spells a ten"),
+        Card::S10
+    );
+    assert_eq!(Card::from_str("ST").expect("T spells a ten"), Card::S10);
+    assert_eq!(
+        Card::from_str("♠A").expect("unicode suit designator"),
+        Card::SA
+    );
+    // Suit and rank letters are case-insensitive, but the order is fixed.
+    assert_eq!(
+        Card::from_str("c3").expect("lowercase suit and rank"),
+        Card::C3
+    );
+
+    for malformed in ["3C", "3", "C", "", "CS3", "S3C", "S1", "SX", "10S"] {
+        assert!(
+            Card::from_str(malformed).is_err(),
+            "{malformed:?} should not parse"
+        );
+    }
+}
+
+#[test]
+fn cards_from_str_keeps_the_positional_and_letter_forms() {
+    use std::str::FromStr;
+    // The leading positional group defaults to spades; a space advances one suit.
+    let positional = Cards::from_str("AKQ AJT9 T3 AK95").expect("positional form");
+    let letters = Cards::from_str("SAKQHAJT9DT3CAK95").expect("lettered form");
+    assert_eq!(positional, letters);
+
+    // `Hand`'s positional form uses `.` as the separator.
+    let dotted = Cards::from_str("AKQ2.KQ32.AK2.32").expect("dotted form");
+    assert_eq!(
+        dotted,
+        Cards::from_str("SAKQ2HKQ32DAK2C32").expect("lettered dotted equivalent")
+    );
+
+    // A bare run of ranks is spades, as the `heads_of_sequences` doc example.
+    assert_eq!(
+        Cards::from_str("KQ986532").expect("bare ranks default to spades"),
+        Cards::from_str("SKQ986532").expect("explicit spades")
+    );
+}
+
+#[test]
+fn cards_from_str_rejects_unknown_characters_instead_of_ignoring_them() {
+    use std::str::FromStr;
+    for malformed in ["AKQ X", "SAKQ!", "1", "S12", "A B C D E"] {
+        assert!(
+            Cards::from_str(malformed).is_err(),
+            "{malformed:?} should not parse"
+        );
+    }
+}
+
+#[test]
+fn invalid_card_error_names_the_offending_input() {
+    use std::str::FromStr;
+    let error = Card::from_str("3C").expect_err("rank-first input is rejected");
+    assert!(error.to_string().contains("3C"), "got {error}");
+    assert_eq!(error.input(), "3C");
+
+    let error = Cards::from_str("AKQ X").expect_err("unknown character is rejected");
+    assert!(error.to_string().contains("AKQ X"), "got {error}");
+    assert_eq!(error.input(), "AKQ X");
 }

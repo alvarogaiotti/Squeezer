@@ -121,6 +121,15 @@
   only by the importer's own tests; the crate-wide boundary could absorb it.
 - `ParseLinError` is public under `squeezer::linparser` but not re-exported by
   `squeezer::prelude`, unlike the other module errors.
+- `benches/bench_payoff.rs` passed `"A AKjt Kqjt KQT9"` to `Cards::from_str`;
+  the old parser silently dropped every lowercase rank letter, so the bench
+  predealt 8 of the intended 13 cards. Ticket 15 made lowercase ranks valid, so
+  the bench now predeals the full hand and its dealer/solve cost changes.
+- `Hand::from_str` reports a malformed string as `DealerError::InvalidCards`
+  (ticket 15) but a wrong card count as a free-form `DealerError::Message`, so
+  the two failure modes are not distinguishable by variant.
+- `Card::from_str` now accepts both `T` and `10` for the ten, but `Card`'s
+  `rankchar`/`Display` only ever emit `T`, so `"10"` is an input-only spelling.
 
 ### Dealer and conditioning
 - `DealerBuilder` keeps two sources of truth for the available deck: `deck`
@@ -179,6 +188,13 @@
   rule's `max_by_key` keeps the *last* equal-strength play, whereas the old fold
   kept the first: irrelevant for a real, distinct-card trick, but a behavior
   difference on degenerate duplicate-card input such as the random bench.
+- `Cards::insert` and related bit operations trust `Card::offset`; `Card::JOKER`
+  has offset 255, so inserting it shifts by more than 63 and panics in debug
+  builds. The HCP fast path intentionally treats the otherwise-invalid bit 63
+  as zero, matching the old set-bit walk.
+- `performance_analysis::analyze_hand` panics when a complete trick lacks DD
+  results, but silently analyzes only the available prefix of a short final
+  trick. The allocation-free implementation preserves that asymmetry.
 - `Cargo.lock` is git-tracked yet also listed in `.gitignore`; the ignore rule
   has no effect on tracked files, which is confusing.
 - Pre-existing clippy warnings: `decimal_bitwise_operands` at

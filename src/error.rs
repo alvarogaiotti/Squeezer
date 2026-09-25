@@ -17,6 +17,7 @@
 
 #[cfg(any(feature = "bbo", feature = "bbo_async"))]
 use crate::bbohelpers::BboError;
+use crate::card::InvalidCardError;
 use crate::dealproduction::DealerError;
 use crate::hand_constraint::ConstraintError;
 #[cfg(feature = "lin")]
@@ -44,6 +45,12 @@ pub enum SqueezerError {
         /// What was wrong with it.
         message: String,
     },
+    /// A card or card string failed to parse.
+    ///
+    /// `InvalidCardError`'s own `Display` already names the input, so the
+    /// wrapper adds no prefix and does not double it.
+    #[error("{0}")]
+    InvalidCard(#[from] InvalidCardError),
     /// A LIN file could not be imported.
     #[cfg(feature = "lin")]
     #[error("LIN parsing failed: {0}")]
@@ -104,7 +111,7 @@ impl SqueezerError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::card::Card;
+    use crate::card::{Card, InvalidCardError};
     use crate::hand::HcpRange;
     use crate::hand_constraint::HandConstraint;
     use crate::record::auction::Call;
@@ -238,6 +245,15 @@ mod tests {
             .remove_shape("not a shape!!")
             .expect_err("pattern is malformed");
         assert!(error.source().is_some(), "parser cause survives");
+    }
+
+    #[test]
+    fn invalid_card_error_converts_to_its_variant() {
+        let error: InvalidCardError = "3C".parse::<Card>().expect_err("rank-first is rejected");
+        let boundary = SqueezerError::from(error);
+        assert_wraps(&boundary, |e| matches!(e, SqueezerError::InvalidCard(_)));
+        // The wrapper must not add a second "invalid card" prefix.
+        assert_eq!(boundary.to_string(), "invalid card \"3C\"");
     }
 
     #[cfg(feature = "lin")]

@@ -50,6 +50,8 @@ pub enum DealerError {
     Shape(CreationShapeError),
     /// A hand constraint could not be built.
     Constraint(ConstraintError),
+    /// A hand string was not a valid run of cards.
+    InvalidCards(InvalidCardError),
 }
 
 impl DealerError {
@@ -83,6 +85,7 @@ impl fmt::Display for DealerError {
             }
             Self::Shape(cause) => write!(f, "{cause}"),
             Self::Constraint(cause) => write!(f, "{cause}"),
+            Self::InvalidCards(cause) => write!(f, "{cause}"),
         }
     }
 }
@@ -92,6 +95,7 @@ impl Error for DealerError {
         match self {
             Self::Shape(cause) => Some(cause),
             Self::Constraint(cause) => Some(cause),
+            Self::InvalidCards(cause) => Some(cause),
             Self::Message(_)
             | Self::CardAttributedToTwoSeats { .. }
             | Self::TooManyKnownForSeat { .. }
@@ -109,5 +113,11 @@ impl From<CreationShapeError> for DealerError {
 impl From<ConstraintError> for DealerError {
     fn from(value: ConstraintError) -> Self {
         DealerError::Constraint(value)
+    }
+}
+
+impl From<InvalidCardError> for DealerError {
+    fn from(value: InvalidCardError) -> Self {
+        DealerError::InvalidCards(value)
     }
 }
