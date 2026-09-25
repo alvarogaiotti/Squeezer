@@ -1,0 +1,229 @@
+# Runtime performance report
+
+## Method
+
+The working tree already contained an uncommitted performance candidate, so I compared each change
+with a clean detached worktree at `HEAD` (`00d47b2`) rather than treating existing numbers as a
+baseline. The public API was not changed.
+
+Profiling was done before accepting each optimization:
+
+- `perf record` on the clean `full_analysis/complete_hand` Criterion benchmark attributed 45.31% of
+  cycles to `performance_analysis::analyze_hand`, 27.49% to `record::position::trick_winner`, and
+  16.02% to the `malloc`/`cfree` pair. The allocator samples justified removing temporary vectors.
+- A focused DDS-adapter profile attributed 97.79% of an isolated position-to-`DdsDeal` conversion to
+  `TryFrom<&Position>`. The old implementation walked every set card through `SuitIterator`, even
+  though the hand bitboard already contains the four DDS rank masks.
+- `perf record` on `bench_payoff` (7,463 samples over five seconds) attributed essentially all
+  end-to-end time to native DDS routines: `Moves::MoveGen123` 10.67%, `QuickTricks` 8.70%,
+  `Moves::MakeNext` 7.53%, and `weight_alloc_trump0` 5.91%, followed by alpha-beta and transposition-table
+  routines. Native LTO was tried separately and discarded because it failed to link; the Rust
+  adapter optimization below is intentionally measured in isolation rather than misrepresented as a
+  native-solver speedup.
+- `perf record` on the 1,000-deal lead pipeline (`benches/bench_leadsim.rs`, 43,750 samples over
+  five seconds, 44.8 s per iteration) confirmed the same picture for the all-legal-card path: no Rust
+  symbol reached the 0.5% reporting threshold, and the top entries were native search routines
+  (`Moves::MoveGen123` 10.72%, `QuickTricks`, alpha-beta, transposition-table lookups).
+
+Because native search cannot be improved from Rust without rewriting DDS, the simulation paths were
+profiled in two layers. A new mock-solver benchmark, `benches/simulation_paths.rs`, substitutes a
+`SolverContext` that returns one legal-card result per card. That makes the cost we can actually
+change — position derivation, equivalence-class expansion, denomination baselines, statistics, and
+report construction — measurable on its own instead of being hidden behind a 7–45 s native solve.
+Every mock case reports the post-processing of 1,000 deals.
+
+Criterion timings used `taskset -c 0` and three independent runs. The earlier microbenchmarks used a
+one-second warm-up, a three-second measurement, and 20 samples; the nine-case deal matrix used the
+same warm-up with a two-second measurement and 10 samples because its tight cases are much slower.
+Each table reports the median of the three run medians; the range is the range of those run medians,
+not Criterion's within-run confidence interval.
+
+## 1. Allocation-free fixed buffers in `analyze_hand`
+
+**Changed:** `src/performance_analysis.rs` now copies play cards directly into its existing
+`[Card; 52]` scratch array. Complete-trick DD results use a four-byte stack array, and the short
+final trick consumes the existing DD iterator directly. This removes one `Vec<Card>` allocation per
+hand and one `Vec<u8>` allocation per complete trick.
+
+**Coverage:** empty and partial play records (including rotating seats and DD deltas), missing DD
+data for a complete trick retaining the existing panic, and the existing full-hand/DDS-backed
+analysis tests.
+
+| Version | Median | Run-median range |
+| --- | ---: | ---: |
+| Clean `HEAD` | 281.92 ns/hand | 280.62–290.67 ns (3.56%) |
+| Allocation change only | 217.04 ns/hand | 214.87–221.32 ns (2.97%) |
+
+This is a **23.0% improvement**, comfortably outside the observed run-to-run variance. The change is
+kept: it is a small, safe allocation reduction with no API or behavior change.
+
+## 2. Fixed-size scan for `trick_winner`
+
+**Changed:** `src/record/position.rs` replaces the closure plus `max_by_key` state machine with a
+local winning-reference loop over the four-card trick. The `>=` comparison deliberately preserves
+`max_by_key`'s last-element behavior when strengths tie, including the existing degenerate
+duplicate-card behavior of this public helper.
+
+**Coverage:** the existing trump, no-trump, led-suit, discard, and position-derivation cases remain.
+A regression test was added before the implementation change for the last-equal-strength/duplicate
+card case.
+
+The allocation-only build is the before measurement for this change; it uses the same benchmark and
+machine as the final build.
+
+| Version | Median | Run-median range |
+| --- | ---: | ---: |
+| Allocation change only | 217.04 ns/hand | 214.87–221.32 ns (2.97%) |
+| Allocation change + fixed winner loop | 195.49 ns/hand | 195.02–196.68 ns (0.85%) |
+
+This is a **9.9% incremental improvement** and a **30.7% total improvement** over clean `HEAD`.
+It adds no unsafe code or public surface, so it is kept.
+
+## 3. Direct rank-lane extraction in the DDS position bridge
+
+**Changed:** `src/dds_bridge.rs` now copies the four 16-bit lanes of each `Cards` bitboard directly
+into DDS's `remain_cards[hand][suit]` masks. The previous implementation iterated over every set bit
+and performed a suit match and rank shift for each card. The full `0xffff` lane mask is intentional:
+it preserves even malformed rank bits that the old conversion passed through.
+
+**Coverage:** a new reference-comparison test checks every suit/rank bit in the example deal. Existing
+mid-trick leader/current-card tests and DDS oracle tests remain in place.
+
+The permanent regression benchmark is `benches/dds_conversion.rs`:
+
+```text
+cargo bench --bench dds_conversion -- --noplot --warm-up-time 1 --measurement-time 3 --sample-size 20
+```
+
+| Version | Median | Run-median range |
+| --- | ---: | ---: |
+| Card-by-card conversion | 77.92 ns/conversion | 77.56–78.30 ns (0.96%) |
+| Four-lane extraction | 8.31 ns/conversion | 8.28–8.33 ns (0.63%) |
+
+This is an **89.3% improvement**, far outside noise, with no unsafe code or API change. The native
+`bench_payoff` sanity run moved from 7.268 s to 7.227 s (about 0.6%, within end-to-end noise), so the
+report does not claim that this adapter change materially accelerates the native solver; it removes a
+real, repeatable conversion cost for every DDS call.
+
+## 4. Deterministic final-seat fast path in deal creation
+
+**Profile:** the constraint-matrix benchmark showed that the rejection loop's first three
+`Cards::pick_rng::<FastSampler>` calls and `rand_chacha` refill dominated representative cases. In
+the post-change `shape_hcp_12_14` profile they still accounted for 64.97% and 21.70% of samples;
+the benchmark/dealer closure accounted for 12.09%. In an unconditioned deal the final seat asks for
+exactly the cards left in the deck; more generally, any seat whose fill equals the remaining deck
+has no sampling decision left.
+
+**Changed:** `src/record/deal.rs` now takes the remaining deck directly when `fill == deck.len()`,
+using a crate-private `Cards::take_all` helper in `src/card.rs`. The public `Cards::pick_rng` and
+`FastSampler` behavior, including caller-supplied RNG consumption, is unchanged.
+
+**Coverage:** the new `take_all` unit test covers non-empty and empty decks, and the existing dealer
+suite covers unconstrained, predealt, conditioned, constrained, and accept-function generation.
+
+The permanent matrix benchmark is `benches/deal_constraints.rs`. Each case ran three independent
+Criterion measurements with a one-second warm-up, two-second measurement, and 10 samples:
+
+| Case | `HEAD` median (range) | Fast path median (range) | Improvement |
+| --- | ---: | ---: | ---: |
+| Unconstrained | 176.17 ns (176.00–176.62) | 143.53 ns (143.46–143.56) | 18.5% |
+| Balanced shape | 397.24 ns (396.84–397.29) | 328.10 ns (327.94–328.89) | 17.4% |
+| HCP 12–17 | 597.26 ns (596.62–597.30) | 488.04 ns (487.74–488.81) | 18.3% |
+| Shape + HCP 12–14 | 1.8988 µs (1.8966–1.8996) | 1.5542 µs (1.5525–1.5562) | 18.2% |
+| Cross-hand function | 370.94 ns (370.83–371.27) | 303.70 ns (303.57–304.05) | 18.1% |
+| Shape + function | 2.1833 µs (2.1825–2.1843) | 1.7947 µs (1.7945–1.8010) | 17.8% |
+| Two-seat HCP | 1.7045 µs (1.7028–1.7052) | 1.4080 µs (1.4071–1.4090) | 17.4% |
+| Predeal + HCP | 298.57 ns (298.49–298.89) | 246.20 ns (246.02–246.23) | 17.5% |
+| Polish Club | 1.0785 µs (1.0777–1.0798) | 0.89083 µs (0.89052–0.89133) | 17.4% |
+
+The gain is consistent across loose, tight, cross-hand, multi-seat, and conditioned cases, so it
+is kept. The remaining first-three-pick sampler/RNG cost is documented above as the next possible
+investigation, but changing public sampler semantics would be a separate, riskier task.
+
+## 5. Simulation post-processing: reusable Card EV buffers and a validated-opening shortcut
+
+**Profile:** the mock-solver profile of the 1,000-deal card-EV post-processing attributed roughly half
+of its samples to allocator traffic (`realloc` 18.23%, plus the `malloc`/`free` pair) and another 9%
+to the per-card `other_scores` `Vec::from_iter`; `Denomination::value` accounted for 15%. The mock
+profile of contract payoff attributed 56% to `Position::new`, because every contract of every sampled
+deal derived its opening position through the general validation path, which rescans all 52 cards for
+duplicates and recomputes the trailing-trick arithmetic for a table that is empty by construction.
+
+**Changed, Card EV:** `src/simulation/card_ev.rs` now hoists the three per-deal vectors
+(`physical`, `scores`, and `other_scores`) out of the deal loop and reuses them by `clear`/`extend`.
+The allocation that remains per physical card is gone, as is the per-deal growth of the two other
+buffers; the loop now iterates the reused `physical` buffer by reference and copies the
+`Copy` outcome instead of consuming the vector.
+
+**Changed, positions:** `src/record/position.rs` adds a private `Position::from_valid_opening`, and
+`from_deal_prefix` returns it directly for the empty prefix. `Deal` already guarantees four disjoint
+13-card hands, so the duplicate scan and the played-count arithmetic that `Position::new` performs
+cannot fail for this input. The general path is untouched: a four-play prefix still scans the plays,
+removes the cards, derives the trick winner, and validates the snapshot.
+
+**Coverage:** the existing opening-lead test already checks all five strains, all four leaders, and
+that every hand equals the deal's, and the mid-trick and completed-trick tests exercise the unchanged
+validation path. A regression test was added before the Card EV change to check that compared
+denomination values stay correct across repeated deals, which is the case a stale reused buffer would
+break. The new `position_from_prefix` benchmark case pins the unchanged four-play path so the
+shortcut cannot silently widen into it.
+
+Both sides of the table were measured with the same benchmark binary, protocol, and machine: the two
+library files were backed up, hand-reverted to remove exactly this session's edits, rebuilt in release
+mode, measured three times, and then restored. Each case used `taskset -c 0`, a one-second warm-up, a
+two-second measurement, and 10 samples.
+
+| Case (1,000 deals unless noted) | Before median (range) | After median (range) | Improvement |
+| --- | ---: | ---: | ---: |
+| Card EV, raw points | 1.2685 ms (1263.1–1271.0) | 334.40 µs (333.93–335.95) | 73.6% |
+| Card EV, imps vs. average | 1.4564 ms (1448.4–1457.7) | 536.28 µs (534.39–538.25) | 63.2% |
+| Lead post-processing | 1.3048 ms (1300.5–1306.0) | 351.29 µs (350.59–351.70) | 73.1% |
+| Contract payoff post-processing | 629.89 µs (628.37–630.44) | 395.72 µs (394.82–397.19) | 37.2% |
+| Opening position (single derivation) | 66.10 ns (66.03–66.17) | 7.82 ns (7.41–7.83) | 88.2% |
+| Four-play prefix (single derivation) | 72.45 ns (72.05–72.45) | 72.43 ns (72.35–72.79) | unchanged |
+
+Both changes are kept: every gain is an order of magnitude above the 0.2–0.7% run-to-run spread, no
+unsafe code or public surface was added, and the general position path measures unchanged.
+
+**End-to-end effect, stated honestly.** The native 1,000-deal payoff benchmark is 7.17 s, of which the
+entire post-processing that these changes speed up is about 0.4 ms. An A/B with the same binary and
+protocol gave 7.1697 s (7.0497–7.2863) for the candidate against 7.2273 s (7.1102–7.3499) before, and
+Criterion reported no change (p = 0.53). The 1,000-deal lead pipeline is 44.8 s against 0.35 ms of
+post-processing, about 0.0008%. These are real, repeatable reductions in the simulation-only work, but
+they are invisible next to DDS search and this report does not claim a native speedup from them.
+
+## Rejected work
+
+- A first version of the deal fast path was placed directly in the public `FastSampler`; it was
+  discarded because skipping RNG draws there changes the observable state of a caller-supplied RNG.
+  The final version is restricted to `StandardDealer` and keeps that public contract intact.
+- A separate `Cards::high_card_points` mask refactor was screened but discarded: the constraint check
+  measured 1.2839 ns versus 1.2749 ns on `HEAD` (a slight regression), and the end-to-end constrained
+  dealer check was unchanged within noise. It is not part of the final diff.
+- The SIMD preprocessing/trick-winner benchmark paths were not rewritten. They are small,
+  benchmark-only paths in the current analysis flow, and the fixed winner loop addresses the measured
+  hot path without architecture-specific unsafe code.
+- A native DDS `-flto` experiment was discarded before acceptance: adding `-flto` to the C++ archive
+  made `rust-lld` leave the `dds_c_*` symbols unresolved, so it could not produce a runnable
+  benchmark. The original build flags were restored; no build-system change is in the final diff.
+- The next Card EV hotspot, `CardStatistics::from_outcomes` (38.64% of the post-change mock profile,
+  with `BTreeMap::or_insert` at 13.97% of the remainder), was deliberately left alone. It builds the
+  public `score_distribution` map and sorts each card's values; it runs 52 times per simulation, not
+  once per deal, so even eliminating it entirely would be roughly 0.0008% of a native 1,000-deal lead
+  run. Fixing it well would mean either changing the public `BTreeMap` field or adding a
+  trick-count-indexed fast path that assumes `score` is a function of `declarer_tricks` — an
+  assumption the public `from_outcomes` cannot make for caller-constructed outcomes. Poor
+  gain-to-risk ratio, so it is recorded in `SESSION.md` rather than implemented.
+
+## Validation
+
+- `cargo test` — passed: 279 unit tests, integration tests, and 57 doctests.
+- `cargo test --no-default-features` — passed: 195 unit tests and 54 doctests.
+- `cargo test --features serde` — passed: 284 unit tests, integration tests, and 57 doctests.
+- `cargo test --manifest-path dds/Cargo.toml` — passed: DDS unit, integration, and doctests.
+- `cargo check --no-default-features --features dds,lin` — passed.
+- `cargo fmt --all -- --check` and `git diff --check` — passed.
+- `cargo clippy --all-targets` — passed with the pre-existing decimal-bitwise warning in
+  `performance_analysis` test code; `cargo clippy --no-default-features --all-targets` passed.
+
+No public function signatures or types were changed.

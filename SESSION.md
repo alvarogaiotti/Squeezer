@@ -143,6 +143,18 @@
   position always uses `contract.leader()` (now via
   `from_deal_prefix_with_contract`). Passing `.seat()` with no trace silently
   does nothing.
+- `CardStatistics::from_outcomes` is the dominant remaining simulation-only
+  hotspot (38.64% of the mock card-EV profile, with the public
+  `BTreeMap<i32, usize>` `score_distribution` insert at 13.97% of the
+  remainder). It runs once per card per simulation, so it is ~0.0008% of a
+  native 1,000-deal lead run and was left unoptimised deliberately. Any fast
+  path must either change the public map type or assume `score` is a function of
+  `declarer_tricks`, which the public constructor cannot assume for
+  caller-built `CardDealOutcome`s.
+- End-to-end simulation timings are ~100% native DDS, so Rust-side wins only
+  show up in the mock-solver benchmark `benches/simulation_paths.rs`. A real
+  1,000-deal lead iteration is ~44.8 s and payoff ~7.17 s; post-processing is
+  0.35 ms and 0.40 ms respectively. See `docs/performance-optimization.md`.
 
 ### Analysis and miscellaneous
 - `analyze_board` bounds its backend with `SqueezerError: From<A::Error>`, so a
