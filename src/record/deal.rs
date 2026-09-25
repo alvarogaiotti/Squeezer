@@ -1612,10 +1612,18 @@ impl Dealer for StandardDealer {
             for seat in Seat::iter() {
                 let known = self.known[seat as usize];
                 let fill = 13 - usize::from(known.len());
-                let Some(cards_to_add) = deck.pick_rng::<_, FastSampler>(&mut rng, fill) else {
-                    return Err(DealerError::new(
-                        "Deck doesn't contain enough cards. Check predeal configuration.",
-                    ));
+                // Once the remaining cards exactly fill this seat, there is no
+                // sampling decision left. Take them directly so the final hand
+                // does not spend RNG draws re-discovering a deterministic set.
+                let cards_to_add = if fill == usize::from(deck.len()) {
+                    deck.take_all()
+                } else {
+                    let Some(cards_to_add) = deck.pick_rng::<_, FastSampler>(&mut rng, fill) else {
+                        return Err(DealerError::new(
+                            "Deck doesn't contain enough cards. Check predeal configuration.",
+                        ));
+                    };
+                    cards_to_add
                 };
                 hands[seat as usize].set_cards(known + cards_to_add);
             }

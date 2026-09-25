@@ -489,6 +489,20 @@ impl Cards {
         }
     }
 
+    /// Removes and returns every card currently in this set.
+    ///
+    /// This is crate-private because it is a dealer-internal fast path for a
+    /// deterministic fill (typically the final hand); callers choosing a random
+    /// subset must go through
+    /// [`Cards::pick_rng`] so the sampler's distribution and RNG contract stay
+    /// explicit.
+    #[inline]
+    pub(crate) fn take_all(&mut self) -> Cards {
+        let taken = *self;
+        self.bits = 0;
+        taken
+    }
+
     /// A new, full French deck without Jokers.
     pub const ALL: Cards = Self::SPADES
         .union(Self::HEARTS)
@@ -1015,6 +1029,18 @@ fn heads_of_sequences_works() {
     assert_eq!(cards.heads_of_sequences(), Cards::EMPTY.insert(Card::DA));
     let cards = Cards::from_str("KQ986532").unwrap();
     assert_eq!(cards.heads_of_sequences(), Cards::from_str("K963").unwrap());
+}
+
+#[test]
+fn take_all_returns_every_card_and_empties_the_deck() {
+    use std::str::FromStr;
+
+    let mut deck = Cards::from_str("SAKQ").expect("test cards parse");
+    let expected = deck;
+
+    assert_eq!(deck.take_all(), expected);
+    assert!(deck.is_empty());
+    assert_eq!(deck.take_all(), Cards::EMPTY);
 }
 
 #[test]

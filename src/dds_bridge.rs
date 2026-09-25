@@ -51,12 +51,23 @@ impl TryFrom<&Position> for DdsDeal {
     /// to `first`, `first + 1`, ... (`HAND_ID` in `init.cpp`). For an opening
     /// lead the two coincide; for a partial trick the leader is the seat that
     /// played the first card still on the table.
+    #[allow(clippy::cast_possible_truncation)]
     fn try_from(position: &Position) -> Result<Self, Self::Error> {
         let mut remain_cards = [[0u32; 4]; 4];
         for (seat, cards) in position.hands().iter().enumerate() {
-            for card in *cards {
-                remain_cards[seat][usize::from(card.suit())] |= 1u32 << card.rank();
-            }
+            // `Card` stores its rank at `rank + 16 * suit`, so each 16-bit
+            // lane of the hand bitboard is already the rank mask DDS expects.
+            // Copy four lanes directly instead of walking every set card. Keep
+            // the full lane mask rather than `0x7ffc`: malformed rank bits were
+            // passed through by the old card-by-card conversion too.
+            const LANE_MASK: u64 = 0xffff;
+            let bits = cards.as_bits();
+            remain_cards[seat] = [
+                (bits & LANE_MASK) as u32,
+                ((bits >> 16) & LANE_MASK) as u32,
+                ((bits >> 32) & LANE_MASK) as u32,
+                ((bits >> 48) & LANE_MASK) as u32,
+            ];
         }
 
         let mut current_trick = [None; 3];

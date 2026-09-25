@@ -366,6 +366,27 @@ mod tests {
     }
 
     #[test]
+    fn position_bridge_encodes_every_suit_rank_bit() {
+        let board = example_board();
+        let position = Position::after_play(&board, 0).expect("contract present");
+        let actual = DdsDeal::try_from(&position)
+            .expect("opening position converts")
+            .remain_cards();
+
+        // Keep an independent card-by-card reference here: the optimized
+        // bridge must preserve the rank-bit layout for all four suits, not
+        // merely produce a deal that the DDS oracle happens to accept.
+        let mut expected = [[0u32; 4]; 4];
+        for (seat, hand) in position.hands().iter().enumerate() {
+            for card in *hand {
+                expected[seat][usize::from(card.suit())] |= 1u32 << card.rank();
+            }
+        }
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn clear_and_reset_are_callable() {
         let mut context = context();
         context.clear_tt();

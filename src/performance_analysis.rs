@@ -779,15 +779,24 @@ where
 #[must_use]
 #[allow(clippy::needless_pass_by_value)]
 pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
-    let contract = input.contract;
+    let AnalysisInput {
+        contract,
+        play_sequence,
+        dd_results,
+    } = input;
     let trump = Suit::try_from(contract.strain()).ok();
 
     let mut cards_array: [Card; 52] = [Card::NONCE; 52];
-    let seq_len = input.play_sequence.len();
+    let seq_len = play_sequence.len();
     let tricks_to_analyze = seq_len / 4;
     let extra_cards = seq_len % 4;
-    let played_cards: Vec<Card> = input.play_sequence.cards().collect();
-    cards_array[0..seq_len].copy_from_slice(&played_cards);
+
+    // The play sequence has the same fixed upper bound as the bridge record.
+    // Copy it directly into the scratch array instead of materialising a
+    // temporary `Vec<Card>` on every hand analysis.
+    for (destination, card) in cards_array[..seq_len].iter_mut().zip(play_sequence.cards()) {
+        *destination = card;
+    }
 
     let mut records = [
         PlayerRecord::new(),
@@ -796,7 +805,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         PlayerRecord::new(),
     ];
 
-    let mut dd_iter = input.dd_results.into_iter();
+    let mut dd_iter = dd_results.into_iter();
     let mut prev_tricks = dd_iter
         .next()
         .expect("DD results should include initial state");
@@ -811,13 +820,15 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         trick_cards.copy_from_slice(&cards_array[card_offset..card_offset + 4]);
 
         let lead_suit = trick_cards[0].suit();
-        // Get DD results for this trick
-        let trick_dd: Vec<u8> = dd_iter.by_ref().take(4).collect();
-        assert_eq!(
-            trick_dd.len(),
-            4,
-            "Missing DD results for trick {trick_idx}"
-        );
+        // Get DD results for this trick. A complete trick has a fixed width,
+        // so keep the values on the stack rather than allocating a `Vec` for
+        // every iteration.
+        let mut trick_dd = [0u8; 4];
+        for value in &mut trick_dd {
+            *value = dd_iter
+                .next()
+                .unwrap_or_else(|| panic!("Missing DD results for trick {trick_idx}"));
+        }
 
         // Analyze each card play
         let seats = current_leader.iter_from();
@@ -839,12 +850,16 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 
         trick_cards[..extra_cards]
             .copy_from_slice(&cards_array[card_offset..card_offset + extra_cards]);
-        let trick_dd = dd_iter.by_ref().take(extra_cards).collect_vec();
-        // Analyze each card play
-        let seats = current_leader.iter_from();
 
-        for ((&card, dd_tricks), seat) in trick_cards.iter().zip(trick_dd).zip(seats) {
+        // A short final trick historically stops at whichever of the play and
+        // DD iterators runs out first. Keep that behaviour while avoiding a
+        // second temporary vector.
+        for (offset, seat) in current_leader.iter_from().enumerate().take(extra_cards) {
+            let Some(dd_tricks) = dd_iter.next() else {
+                break;
+            };
             let result = evaluate_play(prev_tricks, dd_tricks);
+            let card = trick_cards[offset];
 
             records[seat as usize].push(CardPlay { card, result, seat });
             prev_tricks = dd_tricks;
@@ -1156,5 +1171,75 @@ mod tests {
         let error = analyze_board(&crate::solver::DdsSolver, &board)
             .expect_err("a board with no play cannot be analysed");
         assert!(matches!(error, SqueezerError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn analyze_hand_handles_an_empty_and_partial_play() {
+        let contract = Contract::new(
+            1,
+            Strain::Hearts,
+            Seat::South,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
+
+        let empty = analyze_hand(AnalysisInput {
+            contract,
+            play_sequence: PlayRecord::new(Vec::new()),
+            dd_results: vec![7],
+        });
+        assert!(empty.player(Seat::North).is_empty());
+        assert!(empty.player(Seat::East).is_empty());
+        assert!(empty.player(Seat::South).is_empty());
+        assert!(empty.player(Seat::West).is_empty());
+
+        let partial = analyze_hand(AnalysisInput {
+            contract,
+            play_sequence: PlayRecord::new(vec![
+                Play::new(Seat::West, Card::SA),
+                Play::new(Seat::North, Card::HA),
+            ]),
+            dd_results: vec![7, 8, 6],
+        });
+        let west = partial.player(Seat::West).plays().next().copied();
+        let north = partial.player(Seat::North).plays().next().copied();
+        assert_eq!(west.map(|play| play.card), Some(Card::SA));
+        assert_eq!(
+            west.map(|play| play.result),
+            Some(CardResult::DdSuboptimal {
+                dd_tricks: Tricks(8),
+                dd_tricks_lost: TrickDelta(1),
+            })
+        );
+        assert_eq!(north.map(|play| play.card), Some(Card::HA));
+        assert_eq!(
+            north.map(|play| play.result),
+            Some(CardResult::DdSuboptimal {
+                dd_tricks: Tricks(6),
+                dd_tricks_lost: TrickDelta(2),
+            })
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Missing DD results for trick 0")]
+    fn analyze_hand_reports_a_missing_trick_sequence() {
+        let contract = Contract::new(
+            1,
+            Strain::Hearts,
+            Seat::South,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
+        let _ = analyze_hand(AnalysisInput {
+            contract,
+            play_sequence: PlayRecord::new(vec![
+                Play::new(Seat::West, Card::SA),
+                Play::new(Seat::North, Card::HA),
+                Play::new(Seat::East, Card::DA),
+                Play::new(Seat::South, Card::CA),
+            ]),
+            dd_results: vec![7],
+        });
     }
 }

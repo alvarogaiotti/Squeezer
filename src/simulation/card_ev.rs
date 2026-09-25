@@ -476,9 +476,21 @@ impl<D: Dealer> CardEvSimulation<D> {
         let mut accumulators: [Option<(Card, Vec<CardDealOutcome>)>; 64] =
             std::array::from_fn(|_| None);
 
+        // These three buffers are reused across every sampled deal, so their
+        // allocations and growth are paid once per simulation instead of once
+        // per deal (and, for `other_scores`, once per physical card). The mock
+        // profile attributed roughly half of the non-native cost to that
+        // churn. `physical` holds the expanded equivalence classes of the
+        // current deal, `scores` mirrors their `score` fields for the baseline
+        // lookup, and `other_scores` is the "every other legal card" view that
+        // `Denomination::value` consumes.
+        let mut physical: Vec<(Card, CardDealOutcome)> = Vec::new();
+        let mut scores: Vec<i32> = Vec::new();
+        let mut other_scores: Vec<i32> = Vec::new();
+
         for (deal_index, entry) in solved.iter().enumerate() {
             let to_play = entry.position.to_play();
-            let mut physical: Vec<(Card, CardDealOutcome)> = Vec::new();
+            physical.clear();
             for solve in &entry.results.cards {
                 let dd_tricks = solve.tricks;
                 let declarer_tricks = declarer_tricks(to_play, declarer, dd_tricks);
@@ -497,17 +509,21 @@ impl<D: Dealer> CardEvSimulation<D> {
                 }
             }
 
-            let scores: Vec<i32> = physical.iter().map(|(_, outcome)| outcome.score).collect();
-            for (index, (card, mut outcome)) in physical.into_iter().enumerate() {
-                let other_scores: Vec<i32> = scores
-                    .iter()
-                    .enumerate()
-                    .filter(|(other, _)| *other != index)
-                    .map(|(_, &score)| score)
-                    .collect();
+            scores.clear();
+            scores.extend(physical.iter().map(|(_, outcome)| outcome.score));
+            for (index, (card, outcome)) in physical.iter().enumerate() {
+                let mut outcome = *outcome;
+                other_scores.clear();
+                other_scores.extend(
+                    scores
+                        .iter()
+                        .enumerate()
+                        .filter(|(other, _)| *other != index)
+                        .map(|(_, &score)| score),
+                );
                 outcome.value = denomination.value(outcome.score, &other_scores);
                 accumulators[card.as_u8() as usize]
-                    .get_or_insert_with(|| (card, Vec::with_capacity(num_deals)))
+                    .get_or_insert_with(|| (*card, Vec::with_capacity(num_deals)))
                     .1
                     .push(outcome);
             }
@@ -784,6 +800,31 @@ mod tests {
         );
         assert_eq!(best.value_for(Card::D5).expect("legal").deals[0].value, -30);
         assert_eq!(best.value_for(Card::H2).expect("legal").deals[0].value, 0);
+    }
+
+    #[test]
+    fn compared_card_ev_values_remain_correct_across_deals() {
+        let evaluation = CardEvaluation::builder()
+            .num_deals(2)
+            .dealer(example_dealer())
+            .contract(example_contract())
+            .denomination(Denomination::Compared {
+                baseline: Baseline::AverageOfOptions,
+                scoring: Scoring::Custom(Box::new(|score, baseline| score - baseline)),
+            })
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect("example hand solves twice");
+
+        for (card, expected) in [(Card::D5, -10), (Card::H2, 23)] {
+            let outcomes = &evaluation
+                .value_for(card)
+                .expect("card is a legal lead")
+                .deals;
+            assert_eq!(outcomes.len(), 2);
+            assert!(outcomes.iter().all(|outcome| outcome.value == expected));
+        }
     }
 
     #[test]

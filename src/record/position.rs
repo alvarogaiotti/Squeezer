@@ -127,21 +127,36 @@ pub fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
     debug_assert_eq!(trick.len(), 4, "a completed trick has four plays");
     let led = trick[0].card.suit();
     let trump = Suit::try_from(trump).ok();
+
     // Rank a play by `(is_trump, effective_rank)`: discards rank zero, so they
-    // can never outrank a card that followed suit or a trump.
-    let strength = |play: &Play| {
+    // can never outrank a card that followed suit or a trump. Keeping the
+    // winning reference in a local avoids the iterator/`max_by_key` state
+    // machine on this very hot four-element scan. The `>=` comparison is
+    // intentional: `max_by_key` selected the last play when strengths tied.
+    let mut winner = &trick[0];
+    let mut winner_is_trump = Some(winner.card.suit()) == trump;
+    let mut winner_rank = if winner_is_trump || winner.card.suit() == led {
+        winner.card.rank()
+    } else {
+        0
+    };
+
+    for play in &trick[1..] {
         let is_trump = Some(play.card.suit()) == trump;
         let rank = if is_trump || play.card.suit() == led {
             play.card.rank()
         } else {
             0
         };
-        (is_trump, rank)
-    };
-    trick
-        .iter()
-        .max_by_key(|play| strength(play))
-        .map_or(trick[0].seat, |play| play.seat)
+
+        if (is_trump, rank) >= (winner_is_trump, winner_rank) {
+            winner = play;
+            winner_is_trump = is_trump;
+            winner_rank = rank;
+        }
+    }
+
+    winner.seat
 }
 
 /// Inserts `card` into `seen`, returning `true` when it was absent.
@@ -251,6 +266,25 @@ impl Position {
         })
     }
 
+    /// Builds the opening position from an already-valid deal.
+    ///
+    /// `Deal` guarantees four disjoint 13-card hands, so the empty-prefix case
+    /// has no table, no duplicate scan, and no trailing-trick arithmetic to
+    /// validate. Keeping this seam private and separate from the public
+    /// [`Position::new`] documents that the shortcut is only sound for a `Deal`,
+    /// and spares simulations a full-card validation pass for every contract of
+    /// every sampled deal.
+    #[inline]
+    fn from_valid_opening(trump: Strain, to_play: Seat, hands: [Cards; 4]) -> Self {
+        debug_assert!(hands.iter().all(|hand| hand.len() == 13));
+        Self {
+            trump,
+            to_play,
+            table: Vec::new(),
+            hands,
+        }
+    }
+
     /// Derives the position after a recorded play prefix.
     ///
     /// `prefix` is the plays made so far, in order. The remaining hands are the
@@ -277,6 +311,14 @@ impl Position {
         strain: Strain,
         leader: Seat,
     ) -> Result<Self, PositionError> {
+        if prefix.is_empty() {
+            return Ok(Self::from_valid_opening(
+                strain,
+                leader,
+                deal.hands().map(|hand| hand.cards()),
+            ));
+        }
+
         let mut seen = Cards::EMPTY;
         for play in prefix {
             if !deal[play.seat].has_card(play.card) {
@@ -293,9 +335,10 @@ impl Position {
         }
 
         let table = prefix[prefix.len() - prefix.len() % 4..].to_vec();
-        let to_play = if prefix.is_empty() {
-            leader
-        } else if prefix.len().is_multiple_of(4) {
+        // The empty prefix returned early, so reaching here means at least one
+        // play has been made and the turn is either the next seat mid-trick or
+        // the winner of the trailing completed trick.
+        let to_play = if prefix.len().is_multiple_of(4) {
             trick_winner(&prefix[prefix.len() - 4..], strain)
         } else {
             prefix[prefix.len() - 1].seat.next()
@@ -899,6 +942,21 @@ mod tests {
         for (trick, trump, expected) in cases {
             assert_eq!(trick_winner(&trick, trump), expected, "{trick:?}");
         }
+    }
+
+    #[test]
+    fn trick_winner_keeps_the_last_equal_strength_play() {
+        // Duplicate cards are outside a valid deal, but the public rule is
+        // also used on caller-supplied records. `max_by_key` historically
+        // selected the last equal element, so retain that observable tie rule.
+        let trick = [
+            Play::new(Seat::North, Card::HA),
+            Play::new(Seat::East, Card::HA),
+            Play::new(Seat::South, Card::C2),
+            Play::new(Seat::West, Card::D3),
+        ];
+
+        assert_eq!(trick_winner(&trick, Strain::NoTrumps), Seat::East);
     }
 
     #[test]
