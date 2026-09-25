@@ -55,47 +55,20 @@
   associated context type would collapse the two, at the cost of a blanket impl
   for `Box<dyn ContextFactory>`.
 
-### Record, `Position`, `Board` (ticket 14)
-- `Position` is only publicly constructible from a `Board`, yet the design calls
-  it a pure function of `Deal` + `PlayRecord` prefix + `Strain`. Ticket 14 adds
-  public `new`/`from_deal_prefix`(`_with_contract`) constructors and retires
-  `pub(crate) from_parts`.
-- `simulation::solver::vulnerability_for` exists only to satisfy `Board`
-  validation while assembling a per-deal `Board` to derive a mid-trick position;
-  ticket 14 removes it together with the `Board` assembly in `CardEvaluation`.
-- `record::position::trick_winner` duplicates
-  `performance_analysis::find_trick_winner_naive`; verified identical over 5.4M
-  cases during grilling. Ticket 14 makes `record`'s rule canonical and has the
-  analysis delegate.
-- `Position::after_play` requires a contract even mid-trick, because
-  `Position::trump` is mandatory; the doc's "requires a contract once play
-  crosses a trick boundary" can be misread as allowing contract-free mid-trick
-  derivation. Ticket 14 settles the wording.
+### Record, `Position`, `Board`
 - `Playthrough::new` starts at index 0 (before the opening lead); the design
   never fixed a starting index, so a later caller could want the cursor to begin
   at the current play.
 - `CardEvaluation.position` is the *first* sampled deal's `Position`, cloned
   rather than shared. Positions are identical across deals (the prefix is
   deal-independent), so this is only a clone cost.
-- `Position::after_play`/`from_board`/`Playthrough` now inherit
-  `from_deal_prefix`'s prefix validation, so a play record that is inconsistent
-  with the deal (a card not held by its seat, a card played twice, or a
-  non-rotating table) is rejected at derivation as well as at `Board` import.
-  Fine for board-derived positions; worth knowing for direct callers.
-- `Position::new` is now a shape check for a snapshot past any point of the
-  play, not a 52-card check: it accepts a completed-trick snapshot (table
-  empty, 12 cards per hand) because that state has no full deck to compare
-  against.
+- `Position::after_play`/`from_board`/`Playthrough` inherit `from_deal_prefix`'s
+  prefix validation, so a play record inconsistent with the deal (a card not
+  held by its seat, a card played twice, or a non-rotating table) is rejected
+  at derivation as well as at `Board` import. Fine for board-derived positions;
+  worth knowing for direct callers.
 
 ### Parsing and serialization
-- `Card::from_str` and `Cards::from_str` share an order-sensitive state machine
-  that starts the suit at Spades and emits a card on the rank char: `"3C"`
-  parses as the three of *spades*, `"C3"` as the three of clubs, and a bare
-  `"3"` as the three of spades. `Cards::from_str` also silently ignores unknown
-  characters and uses `DealerError` rather than `InvalidCardError`. LIN `pc|`
-  is suit-first on both sides, so the corruption is silent and only bites
-  external callers or future formats. Ticket 15 addresses the grammar.
-  `InvalidCardError` is also not wrapped by `SqueezerError`.
 - The quickcheck round-trip property's `AnyBoard` has no `shrink`, so a failure
   reports "No Arguments Provided" instead of the offending board.
 - `linparser::LinMetadata` stores rooms as `rooms: Vec<Option<Room>>` parallel
@@ -237,3 +210,16 @@
 - The `Denomination` non-`Clone` question is settled: `ContractPayoffBuilder`
   and `ContractPayoffSimulation` store the denomination by value and never clone
   it (ticket 11).
+- `Position` is publicly constructible from a `Deal` + play prefix + `Strain`
+  (`Position::new`, `from_deal_prefix`, `from_deal_prefix_with_contract`); the
+  `pub(crate) from_parts` shim and `simulation::solver::vulnerability_for` are
+  gone, `CardEvaluation` no longer assembles a `Board` per sampled deal, and
+  `record::position::trick_winner` is the single rule that
+  `find_trick_winner_naive` delegates to (ticket 14, ADR-0007). `Position::new`
+  validates the snapshot invariant (table ≤ 3, per-seat hands ≤ 13, distinct
+  union, `(52 - |hands|) % 4 == table.len()`, consecutive table seats) rather
+  than a 52-card equality, so a completed-trick position is representable.
+- `Card`/`Cards` parsing requires suit-before-rank and rejects rank-first, bare
+  ranks and unknown characters; `InvalidCardError` carries the rejected input,
+  is wrapped by `SqueezerError::InvalidCard`, and surfaces via
+  `DealerError::InvalidCards` (ticket 15).
