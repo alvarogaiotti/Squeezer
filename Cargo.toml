@@ -66,6 +66,20 @@ name = "trick_winner_bench"
 harness = false
 required-features = ["dds"]
 
+[[bench]]
+name = "dds_conversion"
+harness = false
+required-features = ["dds"]
+
+[[bench]]
+name = "deal_constraints"
+harness = false
+
+[[bench]]
+name = "simulation_paths"
+harness = false
+required-features = ["dds"]
+
 # The pipeline test parses a LIN fixture, so it needs the importer as well as
 # the solver; the benches above need only `dds`.
 [[test]]
