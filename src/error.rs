@@ -22,6 +22,8 @@ use crate::dealproduction::DealerError;
 use crate::hand_constraint::ConstraintError;
 #[cfg(feature = "lin")]
 use crate::linparser::ParseLinError;
+#[cfg(feature = "pbn")]
+use crate::pbnparser::ParsePbnError;
 #[cfg(feature = "dds")]
 use crate::performance_analysis::{TrickDeltaError, TricksError};
 use crate::record::{AuctionError, BoardError, DealError, PositionError};
@@ -55,6 +57,10 @@ pub enum SqueezerError {
     #[cfg(feature = "lin")]
     #[error("LIN parsing failed: {0}")]
     LinParsing(#[from] ParseLinError),
+    /// A PBN file could not be imported.
+    #[cfg(feature = "pbn")]
+    #[error("PBN parsing failed: {0}")]
+    PbnParsing(#[from] ParsePbnError),
     /// A shape pattern failed to scan, parse or interpret.
     #[error("shape creation failed: {0}")]
     CreationShape(#[from] CreationShapeError),
@@ -265,6 +271,18 @@ mod tests {
             "garbage".to_owned(),
         ));
         assert!(matches!(error, SqueezerError::LinParsing(_)));
+        assert!(error.source().is_some());
+    }
+
+    #[cfg(feature = "pbn")]
+    #[test]
+    fn pbn_error_converts_to_its_variant() {
+        use crate::pbnparser::ParsePbnErrorKind;
+        let error = SqueezerError::from(ParsePbnError::new(
+            ParsePbnErrorKind::Syntax,
+            "[Deal \"garbage\"]".to_owned(),
+        ));
+        assert!(matches!(error, SqueezerError::PbnParsing(_)));
         assert!(error.source().is_some());
     }
 

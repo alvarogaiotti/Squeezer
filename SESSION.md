@@ -69,6 +69,11 @@
   worth knowing for direct callers.
 
 ### Parsing and serialization
+- `.gitignore`'s global `*.lin`/`*.pbn` rules left the seven `tests/*.lin`
+  fixtures untracked, so a clean checkout could not run `tests/lin_parser.rs`
+  and any new `tests/*.pbn` fixtures would hit the same trap. Negation rules
+  `!tests/*.lin`/`!tests/*.pbn` now un-ignore them and the LIN fixtures are
+  staged (ticket 01, PBN interchange).
 - The quickcheck round-trip property's `AnyBoard` has no `shrink`, so a failure
   reports "No Arguments Provided" instead of the offending board.
 - `linparser::LinMetadata` stores rooms as `rooms: Vec<Option<Room>>` parallel

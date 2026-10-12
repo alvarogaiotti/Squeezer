@@ -3,6 +3,8 @@
 *.lib
 *.lin
 *.pbn
+!tests/*.lin
+!tests/*.pbn
 libdds*
 .idea/
 dds290-dll/

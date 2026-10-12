@@ -123,6 +123,8 @@ mod hand;
 mod hand_constraint;
 #[cfg(feature = "lin")]
 pub mod linparser;
+#[cfg(feature = "pbn")]
+pub mod pbnparser;
 /// Backend-agnostic performance analysis; the DDS-backed [`PlayAnalyser`]
 /// lives in [`solver`], so `dds` alone is enough.
 ///

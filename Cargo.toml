@@ -22,12 +22,13 @@ rayon = "1.12.0"
 thiserror = "2"
 
 [features]
-default = ["lin", "dds", "bbo_async"]
+default = ["lin", "pbn", "dds", "bbo_async"]
 # Both BBO clients share reqwest (async + blocking), scraper for HTML parsing
 # and url for resolving the relative hand-record links.
 bbo = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
 bbo_async = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
 lin = ["dep:nom"]
+pbn = ["dep:nom"]
 dds = ["dep:dds"]
 serde = ["dep:serde", "dds?/serde", "bitvec/serde"]
 
