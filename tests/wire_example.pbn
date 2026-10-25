@@ -1,0 +1,12 @@
+[Board "1"]
+[Dealer "N"]
+[Vulnerable "None"]
+[Deal "N:AKQJT98765432... .AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432"]
+[Declarer "N"]
+[Contract "4S"]
+[Auction "N"]
+1S Pass 2S Pass
+4S Pass Pass Pass
+[Play "E"]
+HK DA C2 SA
+*

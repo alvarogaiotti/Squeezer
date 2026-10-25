@@ -311,6 +311,35 @@ impl Board {
     }
 }
 
+#[cfg(feature = "pbn")]
+impl crate::pbnparser::PbnFile {
+    /// Writes every board as PBN, with one empty line between games.
+    ///
+    /// PBN separates games with a semi-empty line. Each board's own writer
+    /// already ends with a newline, so writing one more before every board
+    /// after the first produces exactly one blank line and no trailing one.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the writer's error; writing to a [`String`] never fails.
+    pub fn write_pbn(&self, writer: &mut impl fmt::Write) -> fmt::Result {
+        for (index, board) in self.boards.iter().enumerate() {
+            if index != 0 {
+                writer.write_char('\n')?;
+            }
+            board.write_pbn(writer)?;
+        }
+        Ok(())
+    }
+
+    /// Formats every board as PBN, with one empty line between games.
+    #[must_use]
+    pub fn as_pbn(&self) -> String {
+        let capacity = 512 * self.boards.len().max(1);
+        super::written_string(capacity, |pbn| self.write_pbn(pbn))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU8;

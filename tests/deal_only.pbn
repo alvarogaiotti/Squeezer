@@ -1,0 +1,4 @@
+% A deal-only game in PBN import format: no tags are mandatory, so the Deal
+% alone is enough. Its first seat is the dealer and the board is not vulnerable.
+{ A brace comment may contain what looks like a tag: [Board "99"]. }
+[Deal "N:AKQJT98765432... .AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432"]

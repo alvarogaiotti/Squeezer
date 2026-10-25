@@ -91,3 +91,8 @@ required-features = ["dds", "lin"]
 [[test]]
 name = "lin_parser"
 required-features = ["lin"]
+
+# The importer is gated on `pbn`; without it `pbnparser` does not exist.
+[[test]]
+name = "pbn_parser"
+required-features = ["pbn"]

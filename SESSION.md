@@ -85,18 +85,34 @@
   splits on `,`, so a value containing a comma re-parses as extra fields. LIN
   has no escaping, so this is inherently lossy; documented on the writer.
 - A `Board` with `contract: Some` but `auction: None`, or a `PlayRecord` whose
-  seats do not follow the contract's leader/`trick_winner` rotation, also cannot
-  round-trip through LIN. A PBN board writer (deferred) could carry the contract
-  explicitly.
-- The PBN board writer remains deferred: only `Deal::as_pbn`/`write_pbn` (the
-  hand record) exist, and `Board` has no `as_pbn`/`write_pbn`. A future PBN
-  parser should land the board writer beside it.
+  seats do not follow the contract's leader/`trick_winner` rotation, cannot
+  round-trip through LIN. The PBN board writer carries the contract explicitly,
+  so that part round-trips through PBN instead.
+- `Board::new` normalises an empty `PlayRecord` to `None` but keeps an empty
+  `Auction` as `Some(Auction::new(vec![]))`: the two empty representations are
+  asymmetric. Neither writer emits a section for the empty case, so an empty
+  auction cannot round-trip.
+- The PBN importer (ticket 03) collects each game's `[Auction]`/`[Play]` body
+  tokens in the internal `PbnGame` but deliberately does not parse them yet, so
+  imported boards report `auction()`/`play()` as `None` until ticket 04.
+- PBN import format has no mandatory tags (PBN 2.1 §3.4). The importer still
+  requires `[Deal]` (a board needs cards); a missing `[Dealer]` falls back to
+  the `[Deal]` first letter and a missing `[Vulnerable]` defaults to
+  `Vulnerability::None`. An explicit tag always wins, even when `[Dealer]`
+  differs from the `[Deal]` letter.
+- `Board::new`'s auction/contract cross-checks are unreachable from the
+  identification-tag importer: there is no auction yet, and the contract's
+  vulnerability is derived from `[Vulnerable]`, so it cannot disagree with the
+  board. They become reachable with ticket 04's auction section.
 - `linparser` needs a derivable contract to attribute `pc|` seats; a board with
   a play but no auction fails at import rather than guessing a leader. The
   `PlayRecord` type itself is contract-free; this is only the importer's
   constraint.
 - `linparser::ParseLinErrorKind` is a categorised taxonomy currently consumed
   only by the importer's own tests; the crate-wide boundary could absorb it.
+- `.opencode/` is untracked and not ignored, so a broad `git add -A` would put
+  local agent tooling into a feature commit; it belongs beside `/.scratch/` in
+  `.gitignore`.
 - `ParseLinError` is public under `squeezer::linparser` but not re-exported by
   `squeezer::prelude`, unlike the other module errors.
 - `benches/bench_payoff.rs` passed `"A AKjt Kqjt KQT9"` to `Cards::from_str`;

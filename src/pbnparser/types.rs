@@ -4,9 +4,10 @@
 //! File-level types and errors for the PBN importer.
 //!
 //! The importer produces [`crate::record::Board`]s and keeps only the boards
-//! here. PBN's unmodeled mandatory and supplemental tags are read and dropped
-//! (documented lossy), so unlike LIN there is no file-level metadata type: the
-//! format contract stores everything that survives on [`crate::record::Board`].
+//! here. PBN's unmodeled tags (the export-format mandatory set and the
+//! supplemental tags) are read and dropped (documented lossy), so unlike LIN
+//! there is no file-level metadata type: the format contract stores everything
+//! that survives on [`crate::record::Board`].
 
 use crate::prelude::*;
 
@@ -17,20 +18,24 @@ use crate::prelude::*;
 pub enum ParsePbnErrorKind {
     /// A tag value did not match the PBN grammar.
     Syntax,
-    /// A mandatory identification tag was missing or unknown.
+    /// The `[Deal]` tag was missing. Every other identification tag is optional
+    /// in PBN import format, and unknown tags are dropped rather than rejected.
     Tag,
     /// A numeric field (board number) did not parse.
     Number,
-    /// A `[Deal]` value was not four valid hands, or no dealer was known to
-    /// place them.
+    /// A `[Deal]` value was not four valid hands, or its first letter was not a
+    /// seat.
     Hands,
-    /// A `[Dealer]` value was not one of the four seats.
+    /// A supplied `[Dealer]` value was not one of the four seats. A missing
+    /// `[Dealer]` falls back to the `[Deal]` first letter instead.
     Dealer,
-    /// A `[Vulnerable]` value was not a known vulnerability code.
+    /// A supplied `[Vulnerable]` value was not a known vulnerability code. A
+    /// missing `[Vulnerable]` defaults to [`Vulnerability::None`] instead.
     Vulnerability,
     /// A `[Contract]` value was not a level, denomination, risk triple.
     Contract,
-    /// A `[Declarer]` value was not one of the four seats.
+    /// A `[Declarer]` value was not one of the four seats, or a non-`Pass`
+    /// `[Contract]` was present without a declarer.
     Declarer,
     /// An `[Auction]` line carried a call that is not a bid, pass, double or
     /// redouble.

@@ -20,9 +20,9 @@
 //! [`crate::record::Board`] does not keep; the output re-emits only the
 //! modeled tags. LIN's file metadata (`vg|`/`rs|`/`pn|`) is comma-separated
 //! with no escaping, so a name, team or result containing a comma does not
-//! round-trip. The PBN board writer is deferred (design ticket 07); only the
-//! [`crate::record::Deal`] PBN hand record is provided, which covers current
-//! interchange needs.
+//! round-trip. PBN writers exist for both a board and the hand record. A
+//! `PbnFile` can be written too, but that impl is gated on the `pbn` feature
+//! because `PbnFile` itself only exists with the importer.
 
 use crate::prelude::*;
 

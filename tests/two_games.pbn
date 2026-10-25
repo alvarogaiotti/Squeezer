@@ -1,0 +1,9 @@
+[Board "1"]
+[Dealer "N"]
+[Vulnerable "None"]
+[Deal "N:AKQJT98765432... .AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432"]
+
+[Board "2"]
+[Dealer "E"]
+[Vulnerable "NS"]
+[Deal "E:.AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432 AKQJT98765432..."]
