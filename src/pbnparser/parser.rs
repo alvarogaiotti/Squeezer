@@ -7,17 +7,17 @@
 //! pairs followed by two *sections* (`[Auction]` and `[Play]`) whose bodies are
 //! bare token runs, not tag pairs. The importer therefore scans a game's lines
 //! tag by tag and, when a section tag is seen, collects the body tokens until
-//! the next tag or the end of the game. Ticket 04 parses those tokens; this
-//! ticket only collects them.
+//! the next tag or the end of the game, then parses that token run into calls
+//! (stopping at the `*` terminator) or seat-attributed plays.
 //!
 //! Malformed identification data is reported as a [`ParsePbnError`] carrying a
 //! [`ParsePbnErrorKind`]; nothing is given a silent default, so a bad tag fails
-//! at import instead of yielding a corrupt board. The one deliberate exception
-//! is a section body: it is collected as opaque tokens (including the `*`
-//! terminator and anything after it) and ticket 04 validates it. The
-//! identification tags are assembled through `Board::new`, which inherits the
-//! core cross-part validation (illegal auctions, contract/auction disagreement
-//! and vulnerability disagreement).
+//! at import instead of yielding a corrupt board. Section bodies are validated
+//! the same way: an unknown call is a bidding error, a play needs the
+//! contract's leader, and a `-` card cannot be stored because the model has no
+//! unknown card. The identification tags are assembled through `Board::new`,
+//! which inherits the core cross-part validation (illegal auctions,
+//! contract/auction disagreement and vulnerability disagreement).
 //!
 //! # Comments and games
 //!
@@ -42,7 +42,11 @@
 //!
 //! - A `[Declarer]` with no `[Contract]` has no contract to attach to and is
 //!   dropped; a `[Contract]` with no `[Declarer]` is an error because the
-//!   contract has no seat.
+//!   contract has no seat. With an auction present the contract still comes
+//!   from the auction, so only the redundant tag is lost.
+//! - Auction and play annotations (suffixes, note references, NAGs) are read
+//!   and discarded, as are `[Note]` tags. An annotation must be a separate
+//!   token; a suffix pasted onto its call or card (`1S!`) is a token error.
 //! - `;` is a rest-of-line comment, as this ticket specifies, not PBN 2.1's
 //!   supplemental-section marker. The `[Tag]` lines after it are therefore read
 //!   as ordinary tags; first-occurrence-wins keeps the main section's values for
@@ -56,9 +60,11 @@ use nom::{
     character::complete::{char, multispace0, multispace1},
     multi::many0,
 };
+use std::num::NonZeroU8;
 use std::str::FromStr;
 
 use crate::prelude::*;
+use crate::record::play::attribute_plays;
 
 use super::types::{ParsePbnError, ParsePbnErrorKind, PbnFile};
 
@@ -314,13 +320,11 @@ enum Section {
 
 /// A game's tag pairs plus the body tokens of its two sections.
 ///
-/// The body tokens are collected here so ticket 04 can parse them without
-/// rescanning the file. They are opaque to this ticket, including the `*`
-/// terminator and anything after it; ticket 04 decides where a body really
-/// ends. Tags keep their source order and `tag` returns the first occurrence,
-/// which is PBN's duplicate-tag rule.
-// TODO(ticket 04): parse `auction`/`play` into `Auction`/`PlayRecord` instead
-// of leaving the bodies as raw tokens.
+/// The body tokens are collected here so the section parsers can read them
+/// without rescanning the file. They keep the `*` terminator and anything
+/// after it; the section parsers decide where a body really ends. Tags keep
+/// their source order and `tag` returns the first occurrence, which is PBN's
+/// duplicate-tag rule.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct PbnGame {
     tags: Vec<(String, String)>,
@@ -569,12 +573,210 @@ fn parse_contract(
     ))
 }
 
-/// Assembles one game's identification tags into a board.
+/// The body tokens of a section, up to its `*` terminator.
 ///
-/// The `Auction` and `Play` bodies are deliberately not parsed here, so both
-/// stay `None`; ticket 04 fills them in. A `[Contract]` without a `[Declarer]`
-/// has no seat to name and is an error, except for `Pass`, which means a
-/// passed-out board and therefore carries no contract.
+/// PBN uses `*` to mark a cut-off auction or play: no further call or card will
+/// be given. Anything after it is therefore not part of the section and is
+/// ignored rather than validated.
+fn section_tokens(body: &[String]) -> &[String] {
+    let end = body
+        .iter()
+        .position(|token| token == "*")
+        .unwrap_or(body.len());
+    &body[..end]
+}
+
+/// True for a suffix, note reference or NAG: PBN annotations that carry no call
+/// and no card, so they are read and discarded.
+///
+/// Annotations are whitespace-delimited tokens, as PBN's own example
+/// (`1S !! =1= $25`) writes them. A suffix pasted onto its call (`1S!`) is one
+/// token and would be a call-token error; that is a documented limitation, not
+/// a silent reinterpretation of the call.
+fn is_annotation(token: &str) -> bool {
+    matches!(token, "!" | "!!" | "?" | "??" | "!?" | "?!")
+        || is_note_reference(token)
+        || is_nag(token)
+}
+
+/// `=<digits>=`, e.g. `=1=`.
+fn is_note_reference(token: &str) -> bool {
+    token.len() >= 3
+        && token.starts_with('=')
+        && token.ends_with('=')
+        && token[1..token.len() - 1]
+            .chars()
+            .all(|character| character.is_ascii_digit())
+}
+
+/// `$<digits>`, e.g. `$3`.
+fn is_nag(token: &str) -> bool {
+    token.strip_prefix('$').is_some_and(|digits| {
+        !digits.is_empty() && digits.chars().all(|character| character.is_ascii_digit())
+    })
+}
+
+/// Maps one auction token onto a [`Call`], accepting either case.
+fn parse_call_token(token: &str) -> Result<Call, PbnError> {
+    let lowercase = token.to_ascii_lowercase();
+    match lowercase.as_str() {
+        "pass" => Ok(Call::Pass),
+        "x" => Ok(Call::Double),
+        "xx" => Ok(Call::Redouble),
+        _ => {
+            let mut characters = lowercase.chars();
+            let level = characters
+                .next()
+                .and_then(|character| character.to_digit(10))
+                .filter(|level| (1..=7).contains(level))
+                .and_then(|level| u8::try_from(level).ok())
+                .and_then(NonZeroU8::new)
+                .ok_or_else(|| PbnError::new(ParsePbnErrorKind::Bidding))?;
+            let denomination: String = characters.collect();
+            let strain = match denomination.as_str() {
+                "s" => Strain::Spades,
+                "h" => Strain::Hearts,
+                "d" => Strain::Diamonds,
+                "c" => Strain::Clubs,
+                "nt" => Strain::NoTrumps,
+                _ => return Err(PbnError::new(ParsePbnErrorKind::Bidding)),
+            };
+            Ok(Call::Bid { level, strain })
+        }
+    }
+}
+
+/// Parses an `Auction` body into the dealer-relative call list.
+///
+/// In export format the `[Auction]` value is the dealer and the calls start
+/// there. Import format may lay the calls out in columns starting from another
+/// seat: the seats from that first column up to the dealer are then `-`
+/// placeholders. `-` also marks a seat whose turn has not come yet at the end of
+/// an incomplete auction, so a trailing run of placeholders is allowed; one
+/// before a later call would shift that call by a seat and is an error. A body
+/// of placeholders only has no calls and is no auction.
+///
+/// `AP` expands to four passes; `+`, suffixes, note references and NAGs are read
+/// and discarded. `*` ends the section and any body token after it is ignored.
+fn parse_auction(game: &PbnGame, dealer: Seat) -> Result<Option<Auction>, PbnError> {
+    let Some(body) = &game.auction else {
+        return Ok(None);
+    };
+    let first = parse_seat(
+        game.tag("Auction")
+            .ok_or_else(|| PbnError::new(ParsePbnErrorKind::Bidding))?,
+        ParsePbnErrorKind::Bidding,
+    )?;
+    let tokens = section_tokens(body);
+
+    // `+` and annotations are not calls. Removing them first leaves the call
+    // layout PBN describes: a leading run of `-` for the columns before the
+    // dealer, optional calls, and an optional trailing run for the seats whose
+    // turn has not come.
+    let layout: Vec<&str> = tokens
+        .iter()
+        .map(String::as_str)
+        .filter(|token| *token != "+" && !is_annotation(token))
+        .collect();
+
+    let leading_placeholders = layout.iter().take_while(|token| **token == "-").count();
+    let remaining = &layout[leading_placeholders..];
+    if remaining.is_empty() {
+        return Ok(None);
+    }
+
+    let required_placeholders = (dealer as usize + 4 - first as usize) % 4;
+    if leading_placeholders != required_placeholders {
+        return Err(PbnError::new(ParsePbnErrorKind::Bidding));
+    }
+
+    // A later `-` says that seat has not called yet, so it can only trail the
+    // calls. One with a call after it would shift every later call by a seat.
+    let calls_end = remaining
+        .iter()
+        .position(|token| *token == "-")
+        .unwrap_or(remaining.len());
+    if remaining[calls_end..].iter().any(|token| *token != "-") {
+        return Err(PbnError::new(ParsePbnErrorKind::Bidding));
+    }
+
+    let mut calls = Vec::new();
+    for token in &remaining[..calls_end] {
+        if token.eq_ignore_ascii_case("ap") {
+            for _ in 0..4 {
+                calls.push(RecordedCall::new(Call::Pass));
+            }
+            continue;
+        }
+        calls.push(RecordedCall::new(parse_call_token(token)?));
+    }
+
+    Ok((!calls.is_empty()).then(|| Auction::new(calls)))
+}
+
+/// Parses a `Play` body into seat-attributed plays.
+///
+/// The `[Play]` value must be the contract's leader: the model attributes cards
+/// by rotation from that seat, so a lead out of turn (PBN's `^L`) has no
+/// representation. For the same reason a `-` card is an error, not "unknown":
+/// the model stores every card. `+`, suffixes, note references and NAGs are
+/// discarded, and `*` ends the section.
+///
+/// A play body with no contract is an error: without a contract there is no
+/// known opening leader and no trump to decide who leads the next trick.
+fn parse_play(game: &PbnGame, contract: Option<Contract>) -> Result<Option<PlayRecord>, PbnError> {
+    let Some(body) = &game.play else {
+        return Ok(None);
+    };
+    let contract = contract.ok_or_else(|| PbnError::new(ParsePbnErrorKind::Play))?;
+    let leader = parse_seat(
+        game.tag("Play")
+            .ok_or_else(|| PbnError::new(ParsePbnErrorKind::Play))?,
+        ParsePbnErrorKind::Play,
+    )?;
+    if leader != contract.leader() {
+        return Err(PbnError::new(ParsePbnErrorKind::Play));
+    }
+
+    let mut cards = Vec::new();
+    for token in section_tokens(body) {
+        if token == "+" || is_annotation(token) {
+            continue;
+        }
+        if token == "-" {
+            return Err(PbnError::new(ParsePbnErrorKind::Card));
+        }
+        cards.push(Card::from_str(token).map_err(|_| PbnError::new(ParsePbnErrorKind::Card))?);
+    }
+    if cards.is_empty() {
+        return Ok(None);
+    }
+
+    // PBN groups the cards visually, but only the order is meaningful: four
+    // cards per trick, with a short final group allowed for a claim or a
+    // cut-off record.
+    let groups: Vec<Vec<Card>> = cards.chunks(4).map(<[Card]>::to_vec).collect();
+    attribute_plays(&groups, contract)
+        .map(Some)
+        .map_err(|_| PbnError::new(ParsePbnErrorKind::Play))
+}
+
+/// Assembles one game into a board.
+///
+/// A `[Contract]` without a `[Declarer]` has no seat to name and is an error,
+/// except for `Pass`, which means a passed-out board and therefore carries no
+/// contract; PBN's all-pass export writes `[Declarer ""]`, which is read as
+/// absent. When the contract tags are absent but an auction is present, the
+/// contract is derived from the auction, mirroring the LIN importer. When the
+/// tags are present, they are stored as written and `Board::new` rejects a
+/// disagreement with the auction; a `Pass` tag is checked here because it is
+/// stored as `None`, which `Board::new` cannot compare.
+///
+/// A `*`-cut auction that stops before the final contract is therefore rejected
+/// unless the tags agree with the calls actually present. PBN allows the tags
+/// to state the outcome of such an auction, but the model keeps a contract that
+/// must equal the auction's own result; `Board::new` guarantees that equality
+/// for a stored contract, so the writer's contracted boards re-import.
 ///
 /// Import format has no mandatory tags: a missing `[Dealer]` falls back to the
 /// `[Deal]` first letter and a missing `[Vulnerable]` to [`Vulnerability::None`].
@@ -593,12 +795,15 @@ fn build_board(game: &PbnGame) -> Result<Board, PbnError> {
         None => Vulnerability::None,
     };
     let number = game.tag("Board").map(parse_number).transpose()?;
-    let declarer = game
-        .tag("Declarer")
-        .map(|value| parse_seat(value, ParsePbnErrorKind::Declarer))
-        .transpose()?;
+    // PBN's all-pass export writes `[Declarer ""]`; an empty seat names nobody,
+    // so it is absent rather than malformed.
+    let declarer = match game.tag("Declarer").map(str::trim) {
+        None | Some("") => None,
+        Some(value) => Some(parse_seat(value, ParsePbnErrorKind::Declarer)?),
+    };
 
-    let contract = match game.tag("Contract").map(str::trim) {
+    let contract_tag = game.tag("Contract").map(str::trim);
+    let stored_contract = match contract_tag {
         None => None,
         Some(token) if token.eq_ignore_ascii_case("pass") => None,
         Some(token) => {
@@ -607,17 +812,34 @@ fn build_board(game: &PbnGame) -> Result<Board, PbnError> {
         }
     };
 
-    // TODO(ticket 04): pass the parsed `game.auction`/`game.play` here, and
-    // derive the contract from the auction when the tags are absent. Until then
-    // both are `None`, so `Board::new`'s auction cross-checks cannot fire.
+    let auction = parse_auction(game, dealer)?;
+    let derived_contract = auction
+        .as_ref()
+        .and_then(|auction| auction.contract(dealer, vulnerability));
+
+    // `Pass` stores no contract, so `Board::new` sees `None` and cannot
+    // cross-check it. A passed-out tag against an auction that produced a
+    // contract is therefore rejected here instead.
+    if contract_tag.is_some() && stored_contract.is_none() && derived_contract.is_some() {
+        return Err(PbnError::new(ParsePbnErrorKind::Board));
+    }
+    // The `Contract` tag is what says "trust the stored contract"; its absence
+    // leaves the auction as the only source, as in LIN.
+    let contract = if contract_tag.is_none() {
+        derived_contract
+    } else {
+        stored_contract
+    };
+    let play = parse_play(game, contract)?;
+
     Board::new(
         deal,
         number,
         dealer,
         vulnerability,
-        None,
+        auction,
         contract,
-        None,
+        play,
         None,
     )
     .map_err(|_| PbnError::new(ParsePbnErrorKind::Board))
@@ -1106,7 +1328,7 @@ HK DA C2 SA
     }
 
     #[test]
-    fn auction_and_play_bodies_are_collected_without_being_parsed() {
+    fn auction_and_play_bodies_are_collected_as_tokens() {
         let game = collected(WIRE_EXAMPLE);
         assert_eq!(
             game.auction
@@ -1123,9 +1345,8 @@ HK DA C2 SA
 
     #[test]
     fn section_bodies_are_opaque_token_runs_until_the_next_tag() {
-        // Ticket 03 only collects bodies; ticket 04 owns the `*` terminator and
-        // decides what follows it. The collector must not rescan or interpret
-        // these tokens, so an unknown call/card token is kept verbatim.
+        // The collector keeps body tokens verbatim, including the `*`
+        // terminator and annotation tokens; the section parsers interpret them.
         let game = collected("[Auction \"N\"]\n1S Pass * trailing\n[Play \"E\"]\nHK - DA\n");
         assert_eq!(
             game.auction.as_ref().expect("auction body"),
@@ -1151,11 +1372,12 @@ HK DA C2 SA
         let game = collected(pbn);
         assert_eq!(game.auction.expect("auction body"), vec!["1S", "Pass"]);
         assert_eq!(game.play, None);
-        // The board itself is contract-only in this ticket; the auction body
-        // is not parsed yet.
-        let board = &parse(pbn).boards[0];
-        assert_eq!(board.auction(), None);
-        assert_eq!(board.contract().expect("contract").level(), 1);
+        // The `[Contract]` tag ends the auction body, so the call list stops at
+        // the two tokens before it.
+        assert_eq!(
+            calls(&parse(pbn).boards[0]),
+            vec![bid(1, Strain::Spades), Call::Pass]
+        );
     }
 
     #[test]
@@ -1183,5 +1405,413 @@ HK DA C2 SA
             error_kind("% only a comment\n{ and another }\n"),
             ParsePbnErrorKind::Syntax
         );
+    }
+
+    // ========================================================================
+    // Auction section
+    // ========================================================================
+
+    fn bid(level: u8, strain: Strain) -> Call {
+        Call::Bid {
+            level: std::num::NonZeroU8::new(level).expect("test level is non-zero"),
+            strain,
+        }
+    }
+
+    fn calls(board: &Board) -> Vec<Call> {
+        board
+            .auction()
+            .expect("the board records an auction")
+            .calls()
+            .iter()
+            .map(|recorded| recorded.call)
+            .collect()
+    }
+
+    #[test]
+    fn auction_tokens_build_the_recorded_calls() {
+        let board = &parse(WIRE_EXAMPLE).boards[0];
+        assert_eq!(
+            calls(board),
+            vec![
+                bid(1, Strain::Spades),
+                Call::Pass,
+                bid(2, Strain::Spades),
+                Call::Pass,
+                bid(4, Strain::Spades),
+                Call::Pass,
+                Call::Pass,
+                Call::Pass,
+            ]
+        );
+    }
+
+    #[test]
+    fn auction_is_case_insensitive_and_accepts_no_trumps() {
+        let pbn = format!(
+            "{}[Auction \"N\"]\n1s pass 2nt x xx\npass pass pass\n",
+            identification()
+        );
+        assert_eq!(
+            calls(&parse(&pbn).boards[0]),
+            vec![
+                bid(1, Strain::Spades),
+                Call::Pass,
+                bid(2, Strain::NoTrumps),
+                Call::Double,
+                Call::Redouble,
+                Call::Pass,
+                Call::Pass,
+                Call::Pass,
+            ]
+        );
+    }
+
+    #[test]
+    fn all_pass_expands_to_four_passes() {
+        for token in ["AP", "ap"] {
+            let pbn = format!("{}[Auction \"N\"]\n{token}\n", identification());
+            let board = &parse(&pbn).boards[0];
+            assert_eq!(
+                calls(board),
+                vec![Call::Pass, Call::Pass, Call::Pass, Call::Pass],
+                "{token}"
+            );
+            assert_eq!(board.contract(), None);
+        }
+    }
+
+    #[test]
+    fn conformant_all_pass_export_parses() {
+        // PBN 2.1's all-pass export writes an empty `[Declarer]` and a `Pass`
+        // contract; neither names a seat or a contract.
+        let pbn = format!(
+            "{}[Declarer \"\"]\n[Contract \"Pass\"]\n[Auction \"N\"]\nPass Pass Pass Pass\n",
+            identification()
+        );
+        let board = &parse(&pbn).boards[0];
+        assert_eq!(calls(board).len(), 4);
+        assert_eq!(board.contract(), None);
+    }
+
+    #[test]
+    fn four_passes_are_an_all_pass_auction() {
+        let pbn = format!("{}[Auction \"N\"]\nPass Pass Pass Pass\n", identification());
+        let auction = parse(&pbn).boards[0]
+            .auction()
+            .expect("auction")
+            .calls()
+            .to_vec();
+        assert_eq!(auction.len(), 4);
+        assert!(auction.iter().all(|recorded| recorded.call == Call::Pass));
+    }
+
+    #[test]
+    fn auction_ends_at_the_star() {
+        let pbn = format!(
+            "{}[Auction \"N\"]\n1S Pass 2S * 7NT X XX\n",
+            identification()
+        );
+        assert_eq!(
+            calls(&parse(&pbn).boards[0]),
+            vec![bid(1, Strain::Spades), Call::Pass, bid(2, Strain::Spades)]
+        );
+    }
+
+    #[test]
+    fn auction_annotation_tokens_are_ignored() {
+        let pbn = format!(
+            "{}[Auction \"N\"]\n1S !! =1= $3 + Pass ? 2S !?\n4S ?? Pass ?! Pass\nPass\n",
+            identification()
+        );
+        assert_eq!(
+            calls(&parse(&pbn).boards[0]),
+            vec![
+                bid(1, Strain::Spades),
+                Call::Pass,
+                bid(2, Strain::Spades),
+                bid(4, Strain::Spades),
+                Call::Pass,
+                Call::Pass,
+                Call::Pass,
+            ]
+        );
+    }
+
+    #[test]
+    fn auction_only_board_derives_the_contract() {
+        let pbn = format!(
+            "[Dealer \"N\"]\n[Vulnerable \"NS\"]\n{ONE_SUIT_DEAL}\n[Auction \"N\"]\n1S X XX Pass\nPass Pass\n"
+        );
+        let contract = parse(&pbn).boards[0]
+            .contract()
+            .expect("the auction produced a contract");
+        assert_eq!(
+            contract,
+            Contract::new(
+                1,
+                Strain::Spades,
+                Seat::North,
+                Vulnerable::Yes,
+                Doubled::Redoubled,
+            )
+        );
+    }
+
+    #[test]
+    fn stored_contract_disagreeing_with_the_auction_is_a_board_error() {
+        let pbn = format!(
+            "{}[Declarer \"N\"]\n[Contract \"3S\"]\n[Auction \"N\"]\n1S Pass 2S Pass\n4S Pass Pass Pass\n",
+            identification()
+        );
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Board);
+    }
+
+    #[test]
+    fn passed_out_contract_disagreeing_with_the_auction_is_a_board_error() {
+        // `Pass` stores no contract, so this disagreement cannot go through
+        // `Board::new`'s stored-contract check.
+        let pbn = format!(
+            "{}[Declarer \"\"]\n[Contract \"Pass\"]\n[Auction \"N\"]\n1S Pass Pass Pass\n",
+            identification()
+        );
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Board);
+    }
+
+    #[test]
+    fn import_layout_placeholders_align_the_auction_with_the_dealer() {
+        // PBN import format may lay the calls out in columns starting at a seat
+        // other than the dealer. `[Auction "W"]` with North dealing holds a `-`
+        // for West's column, then the calls from North onwards.
+        let pbn = format!(
+            "{}[Auction \"W\"]\n- 1S Pass 2S\nPass 4S Pass Pass\nPass\n",
+            identification()
+        );
+        let board = &parse(&pbn).boards[0];
+        assert_eq!(
+            calls(board),
+            vec![
+                bid(1, Strain::Spades),
+                Call::Pass,
+                bid(2, Strain::Spades),
+                Call::Pass,
+                bid(4, Strain::Spades),
+                Call::Pass,
+                Call::Pass,
+                Call::Pass,
+            ]
+        );
+        assert_eq!(board.contract().expect("contract").declarer(), Seat::North);
+    }
+
+    #[test]
+    fn missing_leading_placeholders_are_a_bidding_error() {
+        // `[Auction "W"]` promises a West column before North's call, so the
+        // body must start with the placeholder; without it the calls would be
+        // attributed one seat too early.
+        let pbn = format!("{}[Auction \"W\"]\n1S Pass 2S Pass\n", identification());
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Bidding);
+    }
+
+    #[test]
+    fn extra_or_interior_placeholders_are_a_bidding_error() {
+        // PBN puts a `-` only in the columns before the dealer, or in the
+        // trailing run of seats whose turn has not come. An extra leading dash,
+        // or one with a call after it, would shift the rotation and is rejected
+        // rather than silently skipped.
+        for body in ["- - 1S Pass 2S Pass", "- 1S - 2S Pass"] {
+            let pbn = format!("{}[Auction \"W\"]\n{body}\n", identification());
+            assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Bidding, "{body}");
+        }
+    }
+
+    #[test]
+    fn trailing_placeholders_mark_seats_that_have_not_called() {
+        // PBN's continuation marker is `+`; the seats after it that have not
+        // called are `-`. They trail the calls and carry no call of their own.
+        for body in ["1S Pass + -", "1S Pass - -"] {
+            let pbn = format!("{}[Auction \"N\"]\n{body}\n", identification());
+            assert_eq!(
+                calls(&parse(&pbn).boards[0]),
+                vec![bid(1, Strain::Spades), Call::Pass],
+                "{body}"
+            );
+        }
+    }
+
+    #[test]
+    fn auction_with_only_placeholders_is_no_auction() {
+        for body in ["-", "- -"] {
+            let pbn = format!("{}[Auction \"N\"]\n{body}\n", identification());
+            assert_eq!(parse(&pbn).boards[0].auction(), None, "{body}");
+        }
+    }
+
+    #[test]
+    fn illegal_auction_is_a_board_error() {
+        let pbn = format!("{}[Auction \"N\"]\nX Pass Pass Pass\n", identification());
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Board);
+    }
+
+    #[test]
+    fn unknown_call_token_is_a_bidding_error() {
+        let pbn = format!("{}[Auction \"N\"]\n1S FOO Pass Pass\n", identification());
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Bidding);
+    }
+
+    #[test]
+    fn malformed_auction_tag_is_a_bidding_error() {
+        let pbn = format!("{}[Auction \"X\"]\n1S Pass Pass Pass\n", identification());
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Bidding);
+    }
+
+    // ========================================================================
+    // Play section
+    // ========================================================================
+
+    fn with_contract(section: &str) -> String {
+        format!(
+            "{}[Declarer \"N\"]\n[Contract \"4S\"]\n{section}\n",
+            identification()
+        )
+    }
+
+    /// The one-suit deal's 52-card play: East leads a heart, North ruffs with
+    /// the spade ace and wins, then North draws trumps every trick while the
+    /// other seats follow in their only suit.
+    const FULL_PLAY_BODY: &str = "\
+HA DA CA SA
+SK HK DK CK
+SQ HQ DQ CQ
+SJ HJ DJ CJ
+ST HT DT CT
+S9 H9 D9 C9
+S8 H8 D8 C8
+S7 H7 D7 C7
+S6 H6 D6 C6
+S5 H5 D5 C5
+S4 H4 D4 C4
+S3 H3 D3 C3
+S2 H2 D2 C2";
+
+    #[test]
+    fn play_is_attributed_by_rotation_from_the_opening_leader() {
+        let board = &parse(WIRE_EXAMPLE).boards[0];
+        let plays = board.play().expect("the play was parsed").plays();
+        assert_eq!(
+            plays,
+            &[
+                Play::new(Seat::East, Card::HK),
+                Play::new(Seat::South, Card::DA),
+                Play::new(Seat::West, Card::C2),
+                Play::new(Seat::North, Card::SA),
+            ]
+        );
+    }
+
+    #[test]
+    fn full_play_is_attributed_trick_by_trick() {
+        let board = &parse(&with_contract(&format!("[Play \"E\"]\n{FULL_PLAY_BODY}"))).boards[0];
+        let plays = board.play().expect("the full play was parsed").plays();
+        assert_eq!(plays.len(), 52);
+        assert_eq!(plays[0], Play::new(Seat::East, Card::HA));
+        assert_eq!(plays[3], Play::new(Seat::North, Card::SA));
+        // North's spade ace won the first trick, so North leads every later
+        // trick; East, South and West follow in their only suit.
+        assert_eq!(plays[4], Play::new(Seat::North, Card::SK));
+        assert_eq!(plays[8], Play::new(Seat::North, Card::SQ));
+        assert_eq!(plays[51], Play::new(Seat::West, Card::C2));
+    }
+
+    #[test]
+    fn starred_play_ends_early_and_ignores_trailing_tokens() {
+        let board = &parse(&with_contract(
+            "[Play \"E\"]\nHK DA C2 SA\nSK\n* any trailing tokens",
+        ))
+        .boards[0];
+        let plays = board.play().expect("the short play was parsed").plays();
+        assert_eq!(plays.len(), 5);
+        assert_eq!(plays[4], Play::new(Seat::North, Card::SK));
+    }
+
+    #[test]
+    fn play_annotation_tokens_are_ignored() {
+        let board = &parse(&with_contract("[Play \"E\"]\nHK ! DA =1= C2 $7 + SA\n*")).boards[0];
+        assert_eq!(
+            board.play().expect("the play was parsed").plays(),
+            &[
+                Play::new(Seat::East, Card::HK),
+                Play::new(Seat::South, Card::DA),
+                Play::new(Seat::West, Card::C2),
+                Play::new(Seat::North, Card::SA),
+            ]
+        );
+    }
+
+    #[test]
+    fn unknown_or_malformed_card_is_a_card_error() {
+        for body in [
+            "[Play \"E\"]\nHK - C2 SA\n*",
+            "[Play \"E\"]\nHK ZZ C2 SA\n*",
+        ] {
+            let pbn = with_contract(body);
+            assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Card, "{body}");
+        }
+    }
+
+    #[test]
+    fn play_without_a_contract_is_a_play_error() {
+        let pbn = format!("{}[Play \"E\"]\nHK DA C2 SA\n*", identification());
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Play);
+    }
+
+    #[test]
+    fn play_leader_must_match_the_contract_leader() {
+        let pbn = with_contract("[Play \"N\"]\nHK DA C2 SA\n*");
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Play);
+    }
+
+    #[test]
+    fn malformed_play_tag_is_a_play_error() {
+        let pbn = with_contract("[Play \"X\"]\nHK DA C2 SA\n*");
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Play);
+    }
+
+    #[test]
+    fn each_game_keeps_its_own_auction_and_play() {
+        let first = format!(
+            "{}[Auction \"N\"]\n1S Pass 2S Pass\n4S Pass Pass Pass\n",
+            identification()
+        );
+        let second = "\
+[Board \"2\"]
+[Dealer \"E\"]
+[Vulnerable \"None\"]
+[Deal \"E:.AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432 AKQJT98765432...\"]
+[Declarer \"E\"]
+[Contract \"1NT\"]
+[Auction \"E\"]
+1NT Pass Pass Pass
+[Play \"S\"]
+DA CA SA HA
+DK CK SK HK
+*
+";
+        let file = parse(&format!("{first}\n{second}"));
+        assert_eq!(file.boards.len(), 2);
+        assert_eq!(calls(&file.boards[0]).len(), 8);
+        assert_eq!(file.boards[0].play(), None);
+        assert_eq!(calls(&file.boards[1]).len(), 4);
+        assert_eq!(
+            file.boards[1].play().expect("second play").plays()[0],
+            Play::new(Seat::South, Card::DA)
+        );
+    }
+
+    #[test]
+    fn play_card_held_by_another_seat_is_a_board_error() {
+        // East leads North's spade ace: the card is real, but it is not East's.
+        let pbn = with_contract("[Play \"E\"]\nSA DA C2 HK\n*");
+        assert_eq!(error_kind(&pbn), ParsePbnErrorKind::Board);
     }
 }

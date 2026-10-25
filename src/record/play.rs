@@ -9,6 +9,53 @@
 
 use crate::prelude::*;
 
+use super::position::trick_winner;
+
+/// A card group before the final one holds fewer than four cards.
+///
+/// The winner of each complete trick leads the next, so a short group anywhere
+/// but last would leave the attribution without the seat that leads the next
+/// trick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShortTrickNotFinal;
+
+/// Checks that only the final group of a recorded play is short.
+pub(crate) fn validate_trick_lengths(groups: &[Vec<Card>]) -> Result<(), ShortTrickNotFinal> {
+    if groups.iter().rev().skip(1).any(|group| group.len() < 4) {
+        return Err(ShortTrickNotFinal);
+    }
+    Ok(())
+}
+
+/// Attributes a flat, trick-grouped card order to seats.
+///
+/// Both importers record the cards in play order, grouped by trick, and neither
+/// stores a seat per card. The opening leader is the contract's leader; within
+/// a trick the seats rotate, and the winner of each complete trick leads the
+/// next one. A short final group is allowed: a claim or a cut-off record ends
+/// the play mid-trick, and no later trick can follow it.
+pub(crate) fn attribute_plays(
+    groups: &[Vec<Card>],
+    contract: Contract,
+) -> Result<PlayRecord, ShortTrickNotFinal> {
+    validate_trick_lengths(groups)?;
+
+    let mut plays = Vec::new();
+    let mut leader = contract.leader();
+    for group in groups {
+        let trick: Vec<Play> = group
+            .iter()
+            .enumerate()
+            .map(|(offset, card)| Play::new(leader + offset, *card))
+            .collect();
+        if trick.len() == 4 {
+            leader = trick_winner(&trick, contract.strain());
+        }
+        plays.extend(trick);
+    }
+    Ok(PlayRecord::new(plays))
+}
+
 /// One card, played by one seat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

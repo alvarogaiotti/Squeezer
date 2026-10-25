@@ -22,7 +22,7 @@ use std::num::NonZeroU8;
 use std::str::FromStr;
 
 use crate::prelude::*;
-use crate::record::position::trick_winner;
+use crate::record::play::{attribute_plays, validate_trick_lengths};
 
 use super::types::{
     LinFile, LinMetadata, ParseLinError, ParseLinErrorKind, Players, Results, Room, TournamentInfo,
@@ -359,18 +359,6 @@ fn parse_trick(input: &str) -> LinResult<'_, Vec<Card>> {
     Ok((input, cards))
 }
 
-/// Rejects a short group that is not the final trick.
-///
-/// A claim cuts the play mid-trick, so only the last `pg||` group may hold
-/// fewer than four cards; a short earlier group would leave `attribute_plays`
-/// without the winner that leads the next trick.
-fn validate_trick_lengths(groups: &[Vec<Card>]) -> Result<(), nom::Err<LinError>> {
-    if groups.iter().rev().skip(1).any(|group| group.len() < 4) {
-        return Err(nom::Err::Failure(LinError::new(ParseLinErrorKind::Card)));
-    }
-    Ok(())
-}
-
 /// `mc|<tricks>|`
 fn parse_claim(input: &str) -> LinResult<'_, u8> {
     let (input, _) = ws(tag("mc|"))(input)?;
@@ -406,7 +394,8 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
 
     let (input, _) = opt(pg).parse(input)?;
     let (input, groups) = many0(parse_trick).parse(input)?;
-    validate_trick_lengths(&groups)?;
+    validate_trick_lengths(&groups)
+        .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Card)))?;
     let (input, claim) = opt(parse_claim).parse(input)?;
     let (input, _) = opt(pg).parse(input)?;
 
@@ -427,7 +416,10 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
     } else {
         let contract =
             contract.ok_or_else(|| nom::Err::Failure(LinError::new(ParseLinErrorKind::Board)))?;
-        Some(attribute_plays(groups, contract))
+        Some(
+            attribute_plays(&groups, contract)
+                .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Card)))?,
+        )
     };
 
     let board = Board::new(
@@ -443,27 +435,6 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
     .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Board)))?;
 
     Ok((input, (board, room)))
-}
-
-/// Attributes the flat LIN card order to seats, trick by trick.
-///
-/// The opening leader is the contract's leader; within a trick the seats
-/// rotate, and the winner of each complete trick leads the next one.
-fn attribute_plays(groups: Vec<Vec<Card>>, contract: Contract) -> PlayRecord {
-    let mut plays = Vec::new();
-    let mut leader = contract.leader();
-    for group in groups {
-        let trick: Vec<Play> = group
-            .into_iter()
-            .enumerate()
-            .map(|(offset, card)| Play::new(leader + offset, card))
-            .collect();
-        if trick.len() == 4 {
-            leader = trick_winner(&trick, contract.strain());
-        }
-        plays.extend(trick);
-    }
-    PlayRecord::new(plays)
 }
 
 // ============================================================================

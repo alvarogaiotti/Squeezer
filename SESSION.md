@@ -92,18 +92,35 @@
   `Auction` as `Some(Auction::new(vec![]))`: the two empty representations are
   asymmetric. Neither writer emits a section for the empty case, so an empty
   auction cannot round-trip.
-- The PBN importer (ticket 03) collects each game's `[Auction]`/`[Play]` body
-  tokens in the internal `PbnGame` but deliberately does not parse them yet, so
-  imported boards report `auction()`/`play()` as `None` until ticket 04.
 - PBN import format has no mandatory tags (PBN 2.1 §3.4). The importer still
   requires `[Deal]` (a board needs cards); a missing `[Dealer]` falls back to
   the `[Deal]` first letter and a missing `[Vulnerable]` defaults to
   `Vulnerability::None`. An explicit tag always wins, even when `[Dealer]`
   differs from the `[Deal]` letter.
-- `Board::new`'s auction/contract cross-checks are unreachable from the
-  identification-tag importer: there is no auction yet, and the contract's
-  vulnerability is derived from `[Vulnerable]`, so it cannot disagree with the
-  board. They become reachable with ticket 04's auction section.
+- The PBN importer tokenises a section body on whitespace, so an annotation
+  pasted onto its call or card (`1S!`, `HK=1=`) is one token and fails as a
+  call/card error. Only whitespace-separated annotations are ignored; PBN's
+  self-delimiting tokens would need a section tokenizer, not a `split_whitespace`.
+- The auction parser does not detect the natural end of an auction (a pass-out),
+  so calls after it are consumed: `Pass Pass Pass Pass 1S` imports as a 1S
+  contract instead of a passed-out board. The writer treats a bid plus at least
+  three trailing passes as complete and emits no `*`, so a completion rule must
+  be shared with the writer (and may require narrowing ticket 05's generator)
+  before the importer can reject or ignore the extras.
+- A `*`-cut auction that stops before the final contract is rejected when the
+  `[Declarer]`/`[Contract]` tags name a later contract. PBN 2.1 allows the tags
+  to state the outcome of a cut auction; `Board::new` requires the stored
+  contract to equal the auction's own result. A contracted board always
+  satisfies that equality, so the writer's output is unaffected; a contractless
+  board with an incomplete auction gains a derived contract on re-import, which
+  is a ticket 05 representability gap.
+- PBN irregularity tokens (`^I`, `^S`, `^R`, `^L`) are unknown call/card tokens
+  and fail at import. `^R` (a revoke) is card data the model could represent,
+  since `Board` deliberately does not validate revokes; only the other three
+  need to stay rejected.
+- An empty `[Auction]` body imports as `None`, not `Some(Auction::new(vec![]))`,
+  mirroring LIN: neither writer emits an empty section, so the empty auction
+  representation still cannot round-trip.
 - `linparser` needs a derivable contract to attribute `pc|` seats; a board with
   a play but no auction fails at import rather than guessing a leader. The
   `PlayRecord` type itself is contract-free; this is only the importer's

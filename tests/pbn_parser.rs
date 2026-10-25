@@ -5,10 +5,13 @@
 //! malformed input fails at import with a `ParsePbnError` instead of yielding a
 //! corrupt board or a silent default.
 
+use std::num::NonZeroU8;
 use std::str::FromStr;
 
 use squeezer::pbnparser::{ParsePbnErrorKind, PbnFile, parse_pbn_file};
-use squeezer::{Board, Contract, Doubled, Hand, Seat, Strain, Vulnerability, Vulnerable};
+use squeezer::{
+    Board, Call, Card, Contract, Doubled, Hand, Play, Seat, Strain, Vulnerability, Vulnerable,
+};
 
 fn parse_fixture(path: &str) -> PbnFile {
     let data = std::fs::read_to_string(path).expect("fixture is readable");
@@ -46,6 +49,12 @@ fn parses_every_valid_fixture() {
         ("tests/lowercase.pbn", 1),
         ("tests/two_games.pbn", 2),
         ("tests/wire_example.pbn", 1),
+        ("tests/auction.pbn", 1),
+        ("tests/all_pass.pbn", 1),
+        ("tests/truncated_auction.pbn", 1),
+        ("tests/full_play.pbn", 1),
+        ("tests/short_play.pbn", 1),
+        ("tests/annotated.pbn", 1),
     ] {
         assert_eq!(parse_fixture(path).boards.len(), boards, "{path}");
     }
@@ -144,10 +153,147 @@ fn wire_example_fixture_is_accepted() {
             Doubled::NotDoubled,
         ))
     );
-    // The auction and play sections are ticket 04's; this ticket accepts them
-    // and leaves both out of the board after collecting their bodies.
-    assert_eq!(board.auction(), None);
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 8);
+    assert_eq!(
+        auction.calls()[0].call,
+        Call::Bid {
+            level: NonZeroU8::new(1).expect("1 is non-zero"),
+            strain: Strain::Spades,
+        }
+    );
+    assert_eq!(
+        board.play().expect("the play section was parsed").plays(),
+        &[
+            Play::new(Seat::East, Card::HK),
+            Play::new(Seat::South, Card::DA),
+            Play::new(Seat::West, Card::C2),
+            Play::new(Seat::North, Card::SA),
+        ]
+    );
+}
+
+#[test]
+fn auction_fixture_derives_the_contract() {
+    let board = only_board("tests/auction.pbn");
+
+    assert_eq!(board.number(), Some(6));
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 8);
+    assert_eq!(
+        board.contract(),
+        Some(Contract::new(
+            4,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        ))
+    );
     assert_eq!(board.play(), None);
+}
+
+#[test]
+fn all_pass_fixture_expands_ap_and_has_no_contract() {
+    let board = only_board("tests/all_pass.pbn");
+
+    assert_eq!(board.dealer(), Seat::East);
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 4);
+    assert!(
+        auction
+            .calls()
+            .iter()
+            .all(|recorded| recorded.call == Call::Pass),
+        "AP expands to four passes"
+    );
+    assert_eq!(board.contract(), None);
+}
+
+#[test]
+fn truncated_auction_fixture_stops_at_the_star() {
+    let board = only_board("tests/truncated_auction.pbn");
+
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 3, "the tokens after `*` are ignored");
+    let contract = board.contract().expect("the auction derives a contract");
+    assert_eq!(contract.level(), 2);
+    assert_eq!(contract.strain(), Strain::Spades);
+    assert_eq!(contract.declarer(), Seat::North);
+    assert_eq!(contract.vulnerable(), Vulnerable::No);
+}
+
+#[test]
+fn full_play_fixture_attributes_every_trick_to_its_winner() {
+    let board = only_board("tests/full_play.pbn");
+
+    let plays = board.play().expect("the play section was parsed").plays();
+    assert_eq!(plays.len(), 52);
+    assert_eq!(plays[0], Play::new(Seat::East, Card::HA));
+    assert_eq!(plays[4], Play::new(Seat::North, Card::SK));
+    assert_eq!(plays[8], Play::new(Seat::North, Card::SQ));
+    assert_eq!(plays[51], Play::new(Seat::West, Card::C2));
+    assert_eq!(
+        board.contract().expect("contract"),
+        Contract::new(
+            4,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        )
+    );
+}
+
+#[test]
+fn short_play_fixture_allows_a_short_final_trick() {
+    let board = only_board("tests/short_play.pbn");
+
+    let plays = board.play().expect("the play section was parsed").plays();
+    assert_eq!(plays.len(), 5);
+    assert_eq!(plays[4], Play::new(Seat::North, Card::SK));
+}
+
+#[test]
+fn annotated_fixture_ignores_annotations_and_placeholders() {
+    let board = only_board("tests/annotated.pbn");
+
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(
+        auction
+            .calls()
+            .iter()
+            .map(|recorded| recorded.call)
+            .collect::<Vec<_>>(),
+        vec![
+            Call::Bid {
+                level: NonZeroU8::new(1).expect("1 is non-zero"),
+                strain: Strain::Spades,
+            },
+            Call::Pass,
+            Call::Bid {
+                level: NonZeroU8::new(2).expect("2 is non-zero"),
+                strain: Strain::Spades,
+            },
+            Call::Pass,
+            Call::Bid {
+                level: NonZeroU8::new(4).expect("4 is non-zero"),
+                strain: Strain::Spades,
+            },
+            Call::Pass,
+            Call::Pass,
+            Call::Pass,
+        ]
+    );
+    assert_eq!(
+        board.play().expect("the play section was parsed").plays(),
+        &[
+            Play::new(Seat::East, Card::HK),
+            Play::new(Seat::South, Card::DA),
+            Play::new(Seat::West, Card::C2),
+            Play::new(Seat::North, Card::SA),
+        ]
+    );
 }
 
 #[test]

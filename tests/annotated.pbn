@@ -1,0 +1,15 @@
+[Board "11"]
+[Dealer "N"]
+[Vulnerable "None"]
+[Deal "N:AKQJT98765432... .AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432"]
+[Declarer "N"]
+[Contract "4S"]
+[Auction "W"]
+- 1S !! =1= $3 Pass
+2S ? Pass 4S Pass
+Pass Pass +
+[Note "1:an alert"]
+[Play "E"]
+HK ! DA =2= C2 $7 SA
+*
+[Note "2:a lead"]

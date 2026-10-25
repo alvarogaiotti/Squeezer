@@ -37,13 +37,16 @@ pub enum ParsePbnErrorKind {
     /// A `[Declarer]` value was not one of the four seats, or a non-`Pass`
     /// `[Contract]` was present without a declarer.
     Declarer,
-    /// An `[Auction]` line carried a call that is not a bid, pass, double or
-    /// redouble.
+    /// An `[Auction]` body carried an unknown call token, or the `[Auction]`
+    /// tag value was not a seat, or the leading `-` placeholders did not match
+    /// the seats between the first column and the dealer, or a `-` placeholder
+    /// had a call after it.
     Bidding,
-    /// A `[Play]` line carried an unparseable card.
+    /// A `[Play]` card token was not a card, or was the `-` unknown card the
+    /// model cannot store.
     Card,
-    /// A `[Play]` section did not attribute its cards to seats under the
-    /// contract's leader.
+    /// A `[Play]` section was present without a contract, its tag value was not
+    /// the contract's leader, or its cards could not be attributed to seats.
     Play,
     /// The parts of a board did not fit together.
     Board,
