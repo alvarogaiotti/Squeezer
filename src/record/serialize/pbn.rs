@@ -39,8 +39,11 @@
 //!   do not survive a round trip.
 //! - Every unmodeled mandatory and supplemental tag (`Event`, `Site`, `Date`,
 //!   players, `Scoring`, `Room`, …) is dropped.
-//! - Irregular declarer (`^X`) and end-position (denomination-only) contracts
-//!   are not modeled.
+//! - Irregular declarer (`^X`), end-position (denomination-only) contracts, the
+//!   `-` unknown card and an out-of-turn lead (`^L`) are not modeled, so the
+//!   importer rejects them rather than dropping data. The model stores every
+//!   played card and derives each play's seat by rotation from the contract's
+//!   leader.
 //!
 //! A board with no contract has no known opening leader, so its play is omitted
 //! entirely (there is no `[Play]` section without a `[Contract]`).

@@ -55,6 +55,7 @@ fn parses_every_valid_fixture() {
         ("tests/full_play.pbn", 1),
         ("tests/short_play.pbn", 1),
         ("tests/annotated.pbn", 1),
+        ("tests/multi_board.pbn", 2),
     ] {
         assert_eq!(parse_fixture(path).boards.len(), boards, "{path}");
     }
@@ -321,6 +322,31 @@ fn pbn_file_writer_separates_games_with_one_empty_line() {
 
     let reparsed = PbnFile::from_str(&written).expect("the writer's output re-imports");
     assert_eq!(reparsed.boards, file.boards);
+}
+
+#[test]
+fn multi_board_fixture_round_trips_board_for_board() {
+    let file = parse_fixture("tests/multi_board.pbn");
+    assert_eq!(file.boards.len(), 2, "the fixture holds two games");
+
+    // The whole file is round-tripped (not just one `Board::as_pbn`) because
+    // the point of a multi-board fixture is the game separator and the order.
+    let written = file.as_pbn();
+    let reparsed = PbnFile::from_str(&written).expect("the writer's output re-imports");
+
+    assert_eq!(
+        reparsed.boards, file.boards,
+        "every modeled field survives the round trip:\n{written}"
+    );
+    assert_eq!(
+        reparsed
+            .boards
+            .iter()
+            .map(Board::number)
+            .collect::<Vec<_>>(),
+        vec![Some(1), Some(2)],
+        "the boards keep their file order:\n{written}"
+    );
 }
 
 #[test]

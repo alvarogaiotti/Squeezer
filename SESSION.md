@@ -91,7 +91,10 @@
 - `Board::new` normalises an empty `PlayRecord` to `None` but keeps an empty
   `Auction` as `Some(Auction::new(vec![]))`: the two empty representations are
   asymmetric. Neither writer emits a section for the empty case, so an empty
-  auction cannot round-trip.
+  auction cannot round-trip. The PBN importer also normalises an empty
+  `[Auction]` body to `None`, and the PBN round-trip generator only builds
+  auctions through the helper that returns `None` for zero calls, so neither
+  property covers the asymmetry.
 - PBN import format has no mandatory tags (PBN 2.1 §3.4). The importer still
   requires `[Deal]` (a board needs cards); a missing `[Dealer]` falls back to
   the `[Deal]` first letter and a missing `[Vulnerable]` defaults to
@@ -121,6 +124,21 @@
 - An empty `[Auction]` body imports as `None`, not `Some(Auction::new(vec![]))`,
   mirroring LIN: neither writer emits an empty section, so the empty auction
   representation still cannot round-trip.
+- The PBN round-trip generator (`AnyPbnBoard`) repeats `arbitrary_board`'s
+  assembly with a narrower policy (no claim, plain calls, derived contract). A
+  third interchange format would duplicate it again; a shared representability
+  policy (or one parameterised builder) would collapse the copies.
+- `arbitrary_auction` can emit calls after the auction's natural pass-out: it
+  fixes the call count up front, so once three closing passes have ended the
+  auction it still offers higher bids (and, from the other line, a double of
+  the last bid) for the remaining slots, e.g. `1S Pass Pass Pass 1NT`.
+  `Auction::validate` accepts them, the PBN writer's `auction_is_complete` sees
+  only the trailing passes and emits no `*`, and the importer consumes every
+  call, so the properties round-trip — but a third-party PBN reader would stop
+  at the pass-out and discard or flag the extras. Rejecting a call after a
+  pass-out in `Auction::validate` is the principled fix.
+- `AnyPbnBoard` has no `shrink`, like `AnyBoard`, so a PBN round-trip failure
+  reports "No Arguments Provided" rather than the offending board.
 - `linparser` needs a derivable contract to attribute `pc|` seats; a board with
   a play but no auction fails at import rather than guessing a leader. The
   `PlayRecord` type itself is contract-free; this is only the importer's
@@ -226,6 +244,11 @@
 
 ## Resolved
 
+- `Deal::as_pbn`/`write_pbn` stayed source-compatible while becoming
+  dealer-aware: `as_pbn_from(first)`/`write_pbn_from(first)` take the first
+  listed seat and the old `as_pbn()`/`write_pbn()` delegate with `North`, so
+  the existing golden test and `test_pbn_format` were untouched (ticket 02,
+  PBN interchange).
 - Benches/tests vs feature gates: `[[bench]]`/`[[test]]` targets that need
   the solver or LIN parser now carry `required-features`, so
   `cargo clippy --all-targets` passes on every feature set

@@ -234,6 +234,85 @@ mod tests {
         }
     }
 
+    /// An auction with every call's LIN-only metadata stripped.
+    ///
+    /// PBN writes no alert marker and no annotation, and the importer reads
+    /// note references and suffixes only to discard them, so a call that
+    /// carries either cannot survive a round trip. Stripping the metadata
+    /// after [`arbitrary_auction`] reuses its legality rules exactly instead of
+    /// duplicating them.
+    fn plain_auction(auction: &Auction) -> Auction {
+        Auction::new(
+            auction
+                .calls()
+                .iter()
+                .map(|recorded| RecordedCall::new(recorded.call))
+                .collect(),
+        )
+    }
+
+    /// A board that a PBN round trip can represent.
+    ///
+    /// Two fields are outside the format, so the generator leaves them absent:
+    ///
+    /// - `claim` is `None`: PBN has no tag for a claimed trick count (LIN's
+    ///   `mc|`).
+    /// - Every call is plain (`alert = false`, `annotation = None`): PBN's
+    ///   alert suffix and note references are dropped by the importer, and call
+    ///   annotations are deferred.
+    ///
+    /// The contract is derived from the auction and the play is built only when
+    /// a contract exists, mirroring [`arbitrary_board`]. A play needs a
+    /// contract because `[Play]` names the leader the contract fixes, and
+    /// deriving the contract keeps the `[Declarer]`/`[Contract]` tags in
+    /// agreement with the `[Auction]` that the importer re-derives it from. A
+    /// contract-only board (no auction) is representable, but is not sampled
+    /// here so the PBN domain matches the LIN generator's.
+    ///
+    /// A random legal auction almost always contains a bid — four opening
+    /// passes need four consecutive picks from up to 36 options — so pass-outs
+    /// would otherwise never be sampled. One auction in four is therefore a
+    /// fixed pass-out, to exercise the contractless writer and importer paths
+    /// too.
+    #[derive(Clone, Debug)]
+    struct AnyPbnBoard(Board);
+
+    fn pbn_representable_board(g: &mut Gen) -> Board {
+        let deal = arbitrary_deal(g);
+        let dealer = arbitrary_seat(g);
+        let vulnerability = arbitrary_vulnerability(g);
+        let number = bool::arbitrary(g).then(|| u8::arbitrary(g));
+        let auction = if u8::arbitrary(g) % 4 == 0 {
+            Some(Auction::new(vec![RecordedCall::new(Call::Pass); 4]))
+        } else {
+            arbitrary_auction(g, dealer)
+        };
+        let auction = auction.as_ref().map(plain_auction);
+        let contract = auction
+            .as_ref()
+            .and_then(|auction| auction.contract(dealer, vulnerability));
+        let play = contract
+            .as_ref()
+            .map(|contract| arbitrary_play(g, &deal, *contract));
+        Board::new(
+            deal,
+            number,
+            dealer,
+            vulnerability,
+            auction,
+            contract,
+            play,
+            None,
+        )
+        .expect("the generator only builds boards that satisfy the invariants")
+    }
+
+    impl Arbitrary for AnyPbnBoard {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Self(pbn_representable_board(g))
+        }
+    }
+
     #[cfg(feature = "lin")]
     #[quickcheck_macros::quickcheck]
     fn lin_round_trips_generated_boards(any: AnyBoard) -> bool {
@@ -245,5 +324,33 @@ mod tests {
             return false;
         };
         file.boards.len() == 1 && file.boards[0] == board
+    }
+
+    /// `parse(write(board)) == board` for every field PBN models.
+    ///
+    /// A board's own writer is a complete one-game file: it always emits
+    /// `[Dealer]`, `[Vulnerable]` and `[Deal]`, the three tags an importer
+    /// needs to build a board, so no wrapper is required (unlike LIN's `pn|`).
+    ///
+    /// The panics carry the written PBN so a failure says which part of the
+    /// format broke; the property still returns `bool`, as quickcheck expects,
+    /// and a failure is never a silent `false`.
+    #[cfg(feature = "pbn")]
+    #[quickcheck_macros::quickcheck]
+    fn pbn_round_trips_generated_boards(any: AnyPbnBoard) -> bool {
+        let board = any.0;
+        let pbn = board.as_pbn();
+        let file = <crate::pbnparser::PbnFile as FromStr>::from_str(&pbn)
+            .unwrap_or_else(|error| panic!("the writer's output must re-import: {error}"));
+        assert_eq!(
+            file.boards.len(),
+            1,
+            "a board writes exactly one game:\n{pbn}"
+        );
+        assert_eq!(
+            file.boards[0], board,
+            "the board must survive a PBN round trip:\n{pbn}"
+        );
+        true
     }
 }
