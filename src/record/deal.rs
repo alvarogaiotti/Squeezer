@@ -872,7 +872,8 @@ impl IntoIterator for Vulnerability {
 ///
 /// - **Predealing**: Very fast - just removes cards from the available deck
 /// - **Hand constraints**: Speed depends on constraint rarity (tight constraints = slower)
-/// - **Accept functions**: Called for every candidate deal, so keep them fast
+/// - **Accept functions**: Called only for candidates that pass every per-seat
+///   constraint, so keep them fast
 ///
 /// # Example: Complex Dealer
 ///
@@ -1173,15 +1174,18 @@ impl DealerBuilder {
 
     /// Sets a custom acceptance function for cross-hand validation.
     ///
-    /// This function is called after hand constraints are checked. Use it for
-    /// constraints that involve multiple hands, such as:
+    /// This function runs after the per-seat hand constraints: the dealer calls
+    /// it only for candidates whose every seat passed its constraint. A
+    /// candidate that fails a seat's constraint is discarded before the
+    /// function is reached. Use it for constraints that involve multiple hands,
+    /// such as:
     /// - Partnership fits (e.g., "NS must have 8+ spade fit")
     /// - Combined HCP (e.g., "NS must have 25+ combined HCP")
     /// - Distributional requirements across hands
     ///
-    /// **Performance note**: This function is called for every candidate deal,
-    /// so keep it as fast as possible. Heavy computations here will slow down
-    /// deal generation significantly.
+    /// **Performance note**: This function runs once per candidate that passes
+    /// the per-seat constraints; rejected candidates never reach it. Keep it as
+    /// fast as possible, since it is on the path of every accepted deal.
     ///
     /// # Example
     ///
@@ -1442,6 +1446,12 @@ impl DealerBuilder {
 pub trait Dealer {
     /// Generates a single bridge deal satisfying all constraints.
     ///
+    /// [`StandardDealer`] checks each seat's hand constraint as soon as that
+    /// seat's cards are dealt: a failure discards the candidate immediately, so
+    /// the remaining seats are not filled and the cross-hand acceptance function
+    /// is not called. That function therefore only ever sees candidates that
+    /// passed every per-seat constraint.
+    ///
     /// # Errors
     ///
     /// Returns `DealerError` if:
@@ -1482,11 +1492,14 @@ pub trait Dealer {
 /// This dealer uses rejection sampling: it generates random deals and accepts
 /// only those that satisfy all constraints. The algorithm:
 ///
-/// 1. Fill predealed cards for each seat
-/// 2. Randomly deal remaining cards from the available deck
-/// 3. Check hand constraints for each seat
-/// 4. Check the acceptance function
-/// 5. If all checks pass, return the deal; otherwise, try again
+/// 1. Start with the deck left by the known cards
+/// 2. For each seat in turn (North, East, South, West):
+///    - Fill the seat from its known cards plus a random draw
+///    - Check that seat's hand constraint; a failure discards the candidate
+///      at once, without filling the remaining seats
+/// 3. Check the acceptance function, which therefore only sees candidates that
+///    passed every per-seat constraint
+/// 4. If accepted, return the deal; otherwise, try again
 ///
 /// # Performance Characteristics
 ///
@@ -1573,8 +1586,8 @@ impl Dealer for StandardDealer {
     /// Generates a deal using rejection sampling.
     ///
     /// This implementation fixes each seat's known cards, fills the remainder
-    /// from the available deck, then checks the constraints. It tries at most
-    /// `attempt_budget` candidate deals.
+    /// from the available deck, and checks each seat's constraint as soon as
+    /// that hand is filled. It tries at most `attempt_budget` candidate deals.
     ///
     /// # Algorithm
     ///
@@ -1584,10 +1597,11 @@ impl Dealer for StandardDealer {
     ///     2. For each seat:
     ///        - Start from its known cards
     ///        - Fill the remainder from the deck
-    ///     3. Check hand constraints
-    ///     4. Check acceptance function
-    ///     5. If all pass: return deal
-    ///     6. Otherwise: try again
+    ///        - If its hand constraint fails, discard the candidate:
+    ///          do not fill the remaining seats, do not run the closure
+    ///     3. Check the acceptance function on the complete deal
+    ///     4. If it accepts: return deal
+    ///     5. Otherwise: try again
     /// }
     /// return Unsatisfiable
     /// ```
@@ -1603,7 +1617,7 @@ impl Dealer for StandardDealer {
         // for every one of the four picks per attempt is needlessly expensive.
         let mut rng = rand::rng();
 
-        for _ in 0..self.attempt_budget {
+        'candidates: for _ in 0..self.attempt_budget {
             let mut deck = self.deck_starting_state;
 
             // Deal to each seat: known cards first, then the remainder from
@@ -1626,11 +1640,19 @@ impl Dealer for StandardDealer {
                     cards_to_add
                 };
                 hands[seat as usize].set_cards(known + cards_to_add);
+
+                // A seat that fails its constraint dooms the candidate, so
+                // stop dealing and never reach the cross-hand closure.
+                if let Some(constraint) = &self.hand_constraints[seat as usize] {
+                    if !constraint.check(hands[seat as usize]) {
+                        continue 'candidates;
+                    }
+                }
             }
 
             let deal = Deal::from_hands_unchecked(hands);
 
-            if (self.accept_function)(&deal) && self.constraints_respected(deal.hands()) {
+            if (self.accept_function)(&deal) {
                 return Ok(deal);
             }
         }
@@ -1638,31 +1660,6 @@ impl Dealer for StandardDealer {
         Err(DealerError::Unsatisfiable {
             attempts: self.attempt_budget,
         })
-    }
-}
-
-impl StandardDealer {
-    /// Checks if all per-seat hand constraints are satisfied.
-    ///
-    /// Returns `true` only if every seat with a descriptor passes validation.
-    /// Seats without descriptors automatically pass.
-    ///
-    /// # Performance
-    ///
-    /// This is called for every candidate deal, so it's optimized with
-    /// early exit (`all()` short-circuits on first failure).
-    #[inline]
-    fn constraints_respected(&self, hands: &[Hand; NUMBER_OF_HANDS]) -> bool {
-        self.hand_constraints
-            .iter()
-            .enumerate()
-            .all(|(seat, hand_constraint)| {
-                if let Some(hand_constraint) = hand_constraint {
-                    hand_constraint.check(hands[seat])
-                } else {
-                    true
-                }
-            })
     }
 }
 

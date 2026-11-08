@@ -302,17 +302,6 @@ impl HandConstraint {
         if !(self.min_hcp..=self.max_hcp).contains(&summary.hcp) {
             return false;
         }
-        self.check_cached(summary)
-    }
-
-    /// Checks an already-computed hand summary.
-    ///
-    /// Crate-internal fast path for the dealer's rejection loop, which checks
-    /// one candidate against several seats: the summary is computed once per
-    /// candidate, not once per seat.
-    #[must_use]
-    #[inline]
-    pub(crate) fn check_cached(&self, summary: HandSummary) -> bool {
         self.branches.iter().any(|branch| {
             branch.hcp.contains(summary.hcp) && branch.shapes.is_member_shape(summary.shape)
         })

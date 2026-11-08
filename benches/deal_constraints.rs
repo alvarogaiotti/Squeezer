@@ -13,6 +13,11 @@ fn opening_shape_and_hcp() -> HandConstraint {
         .expect("opening shape and HCP patterns parse")
 }
 
+fn nt_shape_and_hcp() -> HandConstraint {
+    HandConstraint::new(&["(4432)", "(4333)", "(5332)"], HcpRange::new(15, 17))
+        .expect("NT shape and HCP patterns parse")
+}
+
 fn bench_dealer<D: Dealer, M: Measurement>(
     group: &mut BenchmarkGroup<'_, M>,
     name: &str,
@@ -48,6 +53,24 @@ fn benchmark_constraint_matrix(c: &mut Criterion) {
         .build()
         .expect("shape/HCP dealer builds");
     bench_dealer(&mut group, "shape_hcp_12_14", shape_hcp);
+
+    let nt_north = DealerBuilder::new()
+        .with_hand_constraint(Seat::North, nt_shape_and_hcp())
+        .build()
+        .expect("NT North dealer builds");
+    bench_dealer(&mut group, "nt_15_17_north", nt_north);
+
+    let nt_south = DealerBuilder::new()
+        .with_hand_constraint(Seat::South, nt_shape_and_hcp())
+        .build()
+        .expect("NT South dealer builds");
+    bench_dealer(&mut group, "nt_15_17_south", nt_south);
+
+    let nt_west = DealerBuilder::new()
+        .with_hand_constraint(Seat::West, nt_shape_and_hcp())
+        .build()
+        .expect("NT West dealer builds");
+    bench_dealer(&mut group, "nt_15_17_west", nt_west);
 
     let function = DealerBuilder::new()
         .with_function(|deal: &Deal| {

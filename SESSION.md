@@ -296,3 +296,89 @@
   ranks and unknown characters; `InvalidCardError` carries the rejected input,
   is wrapped by `SqueezerError::InvalidCard`, and surfaces via
   `DealerError::InvalidCards` (ticket 15).
+
+## 2026-10-25 — incidental notes
+
+- `docs/` had no `research/` directory; it now holds repo research notes
+  (`docs/research/`), while ADRs stay in `docs/adr/`.
+- `vendor/Dealer3/`, `vendor/bridge-solver/` and `vendor/rusty-bidding-bot/` are
+  untracked nested git checkouts, not submodules: `.gitmodules` lists only
+  `vendor/dds`, so a clean clone does not get them and `git status` shows them
+  as untracked.
+- `benches/bench_leadsim.rs:28` names its criterion benchmark "Payoff
+  benchmark", copied from `benches/bench_payoff.rs:33`; the two benches are
+  indistinguishable by name in criterion output.
+- `benches/simulation_paths.rs` runs entirely on a mock `FixedContext` and its
+  body names no DDS type, yet `Cargo.toml:79-82` requires `dds` for that bench;
+  the feature is required for a bench that never touches the backend.
+- `src/dealproduction.rs` is named like the production module but holds only
+  `DealerError`; the dealer (`DealerBuilder`, `Dealer::deal`) lives in
+  `src/record/deal.rs`. Reading the name as the pipeline misdirects exactly the
+  "how would a predicate fit generation" question.
+- The crate doc claims "~10-50 microseconds" with shape constraints
+  (`src/record/deal.rs:25-29,1491-1498`); the measured medians are 143 ns-1.79 µs
+  (`docs/performance-optimization.md:127-137`). The doc is one to two orders out.
+- In the vendored tree, `vendor/rusty-bidding-bot/docs/LANGUAGE.md:547-548` says
+  an unmatched call gets a built-in natural interpretation, but the engine passes
+  (`crates/engine/src/engine.rs:855`) and the same doc says so at `:670-672`.
+  `docs/LANGUAGE.md:646-648` also says partner's keycards are untracked, while
+  `eval.rs:646-681` tracks them for `we.keycards`.
+- `HandConstraint` has no public constructor from `Shapes` or `[LenRange; 4]`, yet
+  both inputs are public (`src/shape.rs:356,767,821`) and the bridge
+  `from_compiled` is `pub(crate)` (`src/hand_constraint.rs:284`). Length-range
+  constraints are therefore expressible only by writing out pattern strings
+  (`25+xx`), which is an API-surface gap rather than a capability one.
+- `vendor/rusty-bidding-bot/conventions/conventions.toml:12` declares
+  `engine = "0.7.0" (unreleased)` against a 0.10.0 workspace, and
+  `vendor/rusty-bidding-bot/crates/assets/build.rs:53-66,146-152` locates its
+  inputs as `CARGO_MANIFEST_DIR/../..` plus the workspace `Cargo.lock`, so
+  `rbb-assets` cannot be consumed outside that checkout's layout.
+- Nothing in the repo measures candidate throughput: `attempts` is only
+  surfaced on `DealerError::Unsatisfiable`, and `benches/deal_constraints.rs`
+  times `dealer.deal()` alone, so the published ns/deal figures cannot be
+  converted to ns/candidate (the rejection factor is unrecorded).
+- `Cards::pick` hardcodes `FastSampler` (`src/card.rs:476`), so the public
+  random-hand API cannot ask for `UniformSampler`; the only uniformity
+  comparison is a disabled test (`tests/uniformity_check.rs:5-6`).
+- `vendor/Dealer3/performance-pretest-2026-01-07.md:11-16` still headlines Rust
+  at 2.3x slower than C, while its own later section (`:255-260`) and
+  `bench/results/CURRENT.md:34` report ~10% slower. Nothing points forward from
+  the pre-test, so it reads as current.
+- `Evaluator` (`src/evaluator.rs:25-53`) is exported but unreachable from the
+  constraint layer; the doc comments at `src/record/deal.rs:20,903,1212` still
+  claim per-seat constraints cover "controls", which no longer matches
+  `ConstraintBranch { shapes, hcp }` (`src/hand_constraint.rs:123-128`).
+- `Evaluator` has no `Debug`/`Clone`/serde derives, unlike every constraint type
+  (`src/evaluator.rs:25` vs `src/hand_constraint.rs:123-136`), and
+  `Evaluator::new` copies a caller slice with no length check
+  (`src/evaluator.rs:38-42`), so more than 13 values indexes past `vals`.
+
+
+## 2026-10-25 — vendor/bridge-solver follow-ups
+
+Found while reading the vendored solver for
+`docs/research/bridge-solver-vs-our-seam.md`; none blocks anything today.
+
+- `vendor/bridge-solver/src/analyse_play.rs` derives `total` from
+  `Hands::num_tricks()`, which is `hands[WEST].size()` (`src/hands.rs:58-60`), at
+  `:193`, `:276` and `:399`. Any mid-trick or partially played input therefore
+  computes every declarer total against a short `total`, and `total - ns` for an
+  EW declarer can underflow. Harmless only because all three entry points are
+  documented to receive a full un-played deal.
+- `optimal_line`'s docstring says the caches "live for the whole walk" (`:381-383`),
+  but every solve goes through `solve_position_ns`, which allocates a fresh cache
+  pair per call (`:721-751`). Cost is one solve per candidate card, not one walk.
+- `running_trace` indexes `keys[0]` and `keys[k + 1]` without checking
+  `keys.len() == plays.len() + 1` (`:204`, `:234`, `:239`), so a short slice
+  panics instead of returning an error.
+- `vendor/bridge-encodings` returns `Result` from its LIN/PBN readers but never
+  constructs `ParseError::Lin` (`src/lin/mod.rs:122-124`, `src/error.rs:12`), so
+  the error channel is not a correctness signal.
+- `vendor/bridge-encodings/README.md:133` documents `oneline::deal_to_oneline`
+  with a two-argument signature; the function is `format_oneline(deal)` and
+  `deal_to_oneline` does not exist anywhere in `src/`.
+- `vendor/bridge-solver/src/cache.rs` is a one-line doc stub while `src/lib.rs:30`
+  declares `mod cache;`; the real caches live in `search.rs` and `pattern.rs`.
+- `AGENTS.md:46` says `performance_analysis` requires `dds` and `lin`. The module
+  is gated on `dds` alone (`src/lib.rs:132`); `lin` is needed only by
+  `tests/performance_analysis_test.rs` (`Cargo.toml:86-88`).

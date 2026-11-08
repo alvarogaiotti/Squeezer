@@ -33,8 +33,9 @@ report construction — measurable on its own instead of being hidden behind a 7
 Every mock case reports the post-processing of 1,000 deals.
 
 Criterion timings used `taskset -c 0` and three independent runs. The earlier microbenchmarks used a
-one-second warm-up, a three-second measurement, and 20 samples; the nine-case deal matrix used the
-same warm-up with a two-second measurement and 10 samples because its tight cases are much slower.
+one-second warm-up, a three-second measurement, and 20 samples; the deal matrix used the same
+warm-up with a two-second measurement and 10 samples because its tight cases are much slower (nine
+cases in §4; twelve in §6, after three seat-position cases were added).
 Each table reports the median of the three run medians; the range is the range of those run medians,
 not Criterion's within-run confidence interval.
 
@@ -191,6 +192,47 @@ protocol gave 7.1697 s (7.0497–7.2863) for the candidate against 7.2273 s (7.1
 Criterion reported no change (p = 0.53). The 1,000-deal lead pipeline is 44.8 s against 0.35 ms of
 post-processing, about 0.0008%. These are real, repeatable reductions in the simulation-only work, but
 they are invisible next to DDS search and this report does not claim a native speedup from them.
+
+## 6. Seat-early rejection in the deal loop
+
+**Changed:** `StandardDealer::deal` now checks a seat's `HandConstraint` as soon as that seat's cards
+are filled. A failing seat discards the candidate before the remaining seats are dealt, before the
+`Deal` is built, and before the cross-hand accept closure runs. Seat order stays N, E, S, W, so a
+constraint on a late seat still pays for the seats before it. The accept closure's documented
+contract changed with it: it now runs after the per-seat constraints, on candidates that passed them,
+and no longer claims to see every candidate.
+
+**Why:** the rejection loop used to fill all four hands and build the `Deal` before testing anything,
+so a candidate doomed by its first seat still paid for the other three. The rejection factor is not
+small — 20.5 candidates per produced deal for a 15-17 1NT, 114 for a weak two with a closure — so most
+of that work was thrown away.
+
+**Method:** the twelve-case matrix in `benches/deal_constraints.rs`, released build,
+`--no-default-features`, `taskset -c 0`, Criterion with a two-second measurement and 10 samples, three
+independent runs, median of the three run estimates. The before column is ticket 01's pre-change run
+of the same bench on the same machine; after-run spreads stayed under 0.2%.
+
+| Case | Before (ns) | After (ns) | After/Before |
+| --- | ---: | ---: | ---: |
+| Unconstrained | 155.6 | 152.9 | 0.98 |
+| Balanced shape | 350.4 | 236.7 | 0.68 |
+| HCP 12-17 | 526.5 | 290.7 | 0.55 |
+| Shape + HCP 12-14 | 1,679.6 | 702.6 | 0.42 |
+| 1NT 15-17, North | 3,248.3 | 1,221.2 | 0.38 |
+| 1NT 15-17, South | 3,280.9 | 3,120.7 | 0.95 |
+| 1NT 15-17, West | 3,283.0 | 3,186.1 | 0.97 |
+| Cross-hand fit closure | 334.6 | 330.9 | 0.99 |
+| Shape + function | 1,934.3 | 1,369.4 | 0.71 |
+| Two-seat HCP | 1,503.5 | 840.8 | 0.56 |
+| Predeal + HCP | 262.2 | 196.2 | 0.75 |
+| Polish Club (South) | 967.4 | 904.7 | 0.94 |
+
+The geometric mean is 0.703 across the twelve cases and 0.657 excluding the two the change cannot
+help: `unconstrained`, where the only added cost is one `Option` test per seat, and the cross-hand
+closure, which has no per-seat constraint to reject on. The seat-position row is the point: the same
+1NT constraint is 2.7x faster when it sits on the first seat and only 3-5% faster on the last, because
+the candidate has already paid for three hands by then. Filling constrained seats first would recover
+the late-seat cases; it is deliberately not part of this change.
 
 ## Rejected work
 
