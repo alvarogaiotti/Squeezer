@@ -1344,15 +1344,45 @@ impl DealerBuilder {
             deck -= cards;
         }
 
+        // Resolve the fill order before moving the builder's fields out.
+        let fill_order = self.fill_order();
+
         Ok(StandardDealer {
             predeal: self.predealt_hands,
             known,
             played: self.played_by,
             deck_starting_state: deck,
             accept_function: self.accept,
+            fill_order,
             hand_constraints: self.hand_constraints,
             attempt_budget: self.attempt_budget,
         })
+    }
+
+    /// Computes the order in which [`StandardDealer`] fills and checks seats.
+    ///
+    /// Seats carrying a [`HandConstraint`] come first, so a candidate that
+    /// cannot satisfy one of them is rejected after the first hand rather than
+    /// the fourth. Within each tier the canonical North, East, South, West
+    /// order is kept. Known cards never move a seat between tiers: a seat with
+    /// thirteen known cards still belongs to the group its constraint puts it
+    /// in, because its check outcome is constant for the run.
+    ///
+    /// The order is fixed for the dealer's lifetime; it is an implementation
+    /// detail, not part of the builder's configuration.
+    #[inline]
+    fn fill_order(&self) -> [Seat; NUMBER_OF_HANDS] {
+        let mut order = [Seat::North; NUMBER_OF_HANDS];
+        let mut next = 0;
+        for constrained in [true, false] {
+            for seat in Seat::iter() {
+                if self.hand_constraints[seat as usize].is_some() == constrained {
+                    order[next] = seat;
+                    next += 1;
+                }
+            }
+        }
+        order
     }
 
     /// Resolves the per-seat known set and validates it up front.
@@ -1452,6 +1482,12 @@ pub trait Dealer {
     /// is not called. That function therefore only ever sees candidates that
     /// passed every per-seat constraint.
     ///
+    /// For [`StandardDealer`], the seats are visited in its fixed fill order:
+    /// seats with a [`HandConstraint`] first, then those without, keeping
+    /// North, East, South, West inside each tier. Reordering how the hands of
+    /// a fixed partition are drawn does not change the partition's
+    /// distribution, so this only moves where the check cost lands.
+    ///
     /// # Errors
     ///
     /// Returns `DealerError` if:
@@ -1493,13 +1529,26 @@ pub trait Dealer {
 /// only those that satisfy all constraints. The algorithm:
 ///
 /// 1. Start with the deck left by the known cards
-/// 2. For each seat in turn (North, East, South, West):
+/// 2. For each seat in the dealer's fill order:
 ///    - Fill the seat from its known cards plus a random draw
 ///    - Check that seat's hand constraint; a failure discards the candidate
 ///      at once, without filling the remaining seats
 /// 3. Check the acceptance function, which therefore only sees candidates that
 ///    passed every per-seat constraint
 /// 4. If accepted, return the deal; otherwise, try again
+///
+/// # Fill order
+///
+/// The order is computed once when the dealer is built: seats carrying a
+/// [`HandConstraint`] come first, then the unconstrained seats, with North,
+/// East, South, West kept inside each tier. This makes the same constraint cost
+/// roughly the same wherever it sits, because a doomed candidate dies after the
+/// first hand instead of the third or fourth. Known cards never change a seat's
+/// tier.
+///
+/// Any fixed fill order produces the same distribution of deals: it only
+/// changes the order in which the hands of the partition are drawn from the
+/// shared deck, not which partitions are accepted.
 ///
 /// # Performance Characteristics
 ///
@@ -1523,6 +1572,12 @@ pub struct StandardDealer {
     played: [Cards; NUMBER_OF_HANDS],
     /// Available cards for random dealing
     deck_starting_state: Cards,
+    /// The order in which seats are filled and checked for each candidate.
+    ///
+    /// Constrained seats first, then unconstrained ones, N, E, S, W inside
+    /// each tier. Fixed when the dealer is built; see
+    /// [`DealerBuilder::fill_order`].
+    fill_order: [Seat; NUMBER_OF_HANDS],
     /// Per-seat constraints
     hand_constraints: [Option<HandConstraint>; NUMBER_OF_HANDS],
     /// Cross-hand validation function
@@ -1537,6 +1592,7 @@ impl std::fmt::Debug for StandardDealer {
             .field("predeal", &self.predeal)
             .field("known", &self.known)
             .field("played", &self.played)
+            .field("fill_order", &self.fill_order)
             .field("hand_constraints", &self.hand_constraints)
             .field("attempt_budget", &self.attempt_budget)
             .finish_non_exhaustive()
@@ -1554,6 +1610,9 @@ impl StandardDealer {
             known: [Cards::EMPTY; 4],
             played: [Cards::EMPTY; 4],
             deck_starting_state: Cards::ALL,
+            // With no constraints every seat is in the same tier, so the
+            // canonical positional order is also the constrained-first order.
+            fill_order: [Seat::North, Seat::East, Seat::South, Seat::West],
             hand_constraints: [None, None, None, None],
             accept_function: Box::new(|_: &Deal| true),
             attempt_budget: DEFAULT_ATTEMPT_BUDGET,
@@ -1620,10 +1679,11 @@ impl Dealer for StandardDealer {
         'candidates: for _ in 0..self.attempt_budget {
             let mut deck = self.deck_starting_state;
 
-            // Deal to each seat: known cards first, then the remainder from
-            // the shared deck. Dealing from one deck keeps the 52-card
-            // partition, so the hot path skips re-checking it.
-            for seat in Seat::iter() {
+            // Deal to each seat in the fixed fill order: known cards first,
+            // then the remainder from the shared deck. Dealing from one deck
+            // keeps the 52-card partition, so the hot path skips re-checking
+            // it.
+            for &seat in &self.fill_order {
                 let known = self.known[seat as usize];
                 let fill = 13 - usize::from(known.len());
                 // Once the remaining cards exactly fill this seat, there is no
@@ -1643,10 +1703,11 @@ impl Dealer for StandardDealer {
 
                 // A seat that fails its constraint dooms the candidate, so
                 // stop dealing and never reach the cross-hand closure.
-                if let Some(constraint) = &self.hand_constraints[seat as usize] {
-                    if !constraint.check(hands[seat as usize]) {
-                        continue 'candidates;
-                    }
+                if self.hand_constraints[seat as usize]
+                    .as_ref()
+                    .is_some_and(|constraint| !constraint.check(hands[seat as usize]))
+                {
+                    continue 'candidates;
                 }
             }
 

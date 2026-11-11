@@ -58,6 +58,11 @@ holds the led suit, only those cards; otherwise the whole hand.
 **Known cards**:
 Predealt plus already-played cards fixed to a Seat; the conditioning seed.
 
+**Fill order**:
+The order in which the dealer fills, and therefore checks, the four seats for
+one candidate. Not the canonical seat order of a Deal.
+_Avoid_: deal order, seat order.
+
 ### Double-dummy evaluation
 
 **Solver context**:

@@ -197,10 +197,11 @@ they are invisible next to DDS search and this report does not claim a native sp
 
 **Changed:** `StandardDealer::deal` now checks a seat's `HandConstraint` as soon as that seat's cards
 are filled. A failing seat discards the candidate before the remaining seats are dealt, before the
-`Deal` is built, and before the cross-hand accept closure runs. Seat order stays N, E, S, W, so a
-constraint on a late seat still pays for the seats before it. The accept closure's documented
-contract changed with it: it now runs after the per-seat constraints, on candidates that passed them,
-and no longer claims to see every candidate.
+`Deal` is built, and before the cross-hand accept closure runs. At that point the seat order was
+still N, E, S, W, so a constraint on a late seat still paid for the seats before it; §6.1 closes that
+gap.
+The accept closure's documented contract changed with it: it now runs after the per-seat constraints,
+on candidates that passed them, and no longer claims to see every candidate.
 
 **Why:** the rejection loop used to fill all four hands and build the `Deal` before testing anything,
 so a candidate doomed by its first seat still paid for the other three. The rejection factor is not
@@ -231,8 +232,44 @@ The geometric mean is 0.703 across the twelve cases and 0.657 excluding the two 
 help: `unconstrained`, where the only added cost is one `Option` test per seat, and the cross-hand
 closure, which has no per-seat constraint to reject on. The seat-position row is the point: the same
 1NT constraint is 2.7x faster when it sits on the first seat and only 3-5% faster on the last, because
-the candidate has already paid for three hands by then. Filling constrained seats first would recover
-the late-seat cases; it is deliberately not part of this change.
+the candidate has already paid for three hands by then.
+
+### 6.1 Constrained-first fill order
+
+**Changed:** the dealer now computes a **fill order** once, when it is built: seats carrying a
+`HandConstraint` first, then the unconstrained seats, keeping North, East, South, West inside each
+tier. The rejection loop iterates that order instead of the canonical one, so a doomed candidate dies
+after the first hand rather than the third or fourth. Known cards never change a seat's tier, and the
+last seat still takes the remaining deck directly when nothing is left to sample. The order is an
+implementation detail: there is no builder option and no public API change. Any fixed fill order draws
+the hands of the same partition in a different order, so the distribution of accepted deals is
+unchanged; only where the check cost lands moves.
+
+The same twelve-case matrix, same machine and protocol as §6 (release, `--no-default-features`,
+`taskset -c 0`, Criterion with a one-second warm-up, two-second measurement and 10 samples, three
+independent runs, median of the run estimates; run spreads stayed at or under 0.20%). The before
+column is §6's seat-early run.
+
+| Case | Seat-early (ns) | Constrained-first (ns) | Shipped/Before |
+| --- | ---: | ---: | ---: |
+| Unconstrained (control) | 152.9 | 150.7 | 0.99 |
+| 1NT 15-17, North (reference) | 1,221.2 | 1,208.9 | 0.99 |
+| 1NT 15-17, South | 3,120.7 | 1,208.4 | 0.39 |
+| 1NT 15-17, West | 3,186.1 | 1,209.8 | 0.38 |
+| Polish Club (South) | 904.7 | 449.1 | 0.50 |
+| Two-seat HCP | 840.8 | 740.0 | 0.88 |
+
+The six cases omitted from the table (balanced shape, HCP 12-17, shape + HCP 12-14, cross-hand fit
+closure, shape + function, predeal + HCP) all landed within 1% of the seat-early run, in both
+directions.
+
+Every threshold held: the late-seat 1NT cases are 1.00-1.01x of North, two-seat HCP is 11-12% better
+than the seat-early order, the unconstrained control is within 1%, and no case is worse. Multiplying
+the two measured ratios puts the twelve-case geometric mean at about 0.56 of the original loop (0.703
+for seat-early, times roughly 0.80 for this change); that composite is derived, not a fresh run
+against the old loop. Candidates per produced deal are unchanged: the fill order changes only how
+much work a rejected candidate costs, and ticket 01 measured identical acceptance on every case
+(largest deviation 0.3%, inside sampling error).
 
 ## Rejected work
 
