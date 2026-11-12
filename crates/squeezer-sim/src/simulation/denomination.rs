@@ -54,6 +54,25 @@ impl Denomination {
         }
     }
 
+    /// Whether [`Self::difference`] can rank two options against each other.
+    ///
+    /// `RawPoints` and `Compared` with an opponent-derived [`Baseline`]
+    /// (`AverageOfOptions`, `BestOption`) are pairwise. `Compared` with
+    /// [`Baseline::Fixed`] is not: both directions score against the same
+    /// reference, so `difference(a, b) != -difference(b, a)`. A `Custom`
+    /// baseline or scoring may ignore its input in the same way, which this
+    /// cannot detect; the caller owns that invariant.
+    #[must_use]
+    pub fn is_pairwise(&self) -> bool {
+        !matches!(
+            self,
+            Self::Compared {
+                baseline: Baseline::Fixed(_),
+                ..
+            }
+        )
+    }
+
     /// The value of `score_a` in a pairwise comparison against `score_b`.
     ///
     /// A pairwise comparison is [`Self::value`] with the opponent as the only
@@ -64,17 +83,22 @@ impl Denomination {
     /// pairwise `scoring_fn(a, b)` used by the contract payoff matrix, which
     /// surfaces the denomination only through
     /// [`PairwiseComparison::difference`](crate::simulation::PairwiseComparison);
-    /// [`DealResult::score`](crate::simulation::DealResult) stays the raw score.
+    /// [`DealResult::score`](crate::simulation::DealResult) stays the raw score
+    /// and [`DealResult::value`](crate::simulation::DealResult) carries the
+    /// per-deal denominated value.
     ///
     /// # `Baseline::Fixed` is not a pairwise baseline
     ///
     /// `Fixed` ignores the opponent: both `difference(a, b)` and
     /// `difference(b, a)` score against the fixed score, so the result is *not*
-    /// antisymmetric. It is unsupported in the contract payoff matrix, whose
-    /// rankings aggregate only the `option_a` side of each directed pair and so
-    /// assume antisymmetry; use it only to score each option against a reference
-    /// (par), not to compare two options with each other. A `Custom` baseline
-    /// that ignores its input has the same caveat.
+    /// antisymmetric. The contract payoff matrix aggregates only the `option_a`
+    /// side of each directed pair, so it assumes antisymmetry and rejects a
+    /// `Fixed` baseline with
+    /// [`SimulationError::InvalidInput`](crate::SimulationError::InvalidInput)
+    /// rather than let it skew the rankings. Use it only to score each option
+    /// against a reference (par), not to compare two options with each other. A
+    /// `Custom` baseline that ignores its input has the same caveat, but no
+    /// check can detect it; the caller owns that invariant.
     #[must_use]
     pub fn difference(&self, score_a: i32, score_b: i32) -> i32 {
         match self {
@@ -111,6 +135,11 @@ pub enum Baseline {
     /// The best other candidate option's score.
     BestOption,
     /// A fixed reference score (par, a reference contract, ...).
+    ///
+    /// Not a pairwise baseline: it scores both sides against the same
+    /// reference, so the contract payoff
+    /// ([`ContractPayoffSimulation`](crate::simulation::ContractPayoffSimulation))
+    /// rejects it when ranking contracts.
     Fixed(i32),
     /// A caller-supplied function of the other options' scores.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -252,6 +281,32 @@ mod tests {
             fixed.difference(50, 100),
             -fixed.difference(100, 50),
             "a fixed baseline is not a pairwise baseline"
+        );
+    }
+
+    #[test]
+    fn only_opponent_derived_baselines_are_pairwise() {
+        assert!(Denomination::RawPoints.is_pairwise());
+        assert!(
+            Denomination::Compared {
+                baseline: Baseline::AverageOfOptions,
+                scoring: Scoring::Imps,
+            }
+            .is_pairwise()
+        );
+        assert!(
+            Denomination::Compared {
+                baseline: Baseline::BestOption,
+                scoring: Scoring::Matchpoints,
+            }
+            .is_pairwise()
+        );
+        assert!(
+            !Denomination::Compared {
+                baseline: Baseline::Fixed(0),
+                scoring: Scoring::Imps,
+            }
+            .is_pairwise()
         );
     }
 

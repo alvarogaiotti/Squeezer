@@ -118,6 +118,26 @@ impl<T: Clone + Eq + std::hash::Hash + std::fmt::Display> RawPayoffData<T> {
     }
 }
 
+/// Rejects a denomination whose pairwise difference is not antisymmetric.
+///
+/// The payoff matrix aggregates only the `option_a` side of each directed pair,
+/// so it needs `difference(a, b) == -difference(b, a)`. [`Baseline::Fixed`]
+/// scores both directions against the same reference and breaks that
+/// invariant, silently counting each contract's own score instead of the
+/// comparison; it is useful for per-deal values, not for ranking. A
+/// [`Baseline::Custom`] closure can ignore its input the same way, which this
+/// cannot detect, so the caller owns that invariant.
+fn ensure_pairwise_denomination(denomination: &Denomination) -> Result<(), SimulationError> {
+    if denomination.is_pairwise() {
+        Ok(())
+    } else {
+        Err(SimulationError::invalid_input(
+            "contract payoff",
+            "Baseline::Fixed cannot rank contracts pairwise (it is not antisymmetric); use AverageOfOptions, BestOption or RawPoints",
+        ))
+    }
+}
+
 /// Pairwise builder for contract payoff comparisons.
 ///
 /// Builds the directed comparison `option_a` vs `option_b` from aligned
@@ -177,6 +197,11 @@ impl<T: Clone + Eq + std::hash::Hash> OptionResults<T> {
     /// Get scores across all deals
     pub fn scores(&self) -> Vec<i32> {
         self.deals.iter().map(|d| d.score).collect()
+    }
+
+    /// Get denominated values across all deals.
+    pub fn values(&self) -> Vec<i32> {
+        self.deals.iter().map(|d| d.value).collect()
     }
 
     /// Get tricks across all deals
@@ -479,6 +504,10 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
     /// [`difference`](Denomination::difference) to each pair of contracts, so
     /// `Compared` with an average/best baseline reproduces the old bare
     /// `scoring_fn(a, b)` (IMPs, matchpoints, or a custom scoring).
+    ///
+    /// `Compared` with [`Baseline::Fixed`] is rejected by [`Self::build`]: a
+    /// fixed reference is not antisymmetric between two contracts, so it
+    /// cannot rank them pairwise.
     #[must_use]
     #[inline]
     pub fn denomination(mut self, denomination: Denomination) -> Self {
@@ -498,9 +527,15 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         self
     }
 
-    /// Build the simulation
+    /// Build the simulation.
+    ///
     /// # Errors
-    /// When you did not define the number of deals or the dealer.
+    ///
+    /// When you did not define the number of deals or the dealer, when the
+    /// denomination cannot rank contracts pairwise
+    /// ([`Baseline::Fixed`]), or when no solver factory is available without
+    /// the `dds` feature.
+    ///
     /// TODO: Fix with typestate
     #[inline]
     pub fn build(self) -> Result<ContractPayoffSimulation<D>, SimulationError> {
@@ -510,6 +545,7 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         let dealer = self.dealer.ok_or_else(|| {
             SimulationError::invalid_input("contract payoff", "dealer must be set")
         })?;
+        ensure_pairwise_denomination(&self.denomination)?;
         let solver_factory = resolve_solver_factory(self.solver_factory)
             .ok_or_else(|| missing_solver_factory("contract payoff"))?;
 
@@ -558,6 +594,10 @@ impl<D: Dealer> ContractPayoffSimulation<D> {
     ///
     /// This convenience constructor exists only with the `dds` feature; without
     /// it, build through [`Self::builder`] and pass a factory.
+    ///
+    /// Unlike the builder, this cannot fail on an invalid denomination, so
+    /// [`Self::run`](Simulation::run) rejects `Compared` with
+    /// [`Baseline::Fixed`] before solving.
     #[cfg(feature = "dds")]
     pub fn new(
         num_deals: usize,
@@ -587,6 +627,11 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
             denomination,
             solver_factory,
         } = self;
+
+        // The convenience constructor bypasses the builder, so repeat the
+        // pairwise guard before generating or solving anything.
+        ensure_pairwise_denomination(&denomination)?;
+
         let num_contracts = contracts.len();
 
         // Order the solves by strain so same-strain contracts are adjacent on
@@ -624,14 +669,34 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
         let mut raw_data = RawPayoffData::new(contracts);
 
         // Scatter each deal's trick counts back to the contract they solved.
+        // A contract's value sees the other contracts on the same deal, the
+        // way card-EV values each card against the other legal cards, so the
+        // scores of the whole deal are collected before the values.
+        let mut deal_scores = vec![0i32; num_contracts];
+        let mut other_scores = Vec::with_capacity(num_contracts.saturating_sub(1));
         for entry in &solved {
             for (slot, &contract_index) in order.iter().enumerate() {
                 let tricks = entry.tricks[slot];
-                let accumulator = &mut accumulators[contract_index];
-                let score = accumulator.contract.score(tricks);
-                accumulator
-                    .results
-                    .push(DealResult::new(entry.deal_index, tricks, score));
+                deal_scores[contract_index] = accumulators[contract_index].contract.score(tricks);
+            }
+            for (slot, &contract_index) in order.iter().enumerate() {
+                let tricks = entry.tricks[slot];
+                let score = deal_scores[contract_index];
+                other_scores.clear();
+                other_scores.extend(
+                    deal_scores
+                        .iter()
+                        .enumerate()
+                        .filter(|(other, _)| *other != contract_index)
+                        .map(|(_, &other_score)| other_score),
+                );
+                let value = denomination.value(score, &other_scores);
+                accumulators[contract_index].results.push(DealResult::new(
+                    entry.deal_index,
+                    tricks,
+                    score,
+                    value,
+                ));
             }
         }
 
@@ -689,6 +754,104 @@ mod tests {
         }
     }
 
+    /// `Baseline::Fixed` scores both contracts against the same reference, so
+    /// the directed pairs are not antisymmetric and cannot rank contracts.
+    /// The builder rejects it before doing any work.
+    #[test]
+    fn contract_payoff_rejects_a_fixed_pairwise_baseline() {
+        let error = ContractPayoffBuilder::new()
+            .num_deals(2)
+            .dealer(StandardDealer::new())
+            .contracts(vec![
+                Contract::from_str("1NN").expect("fixed contract parses"),
+                Contract::from_str("2SN").expect("fixed contract parses"),
+            ])
+            .denomination(Denomination::Compared {
+                baseline: Baseline::Fixed(0),
+                scoring: Scoring::Imps,
+            })
+            .build()
+            .err()
+            .expect("a fixed baseline cannot rank contracts pairwise");
+
+        match error {
+            SimulationError::InvalidInput { context, message } => {
+                assert_eq!(context, "contract payoff");
+                assert!(
+                    message.contains("Baseline::Fixed"),
+                    "the message must name the rejected baseline, got {message}"
+                );
+            }
+            other => panic!("expected the configuration error, got {other:?}"),
+        }
+    }
+
+    /// The convenience constructor bypasses the builder, so `run` repeats the
+    /// guard before generating or solving anything.
+    #[cfg(feature = "dds")]
+    #[test]
+    fn contract_payoff_run_rejects_a_fixed_baseline_built_directly() {
+        let simulation = ContractPayoffSimulation::new(
+            1,
+            StandardDealer::new(),
+            vec![
+                Contract::from_str("1NN").expect("fixed contract parses"),
+                Contract::from_str("2SN").expect("fixed contract parses"),
+            ],
+            Denomination::Compared {
+                baseline: Baseline::Fixed(0),
+                scoring: Scoring::Imps,
+            },
+        );
+
+        let error = simulation
+            .run()
+            .expect_err("a fixed baseline cannot rank contracts pairwise");
+        assert!(
+            matches!(error, SimulationError::InvalidInput { .. }),
+            "got {error:?}"
+        );
+    }
+
+    /// The per-contract value applies the denomination on each deal, using the
+    /// other contracts on that deal as the alternatives (the same view card-EV
+    /// takes over the other legal cards).
+    #[test]
+    fn contract_payoff_values_each_contract_against_the_deal_alternatives() {
+        use crate::simulation::test_support::ConstantFactory;
+
+        let contracts = vec![
+            Contract::from_str("1NN").expect("fixed contract parses"),
+            Contract::from_str("2SN").expect("fixed contract parses"),
+            Contract::from_str("3HN").expect("fixed contract parses"),
+        ];
+        let output = ContractPayoffBuilder::new()
+            .num_deals(1)
+            .dealer(StandardDealer::new())
+            .contracts(contracts)
+            .denomination(Denomination::Compared {
+                baseline: Baseline::AverageOfOptions,
+                scoring: Scoring::Custom(Box::new(|score, baseline| score - baseline)),
+            })
+            .solver_factory(Box::new(ConstantFactory))
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect("the mock always solves");
+
+        // The mock reports 7 tricks for the side to play, so the declarer takes
+        // 6: 1NT is one down (-50), 2S two down (-100), 3H three down (-150).
+        // Each value is the contract's score minus the mean of the other two
+        // contracts on the same deal.
+        let expected = [(-50, 75), (-100, 0), (-150, -75)];
+        for (option, (score, value)) in output.raw.option_results.iter().zip(expected) {
+            assert_eq!(option.deals.len(), 1);
+            assert_eq!(option.deals[0].score, score);
+            assert_eq!(option.deals[0].value, value);
+            assert_eq!(option.values(), vec![value]);
+        }
+    }
+
     #[test]
     fn test_option_results_creation() {
         let contract = Contract::from_str("3CN").unwrap();
@@ -697,13 +860,16 @@ mod tests {
         assert_eq!(results.deals.len(), 0);
         assert_eq!(results.option, contract);
 
-        results.add_deal(DealResult::new(0, 9, 400));
-        results.add_deal(DealResult::new(1, 10, 430));
+        results.add_deal(DealResult::new(0, 9, 400, 380));
+        results.add_deal(DealResult::new(1, 10, 430, 430));
 
         assert_eq!(results.deals.len(), 2);
 
         let scores = results.scores();
         assert_eq!(scores, vec![400, 430]);
+
+        let values = results.values();
+        assert_eq!(values, vec![380, 430]);
 
         let tricks = results.tricks();
         assert_eq!(tricks, vec![9, 10]);
@@ -781,8 +947,8 @@ mod tests {
         // Add option results
         for (idx, _) in contracts.iter().enumerate() {
             let opt_result = &mut raw.option_results[idx];
-            opt_result.add_deal(DealResult::new(0, 9, 400));
-            opt_result.add_deal(DealResult::new(1, 10, 430));
+            opt_result.add_deal(DealResult::new(0, 9, 400, 400));
+            opt_result.add_deal(DealResult::new(1, 10, 430, 430));
         }
 
         // Add pairwise comparison
@@ -1036,9 +1202,13 @@ mod tests {
         assert_eq!(second.len(), 2);
         for deal in first {
             assert_eq!((deal.tricks, deal.score), (0, -350));
+            // Raw points is the default denomination, so the value is the
+            // score itself.
+            assert_eq!(deal.value, deal.score);
         }
         for deal in second {
             assert_eq!((deal.tricks, deal.score), (13, 260));
+            assert_eq!(deal.value, deal.score);
         }
     }
 
