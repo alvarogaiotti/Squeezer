@@ -33,13 +33,12 @@
  eye for frequencies and statistics (informed by partner probable hand, e.g. how often I'll have
  13 HCP in front of a partner showing a strong hand?: this can help in balancing some choices).
 
- Part of this library, under the features `bbo` and `bbo_async`, provides some features for
- downloading hands from BBO's My hands, so you can get the hands you played on the site, get double
- dummy results for every card you played with [`dds`] and then compute some statistics on the
- results using the utilities provided for you in this crate (e.g. the
- [`performance_analysis::analyze_board()`] entry point or the lower-level
- [`performance_analysis::analyze_hand()`]), like accuracy or triks
- lost, or trick lost per deal, etc.
+ The double dummy results computed with [`dds`] feed the statistics utilities this crate provides
+ (e.g. the [`performance_analysis::analyze_board()`] entry point or the lower-level
+ [`performance_analysis::analyze_hand()`]), like accuracy or tricks lost, or tricks lost per deal,
+ etc. Hand records come from wherever you get them: the `lin` and `pbn` features parse local files,
+ while the separate `squeezer-bbo` crate handles downloading them from BBO's My hands, so this
+ crate carries no HTTP stack.
 
  Another cool use that its implemented is the [`LeadSimulation`] utility, which mimics the
  functionality of [`LeadSolver` by Matthew J.
@@ -106,12 +105,6 @@
  Only small modifications were made by me on that module.
 */
 
-#[cfg(feature = "bbo")]
-mod bbo;
-#[cfg(feature = "bbo_async")]
-mod bbo_async;
-#[cfg(any(feature = "bbo", feature = "bbo_async"))]
-mod bbohelpers;
 pub mod card;
 mod contract;
 #[cfg(feature = "dds")]
@@ -155,12 +148,6 @@ pub mod prelude {
     pub const RANKS: u8 = 13;
     pub use crate::contract::*;
     pub const NUMBER_OF_HANDS: usize = 4;
-    #[cfg(feature = "bbo")]
-    pub use crate::bbo::*;
-    #[cfg(feature = "bbo_async")]
-    pub use crate::bbo_async::*;
-    #[cfg(any(feature = "bbo", feature = "bbo_async"))]
-    pub use crate::bbohelpers::*;
     pub use crate::card::*;
     pub use crate::dealproduction::*;
     pub use crate::error::*;

@@ -1,33 +1,30 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! Blocking BBO client (`bbo` feature).
+//! Async BBO client (`async` feature, the default).
 //!
-//! Shares the endpoint constants, error type, and hand-link parser with the
-//! async client; only the transport differs (a `reqwest::blocking::Client`
-//! with a cookie jar). See [`crate::bbo_async`] for the async twin.
+//! Mirrors `BlockingBBOClient` (feature `blocking`) but is driven by
+//! `reqwest`'s async client. The endpoint constants, error type, and hand-link
+//! parser live in the crate's private `helpers` module and are shared with the
+//! blocking client.
 
-use crate::bbohelpers::{
-    BBOClient, BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, logged_in_from_body,
+use crate::helpers::{
+    BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, logged_in_from_body,
 };
-
-#[cfg(not(test))]
 use log::{debug, info, warn};
-use reqwest::blocking::Client;
-#[cfg(test)]
-use std::{println as info, println as warn, println as debug}; // Workaround to use println! for logs.
+use reqwest::Client;
 use time::{Duration, OffsetDateTime};
 use url::Url;
 
-/// Synchronous BBO client, backed by `reqwest::blocking`.
-pub struct BlockingBBOClient {
+/// Asynchronous BBO client, backed by `reqwest`.
+pub struct AsyncBBOClient {
     client: Client,
     username: String,
     password: String,
     hands_links: Vec<Url>,
 }
 
-impl BlockingBBOClient {
+impl AsyncBBOClient {
     /// Builds a client with its own cookie jar, so `login` persists the
     /// session for subsequent requests.
     ///
@@ -63,23 +60,25 @@ impl BlockingBBOClient {
         url
     }
 
-    fn get_hands_in_interval(
+    async fn get_hands_in_interval(
         &self,
         start_time: OffsetDateTime,
         end_time: OffsetDateTime,
     ) -> Result<String, BboError> {
         let url = self.hands_url(start_time, end_time);
         info!("query: {url}");
-        let text = self.client.get(url).send()?.text()?;
-        info!("{text}");
-        Ok(text)
+        Ok(self.client.get(url).send().await?.text().await?)
     }
 }
 
-impl BBOClient for BlockingBBOClient {
-    fn is_logged(&self) -> Result<bool, BboError> {
+impl AsyncBBOClient {
+    /// Check login status.
+    ///
+    /// # Errors
+    /// Errors when the site is not reachable.
+    pub async fn is_logged(&self) -> Result<bool, BboError> {
         info!("checking if logged in");
-        let logged_in = logged_in_from_body(&self.client.get(BBOLOGIN).send()?.text()?);
+        let logged_in = logged_in_from_body(&self.client.get(BBOLOGIN).send().await?.text().await?);
         info!(
             "{}",
             if logged_in {
@@ -91,9 +90,13 @@ impl BBOClient for BlockingBBOClient {
         Ok(logged_in)
     }
 
-    fn login(&self) -> Result<(), BboError> {
+    /// Login procedure.
+    ///
+    /// # Errors
+    /// Errors when the site is not reachable or credentials are rejected.
+    pub async fn login(&self) -> Result<(), BboError> {
         info!("starting login procedure");
-        if self.is_logged()? {
+        if self.is_logged().await? {
             return Ok(());
         }
         let params = [
@@ -104,19 +107,23 @@ impl BBOClient for BlockingBBOClient {
         ];
         info!("sending login request for user {}", self.username);
 
-        let response = self.client.post(BBOLOGIN).form(&params).send()?;
+        let response = self.client.post(BBOLOGIN).form(&params).send().await?;
         info!("response status code: {}", response.status());
-        if response.text()?.contains("password incorrect") {
+        if response.text().await?.contains("password incorrect") {
             warn!("incorrect username or password");
             return Err(BboError::Login);
         }
         // Land on the hands page so the session is established before the
         // first listing request.
-        self.client.get(BBOLAND).send()?;
+        self.client.get(BBOLAND).send().await?;
         Ok(())
     }
 
-    fn get_in_interval(
+    /// Collects hand links for the interval, in 28-day pages.
+    ///
+    /// # Errors
+    /// Errors when the site is not reachable.
+    pub async fn get_in_interval(
         &mut self,
         mut start_time: OffsetDateTime,
         mut end_time: OffsetDateTime,
@@ -130,14 +137,14 @@ impl BBOClient for BlockingBBOClient {
         let mut links = Vec::new();
         while (start_time - end_time).whole_days() > 28 {
             let next_start = start_time - Duration::days(28);
-            let text = self.get_hands_in_interval(start_time, next_start)?;
+            let text = self.get_hands_in_interval(start_time, next_start).await?;
             links.extend(hand_record_links(
                 &self.hands_url(start_time, next_start),
                 &text,
             ));
             start_time = next_start;
         }
-        let text = self.get_hands_in_interval(start_time, end_time)?;
+        let text = self.get_hands_in_interval(start_time, end_time).await?;
         links.extend(hand_record_links(
             &self.hands_url(start_time, end_time),
             &text,
@@ -145,54 +152,29 @@ impl BBOClient for BlockingBBOClient {
         self.hands_links = links;
         Ok(())
     }
-}
 
-impl BlockingBBOClient {
     /// Downloads every collected hand, returning the first failure if any.
     ///
     /// # Errors
     /// Errors when the site is not reachable or a hand cannot be fetched.
-    pub fn download(&self) -> Result<(), BboError> {
+    pub async fn download(&self) -> Result<(), BboError> {
         let mut first_error = None;
         for hand in &self.hands_links {
             info!("downloading from {hand}");
-            match self.client.get(hand.clone()).send() {
+            match self.client.get(hand.clone()).send().await {
                 Err(e) => {
                     warn!("unable to download from {hand}.\nSee: {e}");
                     first_error.get_or_insert(BboError::Download(e));
-                    continue;
                 }
                 Ok(response) => {
                     // TODO: persist the returned LIN instead of discarding it.
-                    let _lin = response.text()?;
+                    let _lin = response.text().await?;
                 }
             }
-            // BBO is rate-sensitive; be polite between hand downloads.
-            std::thread::sleep(std::time::Duration::from_secs(5));
         }
         match first_error {
             Some(error) => Err(error),
             None => Ok(()),
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test_working_connection() {
-        use super::*;
-        use time::macros::datetime;
-
-        let mut client =
-            BlockingBBOClient::new(String::from("thevava"), String::from("ekdallebol"));
-        client.login().unwrap();
-        client
-            .get_in_interval(
-                datetime!(2022-04-01 0:00 UTC),
-                datetime!(2022-03-03 0:00 UTC),
-            )
-            .unwrap();
-        client.download().unwrap();
     }
 }

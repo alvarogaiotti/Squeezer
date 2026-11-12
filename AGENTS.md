@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`).
-- It is a Cargo workspace (resolver 3) with `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`).
+- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -27,7 +27,7 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Commands
 
-- Default features are `lin`, `pbn`, `dds`, `bbo_async`: `cargo check` / `cargo test`
+- Default features are `lin`, `pbn`, `dds`: `cargo check` / `cargo test`
   (the root package only; add `--workspace` to include the members).
 - Solver concurrency is owned by our own pool: each rayon *job* (chunk of work)
   gets its own DDS context (`SolverPool`/`DynSolverPool`), with at most one
@@ -46,8 +46,12 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Features
 
 - `simulation` requires `dds`; `performance_analysis` requires both `dds` and `lin` (it consumes LIN plays). Verify combos with `cargo check --no-default-features --features dds,lin`.
-- `bbo` = blocking (`reqwest::blocking`); `bbo_async` = async (`reqwest`, default). Both share `scraper` + `url` for parsing hand-record links. Enabling `bbo` compiles a live-network test with hardcoded credentials in `src/bbo/mod.rs` — do not run it.
-- Clippy `pedantic` is enabled crate-wide with a broad allow list in `src/lib.rs`; don't chase the allowed lints.
+- BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
+  `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
+  `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record
+  links. Its live-network test has hardcoded credentials and is `#[ignore]`d —
+  never run it.
+- Clippy `pedantic` is enabled crate-wide with a broad allow list in each crate's `src/lib.rs`; don't chase the allowed lints.
 
 ## Gotchas
 
