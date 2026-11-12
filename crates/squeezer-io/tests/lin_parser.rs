@@ -330,3 +330,55 @@ fn trailing_garbage_is_an_error() {
     let error = import_error(&lin);
     assert_eq!(error.kind(), &ParseLinErrorKind::Trailing);
 }
+
+// ============================================================================
+// Error causes
+// ============================================================================
+
+#[test]
+fn unparseable_hand_card_keeps_the_exact_cause() {
+    let lin = "pn|a,b,c,d|st||md|3SAKQJT9876543X,HAKQJT98765432,DAKQJT98765432,CAKQJT98765432|rh||ah|Board 1|sv|o|mb|1S|mb|p|mb|p|mb|p|";
+    let error = import_error(lin);
+    assert_eq!(error.kind(), &ParseLinErrorKind::Hands);
+    assert_eq!(error.detail(), Some("invalid card \"SAKQJT9876543X\""));
+}
+
+#[test]
+fn short_hand_keeps_the_exact_cause() {
+    let lin = "pn|a,b,c,d|st||md|3SAKQJT9876543,HAKQJT98765432,DAKQJT98765432,CAKQJT98765432|rh||ah|Board 1|sv|o|mb|1S|mb|p|mb|p|mb|p|";
+    let error = import_error(lin);
+    assert_eq!(error.kind(), &ParseLinErrorKind::Hands);
+    assert_eq!(error.detail(), Some("S holds 12 cards, expected 13"));
+}
+
+#[test]
+fn unparseable_played_card_keeps_the_exact_cause() {
+    let lin = format!("{VALID_HEAD}mb|1S|mb|p|mb|p|mb|p|pg||pc|XY|");
+    let error = import_error(&lin);
+    assert_eq!(error.kind(), &ParseLinErrorKind::Card);
+    assert_eq!(error.detail(), Some("invalid card \"XY\""));
+}
+
+#[test]
+fn board_errors_keep_the_exact_cause() {
+    // East is on lead (dealer North, contract by North) but holds only clubs,
+    // so leading a spade is not in their hand.
+    let lin = format!("{VALID_HEAD}mb|1S|mb|p|mb|p|mb|p|pg||pc|S2|pc|H2|pc|D2|pc|C2|");
+    let error = import_error(&lin);
+    assert_eq!(error.kind(), &ParseLinErrorKind::Board);
+    assert_eq!(
+        error.detail(),
+        Some("E played 2♠, which is not in their hand")
+    );
+}
+
+#[test]
+fn display_includes_the_detail() {
+    let lin = "pn|a,b,c,d|st||md|3SAKQJT9876543X,HAKQJT98765432,DAKQJT98765432,CAKQJT98765432|rh||ah|Board 1|sv|o|mb|1S|mb|p|mb|p|mb|p|";
+    let error = import_error(lin);
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("unable to parse LIN input (Hands): invalid card \"SAKQJT9876543X\":"),
+        "{rendered}"
+    );
+}

@@ -303,6 +303,217 @@ fn annotated_fixture_ignores_annotations_and_placeholders() {
     );
 }
 
+// ============================================================================
+// Section-body tokenisation
+// ============================================================================
+
+/// The one-suit deal the unit tests build games around. The integration tests
+/// exercise the public entry points, so they spell their own identification.
+const ONE_SUIT_DEAL: &str =
+    "[Deal \"N:AKQJT98765432... .AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432\"]";
+
+fn identification() -> String {
+    format!("[Dealer \"N\"]\n[Vulnerable \"None\"]\n{ONE_SUIT_DEAL}\n")
+}
+
+fn bid(level: u8, strain: Strain) -> Call {
+    Call::Bid {
+        level: NonZeroU8::new(level).expect("test level is non-zero"),
+        strain,
+    }
+}
+
+fn calls(board: &Board) -> Vec<Call> {
+    board
+        .auction()
+        .expect("the board records an auction")
+        .calls()
+        .iter()
+        .map(|recorded| recorded.call)
+        .collect()
+}
+
+#[test]
+fn attached_auction_annotations_are_read_as_tokens() {
+    // PBN's call token stops at the suffix (`!`), the note reference (`=1=`)
+    // and the NAG (`$3`), so these annotations are tokens even without the
+    // spaces an export-format writer would insert.
+    let pbn = format!(
+        "{}[Auction \"N\"]\n1S!=1=$3 Pass 2S!! Pass\n4S?? Pass Pass Pass\n",
+        identification()
+    );
+    let board = &parse_pbn_file(&pbn)
+        .expect("attached auction annotations must not change the calls")
+        .boards[0];
+    assert_eq!(
+        calls(board),
+        vec![
+            bid(1, Strain::Spades),
+            Call::Pass,
+            bid(2, Strain::Spades),
+            Call::Pass,
+            bid(4, Strain::Spades),
+            Call::Pass,
+            Call::Pass,
+            Call::Pass,
+        ]
+    );
+}
+
+#[test]
+fn attached_play_annotations_are_read_as_tokens() {
+    let pbn = format!(
+        "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\nHK=1= DA! C2$7 SA??\n*\n",
+        identification()
+    );
+    let board = &parse_pbn_file(&pbn)
+        .expect("attached play annotations must not change the cards")
+        .boards[0];
+    assert_eq!(
+        board.play().expect("the play section was parsed").plays(),
+        &[
+            Play::new(Seat::East, Card::HK),
+            Play::new(Seat::South, Card::DA),
+            Play::new(Seat::West, Card::C2),
+            Play::new(Seat::North, Card::SA),
+        ]
+    );
+}
+
+#[test]
+fn revoke_marker_is_accepted_as_card_data() {
+    // PBN 2.1 §3.9 (C): `^R` precedes the card that revoked. The card itself
+    // is still a real play, so the marker is read and discarded rather than
+    // treated as an unparseable card.
+    let pbn = format!(
+        "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\nHA ^R DA C2 SA\n*\n",
+        identification()
+    );
+    let board = &parse_pbn_file(&pbn)
+        .expect("a revoke marker must not change the cards")
+        .boards[0];
+    assert_eq!(
+        board.play().expect("the play section was parsed").plays(),
+        &[
+            Play::new(Seat::East, Card::HA),
+            Play::new(Seat::South, Card::DA),
+            Play::new(Seat::West, Card::C2),
+            Play::new(Seat::North, Card::SA),
+        ]
+    );
+}
+
+#[test]
+fn irregularity_markers_are_rejected() {
+    // PBN 2.1 §3.9: `^I` marks an insufficient bid, `^S` a call out of
+    // rotation, and `^L` a lead out of turn. The model stores neither the
+    // auction nor the play in a shape that can carry them, so each one is a
+    // named error rather than an unparseable call or card.
+    let auction = |body: &str| format!("{}[Auction \"N\"]\n{body}\n", identification());
+    let play = |body: &str| {
+        format!(
+            "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\n{body}\n",
+            identification()
+        )
+    };
+    for (pbn, marker) in [
+        (auction("^I 1S Pass Pass Pass"), "^I"),
+        (auction("^S 1S Pass Pass Pass"), "^S"),
+        (play("HA C2 ^L C3 C4"), "^L"),
+    ] {
+        let error = parse_pbn_file(&pbn).expect_err("an irregularity marker must be rejected");
+        assert_eq!(error.kind(), &ParsePbnErrorKind::Irregularity, "{marker}");
+    }
+}
+
+#[test]
+fn revoke_marker_must_precede_a_card() {
+    // The marker annotates the card after it; a dangling one is not a play,
+    // so accepting it silently would invent a revoke that never happened.
+    let pbn = format!(
+        "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\nHA DA C2 SA ^R\n*\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("a dangling ^R is not a card");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Irregularity);
+    assert_eq!(
+        error.detail(),
+        Some("irregularity ^R: a revoke marker must be followed by a card")
+    );
+}
+
+#[test]
+fn irregularity_errors_name_the_marker() {
+    let pbn = format!(
+        "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\nHA C2 ^L C3 C4\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("a lead out of turn must be rejected");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Irregularity);
+    assert_eq!(
+        error.detail(),
+        Some("irregularity ^L: a lead out of turn is not representable")
+    );
+}
+
+// ============================================================================
+// Error causes
+// ============================================================================
+
+#[test]
+fn seat_errors_keep_the_exact_cause() {
+    let pbn = format!("[Dealer \"X\"]\n[Vulnerable \"None\"]\n{ONE_SUIT_DEAL}\n");
+    let error = parse_pbn_file(&pbn).expect_err("X is not a seat");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Dealer);
+    assert_eq!(error.detail(), Some("'X' is not a valid seat"));
+}
+
+#[test]
+fn deal_seat_errors_keep_the_exact_cause() {
+    // The `[Deal]` first letter is parsed as a seat too, so it carries the
+    // same typed cause as a bad `[Dealer]`.
+    let pbn = "[Deal \"X:AKQJT98765432... .AKQJT98765432.. ..AKQJT98765432. ...AKQJT98765432\"]\n";
+    let error = parse_pbn_file(pbn).expect_err("X is not a seat");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Hands);
+    assert_eq!(error.detail(), Some("'X' is not a valid seat"));
+}
+
+#[test]
+fn malformed_card_errors_keep_the_exact_cause() {
+    let pbn = format!(
+        "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\nHK ZZ C2 SA\n*\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("ZZ is not a card");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Card);
+    assert_eq!(error.detail(), Some("invalid card \"ZZ\""));
+}
+
+#[test]
+fn board_errors_keep_the_exact_cause() {
+    let pbn = format!(
+        "{}[Declarer \"N\"]\n[Contract \"4S\"]\n[Play \"E\"]\nSA DA C2 HK\n*\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("East does not hold the spade ace");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Board);
+    assert_eq!(
+        error.detail(),
+        Some("E played A♠, which is not in their hand")
+    );
+}
+
+#[test]
+fn display_includes_the_detail() {
+    let pbn = format!("[Dealer \"X\"]\n[Vulnerable \"None\"]\n{ONE_SUIT_DEAL}\n");
+    let error = parse_pbn_file(&pbn).expect_err("X is not a seat");
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("unable to parse PBN input (Dealer): 'X' is not a valid seat:"),
+        "{rendered}"
+    );
+}
+
 #[test]
 fn malformed_fixture_is_a_hands_error() {
     let data = common::read_fixture("malformed.pbn");

@@ -21,6 +21,11 @@ pub enum Room {
 }
 
 /// What went wrong while importing a LIN file.
+///
+/// This is the importer's public taxonomy: [`ParseLinError::kind`] returns it
+/// and callers may match on it. It is deliberately public and
+/// `#[non_exhaustive]`, mirroring the PBN importer's kind, so a new category
+/// can be added without breaking a caller; match with a wildcard arm.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -55,11 +60,26 @@ pub enum ParseLinErrorKind {
 pub struct ParseLinError {
     lin: String,
     kind: ParseLinErrorKind,
+    detail: Option<String>,
 }
 
 impl ParseLinError {
     pub(crate) fn new(kind: ParseLinErrorKind, lin: String) -> Self {
-        Self { lin, kind }
+        Self {
+            lin,
+            kind,
+            detail: None,
+        }
+    }
+
+    /// Builds the public error, carrying the parser's typed cause when one
+    /// reached the top level.
+    pub(crate) fn with_detail(
+        kind: ParseLinErrorKind,
+        lin: String,
+        detail: Option<String>,
+    ) -> Self {
+        Self { lin, kind, detail }
     }
 
     /// The category of the failure.
@@ -67,15 +87,25 @@ impl ParseLinError {
     pub const fn kind(&self) -> &ParseLinErrorKind {
         &self.kind
     }
+
+    /// The exact message explaining the failure, when the parser recorded one.
+    ///
+    /// It is usually the underlying model error's own wording, such as
+    /// `"S holds 12 cards, expected 13"` for a short hand, but a parser rule
+    /// may supply the message too.
+    #[must_use]
+    pub fn detail(&self) -> Option<&str> {
+        self.detail.as_deref()
+    }
 }
 
 impl std::fmt::Display for ParseLinError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "unable to parse LIN input ({:?}):\n{}",
-            self.kind, self.lin
-        )
+        write!(f, "unable to parse LIN input ({:?})", self.kind)?;
+        if let Some(detail) = &self.detail {
+            write!(f, ": {detail}")?;
+        }
+        write!(f, ":\n{}", self.lin)
     }
 }
 

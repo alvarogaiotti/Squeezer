@@ -45,8 +45,13 @@
 //!   contract has no seat. With an auction present the contract still comes
 //!   from the auction, so only the redundant tag is lost.
 //! - Auction and play annotations (suffixes, note references, NAGs) are read
-//!   and discarded, as are `[Note]` tags. An annotation must be a separate
-//!   token; a suffix pasted onto its call or card (`1S!`) is a token error.
+//!   and discarded, as are `[Note]` tags. PBN makes them self-delimiting, so
+//!   an annotation pasted onto its call or card (`1S!`, `HK=1=`) is split off
+//!   by the section tokeniser rather than rejected.
+//! - A `^R` revoke marker is read and discarded: the card after it is still a
+//!   real play. `^I` (insufficient bid), `^S` (call out of rotation) and `^L`
+//!   (lead out of turn) change who called or played, which the model records
+//!   positionally, so they are [`ParsePbnErrorKind::Irregularity`] errors.
 //! - `;` is a rest-of-line comment, as this ticket specifies, not PBN 2.1's
 //!   supplemental-section marker. The `[Tag]` lines after it are therefore read
 //!   as ordinary tags; first-occurrence-wins keeps the main section's values for
@@ -69,15 +74,30 @@ use squeezer_model::record::play::attribute_plays;
 
 use super::types::{ParsePbnError, ParsePbnErrorKind, PbnFile};
 
-/// The nom error threaded through the tag parsers: just the category.
+/// The nom error threaded through the tag parsers: the category plus, when a
+/// model error caused it, that error's exact message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PbnError {
     pub(crate) kind: ParsePbnErrorKind,
+    pub(crate) detail: Option<String>,
 }
 
 impl PbnError {
     const fn new(kind: ParsePbnErrorKind) -> Self {
-        Self { kind }
+        Self { kind, detail: None }
+    }
+
+    fn with_detail(kind: ParsePbnErrorKind, detail: impl Into<String>) -> Self {
+        Self {
+            kind,
+            detail: Some(detail.into()),
+        }
+    }
+
+    /// Wraps a model error, keeping its `Display` wording as the detail rather
+    /// than flattening it into the category.
+    fn caused(kind: ParsePbnErrorKind, cause: impl std::fmt::Display) -> Self {
+        Self::with_detail(kind, cause.to_string())
     }
 }
 
@@ -95,6 +115,26 @@ type PbnResult<'a, O> = IResult<&'a str, O, PbnError>;
 
 fn failure(kind: ParsePbnErrorKind) -> nom::Err<PbnError> {
     nom::Err::Failure(PbnError::new(kind))
+}
+
+/// The error for an irregularity marker the model cannot represent.
+///
+/// PBN 2.1 §3.9 defines four of them. `^R` marks a revoke and is accepted by
+/// the play parser (the card after it is still real); the other three change
+/// who called or played, which the model records positionally, so they have
+/// no representation.
+fn irregularity_error(token: &str) -> PbnError {
+    let meaning = match token {
+        "^I" => "an insufficient bid",
+        "^S" => "a call out of rotation",
+        "^R" => "a revoke",
+        "^L" => "a lead out of turn",
+        _ => "an unknown irregularity",
+    };
+    PbnError::with_detail(
+        ParsePbnErrorKind::Irregularity,
+        format!("irregularity {token}: {meaning} is not representable"),
+    )
 }
 
 // ============================================================================
@@ -309,6 +349,87 @@ fn parse_tag_pairs(input: &str) -> PbnResult<'_, Vec<(String, String)>> {
 }
 
 // ============================================================================
+// Section-body tokens
+// ============================================================================
+
+/// Splits one section-body line into PBN tokens.
+///
+/// A section body is a token run, not a whitespace-separated word list. PBN 2.1
+/// §3.2 makes a call or card token stop at the first character outside its
+/// alphabet, so an annotation pasted onto its call (`1S!`) or card (`HK=1=`)
+/// still forms two tokens. The section parsers only understand whole tokens, so
+/// the split happens once here instead of being duplicated in each.
+fn tokenise_section_body(line: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    for chunk in line.split_whitespace() {
+        let mut rest = chunk;
+        while !rest.is_empty() {
+            let (token, after) = rest.split_at(token_length(rest));
+            tokens.push(token.to_owned());
+            rest = after;
+        }
+    }
+    tokens
+}
+
+/// The byte length of the token starting `input`.
+///
+/// `input` is never empty and starts on a character boundary. The final
+/// fallback of one character is what keeps the scanner progressing on input
+/// the section parsers will reject (an unknown punctuation mark becomes its
+/// own token, so the error names it).
+fn token_length(input: &str) -> usize {
+    let first = input
+        .chars()
+        .next()
+        .expect("the scanner only passes non-empty input");
+    match first {
+        // `*` and `+` are self-terminating single-character tokens.
+        '*' | '+' => first.len_utf8(),
+        // A suffix token is one or two exclamation/question marks.
+        '!' | '?' => match input.chars().nth(1) {
+            Some('!' | '?') => input.chars().take(2).map(char::len_utf8).sum(),
+            _ => first.len_utf8(),
+        },
+        // A NAG is `$` followed by its digits.
+        '$' => 1 + digits_length(&input[1..]),
+        // A note reference is `=` digits `=`; anything else is one character.
+        '=' => note_length(input).unwrap_or(first.len_utf8()),
+        // An irregularity token is the caret and one of the four codes.
+        '^' => match input.chars().nth(1) {
+            Some('I' | 'S' | 'R' | 'L') => input.chars().take(2).map(char::len_utf8).sum(),
+            _ => first.len_utf8(),
+        },
+        // A call or card token: letters, digits and the hyphen.
+        _ => input
+            .chars()
+            .take_while(|character| character.is_ascii_alphanumeric() || *character == '-')
+            .map(char::len_utf8)
+            .sum::<usize>()
+            .max(first.len_utf8()),
+    }
+}
+
+fn digits_length(input: &str) -> usize {
+    input
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .map(char::len_utf8)
+        .sum()
+}
+
+fn note_length(input: &str) -> Option<usize> {
+    let digits = digits_length(input.get(1..)?);
+    if digits == 0 {
+        return None;
+    }
+    input
+        .get(1 + digits..)?
+        .starts_with('=')
+        .then_some(1 + digits + 1)
+}
+
+// ============================================================================
 // Games
 // ============================================================================
 
@@ -378,7 +499,7 @@ fn collect_game(lines: &[&str]) -> Result<PbnGame, PbnError> {
                 game.tags.push((name, value));
             }
         } else {
-            let tokens = trimmed.split_whitespace().map(str::to_owned);
+            let tokens = tokenise_section_body(trimmed);
             match section {
                 Some(Section::Auction) => game.auction.get_or_insert_with(Vec::new).extend(tokens),
                 Some(Section::Play) => game.play.get_or_insert_with(Vec::new).extend(tokens),
@@ -401,20 +522,23 @@ fn collect_game(lines: &[&str]) -> Result<PbnGame, PbnError> {
 /// A single seat letter, either case.
 fn parse_seat(value: &str, kind: ParsePbnErrorKind) -> Result<Seat, PbnError> {
     let mut chars = value.trim().chars();
-    let seat = chars
+    let character = chars
         .next()
-        .and_then(|character| Seat::try_from(character).ok());
+        .ok_or_else(|| PbnError::with_detail(kind.clone(), "the seat is empty"))?;
     if chars.next().is_some() {
-        return Err(PbnError::new(kind));
+        return Err(PbnError::with_detail(
+            kind,
+            format!("'{value}' is more than one seat"),
+        ));
     }
-    seat.ok_or_else(|| PbnError::new(kind))
+    Seat::try_from(character).map_err(|cause| PbnError::caused(kind, cause))
 }
 
 fn parse_number(value: &str) -> Result<u8, PbnError> {
     value
         .trim()
         .parse()
-        .map_err(|_| PbnError::new(ParsePbnErrorKind::Number))
+        .map_err(|cause| PbnError::caused(ParsePbnErrorKind::Number, cause))
 }
 
 /// The `[Vulnerable]` spellings, including PBN's synonyms and lowercase.
@@ -437,7 +561,10 @@ fn parse_vulnerability(value: &str) -> Result<Vulnerability, PbnError> {
 fn parse_hand(value: &str) -> Result<Cards, PbnError> {
     let fields: Vec<&str> = value.split('.').collect();
     if fields.len() != 4 {
-        return Err(PbnError::new(ParsePbnErrorKind::Hands));
+        return Err(PbnError::with_detail(
+            ParsePbnErrorKind::Hands,
+            format!("a hand has four suit fields, found {}", fields.len()),
+        ));
     }
 
     let mut cards = Cards::EMPTY;
@@ -459,7 +586,12 @@ fn parse_hand(value: &str) -> Result<Cards, PbnError> {
                 'T' | 't' => 10,
                 '1' => match ranks.next() {
                     Some('0') => 10,
-                    _ => return Err(PbnError::new(ParsePbnErrorKind::Hands)),
+                    _ => {
+                        return Err(PbnError::with_detail(
+                            ParsePbnErrorKind::Hands,
+                            "a rank of ten is spelled 'T' or '10'",
+                        ));
+                    }
                 },
                 '2'..='9' => u8::try_from(
                     character
@@ -467,11 +599,19 @@ fn parse_hand(value: &str) -> Result<Cards, PbnError> {
                         .expect("a decimal digit has a digit value"),
                 )
                 .expect("a decimal digit is at most 9"),
-                _ => return Err(PbnError::new(ParsePbnErrorKind::Hands)),
+                _ => {
+                    return Err(PbnError::with_detail(
+                        ParsePbnErrorKind::Hands,
+                        format!("'{character}' is not a rank"),
+                    ));
+                }
             };
             let card = Card::new(suit, rank);
             if cards.has_card(card) {
-                return Err(PbnError::new(ParsePbnErrorKind::Hands));
+                return Err(PbnError::with_detail(
+                    ParsePbnErrorKind::Hands,
+                    format!("card {card} is listed twice"),
+                ));
             }
             cards = cards.insert(card);
         }
@@ -486,14 +626,20 @@ fn parse_hand(value: &str) -> Result<Cards, PbnError> {
 /// hands leave. The returned seat places the hands and is the dealer fallback
 /// when `[Dealer]` is absent; an explicit `[Dealer]` still wins.
 fn parse_deal(value: &str) -> Result<(Seat, Deal), PbnError> {
-    let (first, hands) = value
-        .split_once(':')
-        .ok_or_else(|| PbnError::new(ParsePbnErrorKind::Hands))?;
+    let (first, hands) = value.split_once(':').ok_or_else(|| {
+        PbnError::with_detail(
+            ParsePbnErrorKind::Hands,
+            "the deal needs a first seat and a colon",
+        )
+    })?;
     let first = parse_seat(first, ParsePbnErrorKind::Hands)?;
 
     let listed: Vec<&str> = hands.split_whitespace().collect();
     if listed.len() != 4 {
-        return Err(PbnError::new(ParsePbnErrorKind::Hands));
+        return Err(PbnError::with_detail(
+            ParsePbnErrorKind::Hands,
+            format!("a deal lists four hands, found {}", listed.len()),
+        ));
     }
 
     let mut hands: [Option<Cards>; 4] = [None; 4];
@@ -510,7 +656,10 @@ fn parse_deal(value: &str) -> Result<(Seat, Deal), PbnError> {
         .filter_map(|(index, hand)| hand.is_none().then_some(index))
         .collect();
     if unknown.len() > 1 {
-        return Err(PbnError::new(ParsePbnErrorKind::Hands));
+        return Err(PbnError::with_detail(
+            ParsePbnErrorKind::Hands,
+            "more than one hand is omitted",
+        ));
     }
     if let Some(&index) = unknown.first() {
         let mut deck = Cards::ALL;
@@ -521,7 +670,8 @@ fn parse_deal(value: &str) -> Result<(Seat, Deal), PbnError> {
     }
 
     let hands = hands.map(|hand| hand.expect("exactly one empty slot was filled"));
-    let deal = Deal::new(hands).map_err(|_| PbnError::new(ParsePbnErrorKind::Hands))?;
+    let deal =
+        Deal::new(hands).map_err(|cause| PbnError::caused(ParsePbnErrorKind::Hands, cause))?;
     Ok((first, deal))
 }
 
@@ -538,11 +688,21 @@ fn parse_contract(
         .and_then(|character| character.to_digit(10))
         .filter(|level| (1..=7).contains(level))
         .and_then(|level| u8::try_from(level).ok())
-        .ok_or_else(|| PbnError::new(ParsePbnErrorKind::Contract))?;
+        .ok_or_else(|| {
+            PbnError::with_detail(
+                ParsePbnErrorKind::Contract,
+                format!("contract \"{value}\" has no level in 1-7"),
+            )
+        })?;
 
     let strain = match chars
         .next()
-        .ok_or_else(|| PbnError::new(ParsePbnErrorKind::Contract))?
+        .ok_or_else(|| {
+            PbnError::with_detail(
+                ParsePbnErrorKind::Contract,
+                format!("contract \"{value}\" ends before a denomination"),
+            )
+        })?
         .to_ascii_uppercase()
     {
         'C' => Strain::Clubs,
@@ -551,9 +711,19 @@ fn parse_contract(
         'S' => Strain::Spades,
         'N' => match chars.next() {
             Some(next) if next.eq_ignore_ascii_case(&'T') => Strain::NoTrumps,
-            _ => return Err(PbnError::new(ParsePbnErrorKind::Contract)),
+            _ => {
+                return Err(PbnError::with_detail(
+                    ParsePbnErrorKind::Contract,
+                    format!("contract \"{value}\" has an unknown denomination"),
+                ));
+            }
         },
-        _ => return Err(PbnError::new(ParsePbnErrorKind::Contract)),
+        _ => {
+            return Err(PbnError::with_detail(
+                ParsePbnErrorKind::Contract,
+                format!("contract \"{value}\" has an unknown denomination"),
+            ));
+        }
     };
 
     let risk: String = chars.collect();
@@ -561,7 +731,12 @@ fn parse_contract(
         "" => Doubled::NotDoubled,
         "X" => Doubled::Doubled,
         "XX" => Doubled::Redoubled,
-        _ => return Err(PbnError::new(ParsePbnErrorKind::Contract)),
+        _ => {
+            return Err(PbnError::with_detail(
+                ParsePbnErrorKind::Contract,
+                format!("contract \"{value}\" has an unknown risk suffix"),
+            ));
+        }
     };
 
     Ok(Contract::new(
@@ -589,10 +764,9 @@ fn section_tokens(body: &[String]) -> &[String] {
 /// True for a suffix, note reference or NAG: PBN annotations that carry no call
 /// and no card, so they are read and discarded.
 ///
-/// Annotations are whitespace-delimited tokens, as PBN's own example
-/// (`1S !! =1= $25`) writes them. A suffix pasted onto its call (`1S!`) is one
-/// token and would be a call-token error; that is a documented limitation, not
-/// a silent reinterpretation of the call.
+/// The section tokeniser splits these off their call or card, so `1S!` arrives
+/// as `1S` and `!`, and `HK=1=` as `HK` and `=1=`. Whitespace is therefore not
+/// required between an annotation and the token it annotates.
 fn is_annotation(token: &str) -> bool {
     matches!(token, "!" | "!!" | "?" | "??" | "!?" | "?!")
         || is_note_reference(token)
@@ -658,6 +832,8 @@ fn parse_call_token(token: &str) -> Result<Call, PbnError> {
 ///
 /// `AP` expands to four passes; `+`, suffixes, note references and NAGs are read
 /// and discarded. `*` ends the section and any body token after it is ignored.
+/// An irregularity marker (`^I`, `^S`, `^R`, `^L`) is rejected: it changes who
+/// made which call, and the layout below assumes the plain rotation.
 fn parse_auction(game: &PbnGame, dealer: Seat) -> Result<Option<Auction>, PbnError> {
     let Some(body) = &game.auction else {
         return Ok(None);
@@ -672,12 +848,20 @@ fn parse_auction(game: &PbnGame, dealer: Seat) -> Result<Option<Auction>, PbnErr
     // `+` and annotations are not calls. Removing them first leaves the call
     // layout PBN describes: a leading run of `-` for the columns before the
     // dealer, optional calls, and an optional trailing run for the seats whose
-    // turn has not come.
-    let layout: Vec<&str> = tokens
-        .iter()
-        .map(String::as_str)
-        .filter(|token| *token != "+" && !is_annotation(token))
-        .collect();
+    // turn has not come. An irregularity marker changes who called, which the
+    // positional layout cannot carry, so it fails here rather than shifting
+    // every later call.
+    let mut layout = Vec::with_capacity(tokens.len());
+    for token in tokens {
+        let token = token.as_str();
+        if token == "+" || is_annotation(token) {
+            continue;
+        }
+        if token.starts_with('^') {
+            return Err(irregularity_error(token));
+        }
+        layout.push(token);
+    }
 
     let leading_placeholders = layout.iter().take_while(|token| **token == "-").count();
     let remaining = &layout[leading_placeholders..];
@@ -720,7 +904,8 @@ fn parse_auction(game: &PbnGame, dealer: Seat) -> Result<Option<Auction>, PbnErr
 /// by rotation from that seat, so a lead out of turn (PBN's `^L`) has no
 /// representation. For the same reason a `-` card is an error, not "unknown":
 /// the model stores every card. `+`, suffixes, note references and NAGs are
-/// discarded, and `*` ends the section.
+/// discarded, and `*` ends the section. A `^R` revoke marker is dropped and
+/// the card after it kept: the model stores the card, not the rules event.
 ///
 /// A play body with no contract is an error: without a contract there is no
 /// known opening leader and no trump to decide who leads the next trick.
@@ -739,14 +924,42 @@ fn parse_play(game: &PbnGame, contract: Option<Contract>) -> Result<Option<PlayR
     }
 
     let mut cards = Vec::new();
+    let mut revoke_pending = false;
     for token in section_tokens(body) {
         if token == "+" || is_annotation(token) {
             continue;
         }
-        if token == "-" {
-            return Err(PbnError::new(ParsePbnErrorKind::Card));
+        // `^R` precedes the card that revoked; the card is still real, so the
+        // marker is dropped. `^L` (lead out of turn) would move the leader the
+        // model derives by rotation, and the auction codes do not belong in a
+        // play body at all, so they are named errors.
+        if token == "^R" {
+            if revoke_pending {
+                return Err(irregularity_error(token));
+            }
+            revoke_pending = true;
+            continue;
         }
-        cards.push(Card::from_str(token).map_err(|_| PbnError::new(ParsePbnErrorKind::Card))?);
+        if token.starts_with('^') {
+            return Err(irregularity_error(token));
+        }
+        if token == "-" {
+            return Err(PbnError::with_detail(
+                ParsePbnErrorKind::Card,
+                "the `-` unknown card has no model representation",
+            ));
+        }
+        revoke_pending = false;
+        cards.push(
+            Card::from_str(token)
+                .map_err(|cause| PbnError::caused(ParsePbnErrorKind::Card, cause))?,
+        );
+    }
+    if revoke_pending {
+        return Err(PbnError::with_detail(
+            ParsePbnErrorKind::Irregularity,
+            "irregularity ^R: a revoke marker must be followed by a card",
+        ));
     }
     if cards.is_empty() {
         return Ok(None);
@@ -758,7 +971,7 @@ fn parse_play(game: &PbnGame, contract: Option<Contract>) -> Result<Option<PlayR
     let groups: Vec<Vec<Card>> = cards.chunks(4).map(<[Card]>::to_vec).collect();
     attribute_plays(&groups, contract)
         .map(Some)
-        .map_err(|_| PbnError::new(ParsePbnErrorKind::Play))
+        .map_err(|cause| PbnError::caused(ParsePbnErrorKind::Play, cause))
 }
 
 /// Assembles one game into a board.
@@ -842,7 +1055,7 @@ fn build_board(game: &PbnGame) -> Result<Board, PbnError> {
         play,
         None,
     )
-    .map_err(|_| PbnError::new(ParsePbnErrorKind::Board))
+    .map_err(|cause| PbnError::caused(ParsePbnErrorKind::Board, cause))
 }
 
 // ============================================================================
@@ -868,9 +1081,11 @@ pub fn parse_pbn_file(input: &str) -> Result<PbnFile, ParsePbnError> {
             ParsePbnErrorKind::Trailing,
             rest.to_string(),
         )),
-        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
-            Err(ParsePbnError::new(error.kind, input.to_string()))
-        }
+        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => Err(ParsePbnError::with_detail(
+            error.kind,
+            input.to_string(),
+            error.detail,
+        )),
         Err(nom::Err::Incomplete(_)) => {
             unreachable!("complete parsers never return Incomplete")
         }
