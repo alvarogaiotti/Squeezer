@@ -71,7 +71,7 @@ use core::{
 /// [`trump()`][`DdsDeal::trump`] | Trump suit as a [`DdsSuit`] discriminant (0 ♠ … 4 NT) |
 /// [`first()`][`DdsDeal::first`] | Hand on lead as a [`DdsHandEncoding`] discriminant (0 N … 3 W) |
 /// [`current_trick_suit()`][`DdsDeal::current_trick_suit`] | Suits of up to 3 cards already played in the current trick |
-/// [`current_trick_rank()`][`DdsDeal::current_trick_rank`] | Ranks (bit-flags) of those same cards |
+/// [`current_trick_rank()`][`DdsDeal::current_trick_rank`] | Sequential ranks (2 … 14) of those same cards |
 /// [`remain_cards()`][`DdsDeal::remain_cards`] | 4×4 bitfield matrix of cards still in hands (see module docs) |
 #[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -85,8 +85,8 @@ pub struct DdsDeal {
     /// [`DdsSuit`] discriminants.  Unused slots should be `0`.
     current_trick_suit: [::std::os::raw::c_int; 3usize],
     /// Ranks of the cards already played in the current trick, encoded as
-    /// **bit-flags** (bit 2 = rank 2, …, bit 14 = Ace).  Unused slots
-    /// should be `0`.
+    /// **sequential** ranks (2 … 14, where 14 = Ace).  Unused slots should
+    /// be `0`.
     current_trick_rank: [::std::os::raw::c_int; 3usize],
     /// Remaining cards.  `remain_cards[hand][suit]` is a bitmask of the
     /// ranks held by `hand` in `suit`.
@@ -112,9 +112,10 @@ pub struct DDSCurrTrickSuit(#[raw] [i32; 3]);
 
 /// The ranks of the (up to three) cards already played in the current trick.
 ///
-/// Each element is a rank **bit-flag** (bit 2 = rank 2, …, bit 14 = Ace),
-/// matching the encoding used in [`DdsDeal::current_trick_rank`].  Unused
-/// slots should be `0`.
+/// Each element is a **sequential** rank (2 … 14, where 14 = Ace), matching
+/// the encoding DDS expects in [`DdsDeal::current_trick_rank`].  This is not
+/// the rank *bit-flag* used by the remaining-cards matrix.  Unused slots
+/// should be `0`.
 ///
 /// Use [`DdsDealBuilder::current_trick`] to set this together with
 /// [`DDSCurrTrickSuit`] in one ergonomic call.
@@ -181,8 +182,8 @@ impl std::fmt::Display for DdsSuit {
 ///
 /// ### Dual-encoding note
 ///
-/// DDS uses *bit-flag* ranks internally: bit *n* set means rank *n* is
-/// present.  This type always holds the **sequential** rank (2 … 14).
+/// DDS uses *bit-flag* ranks in its remaining-cards matrix: bit *n* set means
+/// rank *n* is present.  This type always holds the **sequential** rank (2 … 14).
 /// Use [`as_bitflag`][`DdsRank::as_bitflag`] to convert to the DDS bit-flag
 /// form, and [`from_bitflag`][`DdsRank::from_bitflag`] to convert back.
 ///
@@ -644,6 +645,35 @@ fn format_bitflag_card(suit: c_int, rank: c_int) -> String {
     }
 }
 
+/// Finds the first card held by more than one hand, as `(suit, rank_bit)`.
+///
+/// DDS detects the same condition and answers `RETURN_DUPLICATE_CARDS`, but only
+/// after the caller has already built and sent the deal. Checking here lets
+/// [`DdsDealBuilder::build`] name the offending card instead, which is what the
+/// caller needs to fix its input.
+///
+/// Suits are scanned in encoding order and, within the first suit that has an
+/// overlap, hands then ranks, so a malformed deal always reports the same card.
+fn find_duplicated_card(remain_cards: &[[u32; 4]; 4]) -> Option<(c_int, c_int)> {
+    for suit in 0..4usize {
+        let mut seen = 0u32;
+        for hand in remain_cards {
+            let bits = hand[suit];
+            let overlap = seen & bits;
+            if overlap != 0 {
+                // Bit 31 cannot be a legal rank and does not fit the error's
+                // positive `c_int` payload; `-1` makes the formatter fall back
+                // to the raw values.
+                let rank_bit = c_int::try_from(1u32 << overlap.trailing_zeros()).unwrap_or(-1);
+                let suit = c_int::try_from(suit).expect("a suit index is 0..=3");
+                return Some((suit, rank_bit));
+            }
+            seen |= bits;
+        }
+    }
+    None
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Builder impl
 // ─────────────────────────────────────────────────────────────────────────────
@@ -768,6 +798,7 @@ impl DdsDealBuilder {
     /// [`ConstructDdsDealError::FirstNotDeclared`] | `first` was not set |
     /// [`ConstructDdsDealError::CurrentTrickSuitNotSet`] | Ranks set but suits missing |
     /// [`ConstructDdsDealError::CurrentTrickRankNotSet`] | Suits set but ranks missing |
+    /// [`ConstructDdsDealError::DuplicatedCard`] | The same card is held by two hands |
     pub fn build(self) -> Result<DdsDeal, ConstructDdsDealError> {
         let remain_cards = self
             .remain_cards
@@ -781,6 +812,9 @@ impl DdsDealBuilder {
                 (None, _) => Err(ConstructDdsDealError::CurrentTrickSuitNotSet),
                 (_, None) => Err(ConstructDdsDealError::CurrentTrickRankNotSet),
             }?;
+        if let Some((suit, rank)) = find_duplicated_card(remain_cards.get_raw()) {
+            return Err(ConstructDdsDealError::DuplicatedCard(suit, rank));
+        }
         Ok(DdsDeal {
             trump: trump as c_int,
             first: first as c_int,
@@ -796,26 +830,6 @@ impl DdsDealBuilder {
 // ─────────────────────────────────────────────────────────────────────────────
 
 impl DdsDeal {
-    #[must_use]
-    /// Creates a "blank" [`DdsDeal`] filled with sentinel values.
-    ///
-    /// * `trump` and `first` are set to `-1` (invalid / unset).
-    /// * Current trick arrays are filled with `-1`.
-    /// * `remain_cards` is all zeros (no cards).
-    ///
-    /// This is intended as a placeholder for buffer slots that will be
-    /// overwritten before being sent to DDS. External code should always use [`DdsDealBuilder`],
-    /// unless you want to pre-allocate an empty deal array without using [`std::mem::MaybeUninit`].
-    pub fn sentinel() -> Self {
-        Self {
-            trump: -1,
-            first: -1,
-            current_trick_suit: [-1i32; 3],
-            current_trick_rank: [-1i32; 3],
-            remain_cards: [[0u32; 4]; 4],
-        }
-    }
-
     #[inline]
     #[must_use]
     /// Returns the trump suit as a raw `c_int` discriminant.
@@ -849,9 +863,8 @@ impl DdsDeal {
     #[must_use]
     /// Returns the ranks of the cards already played in the current trick.
     ///
-    /// Each element is a rank **bit-flag** (bit *n* = rank *n*); unused
-    /// slots are `0`.  Use [`DdsRank::from_bitflag`] to decode individual
-    /// values.
+    /// Each element is a **sequential** rank (2 … 14, where 14 = Ace); unused
+    /// slots are `0`.  Use [`DdsRank::new`] to wrap an individual value.
     pub fn current_trick_rank(&self) -> [c_int; 3] {
         self.current_trick_rank
     }

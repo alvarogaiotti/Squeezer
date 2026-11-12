@@ -255,64 +255,6 @@ impl DdTableDeals {
     }
 }
 #[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-/// A bridge deal represented as an array of chars.
-/// Pbn are basically strings.
-pub struct DdTableDealPbn {
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub cards: [::std::os::raw::c_char; 80usize],
-}
-
-impl DdTableDealPbn {
-    #[must_use]
-    pub fn new() -> Self {
-        Self { cards: [56; 80] }
-    }
-}
-
-impl Default for DdTableDealPbn {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[repr(C)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Copy, Clone, Hash)]
-/// A collection of [`DdTableDealPbn`]s, contained in a fixed array of 200 elements.
-/// We can provide less, since we keep a counter with the number of deals loaded.
-pub struct DdTableDealsPbn {
-    pub no_of_tables: ::std::os::raw::c_int,
-    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
-    pub deals: [DdTableDealPbn; (MAXNOOFTABLES * DDS_STRAINS) as usize],
-}
-
-impl DdTableDealsPbn {
-    #[inline]
-    #[must_use]
-    #[allow(clippy::missing_panics_doc)]
-    pub fn new<T>(deals: &[T]) -> Self
-    where
-        for<'a> &'a T: Into<DdTableDealPbn>,
-    {
-        let mut deals_vec: Vec<DdTableDealPbn> = deals
-            .iter()
-            .take(200)
-            .map(std::convert::Into::into)
-            .collect();
-        let len = deals_vec.len();
-
-        deals_vec.resize(200, DdTableDealPbn::new());
-
-        #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
-        Self {
-            no_of_tables: len as i32,
-            deals: deals_vec.try_into().unwrap(),
-        }
-    }
-}
-#[repr(C)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Debug, Copy, Clone, Hash)]
 /// A struct that keeps the result of the double dummy result for a deal, basically saving the
@@ -601,62 +543,6 @@ mod test {
             concat!(
                 "Offset of field: ",
                 stringify!(ddTableDeals),
-                "::",
-                stringify!(deals)
-            )
-        );
-    }
-    #[test]
-    fn bindgen_test_layout_ddTableDealPBN() {
-        assert_eq!(
-            ::std::mem::size_of::<DdTableDealPbn>(),
-            80usize,
-            concat!("Size of: ", stringify!(ddTableDealPBN))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<DdTableDealPbn>(),
-            1usize,
-            concat!("Alignment of ", stringify!(ddTableDealPBN))
-        );
-        assert_eq!(
-            unsafe { &raw const (*(::std::ptr::null::<DdTableDealPbn>())).cards as usize },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(ddTableDealPBN),
-                "::",
-                stringify!(cards)
-            )
-        );
-    }
-    #[test]
-    fn bindgen_test_layout_ddTableDealsPBN() {
-        assert_eq!(
-            ::std::mem::size_of::<DdTableDealsPbn>(),
-            16004usize,
-            concat!("Size of: ", stringify!(ddTableDealsPBN))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<DdTableDealsPbn>(),
-            4usize,
-            concat!("Alignment of ", stringify!(ddTableDealsPBN))
-        );
-        assert_eq!(
-            unsafe { &raw const (*(::std::ptr::null::<DdTableDealsPbn>())).no_of_tables as usize },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(ddTableDealsPBN),
-                "::",
-                stringify!(noOfTables)
-            )
-        );
-        assert_eq!(
-            unsafe { &raw const (*(::std::ptr::null::<DdTableDealsPbn>())).deals as usize },
-            4usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(ddTableDealsPBN),
                 "::",
                 stringify!(deals)
             )

@@ -105,7 +105,7 @@ impl SolverContext for DdsContext {
         if code != RETURN_NO_FAULT {
             return Err(backend_error(code));
         }
-        Ok(read_results(&future))
+        read_results(&future)
     }
 
     fn clear_tt(&mut self) {
@@ -198,39 +198,7 @@ impl PlayAnalyser for DdsSolver {
         if code != RETURN_NO_FAULT {
             return Err(backend_error(code));
         }
-        // DDS reports the starting position then the result after each card,
-        // but caps the sequence at 49 entries ("the last trick holds no
-        // excitement"). Every omitted play is in the forced final trick — once
-        // 48 cards are down, each hand holds exactly one card — so repeating
-        // the last count restores the one-entry-per-play convention.
-        //
-        // `number` and the counts are DDS output, not caller input: a negative
-        // length, a length past the fixed buffer, a count outside 0..=13 or an
-        // empty result means DDS broke its contract, so surface it rather than
-        // defaulting to a plausible-but-wrong `0`.
-        let number = usize::try_from(solved.number).map_err(|_| {
-            SolverError::Backend(format!(
-                "DDS reported a negative play-analysis length: {}",
-                solved.number
-            ))
-        })?;
-        let results = solved.tricks.get(..number).ok_or_else(|| {
-            SolverError::Backend(format!(
-                "DDS reported {number} play-analysis results for a {} slot buffer",
-                solved.tricks.len()
-            ))
-        })?;
-        let mut tricks = Vec::with_capacity(play.len() + 1);
-        for &trick in results {
-            tricks.push(u8::try_from(trick).map_err(|_| {
-                SolverError::Backend(format!("DDS returned an out-of-range trick count: {trick}"))
-            })?);
-        }
-        let last = tricks.last().copied().ok_or_else(|| {
-            SolverError::Backend("DDS returned no play-analysis results".to_owned())
-        })?;
-        tricks.resize(play.len() + 1, last);
-        Ok(tricks)
+        read_play_results(&solved, play.len())
     }
 }
 
@@ -241,6 +209,16 @@ impl PlayAnalyser for DdsSolver {
 fn backend_error(code: c_int) -> SolverError {
     let error = dds::ddserror::DdsError::from(code);
     SolverError::Backend(error.to_string())
+}
+
+/// The single malformed-output policy: a field DDS broke its own contract on is
+/// an error, never a silently skipped entry.
+///
+/// Both output readers funnel through here — [`read_results`] for solves and
+/// [`read_play_results`] for play analysis — so they cannot drift back into one
+/// erroring and the other clamping.
+fn malformed_output(detail: core::fmt::Arguments<'_>) -> SolverError {
+    SolverError::Backend(format!("DDS returned malformed output: {detail}"))
 }
 
 /// Translates the seam's solution level into DDS's `solutions` code.
@@ -265,45 +243,116 @@ fn mode_code(mode: SolveMode) -> c_int {
 }
 
 /// Converts a populated `FutureTricks` into the seam's result type.
-fn read_results(future: &FutureTricks) -> SolveResults {
+///
+/// Every field is DDS output, so each one is checked against DDS's documented
+/// domain: a card count that does not fit the fixed buffer, a suit outside
+/// 0..=3, a rank outside 2..=14, a score outside 0..=13 or a negative
+/// equivalence mask means DDS broke its contract and is surfaced as an error.
+///
+/// The score check relies on this seam always asking for the maximum number of
+/// tricks ([`TARGET_MAX_TRICKS`]) in a searching mode ([`mode_code`]), where
+/// DDS's score is the trick count. DDS's `-1` (target not reached) and `-2`
+/// (mode 0 sentinel) are not reachable through these calls.
+fn read_results(future: &FutureTricks) -> Result<SolveResults, SolverError> {
     let count = usize::try_from(future.cards)
-        .unwrap_or(0)
-        .min(future.suit.len());
+        .map_err(|_| malformed_output(format_args!("a negative card count: {}", future.cards)))?;
+    if count > future.suit.len() {
+        return Err(malformed_output(format_args!(
+            "a card count of {count} for a {} slot buffer",
+            future.suit.len()
+        )));
+    }
     let mut cards = Vec::with_capacity(count);
     for index in 0..count {
-        // A malformed entry is skipped rather than aborting the whole solve;
-        // DDS only ever emits valid `(suit, rank)` pairs here.
-        let (Ok(suit), Ok(rank)) = (
-            Suit::try_from(future.suit[index]),
-            u8::try_from(future.rank[index]),
-        ) else {
-            continue;
-        };
-        if !(2..=14).contains(&rank) {
-            continue;
-        }
-        let card = Card::new(suit, rank);
+        let suit = Suit::try_from(future.suit[index]).map_err(|_| {
+            malformed_output(format_args!(
+                "a card suit outside 0..=3: {}",
+                future.suit[index]
+            ))
+        })?;
+        let card = Card::new(suit, card_rank(future.rank[index])?);
         cards.push(CardSolve {
             card,
-            tricks: u8::try_from(future.score[index]).unwrap_or(0),
-            equivalents: expand_equals(card, future.equals[index]),
+            tricks: trick_count(future.score[index])?,
+            equivalents: expand_equals(card, future.equals[index])?,
         });
     }
-    SolveResults { cards }
+    Ok(SolveResults { cards })
+}
+
+/// Reads a card rank, rejecting values outside a card's `2..=14`.
+fn card_rank(value: c_int) -> Result<u8, SolverError> {
+    match u8::try_from(value) {
+        Ok(rank) if (2..=14).contains(&rank) => Ok(rank),
+        _ => Err(malformed_output(format_args!(
+            "a card rank outside 2..=14: {value}"
+        ))),
+    }
+}
+
+/// Reads a trick count, rejecting values outside a deal's `0..=13`.
+fn trick_count(value: c_int) -> Result<u8, SolverError> {
+    match u8::try_from(value) {
+        Ok(count) if count <= 13 => Ok(count),
+        _ => Err(malformed_output(format_args!(
+            "a trick count outside 0..=13: {value}"
+        ))),
+    }
+}
+
+/// Turns DDS's `SolvedPlay` into the seam's one-entry-per-play vector.
+///
+/// DDS reports the starting position then the result after each card, but caps
+/// the sequence at 49 entries ("the last trick holds no excitement"). Every
+/// omitted play is in the forced final trick — once 48 cards are down, each
+/// hand holds exactly one card — so repeating the last count restores the
+/// one-entry-per-play convention.
+///
+/// A length past `plays + 1` is rejected rather than truncated: padding one
+/// entry per play is the only repair the contract allows.
+fn read_play_results(solved: &SolvedPlay, plays: usize) -> Result<Vec<u8>, SolverError> {
+    let number = usize::try_from(solved.number).map_err(|_| {
+        malformed_output(format_args!(
+            "a negative play-analysis length: {}",
+            solved.number
+        ))
+    })?;
+    let results = solved.tricks.get(..number).ok_or_else(|| {
+        malformed_output(format_args!(
+            "{number} play-analysis results for a {} slot buffer",
+            solved.tricks.len()
+        ))
+    })?;
+    if number > plays + 1 {
+        return Err(malformed_output(format_args!(
+            "{number} play-analysis results for {plays} recorded plays"
+        )));
+    }
+    let mut tricks = Vec::with_capacity(plays + 1);
+    for &trick in results {
+        tricks.push(trick_count(trick)?);
+    }
+    let last = tricks
+        .last()
+        .copied()
+        .ok_or_else(|| malformed_output(format_args!("no play-analysis results")))?;
+    tricks.resize(plays + 1, last);
+    Ok(tricks)
 }
 
 /// Expands DDS's `equals` bitmask (bit *n* = rank *n*) into physical cards of
 /// `card`'s suit, including `card` itself.
-fn expand_equals(card: Card, equals: c_int) -> Cards {
+fn expand_equals(card: Card, equals: c_int) -> Result<Cards, SolverError> {
     let suit = card.suit();
-    let bits = u64::try_from(equals).unwrap_or(0);
+    let bits = u64::try_from(equals)
+        .map_err(|_| malformed_output(format_args!("a negative equivalence mask: {equals}")))?;
     let mut cards = Cards::EMPTY.insert(card);
     for rank in 2..=14u8 {
         if bits & (1u64 << rank) != 0 {
             cards = cards.insert(Card::new(suit, rank));
         }
     }
-    cards
+    Ok(cards)
 }
 
 #[cfg(test)]
@@ -538,6 +587,83 @@ mod tests {
         let mut context = context();
         context.clear_tt();
         context.reset();
+    }
+
+    #[test]
+    fn read_results_rejects_a_malformed_card_instead_of_skipping_it() {
+        // A silent skip used to turn a broken DDS contract into a plausible
+        // result with one card missing. Suit 4 (no-trump) is not a card suit.
+        let mut future = FutureTricks {
+            cards: 1,
+            ..Default::default()
+        };
+        future.suit[0] = 4;
+        future.rank[0] = 5;
+        future.score[0] = 5;
+
+        let error = read_results(&future).expect_err("suit 4 is not a card suit");
+
+        assert!(matches!(error, SolverError::Backend(_)));
+        assert!(error.to_string().contains("suit"), "{error}");
+    }
+
+    #[test]
+    fn read_results_rejects_a_card_count_past_the_buffer() {
+        // `cards` is DDS output: more results than the fixed buffer is a broken
+        // contract, not a reason to silently clamp the list.
+        let mut future = FutureTricks {
+            cards: 14,
+            ..Default::default()
+        };
+        future.suit[0] = 0;
+        future.rank[0] = 5;
+        future.score[0] = 5;
+
+        let error = read_results(&future).expect_err("14 results do not fit 13 slots");
+
+        assert!(matches!(error, SolverError::Backend(_)));
+        assert!(error.to_string().contains("count"), "{error}");
+    }
+
+    #[test]
+    fn read_play_results_rejects_a_negative_length() {
+        // `number` is DDS output; a negative length is a broken contract.
+        let mut solved = SolvedPlay::new();
+        solved.number = -1;
+
+        let error = read_play_results(&solved, 0).expect_err("a negative length is malformed");
+
+        assert!(matches!(error, SolverError::Backend(_)));
+        assert!(error.to_string().contains("length"), "{error}");
+    }
+
+    #[test]
+    fn read_play_results_rejects_a_trick_count_outside_the_trick_range() {
+        // The play analyser shares `read_results`' policy: a count of 14 is not
+        // a trick count, so it is an error rather than a plausible wrong value.
+        let mut solved = SolvedPlay::new();
+        solved.number = 1;
+        solved.tricks[0] = 14;
+
+        let error = read_play_results(&solved, 0).expect_err("14 tricks is not a count");
+
+        assert!(matches!(error, SolverError::Backend(_)));
+        assert!(error.to_string().contains("trick count"), "{error}");
+    }
+
+    #[test]
+    fn read_play_results_rejects_more_results_than_the_recorded_plays() {
+        // One entry per play plus the starting position is the contract; more
+        // entries than that means DDS reported a length the caller cannot use.
+        // Truncating them would silently absorb a broken length.
+        let mut solved = SolvedPlay::new();
+        solved.number = 3;
+        solved.tricks[..3].copy_from_slice(&[5, 5, 5]);
+
+        let error = read_play_results(&solved, 1).expect_err("3 results for 1 play is malformed");
+
+        assert!(matches!(error, SolverError::Backend(_)));
+        assert!(error.to_string().contains("play"), "{error}");
     }
 
     #[test]
