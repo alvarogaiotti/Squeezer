@@ -14,7 +14,7 @@ use std::fmt;
 
 /// Why a simulation could not be configured or run.
 ///
-/// The variants preserve their cause: [`SimulationError::source`] returns the
+/// The variants preserve their cause: [`std::error::Error::source`] returns the
 /// position, dealer or solver error, so a caller can drill into the layer that
 /// failed.
 #[derive(Debug)]

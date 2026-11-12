@@ -103,6 +103,7 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Gotchas
 
 - Root `config.toml` is not read by Cargo (that needs `.cargo/config.toml`), so `target-cpu=native` is not applied; set `RUSTFLAGS` explicitly when needed.
+- `Cargo.lock` is tracked on purpose and must not be added back to `.gitignore`: the workspace pins the vendored DDS submodule and the CI feature matrix, so dependency resolution is part of the repository. Regenerate it only when dependencies change.
 - `crates/squeezer-cards/tests/sampler_choice.rs` and
   `tests/uniformity_check.rs` are gated on the crate's `rand` feature through
   `required-features`, and the default feature set leaves `rand` off. CI runs

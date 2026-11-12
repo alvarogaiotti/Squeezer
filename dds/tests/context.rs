@@ -3,9 +3,9 @@
 
 //! DDS 3.1 example-hand tests.
 //!
-//! Every expected value here is ported from DDS's own `examples/hands.cpp`
-//! (hand 0) via the linking spike in `tmp/dds3-spike/crate/src/main.rs`, so
-//! the tests use the solver as an oracle rather than recomputing results.
+//! Every expected value here is ported from DDS's own
+//! `vendor/dds/examples/hands.cpp` (hand 0), so the tests use the solver as
+//! an oracle rather than recomputing results.
 
 use core::ffi::{c_int, c_void};
 use std::ffi::CStr;
