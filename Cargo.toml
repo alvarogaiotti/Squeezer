@@ -56,10 +56,6 @@ name = "deck_pick_performance"
 harness = false
 
 [[bench]]
-name = "bench_handdescriptor"
-harness = false
-
-[[bench]]
 name = "simd_benchmark"
 harness = false
 required-features = ["dds"]

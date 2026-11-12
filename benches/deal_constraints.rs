@@ -111,10 +111,40 @@ fn benchmark_constraint_matrix(c: &mut Criterion) {
         .expect("conditioned dealer builds");
     bench_dealer(&mut group, "predeal_plus_hcp", conditioned);
 
+    // Polish Club 1♣ opening, inlined so the benchmark stays self-contained:
+    // weak balanced 11-14, unbalanced with clubs 11-17, or any strong 18+ hand.
+    let weak1n = HandConstraintBuilder::new()
+        .add_shape("(4432)")
+        .expect("(4432) parses")
+        .add_shape("(4333)")
+        .expect("(4333) parses")
+        .add_shape("(4414)")
+        .expect("(4414) parses")
+        .remove_shape("4441")
+        .expect("4441 parses")
+        .add_shape("(5332)")
+        .expect("(5332) parses")
+        .remove_shape("(5x)(2+2+)")
+        .expect("(5x)(2+2+) parses")
+        .with_range(11, 14)
+        .build()
+        .expect("weak 1NT constraint is non-empty");
+    let unbal_with_clubs = HandConstraintBuilder::new()
+        .with_longest(Suit::Clubs)
+        .expect("clubs-longest patterns parse")
+        .remove_shape("(4x)x5")
+        .expect("(4x)x5 parses")
+        .remove_shape("(5-5-5-)6+")
+        .expect("(5-5-5-)6+ parses")
+        .with_range(11, 17)
+        .build()
+        .expect("clubs-longest constraint is non-empty");
+    let strong_any = HandConstraint::hcp(18..=37);
     let polish_club = DealerBuilder::new()
         .with_hand_constraint(
             Seat::South,
-            polish_club_hand_constraint().expect("Polish Club parses"),
+            HandConstraint::any(vec![weak1n, unbal_with_clubs, strong_any])
+                .expect("Polish Club has branches"),
         )
         .build()
         .expect("Polish Club dealer builds");
