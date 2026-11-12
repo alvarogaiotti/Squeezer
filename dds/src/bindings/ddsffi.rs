@@ -34,7 +34,6 @@ pub const DDS_VERSION: u32 = 20900;
 pub const DDS_HANDS: u32 = 4;
 pub const DDS_SUITS: u32 = 4;
 pub const DDS_STRAINS: u32 = 5;
-pub const MAXNOOFBOARDS: u32 = 200;
 pub const MAXNOOFTABLES: u32 = 40;
 pub const RETURN_NO_FAULT: i32 = 1;
 pub const TEXT_NO_FAULT: &[u8; 8usize] = b"Success\0";

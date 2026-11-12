@@ -8,8 +8,9 @@ use crate::bindings::ddsffi::{
     RETURN_MODE_WRONG_HI, RETURN_MODE_WRONG_LO, RETURN_NO_FAULT, RETURN_NO_SUIT, RETURN_PBN_FAULT,
     RETURN_PLAY_FAULT, RETURN_PLAYED_CARD, RETURN_SOLNS_WRONG_HI, RETURN_SOLNS_WRONG_LO,
     RETURN_SUIT_OR_RANK, RETURN_TARGET_TOO_HIGH, RETURN_TARGET_WRONG_HI, RETURN_TARGET_WRONG_LO,
-    RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_WAIT, RETURN_TOO_MANY_CARDS,
-    RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG, RETURN_ZERO_CARDS,
+    RETURN_THREAD_CREATE, RETURN_THREAD_INDEX, RETURN_THREAD_MISSING, RETURN_THREAD_WAIT,
+    RETURN_TOO_MANY_BOARDS, RETURN_TOO_MANY_CARDS, RETURN_TOO_MANY_TABLES, RETURN_TRUMP_WRONG,
+    RETURN_ZERO_CARDS,
 };
 use crate::deal::ConstructDdsDealError;
 use core::ffi::c_int;
@@ -82,6 +83,8 @@ pub enum DdsErrorKind {
     NoSuit,
     TooManyTables,
     ChunkSize,
+    TooManyBoards,
+    ThreadMissing,
     /// A success code (`RETURN_NO_FAULT`) was converted into an error. This
     /// only happens if a caller forgets to check the return value of a DDS
     /// call before wrapping it; it is never a real solver failure.
@@ -128,6 +131,8 @@ impl From<c_int> for DdsErrorKind {
             RETURN_NO_SUIT => Self::NoSuit,
             RETURN_TOO_MANY_TABLES => Self::TooManyTables,
             RETURN_CHUNK_SIZE => Self::ChunkSize,
+            RETURN_TOO_MANY_BOARDS => Self::TooManyBoards,
+            RETURN_THREAD_MISSING => Self::ThreadMissing,
             // Unknown codes fall back to the generic fault rather than
             // panicking: a conversion from a C integer must never unwind.
             _ => Self::UnknownFault,
@@ -146,7 +151,12 @@ impl fmt::Display for DdsErrorKind {
     #[inline]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Self::UnknownFault => write!(formatter, "fopen() failed or wrong number of boards"),
+            Self::UnknownFault => {
+                write!(
+                    formatter,
+                    "a general DDS error or an unrecognised return code"
+                )
+            }
             Self::ZeroCards => write!(formatter, "zero cards"),
             Self::TargetTooHigh => {
                 write!(formatter, "target higher than number of tricks remaining")
@@ -184,6 +194,10 @@ impl fmt::Display for DdsErrorKind {
             Self::NoSuit => write!(formatter, "denomination filter vector has no entries"),
             Self::TooManyTables => write!(formatter, "too many tables requested"),
             Self::ChunkSize => write!(formatter, "chunk size is less than 1"),
+            Self::TooManyBoards => write!(formatter, "too many boards requested"),
+            Self::ThreadMissing => {
+                write!(formatter, "the multi-threading system is not present")
+            }
             Self::SuccessAsError => write!(
                 formatter,
                 "DDS returned success (1) but it was treated as an error"
