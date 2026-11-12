@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`).
-- Not a Cargo workspace: `dds` and `squeezer_macros` are path dependencies. Target them with `--manifest-path`, e.g. `cargo test --manifest-path dds/Cargo.toml`.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`).
+- It is a Cargo workspace (resolver 3) with `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -27,7 +27,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Commands
 
-- Default features are `lin`, `dds`, `bbo_async`: `cargo check` / `cargo test`.
+- Default features are `lin`, `pbn`, `dds`, `bbo_async`: `cargo check` / `cargo test`
+  (the root package only; add `--workspace` to include the members).
 - Solver concurrency is owned by our own pool: each rayon *job* (chunk of work)
   gets its own DDS context (`SolverPool`/`DynSolverPool`), with at most one
   context live per worker at a time, so `workers × TT-cap` bounds instantaneous
@@ -37,8 +38,9 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - The `dds` crate's own tests are parallel-safe under 3.1: the context shim
   takes a caller-owned context, and the legacy `SolveBoard`/`CalcDDtable`/
   `CalcAllTables` entry points draw their context from a `thread_local`. Run
-  `cargo test --manifest-path dds/Cargo.toml` with the default harness.
-- `cargo fmt --all`. CI (`.github/workflows/rust.yml`) runs `cargo test --verbose --features dds` then `cargo fmt --all`.
+  `cargo test -p dds` with the default harness.
+- `cargo fmt --all`. CI (`.github/workflows/rust.yml`) checks out the `vendor/dds`
+  submodule, runs `cargo test --workspace --verbose`, then `cargo fmt --all --check`.
 - `cargo bench --bench <name>` (criterion, `harness = false`; see `Cargo.toml`).
 
 ## Features
