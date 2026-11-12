@@ -22,7 +22,7 @@ to draw.
 | `squeezer-model` | shape and shape parsing, hand constraints, the contract vocabulary (`Seat`, `Vulnerability`, `Strain`, `Doubled`, `Vulnerable`, `Contract`), `Deal`, `Dealer`, `Board`, `Auction`, `Play`, `Position`, the `Deal`/`Board` writers | `squeezer-cards`, `bitvec`, `itertools`, `rand`, `serde` (optional) |
 | `squeezer-solver` | the solver trait, `SolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
 | `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `squeezer-cards`, `nom`, `serde` (optional) |
-| `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log` |
+| `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log`, `futures-util`, `tokio` |
 | `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `squeezer-cards`, `serde` (optional) |
 
 The `Deal`/`Board` writers stay unconditional, as they are today: exporting a
@@ -47,12 +47,13 @@ vocabulary. It is a lower layer, so the graph stays acyclic.
 `squeezer-bbo` depends on no other Squeezer crate, and nothing depends on
 `squeezer-sim`, `squeezer-io` or `squeezer-bbo`, so the graph is acyclic by
 construction rather than by convention. `squeezer-bbo::download` returns the
-fetched LIN documents (`Vec<String>`), and
+fetched LIN documents (`Vec<String>`),
 `squeezer-io::linparser::parse_lin_documents` converts such a batch into
-`Board`s. The conversion deliberately lives in the importer crate rather than
-behind a `squeezer-bbo` feature, so the download crate keeps its edge to no
-other Squeezer crate and a consumer that only fetches text never compiles
-`nom`.
+`Board`s, and the crate's `download_report`/`download_to_dir` keep per-hand
+failures or write the raw documents without adding a Squeezer edge. The
+conversion deliberately lives in the importer crate rather than behind a
+`squeezer-bbo` feature, so the download crate keeps its edge to no other
+Squeezer crate and a consumer that only fetches text never compiles `nom`.
 
 Each crate defines its own error type instead of one crate-wide `SqueezerError`.
 The point is that an error names the layer that produced it; one shared enum

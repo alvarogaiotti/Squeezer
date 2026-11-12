@@ -1787,6 +1787,7 @@ dependencies = [
 name = "squeezer-bbo"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "log",
  "reqwest",
  "scraper",

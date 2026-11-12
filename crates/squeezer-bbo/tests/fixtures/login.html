@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Bridge Base Online - Myhands</title></head>
+<body class="bbo_content">
+<div class="container bbo_content">
+  Please login with your BBO username and password to view hand records
+  <form method="post">
+    <input type="hidden" name="t" value="/myhands/index.php?"/>
+    <input type="hidden" name="count" value="1" />
+    <table>
+      <tr><td><label for="username">Username</label></td><td><input type="text" id="username" name="username" value="" size="10" maxlength="10" placeholder="BBO login" required/></td></tr>
+      <tr><td><label for="password">Password</label></td><td><input type="password" id="password" name="password" value="" size="10" maxlength="10" placeholder="Password" required/></td></tr>
+      <tr><td><input type="submit" name="submit" value="Login" /></td><td><label title="You will not have to login again within 30 days of last use">Keep me logged in <input type="checkbox" id="keep" name="keep" checked/></label></td></tr>
+    </table>
+  </form>
+</div>
+</body>
+</html>

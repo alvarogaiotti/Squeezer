@@ -127,3 +127,37 @@ _Avoid_: results table, score table.
 **Par**:
 The double-dummy contract and score at which neither side can improve,
 computed from a DD table.
+
+### BBO retrieval
+
+**Hand-record listing**:
+One BBO `hands.php` response for one user and one hand-record window. A valid
+listing is identified by its `Hands played by …` header, even when it contains
+no hands.
+_Avoid_: search results, query page.
+
+**Hand-record window**:
+An ordered pair of instants, `start` strictly before `end`, covering the hands
+to retrieve. BBO accepts at most 31 days in one listing page.
+_Avoid_: interval, date range (both are ambiguous about order).
+
+**Interval direction**:
+Which end of a hand-record window is anchored to the date the user chose: the
+end for a backward search, the start for a forward search. The window itself is
+always ordered from earlier to later; direction is not a parameter order.
+_Avoid_: reversed interval, backwards query.
+
+**Hand-record link**:
+The BBO `fetchlin.php` URL that returns one complete LIN document.
+_Avoid_: hand URL, download link.
+
+**Session**:
+The cookie-backed BBO login state. An expired session answers a protected
+request by redirecting to the login page, not by returning an empty listing.
+_Avoid_: login token (that is one cookie, not the state).
+
+**Download report**:
+The outcome of fetching a batch of hand-record links: the LIN documents
+retrieved, the per-link failures, and the files skipped because they already
+existed.
+_Avoid_: batch result, download list.

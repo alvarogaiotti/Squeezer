@@ -10,14 +10,26 @@ edition = "2024"
 # `bbo_async`; use `default-features = false, features = ["blocking"]` for the
 # synchronous client alone.
 default = ["async"]
-async = ["dep:log", "dep:reqwest", "dep:scraper", "dep:time", "dep:url"]
+async = [
+    "dep:futures-util",
+    "dep:log",
+    "dep:reqwest",
+    "dep:scraper",
+    "dep:time",
+    "dep:tokio",
+    "dep:url",
+]
 blocking = ["dep:log", "dep:reqwest", "reqwest/blocking", "dep:scraper", "dep:time", "dep:url"]
 
 [dependencies]
+# The async client keeps at most `DownloadPolicy::max_in_flight` hand requests
+# live at once, preserving their order, and sleeps between retries.
+futures-util = { version = "*", default-features = false, features = ["std"], optional = true }
 log = { version = "*", optional = true }
 reqwest = { version = "*", features = ["cookies"], optional = true }
 scraper = { version = "0.27.0", optional = true }
 time = { version = "*", optional = true }
+tokio = { version = "*", features = ["time"], optional = true }
 url = { version = "2.5.8", optional = true }
 
 [dev-dependencies]
