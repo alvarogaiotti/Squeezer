@@ -58,27 +58,36 @@ pub(crate) struct DealCards {
 
 /// Resolves a builder's optional solver factory.
 ///
-/// With `dds`, an omitted factory falls back to the native backend. Without it,
-/// the caller must inject one, so mock-solver tests and custom backends never
-/// link DDS.
+/// With `dds`, an omitted factory falls back to the native backend, so the
+/// returned `Option` is always `Some`. Without it, the caller must inject one,
+/// so mock-solver tests and custom backends never link DDS, and a `None`
+/// return asks the caller to report [`missing_solver_factory`].
 ///
-/// The `Result` is only fallible without `dds`; keeping one signature for both
-/// builds would otherwise force every call site to branch on the feature.
-#[allow(clippy::unnecessary_wraps)]
+/// `unnecessary_wraps` sees only one feature configuration at a time, so it
+/// flags the `dds` build even though the `Option` is load-bearing without it.
+#[cfg_attr(feature = "dds", allow(clippy::unnecessary_wraps))]
 pub(crate) fn resolve_solver_factory(
     factory: Option<Box<dyn ContextFactory>>,
-    _context: &'static str,
-) -> Result<Box<dyn ContextFactory>, SimulationError> {
-    match factory {
-        Some(factory) => Ok(factory),
-        #[cfg(feature = "dds")]
-        None => Ok(Box::new(squeezer_solver::DdsSolver::new())),
-        #[cfg(not(feature = "dds"))]
-        None => Err(SimulationError::invalid_input(
-            _context,
-            "a solver factory is required when the dds feature is off",
-        )),
+) -> Option<Box<dyn ContextFactory>> {
+    #[cfg(feature = "dds")]
+    {
+        Some(factory.unwrap_or_else(|| Box::new(squeezer_solver::DdsSolver::new())))
     }
+    #[cfg(not(feature = "dds"))]
+    {
+        factory
+    }
+}
+
+/// The error a builder reports when no solver factory was supplied.
+///
+/// Only the build without `dds` can reach this: with the backend compiled in,
+/// [`resolve_solver_factory`] always supplies one.
+pub(crate) fn missing_solver_factory(context: &'static str) -> SimulationError {
+    SimulationError::invalid_input(
+        context,
+        "a solver factory is required when the dds feature is off",
+    )
 }
 
 /// The opening position for `deal` under `contract`.

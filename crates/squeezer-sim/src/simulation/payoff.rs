@@ -57,7 +57,7 @@ use super::core::{
     ComparisonResult, DealResult, DistributionData, PairwiseStatistics, Simulation,
     SimulationMetadata, SimulationOutput,
 };
-use super::{opening_position, resolve_solver_factory, solve_tricks_pool};
+use super::{missing_solver_factory, opening_position, resolve_solver_factory, solve_tricks_pool};
 use crate::prelude::*;
 use squeezer_solver::ContextFactory;
 
@@ -510,7 +510,8 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
         let dealer = self.dealer.ok_or_else(|| {
             SimulationError::invalid_input("contract payoff", "dealer must be set")
         })?;
-        let solver_factory = resolve_solver_factory(self.solver_factory, "contract payoff")?;
+        let solver_factory = resolve_solver_factory(self.solver_factory)
+            .ok_or_else(|| missing_solver_factory("contract payoff"))?;
 
         if self.contracts.len() < 2 {
             return Err(SimulationError::invalid_input(

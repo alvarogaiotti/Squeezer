@@ -48,7 +48,7 @@ use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use bitvec::{BitArr, bitarr};
+use bitvec::BitArr;
 use itertools::Itertools;
 use squeezer_cards::{Cards, Suit};
 
@@ -413,8 +413,13 @@ impl Shapes {
     /// instead.
     #[must_use]
     pub fn new() -> Self {
+        // `ZERO` is the same all-clear table `bitarr!(0; …)` builds. The
+        // macro's expansion contains an internal `transmute`, and clippy's
+        // `unsafe_derive_deserialize` heuristic flags any `unsafe` block in an
+        // inherent impl of a type that derives `Deserialize` — a false
+        // positive here, since the derive cannot invalidate the zeroed table.
         Self {
-            shape_table: bitarr!(0; SHAPE_TABLE_BUCKETS),
+            shape_table: ShapeTable::ZERO,
             min_ls: [ZERO_LENGTH; SUITS],
             max_ls: [MAX_LENGTH; SUITS],
         }
@@ -594,8 +599,11 @@ impl Shapes {
     /// **Note**: For public use, prefer `Shape::All` instead, which is more efficient
     /// as it doesn't allocate a bit array.
     fn new_filled() -> Self {
+        // `!ZERO` sets every bit, dead array padding included, exactly as
+        // `bitarr!(1; …)` does; see `Shapes::new` for why the macro stays out
+        // of this impl.
         Self {
-            shape_table: bitarr!(1; SHAPE_TABLE_BUCKETS),
+            shape_table: !ShapeTable::ZERO,
             min_ls: [0; 4],
             max_ls: [13; 4],
         }

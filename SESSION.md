@@ -507,3 +507,23 @@ Deferred from ticket 16 (the root package is gone and the workspace is virtual).
 - Deleting `SqueezerError` deleted its 11 boundary tests along with 292 lines of
   error code. Per-crate error tests (constraint causes, dealer causes, parse
   errors) remain where each error now lives.
+
+## 2026-11-12 — clippy cleanup follow-ups
+
+Deferred from ticket 17 (the workspace is warning-free with the current lint
+configuration).
+
+- `DdsDeal::sentinel()` has no caller in the workspace; it survives on the
+  crate-level `dead_code` allow as a public pre-allocation helper. Delete it if
+  the DDS wrapper stops exposing buffer placeholders.
+- `bitarr!` must not come back into an inherent impl of a type that derives
+  `serde::Deserialize` (today just `Shapes`): the macro expands to an internal
+  `transmute`, and `clippy::unsafe_derive_deserialize` flags any `unsafe` block
+  in such an impl. `Shapes::new`/`new_filled` use `ShapeTable::ZERO` and
+  `!ShapeTable::ZERO` instead, which are byte-identical to the macros'
+  expansions; the reason is documented at the call sites.
+- `resolve_solver_factory` carries a `#[cfg_attr(feature = "dds",
+  allow(clippy::unnecessary_wraps))]` because the `Option` is load-bearing only
+  in the no-`dds` build, which clippy cannot see from the `dds` configuration.
+  Any further work on that seam should drop the allow along with the `Option` if
+  the fallback can be made unconditional.
