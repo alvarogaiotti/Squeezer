@@ -47,10 +47,10 @@ pub(crate) mod fixtures {
     /// read and each hand exercises three void suits.
     pub(crate) fn one_suit_per_seat() -> Deal {
         Deal::new([
-            Hand::from_str("SAKQJT98765432").expect("spades hand parses"),
-            Hand::from_str("HAKQJT98765432").expect("hearts hand parses"),
-            Hand::from_str("DAKQJT98765432").expect("diamonds hand parses"),
-            Hand::from_str("CAKQJT98765432").expect("clubs hand parses"),
+            Cards::from_str("SAKQJT98765432").expect("spades hand parses"),
+            Cards::from_str("HAKQJT98765432").expect("hearts hand parses"),
+            Cards::from_str("DAKQJT98765432").expect("diamonds hand parses"),
+            Cards::from_str("CAKQJT98765432").expect("clubs hand parses"),
         ])
         .expect("one suit per seat is a valid deal")
     }
@@ -90,14 +90,14 @@ mod tests {
 
     fn arbitrary_deal(g: &mut Gen) -> Deal {
         let mut deck: Vec<Card> = Cards::ALL.into_iter().collect();
-        let mut hands = [Hand::new_empty(); 4];
+        let mut hands = [Cards::EMPTY; 4];
         for slot in &mut hands {
             let mut cards = Cards::EMPTY;
             for _ in 0..13 {
                 let index = usize::arbitrary(g) % deck.len();
                 cards = cards.insert(deck.swap_remove(index));
             }
-            *slot = Hand::try_from(cards).expect("thirteen distinct cards form a hand");
+            *slot = cards;
         }
         Deal::new(hands).expect("the four hands partition the deck")
     }
@@ -177,7 +177,7 @@ mod tests {
 
         let mut remaining: [Vec<Card>; 4] = std::array::from_fn(|_| Vec::new());
         for seat in Seat::iter() {
-            remaining[seat as usize] = deal[seat].cards().into_iter().collect();
+            remaining[seat as usize] = deal[seat].into_iter().collect();
         }
 
         let mut leader = contract.leader();

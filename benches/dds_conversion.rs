@@ -5,10 +5,10 @@ use std::hint::black_box;
 
 fn example_position() -> Position {
     let deal = Deal::new([
-        Hand::from_str("SQJ6 HK652 DJ85 CT98").expect("north hand parses"),
-        Hand::from_str("S873 HJ97 DAT764 CQ4").expect("east hand parses"),
-        Hand::from_str("SK5 HT83 DKQ9 CA7652").expect("south hand parses"),
-        Hand::from_str("SAT942 HAQ4 D32 CKJ3").expect("west hand parses"),
+        Cards::from_str("SQJ6 HK652 DJ85 CT98").expect("north hand parses"),
+        Cards::from_str("S873 HJ97 DAT764 CQ4").expect("east hand parses"),
+        Cards::from_str("SK5 HT83 DKQ9 CA7652").expect("south hand parses"),
+        Cards::from_str("SAT942 HAQ4 D32 CKJ3").expect("west hand parses"),
     ])
     .expect("example hands form a deal");
     let contract = Contract::new(

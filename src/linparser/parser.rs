@@ -175,7 +175,7 @@ fn consume_start_table_tag(input: &str) -> LinResult<'_, ()> {
 ///
 /// LIN lists the hands South, West, North, East; the fourth may be omitted and
 /// is then the remainder of the deck. The core stores hands `[N, E, S, W]`.
-fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Hand; 4])> {
+fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Cards; 4])> {
     let (input, _) = ws(tag("md|"))(input)?;
     let (input, content) = ws(take_until("|"))(input)?;
     let (input, _) = ws(char('|'))(input)?;
@@ -236,18 +236,9 @@ fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Hand; 4])> {
         .map(|cards| cards.expect("exactly one empty slot was filled"))
         .collect();
     // The partition is validated once, in `parse_deal`, where the deal is built.
-    let hands = [
-        hand_from_cards(cards[2])?,
-        hand_from_cards(cards[3])?,
-        hand_from_cards(cards[0])?,
-        hand_from_cards(cards[1])?,
-    ];
+    let hands = [cards[2], cards[3], cards[0], cards[1]];
 
     Ok((input, (dealer, hands)))
-}
-
-fn hand_from_cards(cards: Cards) -> Result<Hand, nom::Err<LinError>> {
-    Hand::try_from(cards).map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands)))
 }
 
 /// `rh||ah|Board N|` (or `ah|Board N|`), the board-number tag that LIN places

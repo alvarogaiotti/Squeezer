@@ -1,6 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use squeezer::{
-    Dealer, DealerBuilder, Hand, HandConstraint, Seat, Shape, polish_club_hand_constraint,
+    Cards, Dealer, DealerBuilder, HandConstraint, Seat, Shape, polish_club_hand_constraint,
 };
 use std::str::FromStr;
 
@@ -27,7 +27,12 @@ fn bench_descriptor_speed(c: &mut Criterion) {
 /// `HandConstraint::all`. Guards against regressions from folding `All` away.
 fn bench_shape_all(c: &mut Criterion) {
     let mut group = c.benchmark_group("shape all vs full table");
-    let hands: Vec<Hand> = (0..1024).map(|_| Hand::new()).collect();
+    let hands: Vec<Cards> = (0..1024)
+        .map(|_| {
+            let mut deck = Cards::new_deck();
+            deck.pick(13).expect("a full deck holds thirteen cards")
+        })
+        .collect();
     let full_table = HandConstraint::all();
     let enum_dispatch = Shape::All;
 
@@ -52,7 +57,7 @@ fn bench_shape_all(c: &mut Criterion) {
 
 fn bench_constraint_from_str(c: &mut Criterion) {
     use squeezer::HandConstraintBuilder;
-    let hand = Hand::from_str("AKQJ432.32.32.32").unwrap();
+    let hand = Cards::from_str("AKQJ432.32.32.32").unwrap();
     let constraint = HandConstraintBuilder::new()
         .with_longest(squeezer::Suit::Spades)
         .unwrap()

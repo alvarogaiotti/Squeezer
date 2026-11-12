@@ -41,10 +41,10 @@ impl SolverContext for FixedContext {
 
 fn example_deal() -> Deal {
     Deal::new([
-        Hand::from_str("SQJ6 HK652 DJ85 CT98").expect("north hand parses"),
-        Hand::from_str("S873 HJ97 DAT764 CQ4").expect("east hand parses"),
-        Hand::from_str("SK5 HT83 DKQ9 CA7652").expect("south hand parses"),
-        Hand::from_str("SAT942 HAQ4 D32 CKJ3").expect("west hand parses"),
+        Cards::from_str("SQJ6 HK652 DJ85 CT98").expect("north hand parses"),
+        Cards::from_str("S873 HJ97 DAT764 CQ4").expect("east hand parses"),
+        Cards::from_str("SK5 HT83 DKQ9 CA7652").expect("south hand parses"),
+        Cards::from_str("SAT942 HAQ4 D32 CKJ3").expect("west hand parses"),
     ])
     .expect("example hands form a deal")
 }
@@ -52,13 +52,13 @@ fn example_deal() -> Deal {
 fn fixed_dealer() -> impl Dealer {
     let deal = example_deal();
     DealerBuilder::new()
-        .predeal(Seat::North, deal.north().cards())
+        .predeal(Seat::North, deal.north())
         .expect("north is disjoint")
-        .predeal(Seat::East, deal.east().cards())
+        .predeal(Seat::East, deal.east())
         .expect("east is disjoint")
-        .predeal(Seat::South, deal.south().cards())
+        .predeal(Seat::South, deal.south())
         .expect("south is disjoint")
-        .predeal(Seat::West, deal.west().cards())
+        .predeal(Seat::West, deal.west())
         .expect("west is disjoint")
         .build()
         .expect("fixed dealer builds")
@@ -152,10 +152,10 @@ fn bench_mock_lead<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
 
 fn bench_position_derivation<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
     let deal = Deal::new([
-        Hand::from_str("SAKQJT98765432").expect("north hand parses"),
-        Hand::from_str("HAKQJT98765432").expect("east hand parses"),
-        Hand::from_str("DAKQJT98765432").expect("south hand parses"),
-        Hand::from_str("CAKQJT98765432").expect("west hand parses"),
+        Cards::from_str("SAKQJT98765432").expect("north hand parses"),
+        Cards::from_str("HAKQJT98765432").expect("east hand parses"),
+        Cards::from_str("DAKQJT98765432").expect("south hand parses"),
+        Cards::from_str("CAKQJT98765432").expect("west hand parses"),
     ])
     .expect("one-suit-per-seat deal is valid");
     let prefix = [

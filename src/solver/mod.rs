@@ -302,10 +302,10 @@ pub(crate) mod test_fixtures {
     /// The four parsed hands of DDS example hand 0.
     pub(crate) fn example_deal() -> Deal {
         Deal::new([
-            Hand::from_str("SQJ6 HK652 DJ85 CT98").expect("north parses"),
-            Hand::from_str("S873 HJ97 DAT764 CQ4").expect("east parses"),
-            Hand::from_str("SK5 HT83 DKQ9 CA7652").expect("south parses"),
-            Hand::from_str("SAT942 HAQ4 D32 CKJ3").expect("west parses"),
+            Cards::from_str("SQJ6 HK652 DJ85 CT98").expect("north parses"),
+            Cards::from_str("S873 HJ97 DAT764 CQ4").expect("east parses"),
+            Cards::from_str("SK5 HT83 DKQ9 CA7652").expect("south parses"),
+            Cards::from_str("SAT942 HAQ4 D32 CKJ3").expect("west parses"),
         ])
         .expect("example hand 0 is a partition")
     }

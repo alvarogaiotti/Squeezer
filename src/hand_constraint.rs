@@ -13,7 +13,7 @@
 //! # use squeezer::*;
 //! // Parse once, check millions of times.
 //! let constraint = HandConstraint::new(&["(4432)", "(4333)", "(5332)"], HcpRange::new(12, 14))?;
-//! let hand = Hand::from_str("AK52.K532.A2.432")?;
+//! let hand = Cards::from_str("AK52.K532.A2.432")?;
 //! assert!(constraint.check(hand));
 //! # Ok(())
 //! # }
@@ -127,6 +127,32 @@ struct ConstraintBranch {
     hcp: HcpRange,
 }
 
+/// Cached per-candidate summary: shape pattern + HCP.
+///
+/// The same `(shape, hcp)` pair travels together through
+/// [`HandConstraint::check`] and the legacy `HandType`/`HandDescriptor`
+/// predicates. Bundling it avoids recomputing shape/HCP per predicate (each
+/// costs several popcounts) and fixes the Data Clumps smell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HandSummary {
+    /// Suit lengths in S,H,D,C order.
+    pub shape: [u8; 4],
+    /// High card points.
+    pub hcp: u8,
+}
+
+impl HandSummary {
+    /// Computes the `(shape, hcp)` summary of a seat's cards.
+    #[must_use]
+    #[inline]
+    pub(crate) fn of(cards: Cards) -> Self {
+        Self {
+            shape: cards.shape(),
+            hcp: cards.hcp(),
+        }
+    }
+}
+
 /// Deep hand constraint: a union of acceptable `(shapes, HCP)` families.
 ///
 /// This is the interface the dealer checks per candidate. Construction parses
@@ -161,7 +187,7 @@ impl HandConstraint {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use squeezer::*;
     /// let weak_nt = HandConstraint::new(&["(4432)", "(4333)"], HcpRange::new(12, 14))?;
-    /// assert!(weak_nt.check(Hand::from_str("AK52.K532.A2.432")?));
+    /// assert!(weak_nt.check(Cards::from_str("AK52.K532.A2.432")?));
     /// # Ok(())
     /// # }
     /// ```
@@ -198,7 +224,7 @@ impl HandConstraint {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use squeezer::*;
     /// let spades = HandConstraint::longest(Suit::Spades, HcpRange::new(5, 10))?;
-    /// assert!(spades.check(Hand::from_str("AKQJ432.32.32.32")?));
+    /// assert!(spades.check(Cards::from_str("AKQJ432.32.32.32")?));
     /// # Ok(())
     /// # }
     /// ```
@@ -224,7 +250,7 @@ impl HandConstraint {
     /// ```rust
     /// # use squeezer::*;
     /// let opener = HandConstraint::hcp(12..=17);
-    /// assert!(opener.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+    /// assert!(opener.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
     /// ```
     #[must_use]
     pub fn hcp<R, U>(hcp_range: R) -> Self
@@ -290,15 +316,15 @@ impl HandConstraint {
         }
     }
 
-    /// Checks whether a hand satisfies any branch of this constraint.
+    /// Checks whether a seat's cards satisfy any branch of this constraint.
     ///
-    /// The hand's `(shape, hcp)` summary is computed once, then each branch
-    /// runs a single fused range-plus-table lookup. Hands outside the union
+    /// The cards' `(shape, hcp)` summary is computed once, then each branch
+    /// runs a single fused range-plus-table lookup. Holdings outside the union
     /// HCP window are rejected without touching the shape tables.
     #[must_use]
     #[inline]
-    pub fn check(&self, hand: Hand) -> bool {
-        let summary = hand.summary();
+    pub fn check(&self, cards: Cards) -> bool {
+        let summary = HandSummary::of(cards);
         if !(self.min_hcp..=self.max_hcp).contains(&summary.hcp) {
             return false;
         }
@@ -518,22 +544,22 @@ mod test {
     use super::*;
     use std::str::FromStr;
 
-    fn spades_longest_hand() -> Hand {
-        Hand::from_str("AKQJ432.32.32.32").unwrap()
+    fn spades_longest_hand() -> Cards {
+        Cards::from_str("AKQJ432.32.32.32").unwrap()
     }
 
-    fn hearts_longest_hand() -> Hand {
-        Hand::from_str("32.AKQJ432.32.32").unwrap()
+    fn hearts_longest_hand() -> Cards {
+        Cards::from_str("32.AKQJ432.32.32").unwrap()
     }
 
     #[test]
     fn new_checks_shape_and_hcp() {
         let constraint = HandConstraint::new(&["(4432)"], HcpRange::new(12, 14)).unwrap();
-        assert!(constraint.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(constraint.check(Cards::from_str("AKQ2.KQ32.32.432").unwrap()));
         // Right shape, wrong strength.
-        assert!(!constraint.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        assert!(!constraint.check(Cards::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
         // Right strength, wrong shape.
-        assert!(!constraint.check(Hand::from_str("AKQJ2.KQ32.A2.32").unwrap()));
+        assert!(!constraint.check(Cards::from_str("AKQJ2.KQ32.A2.32").unwrap()));
     }
 
     #[test]
@@ -541,20 +567,20 @@ mod test {
         // Documents the DSL seam: a bare pattern matches suit order exactly,
         // while a parenthesized group matches every permutation.
         let exact = HandConstraint::new(&["4432"], HcpRange::new(0, 37)).unwrap();
-        assert!(exact.check(Hand::from_str("AKQ2.KQ32.AK2.32").unwrap()));
-        assert!(!exact.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(exact.check(Cards::from_str("AKQ2.KQ32.AK2.32").unwrap()));
+        assert!(!exact.check(Cards::from_str("AKQ2.KQ32.32.432").unwrap()));
         let grouped = HandConstraint::new(&["(4432)"], HcpRange::new(0, 37)).unwrap();
-        assert!(grouped.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(grouped.check(Cards::from_str("AKQ2.KQ32.32.432").unwrap()));
     }
 
     #[test]
     fn new_with_empty_patterns_accepts_any_shape() {
         let constraint = HandConstraint::new(&[], HcpRange::new(12, 14)).unwrap();
         // Both hands hold 14 HCP; shapes differ (4-4-2-3 vs 5-3-3-2).
-        assert!(constraint.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
-        assert!(constraint.check(Hand::from_str("AQJ32.K32.A32.32").unwrap()));
+        assert!(constraint.check(Cards::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(constraint.check(Cards::from_str("AQJ32.K32.A32.32").unwrap()));
         // Strength still filters: 19 HCP is rejected.
-        assert!(!constraint.check(Hand::from_str("AKQJ2.KQ32.A2.32").unwrap()));
+        assert!(!constraint.check(Cards::from_str("AKQJ2.KQ32.A2.32").unwrap()));
     }
 
     #[test]
@@ -578,8 +604,8 @@ mod test {
             let hand = match suit {
                 Suit::Spades => spades_longest_hand(),
                 Suit::Hearts => hearts_longest_hand(),
-                Suit::Diamonds => Hand::from_str("32.32.AKQJ432.32").unwrap(),
-                Suit::Clubs => Hand::from_str("32.32.32.AKQJ432").unwrap(),
+                Suit::Diamonds => Cards::from_str("32.32.AKQJ432.32").unwrap(),
+                Suit::Clubs => Cards::from_str("32.32.32.AKQJ432").unwrap(),
             };
             assert!(
                 constraint.check(hand),
@@ -607,8 +633,8 @@ mod test {
             .with_range(11, 14)
             .build()
             .unwrap();
-        assert!(constraint.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
-        assert!(!constraint.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        assert!(constraint.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(!constraint.check(Cards::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
     }
 
     #[test]
@@ -619,8 +645,8 @@ mod test {
             .with_range(0, 37)
             .build()
             .unwrap();
-        assert!(constraint.check(Hand::from_str("AKQ2.KQ32.32.432").unwrap()));
-        assert!(!constraint.check(Hand::from_str("AKQJ432.32.32.32").unwrap()));
+        assert!(constraint.check(Cards::from_str("AKQ2.KQ32.32.432").unwrap()));
+        assert!(!constraint.check(Cards::from_str("AKQJ432.32.32.32").unwrap()));
     }
 
     #[test]
@@ -645,7 +671,7 @@ mod test {
             .with_range(0, 37)
             .build()
             .unwrap();
-        assert!(constraint.check(Hand::from_str("32.32.32.AKQJ432").unwrap()));
+        assert!(constraint.check(Cards::from_str("32.32.32.AKQJ432").unwrap()));
     }
 
     #[test]
@@ -669,9 +695,9 @@ mod test {
         let weak = HandConstraint::new(&["(4432)"], HcpRange::new(11, 14)).unwrap();
         let strong = HandConstraint::hcp(18..=37);
         let polish = HandConstraint::any(vec![weak, strong]).unwrap();
-        assert!(polish.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
-        assert!(polish.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
-        assert!(!polish.check(Hand::from_str("AT632.K6432.T2.2").unwrap()));
+        assert!(polish.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(polish.check(Cards::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        assert!(!polish.check(Cards::from_str("AT632.K6432.T2.2").unwrap()));
     }
 
     #[test]
@@ -688,9 +714,9 @@ mod test {
         let strong = HandType::new(Shape::All, HcpRange::new(18, 37));
         let legacy = HandDescriptor::new(vec![weak, strong]);
         let converted = HandConstraint::from(legacy);
-        assert!(converted.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
-        assert!(converted.check(Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
-        assert!(!converted.check(Hand::from_str("AT632.K6432.T2.2").unwrap()));
+        assert!(converted.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(converted.check(Cards::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
+        assert!(!converted.check(Cards::from_str("AT632.K6432.T2.2").unwrap()));
     }
 
     #[test]
@@ -699,9 +725,9 @@ mod test {
         // A diamonds (4). An inclusive 12..=14 window accepts it; the
         // exclusive 12..14 range would not (14 excluded).
         let constraint = HandConstraint::hcp(12..=14);
-        assert!(constraint.check(Hand::from_str("AK52.K532.A2.432").unwrap()));
+        assert!(constraint.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
         let legacy = HandDescriptor::hcp(12..=14);
-        let hand = Hand::from_str("AK52.K532.A2.432").unwrap();
+        let hand = Cards::from_str("AK52.K532.A2.432").unwrap();
         assert_eq!(constraint.check(hand), legacy.check(hand));
     }
 }

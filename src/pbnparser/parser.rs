@@ -427,13 +427,13 @@ fn parse_vulnerability(value: &str) -> Result<Vulnerability, PbnError> {
     }
 }
 
-/// One PBN hand: four `.`-separated suit fields, ranks in any order.
+/// One PBN seat's cards: four `.`-separated suit fields, ranks in any order.
 ///
 /// The field order is fixed (spades, hearts, diamonds, clubs), so this is the
 /// positional grammar [`Cards::from_str`] already understands, with one
 /// deliberate difference: a repeated rank is an error here instead of being
 /// silently deduplicated by `Cards::insert`.
-fn parse_hand(value: &str) -> Result<Hand, PbnError> {
+fn parse_hand(value: &str) -> Result<Cards, PbnError> {
     let fields: Vec<&str> = value.split('.').collect();
     if fields.len() != 4 {
         return Err(PbnError::new(ParsePbnErrorKind::Hands));
@@ -476,7 +476,7 @@ fn parse_hand(value: &str) -> Result<Hand, PbnError> {
         }
     }
 
-    Hand::try_from(cards).map_err(|_| PbnError::new(ParsePbnErrorKind::Hands))
+    Ok(cards)
 }
 
 /// The `[Deal]` value: a first seat and four hands clockwise from it.
@@ -495,7 +495,7 @@ fn parse_deal(value: &str) -> Result<(Seat, Deal), PbnError> {
         return Err(PbnError::new(ParsePbnErrorKind::Hands));
     }
 
-    let mut hands: [Option<Hand>; 4] = [None; 4];
+    let mut hands: [Option<Cards>; 4] = [None; 4];
     for (offset, hand) in listed.iter().enumerate() {
         if *hand == "-" {
             continue;
@@ -514,10 +514,9 @@ fn parse_deal(value: &str) -> Result<(Seat, Deal), PbnError> {
     if let Some(&index) = unknown.first() {
         let mut deck = Cards::ALL;
         for hand in hands.iter().flatten() {
-            deck -= hand.cards();
+            deck -= *hand;
         }
-        hands[index] =
-            Some(Hand::try_from(deck).map_err(|_| PbnError::new(ParsePbnErrorKind::Hands))?);
+        hands[index] = Some(deck);
     }
 
     let hands = hands.map(|hand| hand.expect("exactly one empty slot was filled"));
@@ -953,19 +952,19 @@ HK DA C2 SA
     fn assert_one_suit_per_seat(board: &Board) {
         assert_eq!(
             board.deal()[Seat::North],
-            Hand::from_str("SAKQJT98765432").expect("hand parses")
+            Cards::from_str("SAKQJT98765432").expect("hand parses")
         );
         assert_eq!(
             board.deal()[Seat::East],
-            Hand::from_str("HAKQJT98765432").expect("hand parses")
+            Cards::from_str("HAKQJT98765432").expect("hand parses")
         );
         assert_eq!(
             board.deal()[Seat::South],
-            Hand::from_str("DAKQJT98765432").expect("hand parses")
+            Cards::from_str("DAKQJT98765432").expect("hand parses")
         );
         assert_eq!(
             board.deal()[Seat::West],
-            Hand::from_str("CAKQJT98765432").expect("hand parses")
+            Cards::from_str("CAKQJT98765432").expect("hand parses")
         );
     }
 

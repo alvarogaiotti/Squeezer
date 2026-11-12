@@ -29,11 +29,19 @@ impl AsDDSDeal for Deal {
     /// Packs the four hands into DDS's 4x4 `rank-bitmask` matrix.
     ///
     /// Callers that mutate a copy of the hands (the payoff simulation) rebuild
-    /// a [`Deal`] with [`Deal::from_hands_unchecked`] before converting.
+    /// a [`Deal`] with [`Deal::from_cards_unchecked`] before converting.
     fn as_dds_deal(&self) -> DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
-        for (seat, hand) in self.into_iter().enumerate() {
-            for (index, suit) in hand.into_iter().enumerate() {
+        for (seat, cards) in self.into_iter().enumerate() {
+            // `Cards: IntoIterator` yields individual cards, so name the four
+            // suits explicitly to keep one DDS row per suit.
+            let suits = [
+                cards.spades(),
+                cards.hearts(),
+                cards.diamonds(),
+                cards.clubs(),
+            ];
+            for (index, suit) in suits.into_iter().enumerate() {
                 remain_cards[seat][index] = suit.into_iter().map(|card| 1 << card.rank()).sum();
             }
         }

@@ -312,11 +312,7 @@ impl Position {
         leader: Seat,
     ) -> Result<Self, PositionError> {
         if prefix.is_empty() {
-            return Ok(Self::from_valid_opening(
-                strain,
-                leader,
-                deal.hands().map(|hand| hand.cards()),
-            ));
+            return Ok(Self::from_valid_opening(strain, leader, *deal.hands()));
         }
 
         let mut seen = Cards::EMPTY;
@@ -329,7 +325,7 @@ impl Position {
             }
         }
 
-        let mut hands = deal.hands().map(|hand| hand.cards());
+        let mut hands = *deal.hands();
         for play in prefix {
             hands[play.seat as usize] = hands[play.seat as usize].remove(play.card);
         }
@@ -579,10 +575,10 @@ mod tests {
 
     fn one_suit_deal() -> Deal {
         Deal::new([
-            Hand::from_str("SAKQJT98765432").expect("spades hand parses"),
-            Hand::from_str("HAKQJT98765432").expect("hearts hand parses"),
-            Hand::from_str("DAKQJT98765432").expect("diamonds hand parses"),
-            Hand::from_str("CAKQJT98765432").expect("clubs hand parses"),
+            Cards::from_str("SAKQJT98765432").expect("spades hand parses"),
+            Cards::from_str("HAKQJT98765432").expect("hearts hand parses"),
+            Cards::from_str("DAKQJT98765432").expect("diamonds hand parses"),
+            Cards::from_str("CAKQJT98765432").expect("clubs hand parses"),
         ])
         .expect("one suit per seat is a valid deal")
     }
@@ -590,10 +586,10 @@ mod tests {
     /// A deal in which every seat holds every suit, so follow-suit is testable.
     fn round_robin_deal() -> Deal {
         Deal::new([
-            Hand::from_str("SA6T2 HK95 DQ84 CJ73").expect("north hand parses"),
-            Hand::from_str("SJ73 HA6T2 DK95 CQ84").expect("east hand parses"),
-            Hand::from_str("SQ84 HJ73 DA6T2 CK95").expect("south hand parses"),
-            Hand::from_str("SK95 HQ84 DJ73 CA6T2").expect("west hand parses"),
+            Cards::from_str("SA6T2 HK95 DQ84 CJ73").expect("north hand parses"),
+            Cards::from_str("SJ73 HA6T2 DK95 CQ84").expect("east hand parses"),
+            Cards::from_str("SQ84 HJ73 DA6T2 CK95").expect("south hand parses"),
+            Cards::from_str("SK95 HQ84 DJ73 CA6T2").expect("west hand parses"),
         ])
         .expect("round robin deal is a valid partition")
     }
@@ -612,7 +608,7 @@ mod tests {
 
     /// The cards of every seat, copied out of a deal.
     fn full_hands(deal: &Deal) -> [Cards; 4] {
-        deal.hands().map(|hand| hand.cards())
+        *deal.hands()
     }
 
     /// The hands left after removing `prefix` from `deal`, as `new` expects.
@@ -827,7 +823,7 @@ mod tests {
             assert!(position.is_opening_lead());
             assert!(position.table().is_empty());
             for seat in Seat::iter() {
-                assert_eq!(position.hand(seat), deal[seat].cards());
+                assert_eq!(position.hand(seat), deal[seat]);
             }
         }
     }
@@ -971,7 +967,7 @@ mod tests {
         assert_eq!(position.trick_len(), 0);
         assert!(position.table().is_empty());
         for seat in Seat::iter() {
-            assert_eq!(position.hand(seat), deal[seat].cards());
+            assert_eq!(position.hand(seat), deal[seat]);
         }
     }
 
@@ -991,7 +987,7 @@ mod tests {
         assert_eq!(position.to_play(), Seat::East);
         assert_eq!(position.hand(Seat::North).len(), 12);
         assert!(!position.hand(Seat::North).has_card(Card::S2));
-        assert_eq!(position.hand(Seat::East), deal[Seat::East].cards());
+        assert_eq!(position.hand(Seat::East), deal[Seat::East]);
     }
 
     #[test]
@@ -1153,7 +1149,7 @@ mod tests {
         let position = Position::after_play(&board, 1).expect("a contract is present");
         assert_eq!(position.to_play(), Seat::East);
         // East is void in spades, so the whole (heart) hand is legal.
-        assert_eq!(position.legal_plays(), deal[Seat::East].cards());
+        assert_eq!(position.legal_plays(), deal[Seat::East]);
     }
 
     #[test]
@@ -1162,7 +1158,7 @@ mod tests {
         let board = board_with(deal, contract(3, Strain::NoTrumps, Seat::West), vec![]);
         let position = Position::after_play(&board, 0).expect("a contract is present");
         assert_eq!(position.to_play(), Seat::North);
-        assert_eq!(position.legal_plays(), deal[Seat::North].cards());
+        assert_eq!(position.legal_plays(), deal[Seat::North]);
     }
 
     #[test]

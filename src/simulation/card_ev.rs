@@ -644,13 +644,13 @@ mod tests {
     fn example_dealer() -> impl Dealer {
         let deal = example_deal();
         DealerBuilder::new()
-            .predeal(Seat::North, deal[Seat::North].cards())
+            .predeal(Seat::North, deal[Seat::North])
             .expect("north parses")
-            .predeal(Seat::East, deal[Seat::East].cards())
+            .predeal(Seat::East, deal[Seat::East])
             .expect("east parses")
-            .predeal(Seat::South, deal[Seat::South].cards())
+            .predeal(Seat::South, deal[Seat::South])
             .expect("south parses")
-            .predeal(Seat::West, deal[Seat::West].cards())
+            .predeal(Seat::West, deal[Seat::West])
             .expect("west parses")
             .build()
             .expect("the example deal is a partition")

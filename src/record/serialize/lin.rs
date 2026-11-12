@@ -64,14 +64,16 @@ const fn strain_char(strain: Strain) -> char {
     }
 }
 
-/// Writes one hand as `<suit-letter><ranks>...`, ranks high to low.
+/// Writes one seat's cards as `<suit-letter><ranks>...`, ranks high to low.
 ///
 /// A void suit is omitted entirely: LIN's hand grammar is position-independent
 /// (each suit letter introduces its own ranks), so writing an empty suit's
 /// letter would make the importer read the next suit's cards into the void.
-/// `Suit::iter()` and `Hand`'s iterator share the S,H,D,C order.
-fn write_hand(writer: &mut impl fmt::Write, hand: Hand) -> fmt::Result {
-    for (suit, holding) in Suit::iter().zip(hand) {
+fn write_hand(writer: &mut impl fmt::Write, hand: Cards) -> fmt::Result {
+    // `Cards: IntoIterator` yields individual cards, so iterate the suits
+    // explicitly in the S,H,D,C order the LIN grammar expects.
+    let suits = [hand.spades(), hand.hearts(), hand.diamonds(), hand.clubs()];
+    for (suit, holding) in Suit::iter().zip(suits) {
         if holding.is_empty() {
             continue;
         }

@@ -88,7 +88,7 @@ const ZAR_EVALUATOR: Evaluator = Evaluator::new(&[6, 4, 2, 1]);
 /// Panics only if a fixed shape pattern stops parsing (a crate bug: the
 /// patterns are literals covered by tests).
 #[must_use]
-pub fn weak2_hand_descriptor(hand: Hand) -> bool {
+pub fn weak2_hand_descriptor(hand: Cards) -> bool {
     let wk2 = HandConstraintBuilder::new()
         .add_shape("(63-)4-4-")
         .expect("fixed weak-two shape pattern parses")
@@ -96,18 +96,18 @@ pub fn weak2_hand_descriptor(hand: Hand) -> bool {
         .build()
         .expect("fixed weak-two constraint is non-empty");
     wk2.check(hand)
-        && ((hand.slen() == 6
+        && ((hand.len_of_suit(Suit::Spades) == 6
             && W2_EVALUATOR.evaluate(hand.spades()) > 3
-            && CONTROLS_EVALUATOR.evaluate(hand.cards()) < 4)
-            || (hand.hlen() == 6
+            && CONTROLS_EVALUATOR.evaluate(hand) < 4)
+            || (hand.len_of_suit(Suit::Hearts) == 6
                 && W2_EVALUATOR.evaluate(hand.hearts()) > 3
-                && CONTROLS_EVALUATOR.evaluate(hand.cards()) < 4))
+                && CONTROLS_EVALUATOR.evaluate(hand) < 4))
 }
 
 #[must_use]
-fn devaluate_short_honors(hand: Hand) -> u8 {
+fn devaluate_short_honors(hand: Cards) -> u8 {
     let mut malus: u8 = 0;
-    malus += hand
+    malus += [hand.spades(), hand.hearts(), hand.diamonds(), hand.clubs()]
         .into_iter()
         .map(|suit| match suit.len() {
             0..=1 => suit.kings().len() + suit.queens().len() + suit.jacks().len(),
@@ -133,7 +133,7 @@ fn sort_suit_lengths(suits: &mut [Cards; 4]) {
 }
 
 #[must_use]
-fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
+fn evaluate_lenght_and_concentration(hand: Cards) -> u8 {
     let mut suits = [hand.spades(), hand.hearts(), hand.diamonds(), hand.clubs()];
     sort_suit_lengths(&mut suits);
     let [shortest, second_shortest, second_longest, longest] = suits;
@@ -158,8 +158,8 @@ fn evaluate_lenght_and_concentration(hand: Hand) -> u8 {
     points
 }
 #[must_use]
-pub fn zar_points(hand: Hand) -> u8 {
-    ZAR_EVALUATOR.evaluate(hand.cards()) + evaluate_lenght_and_concentration(hand)
+pub fn zar_points(hand: Cards) -> u8 {
+    ZAR_EVALUATOR.evaluate(hand) + evaluate_lenght_and_concentration(hand)
         - devaluate_short_honors(hand)
 }
 

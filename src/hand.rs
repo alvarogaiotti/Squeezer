@@ -1,261 +1,10 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
+use crate::hand_constraint::HandSummary;
 use crate::prelude::*;
 use crate::range::Bounded;
 
-///Represent a bridge hand: 13 cards, with different and various properties.
-///The majority of this properties were implemented in the `bridge_deck` crate,
-///github version.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct Hand {
-    pub(crate) cards: Cards,
-}
-
-impl Default for Hand {
-    fn default() -> Self {
-        Hand {
-            cards: Cards::EMPTY,
-        }
-    }
-}
-
-/// Cached per-candidate summary: shape pattern + HCP.
-///
-/// The same `(shape, hcp)` pair travels together through
-/// `HandType::check`, `HandDescriptor::check` and the `Shape` predicates.
-/// Bundling it avoids recomputing shape/HCP per predicate (each costs
-/// several popcounts) and fixes the Data Clumps smell.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct HandSummary {
-    pub shape: crate::shapeparser::ShapePattern,
-    pub hcp: u8,
-}
-
-impl Hand {
-    /// Compute the `(shape, hcp)` summary once per candidate.
-    #[must_use]
-    #[inline]
-    pub(crate) fn summary(self) -> HandSummary {
-        HandSummary {
-            shape: self.shape(),
-            hcp: self.hcp(),
-        }
-    }
-    /// Create a new Hand with 13 random cards from a deck.
-    /// Returns the created Hand.
-    #[must_use]
-    #[allow(clippy::missing_panics_doc)]
-    pub fn new() -> Self {
-        Hand {
-            cards: Cards::new_deck().pick(13).unwrap(),
-        }
-    }
-
-    /// Get the cards in the Hand as a set.
-    /// Returns the cards in the Hand.
-    #[must_use]
-    #[inline]
-    pub fn cards(&self) -> Cards {
-        self.cards
-    }
-    /// Create a new Hand with no cards.
-    /// Returns the created Hand.
-    #[must_use]
-    pub const fn new_empty() -> Self {
-        Hand {
-            cards: Cards::EMPTY,
-        }
-    }
-
-    /// Set the cards of the Hand to the specified cards.
-    /// Parameters:
-    /// - `cards`: The new set of cards for the Hand.
-    pub(crate) fn set_cards(&mut self, cards: Cards) {
-        self.cards = cards;
-    }
-
-    /// Check if the Hand contains a set of cards.
-    /// Returns true if the Hand contains the cards, false otherwise.
-    #[must_use]
-    pub fn contains(&self, cards: Cards) -> bool {
-        self.cards.contains(cards)
-    }
-
-    /// Check if the Hand contains a specific card.
-    /// Returns true if the Hand contains the card, false otherwise.
-    #[must_use]
-    pub fn has_card(&self, card: Card) -> bool {
-        self.cards.has_card(card)
-    }
-
-    /// Get the distribution of suits in the Hand.
-    /// Returns an array representing the number of cards in each suit.
-    #[must_use]
-    pub const fn shape(&self) -> ShapePattern {
-        let spades = self.slen();
-        let hearts = self.hlen();
-        let diamonds = self.dlen();
-        let clubs = self.clen();
-        [spades, hearts, diamonds, clubs]
-    }
-
-    /// Returns the number of cards in the specified suit.
-    /// Parameters:
-    /// - `suit`: The suit for which to count the cards.
-    #[must_use]
-    pub fn len_of_suit(&self, suit: Suit) -> u8 {
-        match suit {
-            Suit::Spades => self.slen(),
-            Suit::Hearts => self.hlen(),
-            Suit::Diamonds => self.dlen(),
-            Suit::Clubs => self.clen(),
-        }
-    }
-
-    /// Get the cards in the Spades suit.
-    /// Returns the cards in the Spades suit.
-    #[must_use]
-    pub const fn spades(&self) -> Cards {
-        self.cards.spades()
-    }
-
-    /// Get the cards in the Hearts suit.
-    /// Returns the cards in the Hearts suit.
-    #[must_use]
-    pub const fn hearts(&self) -> Cards {
-        self.cards.hearts()
-    }
-
-    /// Get the cards in the Diamonds suit.
-    /// Returns the cards in the Diamonds suit.
-    #[must_use]
-    pub const fn diamonds(&self) -> Cards {
-        self.cards.diamonds()
-    }
-
-    /// Get the cards in the Clubs suit.
-    /// Returns the cards in the Clubs suit.
-    #[must_use]
-    pub const fn clubs(&self) -> Cards {
-        self.cards.clubs()
-    }
-
-    /// Get the number of cards in the Spades suit.
-    /// Returns the number of cards in the Spades suit.
-    #[must_use]
-    pub const fn slen(&self) -> u8 {
-        self.spades().len()
-    }
-
-    /// Get the number of cards in the Hearts suit.
-    /// Returns the number of cards in the Hearts suit.
-    #[must_use]
-    pub const fn hlen(&self) -> u8 {
-        self.hearts().len()
-    }
-
-    /// Get the number of cards in the Diamonds suit.
-    /// Returns the number of cards in the Diamonds suit.
-    #[must_use]
-    pub const fn dlen(&self) -> u8 {
-        self.diamonds().len()
-    }
-
-    /// Get the number of cards in the Clubs suit.
-    /// Returns the number of cards in the Clubs suit.
-    #[must_use]
-    pub const fn clen(&self) -> u8 {
-        self.clubs().len()
-    }
-
-    /// Get the High Card Points (HCP) of the Hand.
-    /// Returns the HCP value of the Hand.
-    #[must_use]
-    pub fn hcp(&self) -> u8 {
-        self.cards.high_card_points()
-    }
-
-    /// Get the cards in the Hand as bit representation.
-    /// Returns the bit representation of the cards in the Hand.
-    #[must_use]
-    pub fn as_bits(&self) -> u64 {
-        self.cards.as_bits()
-    }
-
-    /// Get a long string representation of the Hand.
-    /// Returns a string representing the cards in the Hand in multiple lines.
-    #[must_use]
-    pub fn long_str(&self) -> String {
-        format!("{}", self.into_iter().format("\n"))
-    }
-}
-
-impl TryFrom<Cards> for Hand {
-    type Error = DealerError;
-
-    fn try_from(value: Cards) -> Result<Self, Self::Error> {
-        if value.len() > 13 {
-            Err(DealerError::new("too many cards in hand"))
-        } else {
-            Ok(Hand { cards: value })
-        }
-    }
-}
-
-impl FromStr for Hand {
-    type Err = DealerError;
-
-    fn from_str(hand: &str) -> Result<Hand, Self::Err> {
-        let cards = Cards::from_str(hand)?;
-        if cards.len() != 13 {
-            return Err(DealerError::new(format!(
-                "wrong number of cards for a Bridge hand: {cards}"
-            )));
-        }
-        Ok(Hand { cards })
-    }
-}
-
-impl fmt::Display for Hand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.cards)
-    }
-}
-
-impl IntoIterator for Hand {
-    type Item = Cards;
-    type IntoIter = HandIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        HandIterator {
-            hand: self.cards,
-            index: 0,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct HandIterator {
-    hand: Cards,
-    index: usize,
-}
-
-impl Iterator for HandIterator {
-    type Item = Cards;
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = match self.index {
-            0 => self.hand.spades(),
-            1 => self.hand.hearts(),
-            2 => self.hand.diamonds(),
-            3 => self.hand.clubs(),
-            _ => return None,
-        };
-        self.index += 1;
-        Some(result)
-    }
-}
 /// Represents an *inclusive* range of High Card Points.
 ///
 /// Thin newtype over the shared [`Bounded`] core (cap [`MAX_HCP_IN_HAND`]):
@@ -361,11 +110,12 @@ impl HandType {
         Self { shape, hcp_range }
     }
 
-    /// Check if the `HandType` matches the given hand based on shape and HCP range.
+    /// Check if the `HandType` matches the given cards based on shape and HCP
+    /// range.
     #[must_use]
     #[inline]
-    pub fn check(&self, hand: Hand) -> bool {
-        self.check_cached(hand.summary())
+    pub fn check(&self, cards: Cards) -> bool {
+        self.check_cached(HandSummary::of(cards))
     }
 
     /// Check the `HandType` using an already computed summary.
@@ -459,11 +209,12 @@ pub struct HandDescriptor {
 }
 
 impl HandDescriptor {
-    /// Check if a given hand matches any of the possible hand types based on shape and HCP range.
+    /// Check if given cards match any of the possible hand types based on shape
+    /// and HCP range.
     #[must_use]
     #[inline]
-    pub fn check(&self, hand: Hand) -> bool {
-        let summary = hand.summary();
+    pub fn check(&self, cards: Cards) -> bool {
+        let summary = HandSummary::of(cards);
         if (self.min..=self.max).contains(&summary.hcp) {
             self.possible_hands
                 .iter()
@@ -643,36 +394,12 @@ impl HandTypeBuilder {
 mod test {
     use super::*;
     use std::str::FromStr;
+
     #[test]
     fn test_builder_pattern() {
         let mut builder = HandTypeBuilder::new();
         _ = builder.with_range(8, 15).build();
         _ = builder.add_shape("4333").unwrap().build();
-    }
-
-    #[test]
-    fn test_hand_creation() {
-        let empty_hand = Hand::new_empty();
-        assert_eq!(empty_hand.cards, Cards::EMPTY);
-
-        let random_hand = Hand::new();
-        assert_eq!(random_hand.cards.len(), 13);
-    }
-
-    #[test]
-    fn test_hand_shape() {
-        let hand = Hand::from_str("AKQ2.KQ32.AK2.32").unwrap();
-        assert_eq!(hand.shape(), [4, 4, 3, 2]);
-        assert_eq!(hand.slen(), 4);
-        assert_eq!(hand.hlen(), 4);
-        assert_eq!(hand.dlen(), 3);
-        assert_eq!(hand.clen(), 2);
-    }
-
-    #[test]
-    fn test_hcp_calculation() {
-        let hand = Hand::from_str("AKQJ.KQJ2.AK2.32").unwrap();
-        assert_eq!(hand.hcp(), 23); // A=4, K=3, Q=2, J=1
     }
 
     #[test]
@@ -691,10 +418,10 @@ mod test {
     fn test_hand_type() {
         let hand_type = HandType::new(Shape::from_str("(4432)").unwrap(), HcpRange::new(12, 14));
 
-        let valid_hand = Hand::from_str("AKQ2.KQ32.32.432").unwrap();
+        let valid_hand = Cards::from_str("AKQ2.KQ32.32.432").unwrap();
         assert!(hand_type.check(valid_hand));
 
-        let invalid_hand = Hand::from_str("AKQJ2.KQ32.A2.32").unwrap(); // 5332 shape
+        let invalid_hand = Cards::from_str("AKQJ2.KQ32.A2.32").unwrap(); // 5332 shape
         assert!(!hand_type.check(invalid_hand));
     }
 
@@ -712,38 +439,14 @@ mod test {
 
         let descriptor = HandDescriptor::new(vec![weak_nt, strong_hand]);
 
-        let weak_nt_hand = Hand::from_str("AK52.K532.A2.432").unwrap();
+        let weak_nt_hand = Cards::from_str("AK52.K532.A2.432").unwrap();
         assert!(descriptor.check(weak_nt_hand));
 
-        let strong_hand = Hand::from_str("AKQJ.AKQ2.AK2.32").unwrap();
+        let strong_hand = Cards::from_str("AKQJ.AKQ2.AK2.32").unwrap();
         assert!(descriptor.check(strong_hand));
 
-        let weak_unbalanced = Hand::from_str("AT632.K6432.T2.2").unwrap();
+        let weak_unbalanced = Cards::from_str("AT632.K6432.T2.2").unwrap();
         assert!(!descriptor.check(weak_unbalanced));
-    }
-
-    #[test]
-    fn test_hand_iterator() {
-        let hand = Hand::from_str("AKQ2.KQ32.AK2.32").unwrap();
-        let suits: Vec<Cards> = hand.into_iter().collect();
-        assert_eq!(suits.len(), 4);
-
-        // Test each suit's cards
-        assert_eq!(suits[0], hand.spades());
-        assert_eq!(suits[1], hand.hearts());
-        assert_eq!(suits[2], hand.diamonds());
-        assert_eq!(suits[3], hand.clubs());
-    }
-
-    #[test]
-    fn test_edge_case_shapes() {
-        // Test void suit
-        let hand = Hand::from_str("AKQJ2.KQJ32.A32.").unwrap();
-        assert_eq!(hand.clen(), 0);
-
-        // Test 7-card suit
-        let hand = Hand::from_str("AKQJ234.K32.A2.2").unwrap();
-        assert_eq!(hand.slen(), 7);
     }
 
     #[test]
@@ -762,15 +465,15 @@ mod test {
         let descriptor = HandDescriptor::new(vec![weak_two, three_level_preempt]);
 
         // Valid weak two hand
-        let weak_two_hand = Hand::from_str("Q2.KQJ432.432.32").unwrap();
+        let weak_two_hand = Cards::from_str("Q2.KQJ432.432.32").unwrap();
         assert!(descriptor.check(weak_two_hand));
 
         // Valid three-level preempt
-        let preempt_hand = Hand::from_str("KQJT432.32.32.32").unwrap();
+        let preempt_hand = Cards::from_str("KQJT432.32.32.32").unwrap();
         assert!(descriptor.check(preempt_hand));
 
         // Invalid hand (too strong)
-        let strong_hand = Hand::from_str("AKQJ32.KQ432.A.2").unwrap();
+        let strong_hand = Cards::from_str("AKQJ32.KQ432.A.2").unwrap();
         assert!(!descriptor.check(strong_hand));
     }
 
@@ -780,28 +483,5 @@ mod test {
         let mut builder = HandType::builder();
         let result = builder.add_shape("invalid");
         assert!(result.is_err());
-
-        // Test invalid hand string
-        let result = Hand::from_str("invalid.hand.string");
-        assert!(result.is_err());
-
-        // Test hand with too many cards
-        let result = Hand::from_str("AKQJ2.AKQJ2.AKQJ2.2");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_hcp_edge_cases() {
-        // Test minimum HCP (0)
-        let min_hand = Hand::from_str("2345.2345.23.234").unwrap();
-        assert_eq!(min_hand.hcp(), 0);
-
-        // Test maximum HCP (37)
-        let max_hand = Hand::from_str("AKQJ.AKQ.AKQ.AKQ").unwrap();
-        assert_eq!(max_hand.hcp(), 37);
-
-        // Test HCP range clamping
-        let range = HcpRange::new(0, 40);
-        assert_eq!(range.range_max(), 37);
     }
 }

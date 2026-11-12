@@ -13,7 +13,7 @@ fn lead_simulation_test(_: ()) {
         .with_function(|cards| {
             let east = cards.east();
             let west = cards.west();
-            east.hlen() + west.hlen() == 8
+            east.len_of_suit(Suit::Hearts) + west.len_of_suit(Suit::Hearts) == 8
                 && east.hcp() + west.hcp() >= 20
                 && east.hcp() + west.hcp() <= 24
         })

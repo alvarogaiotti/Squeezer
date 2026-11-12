@@ -373,10 +373,10 @@ mod tests {
 
     fn sample_deal() -> Deal {
         Deal::new([
-            Hand::from_str("SAKQJT98765432").expect("spades hand parses"),
-            Hand::from_str("HAKQJT98765432").expect("hearts hand parses"),
-            Hand::from_str("DAKQJT98765432").expect("diamonds hand parses"),
-            Hand::from_str("CAKQJT98765432").expect("clubs hand parses"),
+            Cards::from_str("SAKQJT98765432").expect("spades hand parses"),
+            Cards::from_str("HAKQJT98765432").expect("hearts hand parses"),
+            Cards::from_str("DAKQJT98765432").expect("diamonds hand parses"),
+            Cards::from_str("CAKQJT98765432").expect("clubs hand parses"),
         ])
         .expect("one suit per seat is a valid deal")
     }

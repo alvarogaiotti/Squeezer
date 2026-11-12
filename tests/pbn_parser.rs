@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use squeezer::pbnparser::{ParsePbnErrorKind, PbnFile, parse_pbn_file};
 use squeezer::{
-    Board, Call, Card, Contract, Doubled, Hand, Play, Seat, Strain, Vulnerability, Vulnerable,
+    Board, Call, Card, Cards, Contract, Doubled, Play, Seat, Strain, Vulnerability, Vulnerable,
 };
 
 fn parse_fixture(path: &str) -> PbnFile {
@@ -27,7 +27,7 @@ fn only_board(path: &str) -> Board {
 fn assert_hand(board: &Board, seat: Seat, hand: &str) {
     assert_eq!(
         board.deal()[seat],
-        Hand::from_str(hand).expect("expected hand parses"),
+        Cards::from_str(hand).expect("expected hand parses"),
         "{seat} hand mismatch"
     );
 }

@@ -99,7 +99,7 @@ fn early_late_and_predealt_seat_constraints_are_enforced() {
             .deal()
             .expect("North and West constraints have a satisfying deal");
         assert!(
-            deal.north().cards().contains(predeal),
+            deal.north().contains(predeal),
             "predealt North cards were not kept: {}",
             deal.north()
         );

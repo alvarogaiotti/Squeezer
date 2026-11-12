@@ -166,14 +166,19 @@ fn write_token_grid(
     writer.write_char('\n')
 }
 
-/// Writes one hand as `<suit ranks>.<suit ranks>...`, spades to clubs, ranks
-/// high to low.
+/// Writes one seat's cards as `<suit ranks>.<suit ranks>...`, spades to clubs,
+/// ranks high to low.
 ///
-/// A void suit is an empty field between the dots, so `...` is a hand whose
+/// A void suit is an empty field between the dots, so `...` is a holding whose
 /// only suit is clubs. This is fixed-width-ish PBN hand grammar, unlike LIN's
 /// position-independent `S...H...D...C...` form.
-fn write_hand(writer: &mut impl fmt::Write, hand: Hand) -> fmt::Result {
-    for (suit_index, holding) in hand.into_iter().enumerate() {
+fn write_hand(writer: &mut impl fmt::Write, hand: Cards) -> fmt::Result {
+    // `Cards: IntoIterator` yields individual cards, so iterate the suits
+    // explicitly in the S,H,D,C order the PBN grammar expects.
+    for (suit_index, holding) in [hand.spades(), hand.hearts(), hand.diamonds(), hand.clubs()]
+        .into_iter()
+        .enumerate()
+    {
         if suit_index != 0 {
             writer.write_char('.')?;
         }
@@ -421,7 +426,7 @@ mod tests {
             .contract(Seat::North, Vulnerability::None)
             .expect("the auction produced a contract");
         let mut remaining: [Vec<Card>; 4] =
-            std::array::from_fn(|seat| deal[Seat::from(seat)].cards().into_iter().collect());
+            std::array::from_fn(|seat| deal[Seat::from(seat)].into_iter().collect());
         let mut plays = Vec::with_capacity(52);
         for _ in 0..13 {
             for seat in Seat::East.iter_from().take(4) {

@@ -833,6 +833,88 @@ impl Cards {
         points as u8
     }
 
+    /// The number of cards held in `suit`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use squeezer::{Cards, Suit};
+    /// # use std::str::FromStr;
+    /// let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
+    /// assert_eq!(hand.len_of_suit(Suit::Spades), 4);
+    /// assert_eq!(hand.len_of_suit(Suit::Clubs), 2);
+    /// # Ok::<(), squeezer::InvalidCardError>(())
+    /// ```
+    #[must_use]
+    #[inline]
+    pub const fn len_of_suit(&self, suit: Suit) -> u8 {
+        self.in_suit(suit).len()
+    }
+
+    /// The shape as suit lengths in S,H,D,C order.
+    ///
+    /// This is the distribution array the shape predicates and the dealer
+    /// compare against, so a 4-3-3-3 hand is `[4, 3, 3, 3]`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use squeezer::Cards;
+    /// # use std::str::FromStr;
+    /// let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
+    /// assert_eq!(hand.shape(), [4, 4, 3, 2]);
+    /// # Ok::<(), squeezer::InvalidCardError>(())
+    /// ```
+    #[must_use]
+    #[inline]
+    pub const fn shape(&self) -> [u8; 4] {
+        [
+            self.spades().len(),
+            self.hearts().len(),
+            self.diamonds().len(),
+            self.clubs().len(),
+        ]
+    }
+
+    /// High card points, the bridge valuation of A/K/Q/J as 4/3/2/1.
+    ///
+    /// A readable alias for [`Cards::high_card_points`], the name the dealer
+    /// constraints and the bidding helpers use.
+    #[must_use]
+    #[inline]
+    pub const fn hcp(&self) -> u8 {
+        self.high_card_points()
+    }
+
+    /// Renders the holding suit by suit, one per line, spades first.
+    ///
+    /// Each non-empty line carries its suit symbol and ranks high to low. A
+    /// void suit renders as an empty line, so the line position always
+    /// identifies the suit:
+    ///
+    /// ```text
+    /// ♠AKQ2
+    /// ♥KQ32
+    /// ♦AK2
+    /// ♣32
+    /// ```
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use squeezer::Cards;
+    /// # use std::str::FromStr;
+    /// let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
+    /// assert_eq!(hand.long_str(), "♠AKQ2\n♥KQ32\n♦AK2\n♣32");
+    /// # Ok::<(), squeezer::InvalidCardError>(())
+    /// ```
+    #[must_use]
+    pub fn long_str(&self) -> String {
+        [self.spades(), self.hearts(), self.diamonds(), self.clubs()]
+            .map(|holding| holding.to_string())
+            .join("\n")
+    }
+
     /// Returns the inner u64 type representing this [`Cards`] instance.
     #[must_use]
     #[inline]
@@ -1252,6 +1334,48 @@ fn high_card_points_single_pass_matches_classic() {
 }
 
 #[test]
+fn long_str_renders_one_suit_per_line() {
+    use std::str::FromStr;
+    let hand = Cards::from_str("AKQ2.KQ32.AK2.32").expect("dotted hand parses");
+    assert_eq!(hand.long_str(), "♠AKQ2\n♥KQ32\n♦AK2\n♣32");
+
+    // A void suit keeps its (empty) line, so the four lines always name S,H,D,C.
+    let void_clubs = Cards::from_str("AKQJ2.KQJ32.A32.").expect("dotted hand parses");
+    assert_eq!(void_clubs.long_str(), "♠AKQJ2\n♥KQJ32\n♦A32\n");
+}
+
+#[test]
+fn shape_and_len_of_suit_follow_the_suit_order() {
+    use std::str::FromStr;
+    let hand = Cards::from_str("AKQ2.KQ32.AK2.32").expect("dotted hand parses");
+    assert_eq!(hand.shape(), [4, 4, 3, 2]);
+    assert_eq!(hand.len_of_suit(Suit::Spades), 4);
+    assert_eq!(hand.len_of_suit(Suit::Hearts), 4);
+    assert_eq!(hand.len_of_suit(Suit::Diamonds), 3);
+    assert_eq!(hand.len_of_suit(Suit::Clubs), 2);
+
+    // A void suit measures zero, and a long suit keeps counting past seven.
+    let void_clubs = Cards::from_str("AKQJ2.KQJ32.A32.").expect("dotted hand parses");
+    assert_eq!(void_clubs.len_of_suit(Suit::Clubs), 0);
+    let long_spades = Cards::from_str("AKQJ234.K32.A2.2").expect("dotted hand parses");
+    assert_eq!(long_spades.len_of_suit(Suit::Spades), 7);
+}
+
+#[test]
+fn hcp_is_the_high_card_point_total() {
+    use std::str::FromStr;
+    let hand = Cards::from_str("AKQJ.KQJ2.AK2.32").expect("dotted hand parses");
+    assert_eq!(hand.hcp(), 23); // A=4, K=3, Q=2, J=1
+
+    // A hand with no honour cards is worth nothing; one with every honour in
+    // every suit tops out at 37 in a thirteen-card holding.
+    let spot_cards = Cards::from_str("2345.2345.23.234").expect("dotted hand parses");
+    assert_eq!(spot_cards.hcp(), 0);
+    let all_honours = Cards::from_str("AKQJ.AKQ.AKQ.AKQ").expect("dotted hand parses");
+    assert_eq!(all_honours.hcp(), 37);
+}
+
+#[test]
 fn high_card_points_matches_reference_for_every_rank_layout() {
     fn reference(bits: u64) -> u8 {
         let mut points = 0;
@@ -1333,7 +1457,7 @@ fn cards_from_str_keeps_the_positional_and_letter_forms() {
     let letters = Cards::from_str("SAKQHAJT9DT3CAK95").expect("lettered form");
     assert_eq!(positional, letters);
 
-    // `Hand`'s positional form uses `.` as the separator.
+    // The four-suit positional form uses `.` as the separator.
     let dotted = Cards::from_str("AKQ2.KQ32.AK2.32").expect("dotted form");
     assert_eq!(
         dotted,

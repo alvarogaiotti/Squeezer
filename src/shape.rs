@@ -25,8 +25,9 @@
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! # use squeezer::{Shapes, Hand};
-//! # let hand = Hand::new();
+//! # use squeezer::Shapes;
+//! # use std::str::FromStr;
+//! # let hand = squeezer::Cards::from_str("AKQ2.KQ32.AK2.32")?;
 //! // Create constraint for balanced hands (4333, 4432, 5332)
 //! let mut shapes = Shapes::new();
 //! shapes.add_balanced();
@@ -79,8 +80,9 @@ type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// # use squeezer::{Hand, Shape};
-/// # let hand = Hand::new();
+/// # use squeezer::Shape;
+/// # use std::str::FromStr;
+/// # let hand = squeezer::Cards::from_str("AKQ2.KQ32.AK2.32")?;
 /// // Create from a pattern string
 /// let shape = Shape::try_from("5332")?; // All permutations of 5-3-3-2
 ///
@@ -215,7 +217,7 @@ impl Shape {
         }
     }
 
-    /// Checks if a hand's shape matches this constraint.
+    /// Checks if a seat's cards match this shape constraint.
     ///
     /// This is the primary method for validating hands during deal generation.
     ///
@@ -229,8 +231,9 @@ impl Shape {
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// # use squeezer::{Shape,Hand};
-    /// # let hand = Hand::new();
+    /// # use squeezer::{Cards, Shape};
+    /// # use std::str::FromStr;
+    /// # let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
     /// let shape = Shape::new_from_pattern("5332")?;
     /// if shape.is_member(hand) {
     ///     println!("Hand is 5-3-3-2 distribution");
@@ -239,8 +242,8 @@ impl Shape {
     /// ```
     #[must_use]
     #[inline]
-    pub fn is_member(&self, hand_to_match: Hand) -> bool {
-        self.is_member_shape(hand_to_match.shape())
+    pub fn is_member(&self, cards: Cards) -> bool {
+        self.is_member_shape(cards.shape())
     }
 
     /// Membership check on an already computed shape pattern.
@@ -288,8 +291,9 @@ impl Shape {
     /// # Usage Pattern
     ///
     /// ```rust
-    /// # use squeezer::{Shape, Hand};
-    /// # let hand = Hand::new();
+    /// # use squeezer::{Shape, Cards};
+    /// # use std::str::FromStr;
+    /// # let hand = Cards::from_str("AKQ2.KQ32.AK2.32").expect("a bridge hand parses");
     /// # let constraint = Shape::All;
     /// // In deal generation loop:
     /// if !constraint.is_member(hand) {
@@ -335,8 +339,9 @@ impl Shape {
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// # use squeezer::{Shapes,Suit, Hand};
-/// # let hand = Hand::new();
+/// # use squeezer::{Shapes, Suit};
+/// # use std::str::FromStr;
+/// # let hand = squeezer::Cards::from_str("AKQ2.KQ32.AK2.32")?;
 /// let mut shapes = Shapes::new();
 /// shapes.add_balanced(); // 4333, 4432, 5332
 /// shapes.add_shape("5422")?;
@@ -438,7 +443,7 @@ impl Shapes {
         (state % M) as usize
     }
 
-    /// Checks if a hand's shape is a member of this shape set.
+    /// Checks if a seat's cards hold a shape in this shape set.
     ///
     /// This is a two-stage check:
     /// 1. **Range check**: Verify each suit length is within [min, max] for that suit
@@ -450,8 +455,8 @@ impl Shapes {
     /// and bit array access for shapes that are obviously excluded.
     #[must_use]
     #[inline]
-    pub fn is_member(&self, hand_to_match: Hand) -> bool {
-        self.is_member_shape(hand_to_match.shape())
+    pub fn is_member(&self, cards: Cards) -> bool {
+        self.is_member_shape(cards.shape())
     }
 
     /// Fast range-only pre-check on an already computed shape pattern.
@@ -1016,8 +1021,7 @@ mod test {
             .union(diamonds)
             .union(hearts);
 
-        let hand = Hand { cards };
-        assert!(factory.is_member(hand));
+        assert!(factory.is_member(cards));
     }
     #[test]
     fn shapes_from_len_range_test() {
@@ -1057,8 +1061,7 @@ mod test {
             .union(diamonds)
             .union(hearts);
 
-        let hand = Hand { cards };
-        assert!(factory.is_member(hand));
+        assert!(factory.is_member(cards));
     }
     #[test]
     fn can_remove_correct_shapes() {
@@ -1073,12 +1076,11 @@ mod test {
             .union(diamonds)
             .union(hearts);
 
-        let hand = Hand { cards };
         let mut factory = Shapes::new();
         factory.add_shape("3xx2").unwrap();
-        assert!(factory.is_member(hand));
+        assert!(factory.is_member(cards));
         factory.remove_shape("3352").unwrap();
-        assert!(!factory.is_member(hand));
+        assert!(!factory.is_member(cards));
     }
 
     #[test]

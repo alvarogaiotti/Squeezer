@@ -36,7 +36,7 @@
 //!
 //! // Simple deal with North predealed
 //! let dealer = DealerBuilder::new()
-//!     .predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ")?.try_into()?)?
+//!     .predeal(Seat::North, Cards::from_str("SAKQHAKQDAKQCAKQJ")?)?
 //!     .build()?;
 //!
 //! let deal = dealer.deal()?;
@@ -107,7 +107,7 @@ pub const DEFAULT_ATTEMPT_BUDGET: u32 = 2_000_000;
 ///
 /// # Memory Layout
 ///
-/// Each `Hand` is typically 8 bytes (bitboard representation), so a `Deal` is
+/// Each seat's `Cards` is 8 bytes (bitboard representation), so a `Deal` is
 /// 32 bytes total - very cache-friendly.
 ///
 /// # Indexing
@@ -124,8 +124,8 @@ pub const DEFAULT_ATTEMPT_BUDGET: u32 = 2_000_000;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Deal {
-    /// Array of hands in order: [North, East, South, West]
-    hands: [Hand; 4],
+    /// Cards held by each seat, in order: [North, East, South, West]
+    hands: [Cards; 4],
 }
 
 /// Why a set of four hands is not a valid bridge deal.
@@ -165,18 +165,19 @@ impl std::fmt::Display for DealError {
 impl std::error::Error for DealError {}
 
 impl Deal {
-    /// Creates a deal from four hands, validating the 52-card partition.
+    /// Creates a deal from the four seats' cards, validating the 52-card
+    /// partition.
     ///
     /// Every seat must hold exactly 13 cards and no card may appear twice; as
     /// documented on [`DealError`], those two conditions already imply the four
-    /// hands cover the whole deck.
+    /// holdings cover the whole deck.
     ///
     /// # Errors
     ///
     /// Returns [`DealError`] unless every seat holds exactly 13 distinct cards.
-    pub fn new(hands: [Hand; 4]) -> Result<Self, DealError> {
-        for (index, hand) in hands.iter().enumerate() {
-            let len = hand.cards().len();
+    pub fn new(hands: [Cards; 4]) -> Result<Self, DealError> {
+        for (index, cards) in hands.iter().enumerate() {
+            let len = cards.len();
             if len != 13 {
                 return Err(DealError::WrongHandSize {
                     seat: Seat::from(index),
@@ -185,11 +186,11 @@ impl Deal {
             }
         }
 
-        // Fold the four hands into one bitboard, reporting the first card that
-        // was already seen.
+        // Fold the four holdings into one bitboard, reporting the first card
+        // that was already seen.
         let mut seen = Cards::EMPTY;
-        for hand in &hands {
-            for card in hand.cards() {
+        for cards in &hands {
+            for card in *cards {
                 if seen.has_card(card) {
                     return Err(DealError::DuplicatedCard(card));
                 }
@@ -200,61 +201,62 @@ impl Deal {
         Ok(Self { hands })
     }
 
-    /// Creates a deal from four hands without checking the partition.
+    /// Creates a deal from the four seats' cards without checking the
+    /// partition.
     ///
     /// The caller takes full responsibility for the invariant: each seat must
-    /// hold exactly 13 distinct cards and the four hands must cover the whole
-    /// deck. Prefer [`Deal::new`] unless you are on a hot path that has already
-    /// established the invariant (for example [`StandardDealer`], which deals
-    /// from a shuffled deck).
+    /// hold exactly 13 distinct cards and the four holdings must cover the
+    /// whole deck. Prefer [`Deal::new`] unless you are on a hot path that has
+    /// already established the invariant (for example [`StandardDealer`], which
+    /// deals from a shuffled deck).
     #[must_use]
     #[inline]
-    pub const fn from_hands_unchecked(hands: [Hand; 4]) -> Self {
+    pub const fn from_cards_unchecked(hands: [Cards; 4]) -> Self {
         Self { hands }
     }
 
-    /// Returns a reference to the internal array of hands.
+    /// Returns a reference to the four seats' cards.
     ///
-    /// Hands are in order: [North, East, South, West]
+    /// Holdings are in order: [North, East, South, West]
     #[must_use]
     #[inline]
-    pub fn hands(&self) -> &[Hand; 4] {
+    pub fn hands(&self) -> &[Cards; 4] {
         &self.hands
     }
 
-    /// Returns North's hand.
+    /// Returns the cards North holds.
     #[must_use]
     #[inline]
-    pub fn north(&self) -> Hand {
+    pub fn north(&self) -> Cards {
         self.hands[Seat::North as usize]
     }
 
-    /// Returns South's hand.
+    /// Returns the cards South holds.
     #[must_use]
     #[inline]
-    pub fn south(&self) -> Hand {
+    pub fn south(&self) -> Cards {
         self.hands[Seat::South as usize]
     }
 
-    /// Returns East's hand.
+    /// Returns the cards East holds.
     #[must_use]
     #[inline]
-    pub fn east(&self) -> Hand {
+    pub fn east(&self) -> Cards {
         self.hands[Seat::East as usize]
     }
 
-    /// Returns West's hand.
+    /// Returns the cards West holds.
     #[must_use]
     #[inline]
-    pub fn west(&self) -> Hand {
+    pub fn west(&self) -> Cards {
         self.hands[Seat::West as usize]
     }
 
-    /// Returns an iterator over the four hands.
+    /// Returns an iterator over the four seats' cards.
     ///
     /// Iterates in order: North, East, South, West
     #[inline]
-    pub fn iter(&self) -> std::slice::Iter<'_, Hand> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Cards> {
         self.hands.iter()
     }
 
@@ -279,14 +281,14 @@ impl Deal {
     }
 }
 
-impl TryFrom<[Hand; 4]> for Deal {
+impl TryFrom<[Cards; 4]> for Deal {
     type Error = DealError;
 
     /// Validates the four hands via [`Deal::new`].
     ///
     /// This is the named conversion that [`Deal`]'s `Deserialize` goes
     /// through.
-    fn try_from(hands: [Hand; 4]) -> Result<Self, Self::Error> {
+    fn try_from(hands: [Cards; 4]) -> Result<Self, Self::Error> {
         Self::new(hands)
     }
 }
@@ -312,7 +314,7 @@ impl<'de> serde::Deserialize<'de> for Deal {
     where
         D: serde::Deserializer<'de>,
     {
-        let hands = <[Hand; 4]>::deserialize(deserializer)?;
+        let hands = <[Cards; 4]>::deserialize(deserializer)?;
         Deal::try_from(hands).map_err(serde::de::Error::custom)
     }
 }
@@ -334,8 +336,8 @@ impl std::fmt::Display for Deal {
 }
 
 impl IntoIterator for Deal {
-    type IntoIter = IntoIter<Hand, 4>;
-    type Item = Hand;
+    type IntoIter = IntoIter<Cards, 4>;
+    type Item = Cards;
 
     fn into_iter(self) -> Self::IntoIter {
         self.hands.into_iter()
@@ -343,7 +345,7 @@ impl IntoIterator for Deal {
 }
 
 impl std::ops::Index<Seat> for Deal {
-    type Output = Hand;
+    type Output = Cards;
 
     #[inline]
     fn index(&self, index: Seat) -> &Self::Output {
@@ -352,7 +354,7 @@ impl std::ops::Index<Seat> for Deal {
 }
 
 impl std::ops::Index<usize> for Deal {
-    type Output = Hand;
+    type Output = Cards;
 
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
@@ -361,8 +363,8 @@ impl std::ops::Index<usize> for Deal {
 }
 
 impl<'a> IntoIterator for &'a Deal {
-    type IntoIter = std::slice::Iter<'a, Hand>;
-    type Item = &'a Hand;
+    type IntoIter = std::slice::Iter<'a, Cards>;
+    type Item = &'a Cards;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -1106,7 +1108,7 @@ impl DealerBuilder {
     /// ]);
     /// let dealer = DealerBuilder::new().with_played(&record).build()?;
     /// let deal = dealer.deal()?;
-    /// assert!(deal.west().cards().has_card(Card::C2));
+    /// assert!(deal.west().has_card(Card::C2));
     /// # Ok(())
     /// # }
     /// ```
@@ -1139,7 +1141,7 @@ impl DealerBuilder {
     /// let known = Cards::from_str("HAK")?;
     /// let dealer = DealerBuilder::new().with_known(Seat::South, known).build()?;
     /// let deal = dealer.deal()?;
-    /// assert!(deal.south().cards().contains(known));
+    /// assert!(deal.south().contains(known));
     /// # Ok(())
     /// # }
     /// ```
@@ -1671,7 +1673,7 @@ impl Dealer for StandardDealer {
     /// a deck error if the conditioning left too few cards to complete a hand.
     #[inline]
     fn deal(&self) -> Result<Deal, DealerError> {
-        let mut hands: [Hand; 4] = [Hand::default(); 4];
+        let mut hands: [Cards; 4] = [Cards::EMPTY; 4];
         // Hoist the RNG out of the rejection loop: creating a thread-local RNG
         // for every one of the four picks per attempt is needlessly expensive.
         let mut rng = rand::rng();
@@ -1699,7 +1701,7 @@ impl Dealer for StandardDealer {
                     };
                     cards_to_add
                 };
-                hands[seat as usize].set_cards(known + cards_to_add);
+                hands[seat as usize] = known + cards_to_add;
 
                 // A seat that fails its constraint dooms the candidate, so
                 // stop dealing and never reach the cross-hand closure.
@@ -1711,7 +1713,7 @@ impl Dealer for StandardDealer {
                 }
             }
 
-            let deal = Deal::from_hands_unchecked(hands);
+            let deal = Deal::from_cards_unchecked(hands);
 
             if (self.accept_function)(&deal) {
                 return Ok(deal);
@@ -1736,7 +1738,7 @@ mod tests {
 
         // All hands should have exactly 13 cards
         for hand in deal {
-            assert_eq!(hand.cards.len(), 13);
+            assert_eq!(hand.len(), 13);
         }
     }
 
@@ -1753,7 +1755,7 @@ mod tests {
         let deal = dealer.deal().unwrap();
 
         // North should have all predealed cards
-        assert!(deal.north().cards().contains(cards));
+        assert!(deal.north().contains(cards));
     }
 
     /// Tests that predealing the same card twice fails.
@@ -1911,11 +1913,11 @@ mod tests {
         assert_eq!(dealer.current_hand(Seat::East), Cards::EMPTY);
 
         let deal = dealer.deal().expect("dealer deals");
-        assert!(deal.north().cards().contains(predeal));
-        assert!(deal.east().cards().has_card(Card::H2));
+        assert!(deal.north().contains(predeal));
+        assert!(deal.east().has_card(Card::H2));
         // A played card is fixed to its seat, so no other hand can hold it.
         for seat in [Seat::North, Seat::South, Seat::West] {
-            assert!(!deal[seat].cards().has_card(Card::H2));
+            assert!(!deal[seat].has_card(Card::H2));
         }
     }
 
@@ -1929,7 +1931,7 @@ mod tests {
             .expect("directly-known cards are valid");
         assert_eq!(dealer.known()[Seat::South as usize], known);
         let deal = dealer.deal().expect("dealer deals");
-        assert!(deal.south().cards().contains(known));
+        assert!(deal.south().contains(known));
     }
 
     /// A card fixed to two different seats is a structural error.
@@ -2015,9 +2017,9 @@ mod tests {
             .expect("conditioning is valid");
 
         let deal = dealer.deal().expect("dealer finds a 4-heart hand");
-        assert_eq!(deal.north().cards().len(), 13);
+        assert_eq!(deal.north().len(), 13);
         assert_eq!(deal.north().hearts().len(), 4);
-        assert!(deal.north().cards().contains(predeal));
+        assert!(deal.north().contains(predeal));
     }
 
     /// Nine spades fixed to North (two predealt, seven played); the caller adds
@@ -2160,8 +2162,8 @@ mod tests {
             .unwrap();
 
         let deal = dealer.deal().unwrap();
-        assert!(deal.north().cards().contains(cards_north));
-        assert!(deal.south().cards().contains(cards_south));
+        assert!(deal.north().contains(cards_north));
+        assert!(deal.south().contains(cards_south));
     }
     #[test]
     fn can_deal_test() {
@@ -2184,7 +2186,7 @@ mod tests {
             .build()
             .unwrap();
         let deal = dealer.deal().unwrap();
-        assert_eq!(deal.north().cards(), hand);
+        assert_eq!(deal.north(), hand);
     }
 
     #[test]
@@ -2209,7 +2211,7 @@ mod tests {
             .build()
             .unwrap();
         let deal = dealer.deal().unwrap();
-        assert_eq!(deal.north().cards(), hand);
+        assert_eq!(deal.north(), hand);
     }
     #[test]
     fn dealer_deals_with_predeal_all_test() {
@@ -2221,7 +2223,7 @@ mod tests {
             .build()
             .unwrap();
         let deal = dealer.deal().unwrap();
-        assert_eq!(deal.north().cards(), hand);
+        assert_eq!(deal.north(), hand);
     }
     #[test]
     fn dealer_deals_with_predeal_all_twice_test() {
@@ -2237,8 +2239,8 @@ mod tests {
             .build()
             .unwrap();
         let deal = dealer.deal().unwrap();
-        assert_eq!(deal.north().cards(), hand_2);
-        assert_ne!(deal.east().cards(), hande);
+        assert_eq!(deal.north(), hand_2);
+        assert_ne!(deal.east(), hande);
     }
 
     #[test]
@@ -2257,21 +2259,23 @@ mod tests {
             .predeal(Seat::North, hand)
             .unwrap()
             .with_function(Box::new(|deal: &Deal| {
-                deal.north().slen() + deal.south().slen() > 8
+                deal.north().len_of_suit(Suit::Spades) + deal.south().len_of_suit(Suit::Spades) > 8
             }))
             .build()
             .unwrap();
         let deal = dealer.deal().unwrap();
-        assert!(deal.north().slen() + deal.south().slen() > 8);
+        assert!(
+            deal.north().len_of_suit(Suit::Spades) + deal.south().len_of_suit(Suit::Spades) > 8
+        );
     }
 
     /// One hand per suit: a valid partition with no duplicates.
-    fn sample_deal() -> [Hand; 4] {
+    fn sample_deal() -> [Cards; 4] {
         [
-            Hand::from_str("SAKQJT98765432").expect("spades hand parses"),
-            Hand::from_str("HAKQJT98765432").expect("hearts hand parses"),
-            Hand::from_str("DAKQJT98765432").expect("diamonds hand parses"),
-            Hand::from_str("CAKQJT98765432").expect("clubs hand parses"),
+            Cards::from_str("SAKQJT98765432").expect("spades hand parses"),
+            Cards::from_str("HAKQJT98765432").expect("hearts hand parses"),
+            Cards::from_str("DAKQJT98765432").expect("diamonds hand parses"),
+            Cards::from_str("CAKQJT98765432").expect("clubs hand parses"),
         ]
     }
 
@@ -2279,16 +2283,14 @@ mod tests {
     fn deal_new_accepts_valid_partition() {
         let deal = Deal::new(sample_deal()).expect("one suit per seat is a valid deal");
         for seat in Seat::iter() {
-            assert_eq!(deal[seat].cards().len(), 13);
+            assert_eq!(deal[seat].len(), 13);
         }
     }
 
     #[test]
     fn deal_new_rejects_wrong_hand_size() {
         let mut hands = sample_deal();
-        hands[Seat::South as usize] =
-            Hand::try_from(Cards::from_str("DAKQJT9876543").expect("12 diamonds parse"))
-                .expect("12 cards fit in a hand");
+        hands[Seat::South as usize] = Cards::from_str("DAKQJT9876543").expect("12 diamonds parse");
         assert_eq!(
             Deal::new(hands),
             Err(DealError::WrongHandSize {
