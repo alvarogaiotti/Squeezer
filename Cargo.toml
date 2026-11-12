@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-# The root package is implicitly a workspace member, so only the two support
-# packages need listing. The `dds` build script resolves the vendored sources
-# as `../vendor/dds`, which is why the members keep their current locations.
-members = ["dds", "squeezer_macros"]
+# The root package is implicitly a workspace member. The `dds` build script
+# resolves the vendored sources as `../vendor/dds`, which is why that member and
+# `squeezer_macros` keep their current locations; extracted crates live under
+# `crates/`.
+members = ["crates/squeezer-bbo", "dds", "squeezer_macros"]
 resolver = "3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,22 +18,14 @@ rand = "*"
 colored = "*"
 itertools = "*"
 serde = { version = "1.0", features = ["derive"], optional = true }
-reqwest = { version = "*", features = ["cookies", "blocking"], optional = true }
-time = { version = "*", optional = true }
 dds = { path = "dds", optional = true }
 bitvec = { version = "*", features = ["atomic", "std"] }
 nom = {version = "8.0.0", optional=true}
-scraper = { version = "0.27.0", optional = true }
-url = { version = "2.5.8", optional = true }
 rayon = "1.12.0"
 thiserror = "2"
 
 [features]
-default = ["lin", "pbn", "dds", "bbo_async"]
-# Both BBO clients share reqwest (async + blocking), scraper for HTML parsing
-# and url for resolving the relative hand-record links.
-bbo = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
-bbo_async = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
+default = ["lin", "pbn", "dds"]
 lin = ["dep:nom"]
 pbn = ["dep:nom"]
 dds = ["dep:dds"]

@@ -1798,11 +1798,18 @@ dependencies = [
  "quickcheck_macros",
  "rand 0.9.2",
  "rayon",
- "reqwest",
- "scraper",
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "squeezer-bbo"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "reqwest",
+ "scraper",
  "time",
  "url",
 ]

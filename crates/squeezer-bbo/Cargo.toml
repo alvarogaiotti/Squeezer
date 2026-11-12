@@ -1,0 +1,27 @@
+[package]
+name = "squeezer-bbo"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# Downloading hands is opt-in network code, so the HTTP, HTML and time crates are
+# optional and only come in with the client a consumer asks for. `async` stays
+# the default because the library it was extracted from defaulted to
+# `bbo_async`; use `default-features = false, features = ["blocking"]` for the
+# synchronous client alone.
+default = ["async"]
+async = ["dep:log", "dep:reqwest", "dep:scraper", "dep:time", "dep:url"]
+blocking = ["dep:log", "dep:reqwest", "reqwest/blocking", "dep:scraper", "dep:time", "dep:url"]
+
+[dependencies]
+log = { version = "*", optional = true }
+reqwest = { version = "*", features = ["cookies"], optional = true }
+scraper = { version = "0.27.0", optional = true }
+time = { version = "*", optional = true }
+url = { version = "2.5.8", optional = true }
+
+[dev-dependencies]
+# The ignored live test formats instants with `time::macros::datetime`, which
+# `cookie` happens to enable transitively today; naming it keeps that test
+# compiling if the HTTP stack's features change.
+time = { version = "*", features = ["macros"] }

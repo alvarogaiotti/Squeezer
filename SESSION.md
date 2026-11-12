@@ -160,6 +160,18 @@
 - `Card::from_str` now accepts both `T` and `10` for the ten, but `Card`'s
   `rankchar`/`Display` only ever emit `T`, so `"10"` is an input-only spelling.
 
+### BBO client
+- `crates/squeezer-bbo/src/blocking.rs`'s ignored live test keeps a real BBO
+  username and password in the repository. It should read them from the
+  environment (`BBO_USERNAME`/`BBO_PASSWORD`) before anyone un-ignores it.
+- Both clients' `download` discards the fetched LIN (a `TODO` in each), so the
+  crate cannot yet hand the records to `squeezer-io` itself.
+- The ignored live test in `crates/squeezer-bbo/src/blocking.rs` calls
+  `get_in_interval` with a start time later than its end time (2022-04-01 vs
+  2022-03-03). The client swaps the arguments, so it would still issue the
+  request, but the interval is not the one the test names; re-check the dates
+  before un-ignoring it.
+
 ### Dealer and conditioning
 - `DealerBuilder` keeps two sources of truth for the available deck: `deck`
   (incremental, for eager duplicate rejection in `predeal*`) and the `known` set

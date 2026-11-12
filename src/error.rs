@@ -15,8 +15,6 @@
 //! Only the [`Solver`](SqueezerError::Solver) variant's construction touches
 //! `DdsError`, and only under the `dds` feature.
 
-#[cfg(any(feature = "bbo", feature = "bbo_async"))]
-use crate::bbohelpers::BboError;
 use crate::card::InvalidCardError;
 use crate::dealproduction::DealerError;
 use crate::hand_constraint::ConstraintError;
@@ -86,10 +84,6 @@ pub enum SqueezerError {
     /// A position could not be derived from a board.
     #[error("invalid position: {0}")]
     PositionError(#[from] PositionError),
-    /// A BBO download or login failed.
-    #[cfg(any(feature = "bbo", feature = "bbo_async"))]
-    #[error("BBO request failed: {0}")]
-    Bbo(#[from] BboError),
     /// A trick count was outside 0-13.
     #[cfg(feature = "dds")]
     #[error("invalid trick count: {0}")]
@@ -283,14 +277,6 @@ mod tests {
             "[Deal \"garbage\"]".to_owned(),
         ));
         assert!(matches!(error, SqueezerError::PbnParsing(_)));
-        assert!(error.source().is_some());
-    }
-
-    #[cfg(any(feature = "bbo", feature = "bbo_async"))]
-    #[test]
-    fn bbo_error_converts_to_its_variant() {
-        let error = SqueezerError::from(BboError::Login);
-        assert!(matches!(error, SqueezerError::Bbo(_)));
         assert!(error.source().is_some());
     }
 
