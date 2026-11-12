@@ -31,7 +31,8 @@
 //! # Features
 //!
 //! - `lin` enables [`linparser`] and the [`LinFile`](linparser::LinFile)
-//!   writer. LIN is the format BBO exports.
+//!   writer. LIN is the format BBO exports; `parse_lin_documents` imports a
+//!   batch of complete LIN documents, as a BBO download returns them.
 //! - `pbn` enables [`pbnparser`] and the [`PbnFile`](pbnparser::PbnFile)
 //!   writer.
 //! - `serde` derives `Serialize`/`Deserialize` on the error categories.

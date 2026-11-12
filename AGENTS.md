@@ -90,8 +90,11 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record
-  links. Its live-network test has hardcoded credentials and is `#[ignore]`d —
-  never run it.
+  links. `download` returns the LIN document of every fetched hand as
+  `Vec<String>`; turning that batch into `Board`s is `squeezer-io`'s
+  `linparser::parse_lin_documents`, so `squeezer-bbo` keeps its ADR-0008 edge
+  to no other Squeezer crate. Its live-network test reads `BBO_USERNAME` and
+  `BBO_PASSWORD` from the environment and is `#[ignore]`d — never run it.
 - Clippy `pedantic` is enabled crate-wide with a broad allow list in each crate's `src/lib.rs`; don't chase the allowed lints.
 
 ## Gotchas

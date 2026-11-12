@@ -492,6 +492,26 @@ pub fn parse_bridge_file(input: &str) -> Result<LinFile, ParseLinError> {
     }
 }
 
+/// Imports a batch of LIN documents, such as the hands a BBO download returns,
+/// into boards.
+///
+/// Each entry must be one complete LIN document; a document may itself hold
+/// several boards. Boards come back in document order. The file-level metadata
+/// (`vg|`, `rs|`, `pn|` and each `qx|` room) is dropped because a batch of
+/// downloads has no single tournament context to attach it to; use
+/// [`parse_bridge_file`] when that metadata matters.
+///
+/// # Errors
+///
+/// Returns the first [`ParseLinError`]; parsing stops at the offending document.
+pub fn parse_lin_documents<S: AsRef<str>>(documents: &[S]) -> Result<Vec<Board>, ParseLinError> {
+    let mut boards = Vec::new();
+    for document in documents {
+        boards.extend(parse_bridge_file(document.as_ref())?.boards);
+    }
+    Ok(boards)
+}
+
 fn parse_bridge_file_inner(input: &str) -> LinResult<'_, LinFile> {
     let (input, _) = multispace0(input)?;
     let (input, tournament_info) = opt(parse_vugraph_data).parse(input)?;

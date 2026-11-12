@@ -28,7 +28,11 @@
 //!
 //! The crate owns only the HTTP side of the download: it depends on nothing
 //! from the card, deal, solver or parser crates, so a consumer that never
-//! downloads hands never compiles an HTTP stack.
+//! downloads hands never compiles an HTTP stack. `download` returns each
+//! fetched hand record as a complete LIN document (`Vec<String>`); converting
+//! that batch into `Board`s is the importer's job
+//! (`squeezer_io::linparser::parse_lin_documents`), which keeps this crate's
+//! dependency edge at zero Squeezer crates.
 
 #[cfg(feature = "async")]
 mod asynchronous;
