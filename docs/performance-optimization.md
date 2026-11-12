@@ -272,6 +272,126 @@ against the old loop. Candidates per produced deal are unchanged: the fill order
 much work a rejected candidate costs, and ticket 01 measured identical acceptance on every case
 (largest deviation 0.3%, inside sampling error).
 
+## 7. Candidate throughput, the dealer's documented time, and post-processing cost
+
+**Method.** `Dealer::deal_with_attempts` is a new provided method: it returns
+the deal together with the number of candidates generated for that call,
+counting the accepted one. `StandardDealer` overrides it with its real rejection
+loop; the default reports `1` for dealers that do not observe their own loop, so
+existing implementations keep compiling. `crates/squeezer-model/benches/deal_constraints.rs`
+measures the mean candidates per accepted deal over 1,000 accepted deals only to
+scale Criterion's integral `Throughput` display, then times the same calls. The
+timed run itself accumulates the exact candidate count and elapsed time and
+prints candidates per accepted deal, nanoseconds per candidate and candidates
+per second, so the printed line is the authoritative throughput and the
+`Throughput` value is only a display scale. The group is named
+`deal_candidate_throughput` (formerly `deal_creation_constraints`) so the
+element is not mistaken for a deal; that rename resets stored Criterion
+baselines, which is why this section records the numbers. Because the dealer
+draws from a thread-local RNG, the attempt ratio itself varies a few percent
+between runs; each row below is the median of three independent runs, with the
+same protocol as §6.1 (release, `taskset -c 0`, one-second warm-up, two-second
+measurement, ten samples).
+
+| Case | Candidates per accepted deal | ns per accepted deal | ns per candidate |
+| --- | ---: | ---: | ---: |
+| Unconstrained (control) | 1.00 | 155.4 | 155.7 |
+| Balanced shape | 2.10 | 240.4 | 114.8 |
+| HCP 12-17 | 3.25 | 293.6 | 90.3 |
+| Shape + HCP 12-14 | 10.32 | 706.7 | 68.8 |
+| 1NT 15-17, North | 20.55 | 1,226.2 | 59.7 |
+| 1NT 15-17, South | 20.55 | 1,225.5 | 59.8 |
+| 1NT 15-17, West | 20.55 | 1,226.5 | 59.7 |
+| Cross-hand fit closure | 2.05 | 335.5 | 164.1 |
+| Shape + function | 11.88 | 1,390.4 | 117.5 |
+| Two-seat HCP | 8.92 | 747.0 | 83.8 |
+| Predeal + HCP | 1.61 | 199.2 | 123.8 |
+| Polish Club (South) | 5.71 | 458.5 | 80.1 |
+
+The two axes matter independently. The 1NT row matches ticket 01's ~20.5
+candidates per accepted deal, but its average candidate costs only ~60 ns: an
+early seat rejection abandons the candidate after one hand. The unconstrained
+row has one candidate per deal and therefore pays the full four-hand fill,
+~155 ns. A single "ns per deal" number hides whether a change moved the
+rejection ratio or the per-candidate work; the benchmark now reports both and
+the report divides them.
+
+The unconstrained row is 3% above §6.1's 150.7 ns, and the rest of the matrix
+drifted similarly on this run. That is machine/run drift, not the new
+`deal`/`deal_with_attempts` split: a controlled A/B on the same machine replaced
+the delegating `deal` with the pre-change loop and measured 156.4 ns versus
+155.4 ns unconstrained, and 1.2269 µs versus 1.2262 µs for 1NT North. The
+delegating form is kept; it adds no measurable cost and keeps one rejection
+loop.
+
+**Dealer documentation re-baselined.** The `StandardDealer` docs claimed 1-5
+microseconds per unconstrained deal and 10-50 microseconds with light
+constraints. The benchmark contradicts both by roughly an order of magnitude on
+every matrix row, so the claim was replaced with the measured medians above and
+a pointer to this report and the benchmark. The docs state that the figures are
+machine-specific rather than a contract.
+
+**`CardStatistics::from_outcomes`.** A new case,
+`simulation_paths_mock/card_statistics_from_outcomes`, feeds 1,000 outcomes with
+14 distinct declarer-trick/score values: the median is 8.05 µs per card
+(8 ns per outcome; run medians 8.01-8.05 µs). Card-EV calls it once per
+physical legal card, and the opening-lead fixture has 13 legal leads, so a
+1,000-deal evaluation makes 13 calls: about 105 µs, or 31% of the 334 µs mock
+card-EV run, under varied outcomes.
+
+That 31% is the conservative bound, not the fixture's measured difference. The
+mock dealer is fully predealt and the mock solver returns the same trick count
+for every card, so each card's 1,000 outcomes are identical: sorting and the
+`BTreeMap` collapse to a trivial case. Stubbing `from_outcomes` to return
+`Self::default()` and re-running the same benchmark moved
+`mock_card_ev_raw` from 334.26 µs to 332.56 µs, a 0.5% change. The function's
+real share in this pipeline therefore spans roughly 0.5-31% depending on how
+varied the per-deal outcomes are, and even the upper bound is post-processing
+only.
+
+`perf record` on `mock_card_ev_raw` (31,417 samples) attributed 2.76% to the
+out-of-line `from_outcomes` symbol and 0.59% to `BTreeMap::or_insert`, but the
+optimizer inlines most of the body into `CardEvSimulation::run`, so the sampled
+symbol percentage understates the function and is not used as its share. The
+direct timing and the stub A/B above are the measurements.
+
+**Decision: keep it unoptimised.** `score_distribution` is a public
+`BTreeMap<i32, usize>`, and `from_outcomes` accepts caller-constructed
+outcomes, so it cannot assume `score` is a function of `declarer_tricks`; a
+trick-indexed shortcut would either change the public field or add an
+unstated precondition. The remaining work is one 1,000-element `Vec`, a sort
+for the percentiles, and the map inserts. Even eliminating all of it saves at
+most ~105 µs, about 0.0015% of a ~7 s native 1,000-deal payoff run and 0.0002%
+of the 44.8 s lead pipeline. That gain does not justify changing a public
+statistics contract.
+
+**Unused `rayon` dependency removed.** `squeezer-sim` declared
+`rayon = "1.12.0"` but had no code using it: the comments that mention rayon
+describe the pool owned by `squeezer-solver`, which still depends on rayon. The
+dependency is gone from the manifest and from `Cargo.lock`'s edge for
+`squeezer-sim`; `AGENTS.md` and ADR-0008's dependency table were updated so they
+no longer list it for this crate. Builds and tests are unchanged.
+
+**Doctests.** The contract-payoff, lead and formatter examples remain
+`no_run`, each now with the reason in its module docs: they use the native DDS
+backend and solve thousands of deals, which the doctest suite does not pay for,
+so they are compiled for API checking but not executed. The `simulation` module
+docs gained an executable example that injects a small mock `ContextFactory`
+and runs a card evaluation end to end; it passes with default features and with
+`--no-default-features`, so the mock path is exercised without DDS.
+
+Ticket-12 commands:
+
+- `cargo test --workspace` - passed.
+- `cargo test -p squeezer-sim --no-default-features --doc` - passed: 3
+  doctests, including the executable mock example.
+- `cargo bench -p squeezer-model --bench deal_constraints` - passed; the
+  candidates-per-deal table above.
+- `cargo bench -p squeezer-sim --bench simulation_paths` - passed; the
+  `from_outcomes` and mock post-processing numbers above.
+- `cargo build --workspace --all-targets --all-features` - passed.
+- `cargo fmt --all --check` - passed.
+
 ## Rejected work
 
 - A first version of the deal fast path was placed directly in the public `FastSampler`; it was
@@ -286,14 +406,16 @@ much work a rejected candidate costs, and ticket 01 measured identical acceptanc
 - A native DDS `-flto` experiment was discarded before acceptance: adding `-flto` to the C++ archive
   made `rust-lld` leave the `dds_c_*` symbols unresolved, so it could not produce a runnable
   benchmark. The original build flags were restored; no build-system change is in the final diff.
-- The next Card EV hotspot, `CardStatistics::from_outcomes` (38.64% of the post-change mock profile,
-  with `BTreeMap::or_insert` at 13.97% of the remainder), was deliberately left alone. It builds the
-  public `score_distribution` map and sorts each card's values; it runs 52 times per simulation, not
-  once per deal, so even eliminating it entirely would be roughly 0.0008% of a native 1,000-deal lead
-  run. Fixing it well would mean either changing the public `BTreeMap` field or adding a
-  trick-count-indexed fast path that assumes `score` is a function of `declarer_tricks` — an
-  assumption the public `from_outcomes` cannot make for caller-constructed outcomes. Poor
-  gain-to-risk ratio, so it is recorded in `SESSION.md` rather than implemented.
+- The next Card EV hotspot, `CardStatistics::from_outcomes`, was deliberately
+  left alone. §7 measures it directly: 8.05 µs per 1,000-outcome card and 13
+  calls per 1,000-deal evaluation, up to ~31% of the mock card-EV
+  post-processing but only 0.5% on the fixed-deal fixture, and at most about
+  0.0015% of a native 1,000-deal run. It builds the public `score_distribution`
+  map and sorts each card's values; fixing it well would mean either changing
+  that public `BTreeMap` field or adding a trick-count-indexed fast path that
+  assumes `score` is a function of `declarer_tricks` - an assumption the public
+  `from_outcomes` cannot make for caller-constructed outcomes. Poor
+  gain-to-risk ratio, so it stays as it is.
 
 ## Validation
 
@@ -310,4 +432,6 @@ much work a rejected candidate costs, and ticket 01 measured identical acceptanc
 - `cargo clippy --all-targets` — passed with the pre-existing decimal-bitwise warning in
   `performance_analysis` test code; `cargo clippy --no-default-features --all-targets` passed.
 
-No public function signatures or types were changed.
+No existing public function signatures or types were changed. (Ticket 12 later
+added the provided `Dealer::deal_with_attempts` method, which is non-breaking:
+existing implementors inherit the default.)

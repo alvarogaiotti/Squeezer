@@ -9,6 +9,11 @@
 //!
 //! ## Example: Contract Payoff
 //!
+//! This example is `no_run`: the default backend is native DDS and the run
+//! below solves 3,000 contract deals, which is too slow for the doctest suite.
+//! It is still compiled, so the API is checked; see the `simulation` module
+//! documentation for an executable run against a mock factory.
+//!
 //! ```no_run
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {

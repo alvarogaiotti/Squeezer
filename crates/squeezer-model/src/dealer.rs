@@ -89,11 +89,11 @@ pub type AcceptFunction = Box<dyn Fn(&Deal) -> bool + Send + Sync>;
 /// Default cap on rejection-sampling attempts.
 ///
 /// The dealer never samples forever: once this many candidate deals have been
-/// rejected it returns [`DealerError::Unsatisfiable`]. The value is chosen so
-/// the tightest constraints shipped with the crate (a joint 18-20 HCP, six-card
-/// minor and spades-longest filter, averaging ~10⁵ attempts) succeed with a
-/// wide margin, while a genuinely impossible spec returns in bounded time
-/// instead of hanging. Override it with [`DealerBuilder::with_attempt_budget`].
+/// rejected it returns [`DealerError::Unsatisfiable`]. The value is a safety
+/// bound, not a measured expectation: the benchmark matrix's tightest opening
+/// constraint needs about 21 candidates per produced deal, while a genuinely
+/// impossible spec returns in bounded time instead of hanging. Override it with
+/// [`DealerBuilder::with_attempt_budget`].
 pub const DEFAULT_ATTEMPT_BUDGET: u32 = 2_000_000;
 
 /// Error for anything the dealer or its conditioning can reject.
@@ -136,7 +136,8 @@ pub enum DealerError {
     /// This is not a proof that no deal satisfies the constraints, only that
     /// the configured budget was too small to find one.
     Unsatisfiable {
-        /// How many candidate deals were rejected before giving up.
+        /// How many candidate deals were generated before giving up; all of
+        /// them were rejected, so this equals the budget.
         attempts: u32,
     },
     /// A shape pattern failed to scan, parse or interpret.
@@ -853,6 +854,26 @@ pub trait Dealer {
     /// require more candidate deals to be generated and rejected.
     fn deal(&self) -> Result<Deal, DealerError>;
 
+    /// Generates a deal and reports how many candidates it took to find one.
+    ///
+    /// `attempts` counts every candidate this call generated, including the
+    /// accepted one, so it measures rejection overhead directly: attempts per
+    /// accepted deal. Benchmarks divide the measured cost of one accepted deal
+    /// by this count to separate candidate cost from rejection cost.
+    ///
+    /// The default implementation reports `1` for dealers that do not observe
+    /// their own rejection loop; [`StandardDealer`] overrides it with the real
+    /// count.
+    ///
+    /// # Errors
+    ///
+    /// The same errors as [`Dealer::deal`]. A budget exhausted before a
+    /// satisfying candidate is found still reports
+    /// [`DealerError::Unsatisfiable`], whose `attempts` field is the budget.
+    fn deal_with_attempts(&self) -> Result<(Deal, u32), DealerError> {
+        self.deal().map(|deal| (deal, 1))
+    }
+
     /// Returns the known cards for each seat.
     ///
     /// The conditioning seed: predealt ∪ played ∪ directly-known, deduplicated
@@ -892,12 +913,22 @@ pub trait Dealer {
 ///
 /// # Performance Characteristics
 ///
-/// - **No constraints**: ~1-5 microseconds per deal
-/// - **Light constraints**: ~10-50 microseconds
-/// - **Tight constraints**: Can be much slower (milliseconds)
+/// Measured with `crates/squeezer-model/benches/deal_constraints.rs` (release
+/// build, one core, median of three ten-sample runs; the matrix and protocol
+/// are recorded in `docs/performance-optimization.md`):
 ///
-/// Very tight constraints (e.g., "exactly 6-5-2-0 with 15 HCP") may require
-/// thousands of attempts and can be slow.
+/// - **No constraints**: ~155 ns per deal, one candidate
+/// - **One hand constraint** (balanced shape, HCP window): ~240-710 ns,
+///   2-10 candidates
+/// - **1NT opening shape + HCP**: ~1.2 microseconds, about 21 candidates
+/// - **Genuinely rare shapes** sample far more than the matrix's opening
+///   constraints; [`DEFAULT_ATTEMPT_BUDGET`] bounds that case instead of
+///   letting it run forever
+///
+/// These are machine-specific figures, not a contract; the benchmark also
+/// reports candidates per accepted deal so a different machine or constraint
+/// can be compared on both axes. Very tight constraints (e.g. "exactly 6-5-2-0
+/// with 15 HCP") may require thousands of attempts and can be slow.
 ///
 /// # Memory
 ///
@@ -997,12 +1028,24 @@ impl Dealer for StandardDealer {
     /// a deck error if the conditioning left too few cards to complete a hand.
     #[inline]
     fn deal(&self) -> Result<Deal, DealerError> {
+        self.deal_with_attempts().map(|(deal, _attempts)| deal)
+    }
+
+    /// Generates a deal using rejection sampling and reports the candidate
+    /// count.
+    ///
+    /// `attempts` includes the accepted candidate: the first candidate of an
+    /// unconstrained dealer reports `1`. This is the rejection-sampling
+    /// analogue of a "tries" counter on a retry loop, not a count of rejected
+    /// candidates.
+    #[inline]
+    fn deal_with_attempts(&self) -> Result<(Deal, u32), DealerError> {
         let mut hands: [Cards; 4] = [Cards::EMPTY; 4];
         // Hoist the RNG out of the rejection loop: creating a thread-local RNG
         // for every one of the four picks per attempt is needlessly expensive.
         let mut rng = rand::rng();
 
-        'candidates: for _ in 0..self.attempt_budget {
+        'candidates: for attempt in 1..=self.attempt_budget {
             let mut deck = self.deck_starting_state;
 
             // Deal to each seat in the fixed fill order: known cards first,
@@ -1040,7 +1083,7 @@ impl Dealer for StandardDealer {
             let deal = Deal::from_cards_unchecked(hands);
 
             if (self.accept_function)(&deal) {
-                return Ok(deal);
+                return Ok((deal, attempt));
             }
         }
 
@@ -1280,6 +1323,38 @@ mod tests {
             .deal()
             .expect_err("no deal can satisfy the rejection");
         assert!(matches!(err, DealerError::Unsatisfiable { attempts: 10 }));
+    }
+    /// `deal_with_attempts` reports the candidates generated for this call,
+    /// counting the accepted one.
+    ///
+    /// With no per-seat constraint, every candidate reaches the closure, so
+    /// the closure's call count is exactly the attempt count. The closure
+    /// accepts the fifth candidate, which pins the reported value without
+    /// depending on the RNG.
+    #[test]
+    fn deal_with_attempts_counts_candidates_up_to_the_accepted_one() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicU32, Ordering};
+
+        let calls = Arc::new(AtomicU32::new(0));
+        let counter = Arc::clone(&calls);
+        let dealer = DealerBuilder::new()
+            .with_function(move |_: &Deal| {
+                let call = counter.fetch_add(1, Ordering::Relaxed) + 1;
+                call >= 5
+            })
+            .build()
+            .expect("a counting dealer builds");
+
+        let (deal, attempts) = dealer
+            .deal_with_attempts()
+            .expect("the fifth candidate is accepted");
+
+        assert_eq!(attempts, 5);
+        assert_eq!(calls.load(Ordering::Relaxed), 5);
+        for hand in deal {
+            assert_eq!(hand.len(), 13);
+        }
     }
     /// Tests adding predealt cards incrementally.
     #[test]

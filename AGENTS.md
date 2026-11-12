@@ -56,8 +56,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - The Monte Carlo simulations (contract payoff, card EV and opening lead), the
   result and statistics types, performance analysis, and the terminal
   renderers live in `squeezer-sim` (`crates/squeezer-sim`). It depends on
-  `squeezer-cards`, `squeezer-model`, `squeezer-solver` (default features off)
-  and `rayon`, with `colored` optional behind `formatters` and `serde` optional.
+  `squeezer-cards`, `squeezer-model`, `squeezer-solver` (default features off),
+  with `colored` optional behind `formatters` and `serde` optional.
   Its `dds` feature (on by default) forwards to `squeezer-solver/dds`: with it
   off the builder's `DdsSolver` fallback is compiled out and an explicit
   `ContextFactory` is required, which is how the mock-solver tests run without

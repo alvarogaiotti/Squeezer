@@ -23,7 +23,7 @@ to draw.
 | `squeezer-solver` | the solver trait, `SolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
 | `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `squeezer-cards`, `nom`, `serde` (optional) |
 | `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log` |
-| `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `squeezer-cards`, `rayon`, `serde` (optional) |
+| `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `squeezer-cards`, `serde` (optional) |
 
 The `Deal`/`Board` writers stay unconditional, as they are today: exporting a
 board needs no parser. Only the container writers sit behind `lin` and `pbn`.

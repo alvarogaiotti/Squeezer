@@ -29,7 +29,6 @@ squeezer-model = { path = "../squeezer-model" }
 # The solver seam is backend-agnostic; DDS is reachable only through this
 # crate's `dds` feature, which forwards to the solver crate's.
 squeezer-solver = { path = "../squeezer-solver", default-features = false }
-rayon = "1.12.0"
 colored = { version = "*", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 
