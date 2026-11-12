@@ -188,15 +188,17 @@
 ### Simulation, card-EV and contract payoff
 - `LeadAnalysis` is a thin view over a borrowed `CardEvaluation`, but
   `LeadSimulation::run` still materialises the legacy `RawLeadData`/
-  `LeadStatistics` so the formatters, CSV/chart helpers and the bench keep
-  working. A later ticket could port those consumers onto `LeadAnalysis` and
-  delete the legacy types; `formatters::export::lead_*` and the `charts` module
-  also duplicate the percentile/histogram logic now in `card_ev.rs`.
+  `LeadStatistics` so the terminal formatters and the bench keep working. A
+  later ticket could port those consumers onto `LeadAnalysis` and delete the
+  legacy types.
 - Public-output change (ticket 10): `LeadStatistics.cards`/`RawLeadData.cards`
   now hold every **physical** legal lead (13 for example hand 0) instead of the
   DDS equivalence-class representatives (9), so rankings and any length-based
   consumer shifted. Pinned by
   `lead_view_lists_every_physical_card_not_just_class_representatives`.
+- `formatters` is not a default feature, so the formatter doctest only runs
+  under `--features formatters`. CI's plain `cargo test --workspace` covers 56
+  of the 57 doctests until ticket 16 adds the feature matrix.
 - `Denomination::difference` with `Baseline::Fixed` is not antisymmetric across
   `(a, b)`/`(b, a)`; `PayoffMatrix::calculate_rankings` only aggregates
   `option_a`, so a `Fixed` denomination can skew rankings. Documented as

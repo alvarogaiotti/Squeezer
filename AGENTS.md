@@ -46,6 +46,7 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Features
 
 - `simulation` requires `dds`; `performance_analysis` requires both `dds` and `lin` (it consumes LIN plays). Verify combos with `cargo check --no-default-features --features dds,lin`.
+- `formatters` is opt-in (not in `default`): it enables `dep:colored` and, because the renderers live in the `dds`-gated simulation module, `dds`.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record
