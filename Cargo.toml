@@ -11,6 +11,7 @@ edition = "2024"
 members = [
     "crates/squeezer-bbo",
     "crates/squeezer-cards",
+    "crates/squeezer-io",
     "crates/squeezer-model",
     "crates/squeezer-solver",
     "dds",
@@ -24,18 +25,21 @@ log = { version = "*" }
 colored = { version = "*", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 dds = { path = "dds", optional = true }
-nom = {version = "8.0.0", optional=true}
-# The solver seam, its worker pool and the DDS adapters live in
-# `squeezer-solver`; this crate re-exports them and forwards its `dds` feature.
+# The solver seam and its DDS backend live in `squeezer-solver`; this crate
+# re-exports them and forwards its `dds` feature.
 squeezer-cards = { path = "crates/squeezer-cards" }
+# The LIN/PBN importers and container writers live in `squeezer-io`; the root's
+# `lin`/`pbn` features forward to it, so a build that disables both never
+# compiles `nom`.
+squeezer-io = { path = "crates/squeezer-io", default-features = false }
 squeezer-model = { path = "crates/squeezer-model" }
 squeezer-solver = { path = "crates/squeezer-solver", default-features = false }
 thiserror = "2"
 
 [features]
 default = ["lin", "pbn", "dds"]
-lin = ["dep:nom"]
-pbn = ["dep:nom"]
+lin = ["squeezer-io/lin"]
+pbn = ["squeezer-io/pbn"]
 dds = ["dep:dds", "squeezer-solver/dds"]
 # The terminal renderers live in the simulation module, which is gated on `dds`,
 # so opting into formatters also opts into the solver they report on.
@@ -44,17 +48,16 @@ serde = [
     "dep:serde",
     "dds?/serde",
     "squeezer-cards/serde",
+    "squeezer-io/serde",
     "squeezer-model/serde",
 ]
 
 [dev-dependencies]
 criterion = { version = "*", features = ["html_reports"] }
-quickcheck = "1.1.0"
-quickcheck_macros = "1.2.0"
 # The library no longer draws random cards directly; the dealer lives in
 # `squeezer-model`. The tests and benchmarks that sample still need it.
 rand = "*"
-# Only used by the feature-gated round-trip tests.
+# The simulation unit tests serialise the raw-point types to JSON.
 serde_json = "1.0"
 # The root's unit tests share the DDS example-hand fixtures, which the solver
 # crate publishes only for tests. This is a dev-dependency so a normal build
@@ -99,13 +102,3 @@ required-features = ["dds"]
 [[test]]
 name = "performance_analysis_test"
 required-features = ["dds", "lin"]
-
-# The importer is gated on `lin`; without it `linparser` does not exist.
-[[test]]
-name = "lin_parser"
-required-features = ["lin"]
-
-# The importer is gated on `pbn`; without it `pbnparser` does not exist.
-[[test]]
-name = "pbn_parser"
-required-features = ["pbn"]

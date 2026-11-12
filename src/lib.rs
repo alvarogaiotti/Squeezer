@@ -133,10 +133,18 @@ pub mod solver {
 }
 pub mod dealer;
 mod error;
+/// The LIN importer and its container writer; they live in the `squeezer-io`
+/// crate. This shim keeps the historical `squeezer::linparser` path.
 #[cfg(feature = "lin")]
-pub mod linparser;
+pub mod linparser {
+    pub use squeezer_io::linparser::*;
+}
+/// The PBN importer and its container writer; they live in the `squeezer-io`
+/// crate. This shim keeps the historical `squeezer::pbnparser` path.
 #[cfg(feature = "pbn")]
-pub mod pbnparser;
+pub mod pbnparser {
+    pub use squeezer_io::pbnparser::*;
+}
 /// Backend-agnostic performance analysis; the DDS-backed [`PlayAnalyser`]
 /// lives in [`solver`], so `dds` alone is enough.
 ///

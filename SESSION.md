@@ -453,3 +453,21 @@ Found while reading the vendored solver for
 - `AGENTS.md:46` says `performance_analysis` requires `dds` and `lin`. The module
   is gated on `dds` alone (`src/lib.rs:132`); `lin` is needed only by
   `tests/performance_analysis_test.rs` (`Cargo.toml:86-88`).
+
+## 2026-11-12 — squeezer-io extraction follow-ups
+
+Deferred from ticket 14 (LIN/PBN importers move into `squeezer-io`).
+
+- `tests/83469.lin` and `crates/squeezer-io/tests/fixtures/83469.lin` are the
+  same fixture twice. The parser tests resolve it from the io manifest, while
+  `tests/performance_analysis_test.rs` still reads the root copy; they stay in
+  sync by hand until the performance-analysis test (and its fixture) moves with
+  `squeezer-sim`.
+- `squeezer-model` re-exports no card vocabulary, so any consumer that builds
+  records must also name `squeezer-cards` to spell `Card`/`Cards`. That is why
+  `squeezer-io` depends on it directly, although the ADR's crate table lists
+  only model, `nom` and `serde`. Re-exporting the card types from the model root
+  would let parser-side crates declare one dependency.
+- `src/record/serialize` in the root is now a one-line re-export of the model
+  writers. It can disappear when nothing needs the historical
+  `squeezer::record::serialize` path.

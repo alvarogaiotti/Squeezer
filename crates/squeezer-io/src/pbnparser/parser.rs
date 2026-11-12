@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! The PBN importer: nom parsers that build [`crate::record::Board`]s.
+//! The PBN importer: nom parsers that build [`squeezer_model::record::Board`]s.
 //!
 //! PBN is not a line grammar like LIN: a game is a run of `[Name "value"]` tag
 //! pairs followed by two *sections* (`[Auction]` and `[Play]`) whose bodies are
@@ -63,9 +63,9 @@ use nom::{
 use std::num::NonZeroU8;
 use std::str::FromStr;
 
-use crate::contract::{Contract, Doubled, Seat, Strain, Vulnerability, Vulnerable};
 use crate::prelude::*;
-use crate::record::play::attribute_plays;
+use squeezer_model::contract::{Contract, Doubled, Seat, Strain, Vulnerability, Vulnerable};
+use squeezer_model::record::play::attribute_plays;
 
 use super::types::{ParsePbnError, ParsePbnErrorKind, PbnFile};
 

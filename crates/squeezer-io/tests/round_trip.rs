@@ -4,15 +4,19 @@
 //! Cross-crate serialization tests: the model writers against the importers.
 //!
 //! The model crate covers the writer output itself; what can only be tested
-//! here is the round trip through `squeezer::linparser` and
-//! `squeezer::pbnparser`, which read the same records back.
+//! here is the round trip through this crate's LIN and PBN importers, which
+//! read the same records back.
 
 use std::num::NonZeroU8;
+use std::str::FromStr;
 
 use quickcheck::{Arbitrary, Gen};
 
-use crate::prelude::*;
-use crate::record::position::trick_winner;
+use squeezer_cards::*;
+use squeezer_model::record::position::trick_winner;
+use squeezer_model::*;
+
+mod common;
 
 /// A board that a LIN round trip can represent.
 ///
@@ -262,14 +266,13 @@ impl Arbitrary for AnyPbnBoard {
     }
 }
 
-#[cfg(feature = "lin")]
 #[quickcheck_macros::quickcheck]
 fn lin_round_trips_generated_boards(any: AnyBoard) -> bool {
     let board = any.0;
     // The importer requires a `pn|` line, so wrap the board in a one-board
     // file. The room is not part of the board and stays `None`.
     let lin = format!("pn|N,E,S,W|{}", board.as_lin());
-    let Ok(file) = <crate::linparser::LinFile as FromStr>::from_str(&lin) else {
+    let Ok(file) = <squeezer_io::linparser::LinFile as FromStr>::from_str(&lin) else {
         return false;
     };
     file.boards.len() == 1 && file.boards[0] == board
@@ -284,12 +287,11 @@ fn lin_round_trips_generated_boards(any: AnyBoard) -> bool {
 /// The panics carry the written PBN so a failure says which part of the
 /// format broke; the property still returns `bool`, as quickcheck expects,
 /// and a failure is never a silent `false`.
-#[cfg(feature = "pbn")]
 #[quickcheck_macros::quickcheck]
 fn pbn_round_trips_generated_boards(any: AnyPbnBoard) -> bool {
     let board = any.0;
     let pbn = board.as_pbn();
-    let file = <crate::pbnparser::PbnFile as FromStr>::from_str(&pbn)
+    let file = <squeezer_io::pbnparser::PbnFile as FromStr>::from_str(&pbn)
         .unwrap_or_else(|error| panic!("the writer's output must re-import: {error}"));
     assert_eq!(
         file.boards.len(),
@@ -307,7 +309,7 @@ fn pbn_round_trips_generated_boards(any: AnyPbnBoard) -> bool {
 /// read and each hand exercises three void suits.
 ///
 /// The model crate's own writer tests use the same fixture internally; this
-/// copy serves the container and cross-crate round-trip tests that stay here.
+/// copy serves the container and round-trip tests in this crate.
 fn one_suit_per_seat() -> Deal {
     Deal::new([
         Cards::from_str("SAKQJT98765432").expect("spades hand parses"),
@@ -318,10 +320,9 @@ fn one_suit_per_seat() -> Deal {
     .expect("one suit per seat is a valid deal")
 }
 
-#[cfg(feature = "lin")]
 #[test]
 fn md_digit_reparses_as_the_stored_dealer() {
-    use crate::linparser::LinFile;
+    use squeezer_io::linparser::LinFile;
 
     // Board 1 rotates to North, but this board stores West as dealer. The
     // writer's model-side assertion lives in `squeezer-model`; what this test
@@ -338,11 +339,10 @@ fn md_digit_reparses_as_the_stored_dealer() {
     assert_eq!(parsed.boards[0].number(), Some(1));
 }
 
-#[cfg(feature = "lin")]
 #[test]
 fn fixture_board_round_trips_through_lin() {
-    use crate::linparser::LinFile;
-    let data = std::fs::read_to_string("tests/4207070707.lin").expect("fixture is readable");
+    use squeezer_io::linparser::LinFile;
+    let data = common::read_fixture("4207070707.lin");
     let file = <LinFile as FromStr>::from_str(&data).expect("fixture parses");
     let board = &file.boards[0];
     let lin = board.as_lin();
@@ -354,11 +354,10 @@ fn fixture_board_round_trips_through_lin() {
 /// The fixture's metadata is comma-free, so it survives the comma-joined
 /// `vg|`/`rs|`/`pn|` lines. This does not claim arbitrary metadata
 /// round-trips; see [`comma_in_metadata_is_documented_as_lossy`].
-#[cfg(feature = "lin")]
 #[test]
 fn lin_file_round_trips_the_comma_free_fixture() {
-    use crate::linparser::LinFile;
-    let data = std::fs::read_to_string("tests/83469.lin").expect("fixture is readable");
+    use squeezer_io::linparser::LinFile;
+    let data = common::read_fixture("83469.lin");
     let file = <LinFile as FromStr>::from_str(&data).expect("fixture parses");
     let reparsed =
         <LinFile as FromStr>::from_str(&file.as_lin()).expect("re-serialized file parses");
@@ -375,10 +374,9 @@ fn lin_file_round_trips_the_comma_free_fixture() {
 /// LIN has no escaping, so a comma inside a `pn|` name splits into extra
 /// players on the way back. This pins the documented lossiness rather than
 /// pretending the metadata round-trips.
-#[cfg(feature = "lin")]
 #[test]
 fn comma_in_metadata_is_documented_as_lossy() {
-    use crate::linparser::{LinFile, LinMetadata, Players};
+    use squeezer_io::linparser::{LinFile, LinMetadata, Players};
     let board = Board::builder(one_suit_per_seat(), Seat::North, Vulnerability::None)
         .build()
         .expect("a bare deal is a valid board");

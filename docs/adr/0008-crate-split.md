@@ -21,7 +21,7 @@ to draw.
 | `squeezer-cards` | `Card`, `Cards`, `Suit`, `InvalidCardError`, the card samplers | `rand` (optional), `serde` (optional) |
 | `squeezer-model` | shape and shape parsing, hand constraints, the contract vocabulary (`Seat`, `Vulnerability`, `Strain`, `Doubled`, `Vulnerable`, `Contract`), `Deal`, `Dealer`, `Board`, `Auction`, `Play`, `Position`, the `Deal`/`Board` writers | `squeezer-cards`, `bitvec`, `itertools`, `rand`, `serde` (optional) |
 | `squeezer-solver` | the solver trait, `SolverPool`/`DynSolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
-| `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `nom`, `serde` (optional) |
+| `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `squeezer-cards`, `nom`, `serde` (optional) |
 | `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log` |
 | `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `rayon`, `serde` (optional) |
 
@@ -32,6 +32,13 @@ board needs no parser. Only the container writers sit behind `lin` and `pbn`.
 the seam's `CardSolve` carries `Card` and `Cards`, and `squeezer-model` does not
 re-export the card crate, so relying on it transitively would hide a real
 dependency. Cards sits below the solver in the graph, so this keeps the order.
+
+`squeezer-io` also names `squeezer-cards` directly: the importers build `Cards`
+and `Card` values from file input, and the model re-exports none of the card
+vocabulary. That is a lower layer, so it adds no cycle. During the migration the
+root package keeps re-export shims for the historical paths (`squeezer::linparser`,
+`squeezer::pbnparser`, the prelude), so it depends on the extracted crates it
+re-exports until the last ticket dissolves it.
 
 `squeezer-bbo` depends on no other Squeezer crate, and nothing depends on
 `squeezer-sim`, `squeezer-io` or `squeezer-bbo`, so the graph is acyclic by

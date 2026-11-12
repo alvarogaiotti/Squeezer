@@ -1,0 +1,46 @@
+[package]
+name = "squeezer-io"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# Importing records is this crate's whole job, so both formats are on by
+# default. Each one gates its parser *and* its container writer, and `nom` is
+# only compiled when at least one is enabled: a consumer that wants only LIN
+# writes `default-features = false, features = ["lin"]`.
+default = ["lin", "pbn"]
+lin = ["dep:nom"]
+pbn = ["dep:nom"]
+# Serialisation stays opt-in; only this crate's own error categories derive it.
+serde = ["dep:serde"]
+
+[dependencies]
+# The importers build model records, so the model vocabulary is the only
+# Squeezer crate they need above the cards. The cards crate is still named
+# directly because the model re-exports none of its types and the parsers build
+# `Cards` and `Card` values; it is a lower layer, so the graph stays acyclic.
+squeezer-cards = { path = "../squeezer-cards" }
+squeezer-model = { path = "../squeezer-model" }
+nom = { version = "8.0.0", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+# The round-trip properties generate boards that both writers must survive.
+quickcheck = "1.1.0"
+quickcheck_macros = "1.2.0"
+
+# The importer tests and the property round trips need their parser feature.
+# Declaring the requirement here keeps `cargo test -p squeezer-io
+# --no-default-features` from compiling test targets that cannot refer to a
+# gated module.
+[[test]]
+name = "lin_parser"
+required-features = ["lin"]
+
+[[test]]
+name = "pbn_parser"
+required-features = ["pbn"]
+
+[[test]]
+name = "round_trip"
+required-features = ["lin", "pbn"]
