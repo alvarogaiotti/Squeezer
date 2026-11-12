@@ -40,7 +40,7 @@
 //! # }
 //! ```
 
-use super::resolve_solver_factory;
+use super::{missing_solver_factory, resolve_solver_factory};
 use crate::prelude::*;
 use squeezer_solver::ContextFactory;
 use std::collections::HashMap;
@@ -566,7 +566,8 @@ impl<D: Dealer> LeadSimulationBuilder<D> {
             SimulationError::invalid_input("lead simulation", "contract must be set")
         })?;
 
-        let solver_factory = resolve_solver_factory(self.solver_factory, "lead simulation")?;
+        let solver_factory = resolve_solver_factory(self.solver_factory)
+            .ok_or_else(|| missing_solver_factory("lead simulation"))?;
 
         Ok(LeadSimulation {
             num_deals,

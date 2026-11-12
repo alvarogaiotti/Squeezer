@@ -28,8 +28,8 @@
 //! also the only legal play, so the card-EV surface stays consistent without a
 //! special case.
 
-use super::resolve_solver_factory;
 use super::solve_all_cards_pool;
+use super::{missing_solver_factory, resolve_solver_factory};
 use crate::prelude::*;
 use squeezer_solver::ContextFactory;
 use std::collections::{BTreeMap, HashMap};
@@ -402,7 +402,8 @@ impl<D: Dealer> CardEvBuilder<D> {
             seat: self.seat.unwrap_or_else(|| contract.leader()),
             play_trace: self.play_trace,
             denomination: self.denomination,
-            solver_factory: resolve_solver_factory(self.solver_factory, "card ev")?,
+            solver_factory: resolve_solver_factory(self.solver_factory)
+                .ok_or_else(|| missing_solver_factory("card ev"))?,
         })
     }
 }

@@ -247,7 +247,9 @@ impl DdsRank {
         if flag <= 0 || (flag & (flag - 1)) != 0 {
             return None; // zero, negative, or more than one bit set
         }
-        let bit_pos = flag.trailing_zeros() as i32;
+        // A positive `i32` has its highest bit at index 30, so the signed
+        // reinterpretation of the trailing-zero count is lossless.
+        let bit_pos = flag.trailing_zeros().cast_signed();
         if (2..=14).contains(&bit_pos) {
             Some(Self(bit_pos))
         } else {
@@ -730,7 +732,7 @@ impl DdsDealBuilder {
         // unwrap on a Vec→array conversion needed.
         let mut ranks = [0i32; 3];
         let mut suits = [0i32; 3];
-        for (i, card) in current_trick.iter().enumerate() {
+        for (i, card) in current_trick.into_iter().enumerate() {
             if let Some(card) = card {
                 let (rank, suit) = card.as_card();
                 ranks[i] = rank.0;
@@ -794,6 +796,7 @@ impl DdsDealBuilder {
 // ─────────────────────────────────────────────────────────────────────────────
 
 impl DdsDeal {
+    #[must_use]
     /// Creates a "blank" [`DdsDeal`] filled with sentinel values.
     ///
     /// * `trump` and `first` are set to `-1` (invalid / unset).
