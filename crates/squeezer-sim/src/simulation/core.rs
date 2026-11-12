@@ -146,19 +146,36 @@ pub struct DealResult {
     /// Number of tricks taken
     pub tricks: u8,
 
-    /// Score achieved
+    /// Raw score achieved
     pub score: i32,
+
+    /// The score valued per the simulation's denomination, mirroring
+    /// [`CardDealOutcome::value`].
+    ///
+    /// Under [`Denomination::RawPoints`] this equals [`Self::score`]. Under
+    /// [`Denomination::Compared`] it scores the contract against the other
+    /// contracts on the same deal, the same view card-EV takes over the other
+    /// legal cards.
+    ///
+    /// The payoff matrix still ranks contracts by the pairwise
+    /// [`Denomination::difference`], not by these values; `value` is the
+    /// per-deal view a consumer can aggregate on its own.
+    pub value: i32,
 }
 
 impl DealResult {
-    /// Create a new deal result
+    /// Create a new deal result.
+    ///
+    /// `value` is the score after applying the simulation's [`Denomination`];
+    /// pass `score` itself for raw points.
     #[must_use]
     #[inline]
-    pub fn new(deal_index: usize, tricks: u8, score: i32) -> Self {
+    pub fn new(deal_index: usize, tricks: u8, score: i32, value: i32) -> Self {
         Self {
             deal_index,
             tricks,
             score,
+            value,
         }
     }
 }
@@ -505,10 +522,11 @@ mod tests {
 
     #[test]
     fn test_deal_result_creation() {
-        let result = DealResult::new(5, 9, 420);
+        let result = DealResult::new(5, 9, 420, 380);
         assert_eq!(result.deal_index, 5);
         assert_eq!(result.tricks, 9);
         assert_eq!(result.score, 420);
+        assert_eq!(result.value, 380);
     }
 
     #[test]
