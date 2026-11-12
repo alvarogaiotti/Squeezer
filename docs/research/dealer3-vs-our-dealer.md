@@ -502,6 +502,8 @@ Depth here means behaviour behind a small interface.
   already gives it, and `--no-default-features` builds the domain model with no
   native dependency (`docs/adr/0004-pure-core.md:3-8`). Their split is the price
   of also shipping a CLI, a wasm build and a browser reference from one tree.
+  This rule concerns solver isolation only; the six-crate split for dependency
+  hygiene is recorded in `docs/adr/0008-crate-split.md`.
 - **Do not trade the bitboard for `[Card; 13]`.** Our HCP is four masks and four
   popcounts (`src/card.rs:623-637`); theirs is a 13-card iterator with a match
   per card (`D3/dealer-core/src/hand.rs:124-126`), and their shape index costs
