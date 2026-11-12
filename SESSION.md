@@ -190,8 +190,15 @@
   time (relied on by a should-panic test).
 - The bounded rejection budget default (`2_000_000`) is tuned to the tightest
   shipped test constraint (mean ~10⁵ attempts); rarer constraints — notably the
-  untested `utils::dealer_of_lavazza_3nt_opening` — can now return
+  untested `examples/lavazza_3nt.rs` dealer — can now return
   `Unsatisfiable` where the old unbounded sampler would eventually succeed.
+- `utils::weak2_hand_descriptor` is still a library demo predicate after the
+  Polish Club, Lavazza and Zar helpers moved to `examples/`; either move it too
+  or rename it, since `*_descriptor` now names a deleted type.
+- `HcpRange::new(5, 3)` clamps to `(3, 3)` (via `Bounded::new`), while
+  `HcpRange::from((5, 3))` and `HcpRange::from_range(5..=3)` swap to `(3, 5)`.
+  Both keep `min <= max`, but the two spellings describe different windows;
+  route every constructor through one normalization helper.
 - `Dealer::predealt()` has no in-crate reader, and `Dealer::current_hand()` has
   only a test reader (its simulation caller was deleted with
   `CardPayoffSimulation`). Both are kept as public API.

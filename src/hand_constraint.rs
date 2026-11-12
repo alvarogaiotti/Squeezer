@@ -1,12 +1,10 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! # Deep hand-constraint module
+//! # Hand-constraint module
 //!
-//! This module is the single home for "which hands may the dealer accept".
-//! It collapses what used to be four layers (`HandDescriptor` over
-//! `HandType` over `Shape`/`Shapes` over the `shapeparser` pipeline) behind
-//! one small interface:
+//! This module is the single home for "which hands may the dealer accept",
+//! and the only per-seat constraint surface on the crate:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,17 +28,103 @@
 //!   a full bit table (`Shapes::all()`), so `check` never dispatches on an
 //!   enum variant with surprising semantics (`add` as silent no-op).
 //! - **One fused check.** `check` computes the hand's `(shape, hcp)` summary
-//!   once and does a single range-plus-table lookup per branch. The old code
-//!   ran the range pre-check twice per candidate (once explicitly, once
-//!   inside `is_member_shape`); that duplication lives in exactly one place
-//!   now: `Shapes::is_member_shape`.
+//!   once and does a single range-plus-table lookup per branch. The range
+//!   pre-check lives in exactly one place: `Shapes::is_member_shape`.
 //! - **One typed error.** Every fallible constructor returns
 //!   [`ConstraintError`], preserving the parser's cause instead of
-//!   flattening it into strings (or disagreeing between `DealerError` and
-//!   `Box<dyn Error>` per method).
+//!   flattening it into strings.
 
 use crate::prelude::*;
+use crate::range::Bounded;
 use std::ops::RangeBounds;
+
+/// Represents an *inclusive* range of High Card Points.
+///
+/// Thin newtype over the shared `Bounded` core (cap [`MAX_HCP_IN_HAND`]), so
+/// clamping and membership share one implementation with [`LenRange`].
+///
+/// Constructors normalize inverted bounds differently: [`HcpRange::new`]
+/// clamps `min` down to `max` (through `Bounded::new`), while `from` and
+/// [`HcpRange::from_range`] swap the pair. Both preserve `min <= max`; only
+/// the resulting window differs.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct HcpRange(pub(crate) Bounded<MAX_HCP_IN_HAND>);
+
+impl From<(u8, u8)> for HcpRange {
+    fn from((min, max): (u8, u8)) -> Self {
+        let mut min = min.clamp(0, MAX_HCP_IN_HAND);
+        let mut max = max.clamp(0, MAX_HCP_IN_HAND);
+        if min > max {
+            std::mem::swap(&mut min, &mut max);
+        }
+        Self(Bounded::new(min, max))
+    }
+}
+
+impl From<HcpRange> for (u8, u8) {
+    fn from(range: HcpRange) -> Self {
+        range.0.as_pair()
+    }
+}
+
+impl HcpRange {
+    /// This function guarantees that the `HcpRange` created is possible.
+    /// i.e. that the `min_hcp` is less than or equal to the `max_hcp`.
+    /// and that the `max_hcp` is clamped to 37.
+    #[must_use]
+    pub const fn new(min: u8, max: u8) -> Self {
+        Self(Bounded::new(min, max))
+    }
+
+    /// Get the minimum value of the HCP range.
+    #[must_use]
+    pub const fn range_min(&self) -> u8 {
+        self.0.min()
+    }
+
+    /// Get the maximum value of the HCP range.
+    #[must_use]
+    pub const fn range_max(&self) -> u8 {
+        self.0.max()
+    }
+
+    /// Check if the specified HCP is within this range.
+    #[must_use]
+    pub const fn contains(&self, hcp: u8) -> bool {
+        self.0.contains(hcp)
+    }
+
+    /// Get the range of HCP values as an inclusive range.
+    #[must_use]
+    pub const fn as_range(&self) -> RangeInclusive<u8> {
+        self.0.as_range()
+    }
+    #[must_use]
+    #[inline]
+    pub fn from_range<R, U>(hcp_range: R) -> Self
+    where
+        R: std::ops::RangeBounds<U>,
+        U: Into<u8> + Copy,
+    {
+        let mut min = match hcp_range.start_bound() {
+            std::ops::Bound::Included(&min) => min.into(),
+            std::ops::Bound::Excluded(&min) => min.into().saturating_sub(1),
+            std::ops::Bound::Unbounded => 0,
+        }
+        .clamp(0, MAX_HCP_IN_HAND);
+        let mut max = match hcp_range.end_bound() {
+            std::ops::Bound::Included(&max) => max.into(),
+            std::ops::Bound::Excluded(&max) => max.into().saturating_sub(1),
+            std::ops::Bound::Unbounded => MAX_HCP_IN_HAND,
+        }
+        .clamp(0, MAX_HCP_IN_HAND);
+        if min > max {
+            std::mem::swap(&mut min, &mut max);
+        }
+        Self(Bounded::new(min, max))
+    }
+}
 
 /// Pattern sets for [`HandConstraintBuilder::with_longest`], one per suit.
 ///
@@ -129,12 +213,10 @@ struct ConstraintBranch {
 
 /// Cached per-candidate summary: shape pattern + HCP.
 ///
-/// The same `(shape, hcp)` pair travels together through
-/// [`HandConstraint::check`] and the legacy `HandType`/`HandDescriptor`
-/// predicates. Bundling it avoids recomputing shape/HCP per predicate (each
-/// costs several popcounts) and fixes the Data Clumps smell.
+/// Bundling the pair avoids recomputing shape/HCP once per branch (each costs
+/// several popcounts).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct HandSummary {
+struct HandSummary {
     /// Suit lengths in S,H,D,C order.
     pub shape: [u8; 4],
     /// High card points.
@@ -145,7 +227,7 @@ impl HandSummary {
     /// Computes the `(shape, hcp)` summary of a seat's cards.
     #[must_use]
     #[inline]
-    pub(crate) fn of(cards: Cards) -> Self {
+    fn of(cards: Cards) -> Self {
         Self {
             shape: cards.shape(),
             hcp: cards.hcp(),
@@ -164,9 +246,8 @@ pub struct HandConstraint {
     branches: Vec<ConstraintBranch>,
     /// Union HCP window over all branches: private fast-reject bound.
     ///
-    /// Deliberately not exposed: the old `HandDescriptor::min/max` pair was
-    /// a second source of truth on the interface. Here it is derived at
-    /// construction and used only inside `check`.
+    /// Deliberately not exposed: it is derived at construction and used only
+    /// inside `check`, so the branches stay the single source of truth.
     min_hcp: u8,
     max_hcp: u8,
 }
@@ -304,10 +385,9 @@ impl HandConstraint {
 
     /// Wraps one precompiled shape set and HCP range.
     ///
-    /// Crate-internal seam for callers that already hold a `Shapes` (e.g.
-    /// the compatibility conversion from `HandDescriptor`): no parsing, no
-    /// failure modes.
-    pub(crate) fn from_compiled(shapes: Shapes, hcp: HcpRange) -> Self {
+    /// Private seam for constructors that already hold a `Shapes`: no
+    /// parsing, no failure modes.
+    fn from_compiled(shapes: Shapes, hcp: HcpRange) -> Self {
         let (min_hcp, max_hcp) = hcp.into();
         Self {
             branches: vec![ConstraintBranch { shapes, hcp }],
@@ -331,46 +411,6 @@ impl HandConstraint {
         self.branches.iter().any(|branch| {
             branch.hcp.contains(summary.hcp) && branch.shapes.is_member_shape(summary.shape)
         })
-    }
-}
-
-impl From<HandType> for HandConstraint {
-    /// Compatibility bridge: a legacy `HandType` becomes a single branch.
-    ///
-    /// `Shape::All` materializes to a full table here, which also retires the
-    /// old variant-dependent `add` (silent no-op) / `remove` (materialize)
-    /// semantics: the converted constraint is always an explicit set.
-    fn from(hand_type: HandType) -> Self {
-        let (shapes, hcp) = hand_type.into_parts();
-        Self::from_compiled(shapes, hcp)
-    }
-}
-
-impl From<HandDescriptor> for HandConstraint {
-    /// Compatibility bridge: each legacy `HandType` becomes one branch.
-    ///
-    /// Used by `DealerBuilder::with_hand_descriptor` so existing callers keep
-    /// working while the dealer core checks the deepened type.
-    fn from(descriptor: HandDescriptor) -> Self {
-        let mut branches = Vec::new();
-        let mut min_hcp = u8::MAX;
-        let mut max_hcp = u8::MIN;
-        for (shapes, hcp) in descriptor.into_branches() {
-            let (min, max) = hcp.into();
-            min_hcp = min_hcp.min(min);
-            max_hcp = max_hcp.max(max);
-            branches.push(ConstraintBranch { shapes, hcp });
-        }
-        // A descriptor built from zero types accepts nothing; preserve that.
-        if branches.is_empty() {
-            min_hcp = 1;
-            max_hcp = 0;
-        }
-        Self {
-            branches,
-            min_hcp,
-            max_hcp,
-        }
     }
 }
 
@@ -709,25 +749,24 @@ mod test {
     }
 
     #[test]
-    fn legacy_descriptor_converts_branch_for_branch() {
-        let weak = HandType::new(Shape::try_from("(4432)").unwrap(), HcpRange::new(11, 14));
-        let strong = HandType::new(Shape::All, HcpRange::new(18, 37));
-        let legacy = HandDescriptor::new(vec![weak, strong]);
-        let converted = HandConstraint::from(legacy);
-        assert!(converted.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
-        assert!(converted.check(Cards::from_str("AKQJ.AKQ2.AK2.32").unwrap()));
-        assert!(!converted.check(Cards::from_str("AT632.K6432.T2.2").unwrap()));
-    }
-
-    #[test]
-    fn hcp_only_constructor_mirrors_legacy_ranges() {
+    fn hcp_only_constructor_uses_an_inclusive_window() {
         // "AK52.K532.A2.432" holds 14 HCP: A+K spades (7), K hearts (3),
         // A diamonds (4). An inclusive 12..=14 window accepts it; the
         // exclusive 12..14 range would not (14 excluded).
         let constraint = HandConstraint::hcp(12..=14);
         assert!(constraint.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
-        let legacy = HandDescriptor::hcp(12..=14);
-        let hand = Cards::from_str("AK52.K532.A2.432").unwrap();
-        assert_eq!(constraint.check(hand), legacy.check(hand));
+        assert!(!HandConstraint::hcp(12..14).check(Cards::from_str("AK52.K532.A2.432").unwrap()));
+    }
+
+    #[test]
+    fn hcp_range_clamps_and_reports_membership() {
+        let range = HcpRange::new(12, 15);
+        assert!(range.contains(13));
+        assert!(!range.contains(11));
+        assert!(!range.contains(16));
+
+        // Test clamping
+        let range = HcpRange::new(40, 45);
+        assert_eq!(range.range_max(), 37);
     }
 }

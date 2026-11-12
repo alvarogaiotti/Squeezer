@@ -112,8 +112,7 @@ impl SqueezerError {
 mod tests {
     use super::*;
     use crate::card::{Card, InvalidCardError};
-    use crate::hand::HcpRange;
-    use crate::hand_constraint::HandConstraint;
+    use crate::hand_constraint::{HandConstraint, HandConstraintBuilder, HcpRange};
     use crate::record::auction::Call;
     use crate::record::deal::Seat;
     use crate::shapeparser::ShapeCreator;
@@ -238,13 +237,12 @@ mod tests {
     }
 
     #[test]
-    fn hand_type_builder_remove_shape_preserves_the_parser_cause() {
-        use crate::hand::HandType;
-        let mut builder = HandType::builder();
-        let error: CreationShapeError = builder
+    fn constraint_builder_remove_shape_preserves_the_parser_cause() {
+        let error: ConstraintError = HandConstraintBuilder::new()
             .remove_shape("not a shape!!")
             .expect_err("pattern is malformed");
-        assert!(error.source().is_some(), "parser cause survives");
+        let cause = error.source().expect("constraint preserves its cause");
+        assert!(cause.downcast_ref::<CreationShapeError>().is_some());
     }
 
     #[test]

@@ -49,9 +49,9 @@
 //!         let ns_hearts = deal.north().hearts().len() + deal.south().hearts().len();
 //!         ns_spades >= 8 || ns_hearts >= 8
 //!     })
-//!     .with_hand_descriptor(
+//!     .with_hand_constraint(
 //!         Seat::North,
-//!         HandDescriptor::hcp(12..38)
+//!         HandConstraint::hcp(12..=37)
 //!     )
 //!     .build()?;
 //! # Ok(())
@@ -64,7 +64,7 @@ use crate::prelude::*;
 ///
 /// These functions receive the four hands and return `true` if the deal meets
 /// the criteria. Typically used for cross-hand constraints like "NS must have
-/// an 8+ card spade fit" that can't be expressed through individual hand descriptors.
+/// an 8+ card spade fit" that can't be expressed through individual hand constraints.
 ///
 /// The `Send` bound allows the dealer to be used across threads.
 ///
@@ -863,7 +863,7 @@ impl IntoIterator for Vulnerability {
 /// # use squeezer::*;
 /// let dealer = DealerBuilder::new()
 ///     .predeal(Seat::North, Card::HQ.into())?
-///     .with_hand_descriptor(Seat::South, HandDescriptor::hcp(2..15))
+///     .with_hand_constraint(Seat::South, HandConstraint::hcp(2..15))
 ///     .with_function(|deal| /* validation */ true)
 ///     .build()?;
 /// # Ok(())
@@ -884,9 +884,9 @@ impl IntoIterator for Vulnerability {
 /// # use squeezer::*;
 /// let dealer = DealerBuilder::new()
 ///     .predeal(Seat::North, Cards::from_str("SAK")?)? // North has A-K of spades
-///     .with_hand_descriptor(
+///     .with_hand_constraint(
 ///         Seat::South,
-///         HandDescriptor::hcp(12..14)
+///         HandConstraint::hcp(12..14)
 ///     )
 ///     .with_function(|deal| {
 ///         // NS must have 8+ spade fit
@@ -1213,40 +1213,13 @@ impl DealerBuilder {
         self
     }
 
-    /// Sets hand constraints for a specific seat.
-    ///
-    /// Hand descriptors specify requirements like shape, HCP range, controls,
-    /// suit lengths, and other per-hand properties.
-    ///
-    /// **Note**: This overwrites any previous descriptor for this seat.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
-    /// let builder = DealerBuilder::new()
-    ///     .with_hand_descriptor(
-    ///         Seat::North,
-    ///         HandDescriptor::hcp(12..=17)
-    ///     );
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    #[must_use]
-    pub fn with_hand_descriptor(mut self, seat: Seat, hand_description: HandDescriptor) -> Self {
-        self.hand_constraints[seat as usize] = Some(hand_description.into());
-        self
-    }
-
     /// Sets the hand constraint for a specific seat.
     ///
-    /// This is the primary constraint entry point: the [`HandConstraint`]
-    /// parses its patterns once here and the dealer runs a single fused
-    /// lookup per candidate. `with_hand_descriptor` remains as a
-    /// compatibility wrapper converting the legacy descriptor branch by
-    /// branch.
+    /// This is the only per-seat constraint entry point: the
+    /// [`HandConstraint`] parses its patterns once here and the dealer runs a
+    /// single fused lookup per candidate.
+    ///
+    /// **Note**: This overwrites any previous constraint for this seat.
     ///
     /// # Example
     ///
@@ -1270,9 +1243,9 @@ impl DealerBuilder {
 
     /// Sets hand constraints for all four seats at once.
     ///
-    /// Each element can be `None` (no constraints) or `Some(descriptor)`.
+    /// Each element can be `None` (no constraints) or `Some(constraint)`.
     ///
-    /// **Note**: This overwrites all previous hand descriptors.
+    /// **Note**: This overwrites all previous hand constraints.
     ///
     /// # Example
     ///
@@ -1280,30 +1253,15 @@ impl DealerBuilder {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use squeezer::*;
     /// let builder = DealerBuilder::new()
-    ///     .with_hand_descriptors_all([
-    ///         Some(HandDescriptor::hcp(12..14)),
+    ///     .with_hand_constraints_all([
+    ///         Some(HandConstraint::hcp(12..14)),
     ///         None,  // East - no constraints
-    ///         Some(HandDescriptor::hcp(12..14)),
+    ///         Some(HandConstraint::hcp(12..14)),
     ///         None,  // West - no constraints
     ///     ]);
     /// # Ok(())
     /// # }
     /// ```
-    #[inline]
-    #[must_use]
-    pub fn with_hand_descriptors_all(
-        mut self,
-        hand_descriptors: [Option<HandDescriptor>; 4],
-    ) -> Self {
-        self.hand_constraints =
-            hand_descriptors.map(|descriptor| descriptor.map(HandConstraint::from));
-        self
-    }
-
-    /// Sets hand constraints for all four seats at once.
-    ///
-    /// Each element can be `None` (no constraints) or `Some(constraint)`.
-    /// Preferred over `with_hand_descriptors_all` for new code.
     #[inline]
     #[must_use]
     pub fn with_hand_constraints_all(mut self, constraints: [Option<HandConstraint>; 4]) -> Self {
@@ -1434,10 +1392,10 @@ impl DealerBuilder {
         Ok(known)
     }
 
-    /// Sets both predealing and hand descriptors for all seats at once.
+    /// Sets both predealing and hand constraints for all seats at once.
     ///
     /// This is a convenience method combining `predeal_all()` and
-    /// `with_hand_descriptors_all()`.
+    /// `with_hand_constraints_all()`.
     ///
     /// # Errors
     ///
@@ -1449,9 +1407,9 @@ impl DealerBuilder {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # use squeezer::*;
     /// let config = [
-    ///     (Some(Card::HQ.into()), Some(HandDescriptor::hcp(12..14))),
+    ///     (Some(Card::HQ.into()), Some(HandConstraint::hcp(12..14))),
     ///     (None, None),  // East - no constraints
-    ///     (Some(Card::HK.into()), Some(HandDescriptor::hcp(12..14))),
+    ///     (Some(Card::HK.into()), Some(HandConstraint::hcp(12..14))),
     ///     (None, None),  // West - no constraints
     /// ];
     /// let builder = DealerBuilder::new().with_complete_config(config)?;
@@ -1462,11 +1420,20 @@ impl DealerBuilder {
     #[inline]
     pub fn with_complete_config(
         self,
-        config: [(Option<Cards>, Option<HandDescriptor>); 4],
+        config: [(Option<Cards>, Option<HandConstraint>); 4],
     ) -> Result<Self, DealerError> {
-        let (cards, descriptors): (Vec<_>, Vec<_>) = config.into_iter().unzip();
-        self.with_hand_descriptors_all(descriptors.try_into().unwrap())
-            .predeal_all(cards.try_into().unwrap())
+        let (cards, constraints): (Vec<_>, Vec<_>) = config.into_iter().unzip();
+        // Unzipping a four-element array yields four-element vectors.
+        self.with_hand_constraints_all(
+            constraints
+                .try_into()
+                .expect("unzip keeps the four-element length"),
+        )
+        .predeal_all(
+            cards
+                .try_into()
+                .expect("unzip keeps the four-element length"),
+        )
     }
 }
 
@@ -2049,18 +2016,6 @@ mod tests {
         ));
         let deal = dealer.deal().expect("dealer finds a 9-4-0-0 hand");
         assert_eq!(deal.north().spades().len(), 9);
-        assert_eq!(deal.north().hearts().len(), 4);
-    }
-
-    /// The legacy `HandDescriptor` wrapper shares the same full-hand path.
-    #[test]
-    fn conditioning_hand_descriptor_checks_reconstructed_full_hand() {
-        let shape = Shape::try_from("9400").expect("shape parses");
-        let descriptor = HandDescriptor::new(vec![HandType::new(shape, HcpRange::new(0, 37))]);
-        let dealer = conditioned_north_spades_dealer(
-            DealerBuilder::new().with_hand_descriptor(Seat::North, descriptor),
-        );
-        let deal = dealer.deal().expect("dealer finds a 9-4-0-0 hand");
         assert_eq!(deal.north().hearts().len(), 4);
     }
 

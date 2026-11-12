@@ -112,7 +112,6 @@ mod dds_bridge;
 mod dealproduction;
 mod error;
 mod evaluator;
-mod hand;
 mod hand_constraint;
 #[cfg(feature = "lin")]
 pub mod linparser;
@@ -152,7 +151,6 @@ pub mod prelude {
     pub use crate::dealproduction::*;
     pub use crate::error::*;
     pub use crate::evaluator::*;
-    pub use crate::hand::*;
     pub use crate::hand_constraint::*;
     pub use crate::record::*;
     pub use crate::shape::*;
