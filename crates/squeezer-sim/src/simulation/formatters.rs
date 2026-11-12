@@ -7,9 +7,10 @@
 //! These are completely separate from the core simulation logic, making it easy to
 //! create custom output formats or skip terminal output entirely in a GUI context.
 //!
-//! The module is behind the `formatters` feature, which also enables the `dds`
-//! solver the simulation results come from, and is the only output path: the
-//! former CSV export and chart-data helpers were deleted.
+//! The module is behind the `formatters` feature and is the only output path:
+//! the former CSV export and chart-data helpers were deleted. The simulation
+//! results it renders come from whichever solver backend the caller
+//! configured.
 //!
 //! ## Example
 //!
@@ -46,9 +47,8 @@
 //! # }
 //! ```
 
-use crate::simulation::{LeadStatistics, PayoffComparison, PayoffMatrix};
+use crate::simulation::{LeadAnalysis, PayoffComparison, PayoffMatrix};
 use colored::Colorize;
-use squeezer_cards::Suit;
 use std::fmt::{self, Write as FmtWrite};
 
 // ============================================================================
@@ -309,12 +309,12 @@ impl<T: Clone + Eq + std::hash::Hash + fmt::Display> std::fmt::Display
 }
 
 // ============================================================================
-// LEAD STATISTICS FORMATTER
+// LEAD ANALYSIS FORMATTER
 // ============================================================================
 
-/// Formatter for lead simulation results
+/// Formatter for lead analysis results
 pub struct LeadStatsFormatter<'a> {
-    stats: &'a LeadStatistics,
+    analysis: &'a LeadAnalysis,
     config: FormatterConfig,
 }
 
@@ -322,9 +322,9 @@ impl<'a> LeadStatsFormatter<'a> {
     /// Create a new formatter with default configuration
     #[must_use]
     #[inline]
-    pub fn new(stats: &'a LeadStatistics) -> Self {
+    pub fn new(analysis: &'a LeadAnalysis) -> Self {
         Self {
-            stats,
+            analysis,
             config: FormatterConfig::default(),
         }
     }
@@ -332,8 +332,8 @@ impl<'a> LeadStatsFormatter<'a> {
     /// Create with custom configuration
     #[must_use]
     #[inline]
-    pub fn with_config(stats: &'a LeadStatistics, config: FormatterConfig) -> Self {
-        Self { stats, config }
+    pub fn with_config(analysis: &'a LeadAnalysis, config: FormatterConfig) -> Self {
+        Self { analysis, config }
     }
 
     /// Print to stdout
@@ -357,34 +357,33 @@ impl<'a> LeadStatsFormatter<'a> {
         writeln!(buffer, "\n{}", "SUIT ANALYSIS".bold()).unwrap();
         writeln!(buffer, "{}", "=".repeat(80)).unwrap();
 
-        for suit in &[Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs] {
-            if let Some(analysis) = self.stats.analyze_suit(*suit) {
-                writeln!(
-                    buffer,
-                    "\n{} {}:",
-                    suit,
-                    format!(
-                        "(Suit avg: {:.2} tricks, {:.2}% set)",
-                        analysis.suit_avg_tricks, analysis.suit_avg_set_percentage
-                    )
-                    .dimmed()
+        for analysis in self.analysis.analyze_all_suits() {
+            writeln!(
+                buffer,
+                "\n{} {}:",
+                analysis.suit,
+                format!(
+                    "(Suit avg: {:.2} tricks, {:.2}% set)",
+                    analysis.suit_avg_tricks, analysis.suit_avg_set_percentage
                 )
-                .unwrap();
+                .dimmed()
+            )
+            .unwrap();
 
-                writeln!(
-                    buffer,
-                    "  Best by avg tricks: {} ({:.2})",
-                    analysis.best_by_avg_tricks.card, analysis.best_by_avg_tricks.average_tricks
-                )
-                .unwrap();
-                writeln!(
-                    buffer,
-                    "  Best by set %:      {} ({:.2}%)",
-                    analysis.best_by_set_percentage.card,
-                    analysis.best_by_set_percentage.set_percentage
-                )
-                .unwrap();
-            }
+            writeln!(
+                buffer,
+                "  Best by avg tricks: {} ({:.2})",
+                analysis.best_by_avg_tricks.card,
+                analysis.best_by_avg_tricks.statistics.mean_dd_tricks()
+            )
+            .unwrap();
+            writeln!(
+                buffer,
+                "  Best by set %:      {} ({:.2}%)",
+                analysis.best_by_set_percentage.card,
+                analysis.best_by_set_percentage.statistics.set_percentage
+            )
+            .unwrap();
         }
 
         buffer
@@ -401,12 +400,14 @@ impl<'a> LeadStatsFormatter<'a> {
     pub fn compact_string(&self) -> String {
         let mut buffer = String::with_capacity(500);
 
-        writeln!(buffer, "Lead Analysis for {}:", self.stats.contract).unwrap();
-        for card_stat in self.stats.cards.iter().take(5) {
+        writeln!(buffer, "Lead Analysis for {}:", self.analysis.contract).unwrap();
+        for value in self.analysis.rankings().iter().take(5) {
             writeln!(
                 buffer,
                 "  {}: {:.2} tricks, {:.2}% set",
-                card_stat.card, card_stat.average_tricks, card_stat.set_percentage
+                value.card,
+                value.statistics.mean_dd_tricks(),
+                value.statistics.set_percentage
             )
             .unwrap();
         }
@@ -416,42 +417,56 @@ impl<'a> LeadStatsFormatter<'a> {
 }
 
 impl std::fmt::Display for LeadStatsFormatter<'_> {
+    #[allow(clippy::cast_precision_loss)]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Title
         if self.config.show_title {
             writeln!(fmt, "\n{}", "LEAD ANALYSIS".bold())?;
             writeln!(fmt, "{}", "=".repeat(80))?;
-            writeln!(fmt, "Contract: {}", self.stats.contract)?;
-            writeln!(fmt, "Tricks to beat: {}", self.stats.tricks_to_beat)?;
+            writeln!(fmt, "Contract: {}", self.analysis.contract)?;
+            writeln!(fmt, "Tricks to beat: {}", self.analysis.tricks_to_beat())?;
         }
 
         // Best leads summary
         writeln!(fmt, "\n{}", "Best Leads:".bold())?;
-        writeln!(
-            fmt,
-            "  By set %:     {} ({:.2}% set, {:.2} avg tricks)",
-            self.stats.best_by_set_percentage.card,
-            self.stats.best_by_set_percentage.set_percentage,
-            self.stats.best_by_set_percentage.average_tricks,
-        )?;
-        writeln!(
-            fmt,
-            "  By avg tricks: {} ({:.2} avg tricks, {:.2}% set)",
-            self.stats.best_by_avg_tricks.card,
-            self.stats.best_by_avg_tricks.average_tricks,
-            self.stats.best_by_avg_tricks.set_percentage,
-        )?;
+        match self.analysis.best_by_set_percentage() {
+            Some(best) => writeln!(
+                fmt,
+                "  By set %:     {} ({:.2}% set, {:.2} avg tricks)",
+                best.card,
+                best.statistics.set_percentage,
+                best.statistics.mean_dd_tricks(),
+            )?,
+            None => writeln!(fmt, "  By set %:     -")?,
+        }
+        match self.analysis.best_by_avg_tricks() {
+            Some(best) => writeln!(
+                fmt,
+                "  By avg tricks: {} ({:.2} avg tricks, {:.2}% set)",
+                best.card,
+                best.statistics.mean_dd_tricks(),
+                best.statistics.set_percentage,
+            )?,
+            None => writeln!(fmt, "  By avg tricks: -")?,
+        }
 
         // Detailed table
         writeln!(fmt, "\n{}", "All Leads:".bold())?;
         writeln!(fmt, "{}", "-".repeat(80))?;
 
+        let rankings = self.analysis.rankings();
+        let best_avg_card = self.analysis.best_by_avg_tricks().map(|value| value.card);
+
         // Determine column widths based on data
-        let max_tricks = self
-            .stats
-            .cards
+        let max_tricks = rankings
             .iter()
-            .map(|c| c.max_tricks)
+            .filter_map(|value| {
+                value
+                    .statistics
+                    .dd_tricks
+                    .iter()
+                    .rposition(|&count| count > 0)
+            })
             .max()
             .unwrap_or(13);
 
@@ -464,22 +479,16 @@ impl std::fmt::Display for LeadStatsFormatter<'_> {
         writeln!(fmt, "{}", "-".repeat(80))?;
 
         // Data rows
-        for (idx, card_stat) in self.stats.cards.iter().enumerate() {
-            let card_str = format!("{}", card_stat.card);
-            let avg_str = if idx
-                == self
-                    .stats
-                    .cards
-                    .iter()
-                    .position(|c| c.card == self.stats.best_by_avg_tricks.card)
-                    .unwrap_or(usize::MAX)
-            {
-                format!("*{:<5.2}", card_stat.average_tricks)
+        for (idx, value) in rankings.iter().enumerate() {
+            let card_str = format!("{}", value.card);
+            let avg = value.statistics.mean_dd_tricks();
+            let avg_str = if best_avg_card == Some(value.card) {
+                format!("*{avg:<5.2}")
             } else {
-                format!("{:>6.2}", card_stat.average_tricks)
+                format!("{avg:>6.2}")
             };
 
-            let set_str = format!("{:>6.2}", card_stat.set_percentage);
+            let set_str = format!("{:>6.2}", value.statistics.set_percentage);
 
             if self.config.use_colors && idx == 0 {
                 write!(
@@ -494,8 +503,14 @@ impl std::fmt::Display for LeadStatsFormatter<'_> {
             }
 
             // Trick distribution
-            for tricks in 0..=max_tricks as usize {
-                let percentage = card_stat.distribution_percentages[tricks];
+            let deals = value.statistics.deals;
+            for tricks in 0..=max_tricks {
+                let count = value.statistics.dd_tricks[tricks];
+                let percentage = if deals == 0 {
+                    0.0
+                } else {
+                    count as f64 / deals as f64 * 100.0
+                };
                 if percentage > 0.0 {
                     write!(fmt, "{percentage:>4.0}")?;
                 } else {
@@ -578,5 +593,86 @@ impl FormatterConfig {
             use_colors: false,
             ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::simulation::test_support::scripted_lead_analysis;
+    use squeezer_cards::{Card, Suit};
+    use squeezer_model::{Contract, Doubled, Seat, Strain, Vulnerable};
+
+    fn three_spades() -> Contract {
+        Contract::new(
+            3,
+            Strain::Spades,
+            Seat::West,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        )
+    }
+
+    /// Five defender tricks set 3S. All but H3 set; S4 takes the most, so the
+    /// ranking is S4, H2, S3, D5, H3.
+    fn scripted_analysis() -> LeadAnalysis {
+        scripted_lead_analysis(
+            three_spades(),
+            &[
+                (Card::S4, &[7, 7]),
+                (Card::S3, &[5, 5]),
+                (Card::H2, &[6, 6]),
+                (Card::H3, &[3, 3]),
+                (Card::D5, &[5, 5]),
+            ],
+        )
+    }
+
+    #[test]
+    fn lead_formatter_prints_the_ranked_leads_and_tricks_to_beat() {
+        let analysis = scripted_analysis();
+        let formatter = LeadStatsFormatter::with_config(&analysis, FormatterConfig::plain());
+        let output = formatter.to_string();
+
+        assert!(output.contains("Tricks to beat: 5"));
+        assert!(output.contains(&format!(
+            "By set %:     {} (100.00% set, 7.00 avg tricks)",
+            Card::S4
+        )));
+        assert!(output.contains(&format!(
+            "By avg tricks: {} (7.00 avg tricks, 100.00% set)",
+            Card::S4
+        )));
+        for card in [Card::S4, Card::H2, Card::S3, Card::D5, Card::H3] {
+            assert!(
+                output.contains(&format!("{card}")),
+                "the table must list {card}"
+            );
+        }
+    }
+
+    #[test]
+    fn lead_formatter_groups_suit_analysis_without_empty_suits() {
+        let analysis = scripted_analysis();
+        let formatter = LeadStatsFormatter::with_config(&analysis, FormatterConfig::minimal());
+        let output = formatter.suit_analysis_string();
+
+        assert!(output.contains(&format!("Best by avg tricks: {} (7.00)", Card::S4)));
+        assert!(output.contains(&format!("Best by set %:      {} (100.00%)", Card::S3)));
+        assert!(output.contains("Suit avg: 4.50 tricks, 50.00% set"));
+        assert!(
+            !output.contains(&format!("{} (Suit avg", Suit::Clubs)),
+            "a suit with no legal lead has no section"
+        );
+    }
+
+    #[test]
+    fn lead_formatter_compact_summary_follows_the_ranking() {
+        let analysis = scripted_analysis();
+        let formatter = LeadStatsFormatter::with_config(&analysis, FormatterConfig::minimal());
+        let output = formatter.compact_string();
+
+        assert!(output.starts_with(&format!("Lead Analysis for {}:", three_spades())));
+        assert!(output.contains(&format!("  {}: 7.00 tricks, 100.00% set", Card::S4)));
     }
 }
