@@ -333,7 +333,7 @@ impl<'a> Parts<'a> {
             .as_ref()
             .and_then(|auction| auction.contract(self.dealer, self.vulnerability));
         Board::new(
-            self.deal.clone(),
+            *self.deal,
             self.number,
             self.dealer,
             self.vulnerability,
@@ -678,7 +678,7 @@ fn shrink_to_fixpoint(board: AnyBoard) -> AnyBoard {
 fn a_deliberately_failing_board_shrinks_to_a_small_case() {
     let largest = largest_lin_board();
     let shrunk = shrink_to_fixpoint(AnyBoard(largest.clone()));
-    let smallest = Board::builder(largest.deal().clone(), Seat::North, Vulnerability::None)
+    let smallest = Board::builder(*largest.deal(), Seat::North, Vulnerability::None)
         .build()
         .expect("a bare deal is a valid board");
     assert_eq!(
