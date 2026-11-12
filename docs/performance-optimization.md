@@ -116,7 +116,7 @@ exactly the cards left in the deck; more generally, any seat whose fill equals t
 has no sampling decision left.
 
 **Changed:** `src/record/deal.rs` now takes the remaining deck directly when `fill == deck.len()`,
-using a crate-private `Cards::take_all` helper in `src/card.rs`. The public `Cards::pick_rng` and
+using a `Cards::take_all` helper in `squeezer-cards`' `card` module. The public `Cards::pick_rng` and
 `FastSampler` behavior, including caller-supplied RNG consumption, is unchanged.
 
 **Coverage:** the new `take_all` unit test covers non-empty and empty decks, and the existing dealer

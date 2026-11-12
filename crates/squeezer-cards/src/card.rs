@@ -1,10 +1,9 @@
 /// All the code here come from David Roundy's library [bridge-cards](https://github.com/droundy/bridge-cards),
 /// I only slightly modified the code to adapt it to my needs.
-use crate::prelude::*;
-#[cfg(feature = "dds")]
-use dds::deal::DdsSuit;
-#[cfg(feature = "dds")]
-use dds::traits::AsDDSCard;
+use std::error::Error;
+use std::fmt;
+
+#[cfg(feature = "rand")]
 use rand::Rng;
 
 /// Represents one of the four suits in a standard deck of cards.
@@ -25,20 +24,37 @@ pub enum Suit {
     Clubs = 3,
 }
 
-#[cfg(feature = "dds")]
-impl From<Suit> for DdsSuit {
-    fn from(value: Suit) -> Self {
-        match value {
-            Suit::Spades => Self::Spades,
-            Suit::Hearts => Self::Hearts,
-            Suit::Diamonds => Self::Diamonds,
-            Suit::Clubs => Self::Clubs,
+/// A number outside the four suit discriminants does not name a [`Suit`].
+///
+/// The numeric `Suit` conversions used to report the dealer's error, which
+/// lives a layer above this crate, so the cards crate owns the failure it can
+/// actually produce. The rejected number is kept as text because the two input
+/// types (`usize` and `i32`) have no common numeric range.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InvalidSuitError {
+    value: String,
+}
+
+impl InvalidSuitError {
+    fn new(value: impl fmt::Display) -> Self {
+        Self {
+            value: value.to_string(),
         }
     }
 }
 
+impl fmt::Display for InvalidSuitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // The message keeps the wording the dealer's free-form error used, so a
+        // caller that only reads `Display` sees no change.
+        write!(f, "cannot convert {} to Suit", self.value)
+    }
+}
+
+impl Error for InvalidSuitError {}
+
 impl TryFrom<usize> for Suit {
-    type Error = DealerError;
+    type Error = InvalidSuitError;
 
     fn try_from(value: usize) -> Result<Self, Self::Error> {
         match value {
@@ -46,13 +62,13 @@ impl TryFrom<usize> for Suit {
             1 => Ok(Suit::Hearts),
             2 => Ok(Suit::Diamonds),
             3 => Ok(Suit::Clubs),
-            num => Err(DealerError::new(format!("cannot convert {num} to Suit"))),
+            num => Err(InvalidSuitError::new(num)),
         }
     }
 }
 
 impl TryFrom<i32> for Suit {
-    type Error = DealerError;
+    type Error = InvalidSuitError;
 
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
@@ -60,7 +76,7 @@ impl TryFrom<i32> for Suit {
             1 => Ok(Suit::Hearts),
             2 => Ok(Suit::Diamonds),
             3 => Ok(Suit::Clubs),
-            num => Err(DealerError::new(format!("cannot convert {num} to Suit"))),
+            num => Err(InvalidSuitError::new(num)),
         }
     }
 }
@@ -94,7 +110,7 @@ impl Suit {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Suit;
+    /// # use squeezer_cards::Suit;
     /// assert_eq!(Suit::Spades.name(), "Spades");
     /// ```
     #[must_use]
@@ -112,7 +128,7 @@ impl Suit {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Suit;
+    /// # use squeezer_cards::Suit;
     /// assert_eq!(Suit::Spades.unicode(), '♠');
     /// assert_eq!(Suit::Hearts.unicode(), '♥');
     /// ```
@@ -131,7 +147,7 @@ impl Suit {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Suit;
+    /// # use squeezer_cards::Suit;
     /// assert_eq!(Suit::Spades.latin(), 'S');
     /// ```
     #[must_use]
@@ -157,7 +173,7 @@ impl Suit {
     ///
     /// Useful for iteration without allocation:
     /// ```rust
-    /// # use squeezer::Suit;
+    /// # use squeezer_cards::Suit;
     /// for &suit in Suit::ALL {
     ///     println!("{}", suit.name());
     /// }
@@ -169,7 +185,7 @@ impl Suit {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Suit;
+    /// # use squeezer_cards::Suit;
     /// assert_eq!(Suit::Spades.next(), Some(Suit::Hearts));
     /// assert_eq!(Suit::Clubs.next(), None);
     /// ```
@@ -188,7 +204,7 @@ impl Suit {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Suit;
+    /// # use squeezer_cards::Suit;
     /// assert_eq!(Suit::Clubs.rotating_next(), Suit::Spades);
     /// ```
     #[must_use]
@@ -307,9 +323,14 @@ impl Card {
         }
     }
 
+    /// The packed card byte, `rank + 16 * suit`.
+    ///
+    /// The analysis scratch buffers index by this byte, so it stays visible
+    /// across the crate boundary; prefer [`Card::rank`] and [`Card::suit`] for
+    /// reading a card's parts.
     #[must_use]
     #[inline]
-    pub(crate) const fn as_u8(self) -> u8 {
+    pub const fn as_u8(self) -> u8 {
         self.offset
     }
 
@@ -424,37 +445,26 @@ impl Card {
     pub const NONCE: Card = Card { offset: 0 };
 }
 
-impl TryFrom<&[Card]> for Cards {
-    type Error = SqueezerError;
-
-    fn try_from(card_slice: &[Card]) -> Result<Self, Self::Error> {
-        let mut cards = Cards::EMPTY;
-        for card in card_slice {
-            if cards.has_card(*card) {
-                return Err(SqueezerError::invalid_input(
-                    "building a card set from a slice",
-                    format!("duplicate card {card}"),
-                ));
-            }
-            cards = cards.insert(*card);
-        }
-        Ok(cards)
-    }
-}
-
 impl From<Card> for Cards {
     fn from(card: Card) -> Self {
         Cards::EMPTY.insert(card)
     }
 }
 
+/// Draws a subset from a deck without walking every card.
+#[cfg(feature = "rand")]
 pub struct FastSampler;
+/// Draws a subset by a partial Fisher-Yates shuffle.
+#[cfg(feature = "rand")]
 pub struct UniformSampler;
 
+/// How [`Cards::pick_rng`] chooses which cards leave the deck.
+#[cfg(feature = "rand")]
 pub trait CardSampler {
     fn pick_n<R: Rng>(deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards>;
 }
 
+#[cfg(feature = "rand")]
 impl CardSampler for FastSampler {
     fn pick_n<R: Rng>(deck: &mut Cards, mut num: usize, rng: &mut R) -> Option<Cards> {
         let mut bits = deck.bits;
@@ -486,6 +496,7 @@ impl CardSampler for FastSampler {
     }
 }
 
+#[cfg(feature = "rand")]
 impl CardSampler for UniformSampler {
     fn pick_n<R: Rng>(deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards> {
         let deck_len = deck.len() as usize;
@@ -667,6 +678,7 @@ impl Cards {
 
     /// Randomly pick `num` cards to remove from the deck.
     /// Returns `None` only if there aren't enough cards.
+    #[cfg(feature = "rand")]
     #[must_use]
     #[inline]
     pub fn pick(&mut self, num: usize) -> Option<Cards> {
@@ -677,6 +689,7 @@ impl Cards {
     /// Returns `None` only if there aren't enough cards.
     /// # Panics
     /// When `num >= 53`
+    #[cfg(feature = "rand")]
     pub fn pick_rng<R: Rng, S: CardSampler>(&mut self, rng: &mut R, num: usize) -> Option<Cards> {
         assert!(num <= 52);
         if self.len() < num as u8 {
@@ -688,13 +701,13 @@ impl Cards {
 
     /// Removes and returns every card currently in this set.
     ///
-    /// This is crate-private because it is a dealer-internal fast path for a
-    /// deterministic fill (typically the final hand); callers choosing a random
-    /// subset must go through
-    /// [`Cards::pick_rng`] so the sampler's distribution and RNG contract stay
-    /// explicit.
+    /// This is a dealer-internal fast path for a deterministic fill (typically
+    /// the final hand); it is public because the dealer lives in another crate.
+    /// Callers choosing a random subset must go through [`Cards::pick_rng`] so
+    /// the sampler's distribution and RNG contract stay explicit.
+    #[must_use]
     #[inline]
-    pub(crate) fn take_all(&mut self) -> Cards {
+    pub fn take_all(&mut self) -> Cards {
         let taken = *self;
         self.bits = 0;
         taken
@@ -838,12 +851,12 @@ impl Cards {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::{Cards, Suit};
+    /// # use squeezer_cards::{Cards, Suit};
     /// # use std::str::FromStr;
     /// let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
     /// assert_eq!(hand.len_of_suit(Suit::Spades), 4);
     /// assert_eq!(hand.len_of_suit(Suit::Clubs), 2);
-    /// # Ok::<(), squeezer::InvalidCardError>(())
+    /// # Ok::<(), squeezer_cards::InvalidCardError>(())
     /// ```
     #[must_use]
     #[inline]
@@ -859,11 +872,11 @@ impl Cards {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Cards;
+    /// # use squeezer_cards::Cards;
     /// # use std::str::FromStr;
     /// let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
     /// assert_eq!(hand.shape(), [4, 4, 3, 2]);
-    /// # Ok::<(), squeezer::InvalidCardError>(())
+    /// # Ok::<(), squeezer_cards::InvalidCardError>(())
     /// ```
     #[must_use]
     #[inline]
@@ -902,11 +915,11 @@ impl Cards {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Cards;
+    /// # use squeezer_cards::Cards;
     /// # use std::str::FromStr;
     /// let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
     /// assert_eq!(hand.long_str(), "♠AKQ2\n♥KQ32\n♦AK2\n♣32");
-    /// # Ok::<(), squeezer::InvalidCardError>(())
+    /// # Ok::<(), squeezer_cards::InvalidCardError>(())
     /// ```
     #[must_use]
     pub fn long_str(&self) -> String {
@@ -927,7 +940,8 @@ impl Cards {
     /// Returns an instance of [`Cards`] containing only the head of a sequence of cards.
     /// ```
     /// # use std::error::Error;
-    /// # use squeezer::prelude::*;
+    /// # use squeezer_cards::*;
+    /// # use std::str::FromStr;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// let hand = Cards::from_str("KQ986532")?;
     /// let heads = hand.heads_of_sequences();
@@ -948,17 +962,6 @@ impl Cards {
             index -= 1;
         }
         heads
-    }
-}
-
-#[cfg(feature = "dds")]
-impl AsDDSCard for Card {
-    fn as_card(&self) -> (dds::deal::DdsRank, dds::deal::DdsSuit) {
-        use dds::deal::DdsRank;
-        (
-            DdsRank::new(i32::from(self.rank())).unwrap(),
-            self.suit().into(),
-        )
     }
 }
 
@@ -1304,6 +1307,8 @@ impl DoubleEndedIterator for SuitIterator {
 
 #[test]
 fn heads_of_sequences_works() {
+    use std::str::FromStr;
+
     let cards = Cards::DIAMONDS;
     assert_eq!(cards.heads_of_sequences(), Cards::EMPTY.insert(Card::DA));
     let cards = Cards::from_str("KQ986532").unwrap();
@@ -1480,6 +1485,26 @@ fn cards_from_str_rejects_unknown_characters_instead_of_ignoring_them() {
             "{malformed:?} should not parse"
         );
     }
+}
+
+#[test]
+fn suit_numeric_conversions_accept_only_the_four_discriminants() {
+    for (index, suit) in [Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs]
+        .into_iter()
+        .enumerate()
+    {
+        assert_eq!(Suit::try_from(index).expect("index names a suit"), suit);
+        assert_eq!(
+            Suit::try_from(i32::try_from(index).expect("index fits")),
+            Ok(suit)
+        );
+    }
+
+    // The message is the one the dealer's free-form error used to carry.
+    let error = Suit::try_from(4usize).expect_err("4 is not a suit");
+    assert_eq!(error.to_string(), "cannot convert 4 to Suit");
+    let error = Suit::try_from(-1i32).expect_err("-1 is not a suit");
+    assert_eq!(error.to_string(), "cannot convert -1 to Suit");
 }
 
 #[test]

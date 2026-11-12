@@ -105,7 +105,12 @@
  Only small modifications were made by me on that module.
 */
 
-pub mod card;
+/// The card vocabulary (`Suit`, `Card`, `Cards` and the samplers) lives in the
+/// `squeezer-cards` crate; this module keeps the historical `squeezer::card`
+/// path and the prelude still re-exports its items flat.
+pub mod card {
+    pub use squeezer_cards::card::*;
+}
 mod contract;
 #[cfg(feature = "dds")]
 mod dds_bridge;

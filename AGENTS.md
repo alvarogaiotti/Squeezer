@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`).
-- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo` and `squeezer-cards`).
+- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -47,6 +47,9 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 - `simulation` requires `dds`; `performance_analysis` requires both `dds` and `lin` (it consumes LIN plays). Verify combos with `cargo check --no-default-features --features dds,lin`.
 - `formatters` is opt-in (not in `default`): it enables `dep:colored` and, because the renderers live in the `dds`-gated simulation module, `dds`.
+- Card primitives live in `squeezer-cards` (`crates/squeezer-cards`) with `rand`
+  (the samplers) and `serde` optional and no workspace dependency; the root
+  library enables `rand` for the dealer and forwards `serde`.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record
