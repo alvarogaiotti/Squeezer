@@ -253,8 +253,22 @@ impl Card {
         }
     }
 
-    pub(crate) const fn from_u8(offset: u8) -> Self {
-        Self { offset }
+    /// The bit this card owns in a [`Cards`] set, or `0` when its packed
+    /// offset falls outside the set.
+    ///
+    /// A `Cards` packs offset `n` into bit `n` of a `u64`, so only offsets
+    /// `0..=63` name a bit. [`Card::JOKER`] sits at `u8::MAX`, and a card built
+    /// with a rank that spills out of its suit nibble can also land past 63;
+    /// returning `0` keeps every set operation total instead of shifting by 64
+    /// or more, which panics in debug builds.
+    #[must_use]
+    #[inline]
+    const fn bit(self) -> u64 {
+        if self.offset < 64 {
+            1u64 << self.offset
+        } else {
+            0
+        }
     }
 
     ///Returns suit of the card.
@@ -441,8 +455,17 @@ impl Card {
     pub const SK: Card = Card::new(Suit::Spades, 13);
     /// Ace of Spades
     pub const SA: Card = Card::new(Suit::Spades, 14);
-    pub const JOKER: Card = Card { offset: u8::MAX };
+    /// A sentinel for "no card" in fixed-size arrays.
+    ///
+    /// Its offset is 0, which no real rank occupies in spades, so it owns
+    /// bit 0 of a [`Cards`] set rather than being absent.
     pub const NONCE: Card = Card { offset: 0 };
+    /// A sentinel that no card set can hold.
+    ///
+    /// Its offset, `u8::MAX`, is past the 64 bits of a [`Cards`], so
+    /// [`Cards::insert`] and [`Cards::remove`] are no-ops for it and
+    /// [`Cards::has_card`] is always `false`.
+    pub const JOKER: Card = Card { offset: u8::MAX };
 }
 
 impl From<Card> for Cards {
@@ -581,8 +604,10 @@ impl std::fmt::Binary for Cards {
 }
 impl From<&Vec<Card>> for Cards {
     fn from(value: &Vec<Card>) -> Self {
+        // `Card::bit` is zero for the joker, so it drops out of the fold just
+        // as it does from `insert`.
         Cards {
-            bits: value.iter().fold(0, |a, c| a | (1u64 << c.offset)),
+            bits: value.iter().fold(0, |a, c| a | c.bit()),
         }
     }
 }
@@ -613,26 +638,37 @@ impl Cards {
     #[must_use]
     #[inline]
     /// Insert a `card` into the instance.
+    ///
+    /// A card whose packed offset is outside the 64-bit set — [`Card::JOKER`]
+    /// is the sentinel case — owns no bit, so inserting it leaves the set
+    /// unchanged.
     pub const fn insert(self, card: Card) -> Self {
         Self {
-            bits: self.bits | (1u64 << card.offset),
+            bits: self.bits | card.bit(),
         }
     }
 
     #[must_use]
     #[inline]
     /// NOTE: Removes, does not `pop`.
+    ///
+    /// A card whose packed offset is outside the set owns no bit (see
+    /// [`Cards::insert`]), so removing it leaves the set unchanged.
     pub const fn remove(self, card: Card) -> Self {
         Self {
-            bits: self.bits & !(1u64 << card.offset),
+            bits: self.bits & !card.bit(),
         }
     }
 
     #[must_use]
     #[inline]
     /// Returns true if `card` is contained in the instance.
+    ///
+    /// A card whose packed offset is outside the set owns no bit (see
+    /// [`Cards::insert`]), so the answer for [`Card::JOKER`] is always
+    /// `false`.
     pub const fn has_card(self, card: Card) -> bool {
-        self.bits & (1u64 << card.offset) != 0
+        self.bits & card.bit() != 0
     }
     #[must_use]
     #[inline]

@@ -50,22 +50,21 @@ use crate::shapeparser::CreationShapeError;
 /// Thin newtype over the shared `Bounded` core (cap [`MAX_HCP_IN_HAND`]), so
 /// clamping and membership share one implementation with [`LenRange`].
 ///
-/// Constructors normalize inverted bounds differently: [`HcpRange::new`]
-/// clamps `min` down to `max` (through `Bounded::new`), while `from` and
-/// [`HcpRange::from_range`] swap the pair. Both preserve `min <= max`; only
-/// the resulting window differs.
+/// Every bound-taking constructor normalises the same way: both bounds are
+/// clamped into `[0, 37]`, then `min` is pulled down to `max`. An inverted
+/// pair such as `(15, 12)` therefore collapses to `12..=12` rather than being
+/// swapped into the wider `12..=15` window: a caller that spells the bounds
+/// backwards gets a narrower range, never one that accepts more hands than the
+/// upper bound allows. [`HcpRange::new`], `From<(u8, u8)>` and
+/// [`HcpRange::from_range`] all delegate to this one rule. (The derived serde
+/// representation writes the two fields directly and is not a constructor.)
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct HcpRange(pub(crate) Bounded<MAX_HCP_IN_HAND>);
 
 impl From<(u8, u8)> for HcpRange {
     fn from((min, max): (u8, u8)) -> Self {
-        let mut min = min.clamp(0, MAX_HCP_IN_HAND);
-        let mut max = max.clamp(0, MAX_HCP_IN_HAND);
-        if min > max {
-            std::mem::swap(&mut min, &mut max);
-        }
-        Self(Bounded::new(min, max))
+        Self::new(min, max)
     }
 }
 
@@ -76,9 +75,17 @@ impl From<HcpRange> for (u8, u8) {
 }
 
 impl HcpRange {
-    /// This function guarantees that the `HcpRange` created is possible.
-    /// i.e. that the `min_hcp` is less than or equal to the `max_hcp`.
-    /// and that the `max_hcp` is clamped to 37.
+    /// This function guarantees that the `HcpRange` created is possible,
+    /// i.e. that `min` is less than or equal to `max` and that `max` is
+    /// clamped to [`MAX_HCP_IN_HAND`].
+    ///
+    /// This is the single normalisation rule all bound-taking constructors
+    /// share: see the type-level docs for what happens to inverted bounds.
+    /// ```rust
+    /// # use squeezer_model::HcpRange;
+    /// let range = HcpRange::new(5, 3);
+    /// assert_eq!((range.range_min(), range.range_max()), (3, 3));
+    /// ```
     #[must_use]
     pub const fn new(min: u8, max: u8) -> Self {
         Self(Bounded::new(min, max))
@@ -107,6 +114,13 @@ impl HcpRange {
     pub const fn as_range(&self) -> RangeInclusive<u8> {
         self.0.as_range()
     }
+    /// Builds a range from any [`RangeBounds`] of `u8`-like values.
+    ///
+    /// The bounds are read as an inclusive window: an excluded end stops one
+    /// short and an unbounded end takes the edge of `[0, 37]`. (An excluded
+    /// *start* is also read one lower, a historical reading this change keeps.)
+    /// The result is then handed to [`HcpRange::new`], so `12..=15`,
+    /// `(12, 15)` and `new(12, 15)` agree, including on inverted input.
     #[must_use]
     #[inline]
     pub fn from_range<R, U>(hcp_range: R) -> Self
@@ -114,22 +128,19 @@ impl HcpRange {
         R: std::ops::RangeBounds<U>,
         U: Into<u8> + Copy,
     {
-        let mut min = match hcp_range.start_bound() {
+        let min = match hcp_range.start_bound() {
             std::ops::Bound::Included(&min) => min.into(),
             std::ops::Bound::Excluded(&min) => min.into().saturating_sub(1),
             std::ops::Bound::Unbounded => 0,
-        }
-        .clamp(0, MAX_HCP_IN_HAND);
-        let mut max = match hcp_range.end_bound() {
+        };
+        let max = match hcp_range.end_bound() {
             std::ops::Bound::Included(&max) => max.into(),
             std::ops::Bound::Excluded(&max) => max.into().saturating_sub(1),
             std::ops::Bound::Unbounded => MAX_HCP_IN_HAND,
-        }
-        .clamp(0, MAX_HCP_IN_HAND);
-        if min > max {
-            std::mem::swap(&mut min, &mut max);
-        }
-        Self(Bounded::new(min, max))
+        };
+        // No swap (or clamp) here: `new` owns the one normalisation rule, so
+        // every spelling of the range lands on the same window.
+        Self::new(min, max)
     }
 }
 
