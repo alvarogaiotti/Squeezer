@@ -5,7 +5,7 @@
 //!
 //! These are test data, not library behaviour: the module is compiled for this
 //! crate's unit tests and for builds that enable the `test-support` feature,
-//! which the root crate does from its dev-dependencies. `Deal`, `Board` and
+//! which `squeezer-sim` does from its dev-dependencies. `Deal`, `Board` and
 //! `Position` are public types, so the helpers can be ordinary public items
 //! within that gate rather than reaching for `pub(crate)` visibility that would
 //! be useless across a crate boundary.

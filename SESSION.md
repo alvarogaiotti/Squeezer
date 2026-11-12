@@ -491,3 +491,19 @@ Deferred from ticket 15 (simulation and performance analysis move into
   builds a constrained deal through the dealer. It stays in the root as a dealer
   test despite its name.
 
+## 2026-11-12 — root dissolution follow-ups
+
+Deferred from ticket 16 (the root package is gone and the workspace is virtual).
+
+- `weak2_hand_descriptor` moved to `crates/squeezer-model/src/utils.rs`. Its
+  shape pattern `(63-)4-4-` is a permuted group over the first two suits, so it
+  rejects some 6-4-x-x weak-two shapes (for example 6-4-2-1 and 6-3-2-2) even
+  though their honours and HCP pass. The move preserved the predicate as-is;
+  widening or replacing the pattern is postponed.
+- `crates/squeezer-cards/tests/uniformity_check.rs` moved with the samplers but
+  is still not a `#[test]` function, and now carries
+  `required-features = ["rand"]`: `cargo test -p squeezer-cards --all-features`
+  compiles it and runs nothing.
+- Deleting `SqueezerError` deleted its 11 boundary tests along with 292 lines of
+  error code. Per-crate error tests (constraint causes, dealer causes, parse
+  errors) remain where each error now lives.

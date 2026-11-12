@@ -16,19 +16,20 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards`, `squeezer-io`, `squeezer-model`, `squeezer-sim` and `squeezer-solver`).
-- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-io`, `crates/squeezer-model`, `crates/squeezer-sim`, `crates/squeezer-solver`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- The repository is a virtual Cargo workspace (resolver 3) with no root package and no umbrella crate. The six library crates live under `crates/`: `squeezer-cards`, `squeezer-model`, `squeezer-solver`, `squeezer-io`, `squeezer-bbo` and `squeezer-sim`. `dds/` wraps Bo Haglund's DDS C++ solver and `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`).
+- The members are `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-io`, `crates/squeezer-model`, `crates/squeezer-sim`, `crates/squeezer-solver`, `dds` and `squeezer_macros`. `dds` stays at the top level because its build script resolves the vendored sources as `../vendor/dds`.
+- `cargo test` at the root runs every workspace member's default targets, and `cargo test --workspace` spells that out. Use `-p <member>` for one crate. There is no `squeezer` package to ask for.
 
 ## Native DDS library (vendored, built from source)
 
 - `vendor/dds` is a git submodule pinned to the DDS `v3.1.0` tag (`fe6a6581a13535779eda5d9141aa704b3f6c8965`). A clean checkout must run `git submodule update --init vendor/dds` before building the default features (`dds`).
 - The `dds` crate's `build.rs` compiles the 39 translation units under `vendor/dds/library/src/**/*.cpp` (`g++ -std=c++20 -O3 -fPIC -w`, `CXX` overridable), archives them with `ar crs`, and emits the link directives (`static=dds3`, plus `stdc++`, `pthread`, `m`). It owns `links = "dds"`.
-- No prebuilt `libdds.so`/`libdds.a` is required or used, and there is no root `build.rs`. `cargo check --no-default-features` skips the C++ build entirely.
+- No prebuilt `libdds.so`/`libdds.a` is required or used, and there is no `build.rs` outside the `dds` member. `cargo check -p squeezer-cards --no-default-features` (and the same for the other pure crates) skips the C++ build entirely.
 
 ## Commands
 
-- Default features are `lin`, `pbn`, `dds`: `cargo check` / `cargo test`
-  (the root package only; add `--workspace` to include the members).
+- `cargo test --workspace` runs every crate's tests with its default features; add `--all-features` for the optional paths. A bare `cargo test` already covers every member because there is no root package, but `--workspace` makes that explicit. `cargo build --workspace --all-targets` compiles the tests, benchmarks and examples.
+- Each pure crate must also check without defaults: `cargo check -p squeezer-cards --no-default-features`, and the same for `squeezer-model`, `squeezer-solver` and `squeezer-sim`; `squeezer-io` takes `--no-default-features` too (its parsers are the optional part).
 - Solver concurrency is owned by our own pool: each rayon *job* (chunk of work)
   gets its own DDS context (`SolverPool`/`DynSolverPool`), with at most one
   context live per worker at a time, so `workers × TT-cap` bounds instantaneous
@@ -40,8 +41,11 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   `CalcAllTables` entry points draw their context from a `thread_local`. Run
   `cargo test -p dds` with the default harness.
 - `cargo fmt --all`. CI (`.github/workflows/rust.yml`) checks out the `vendor/dds`
-  submodule, runs `cargo test --workspace --verbose`, then `cargo fmt --all --check`.
-- `cargo bench --bench <name>` (criterion, `harness = false`; see `Cargo.toml`).
+  submodule, runs `cargo test --workspace --verbose`, the feature matrix, and
+  `cargo fmt --all --check`.
+- `cargo bench -p <crate> --bench <name>` (criterion, `harness = false`; see the
+  owning crate's manifest). The dealer benchmark lives in `squeezer-model`, the
+  card-sampling one in `squeezer-cards` (behind its `rand` feature).
 
 ## Features
 
@@ -53,9 +57,7 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   Its `dds` feature (on by default) forwards to `squeezer-solver/dds`: with it
   off the builder's `DdsSolver` fallback is compiled out and an explicit
   `ContextFactory` is required, which is how the mock-solver tests run without
-  linking DDS. The root re-exports the historical `squeezer::simulation` and
-  `squeezer::performance_analysis` paths and forwards `dds`, `formatters` and
-  `serde`.
+  linking DDS.
 - The performance-analysis pipeline test lives in `squeezer-io/tests` with its
   LIN fixture and takes `squeezer-sim` and `squeezer-solver` as dev-dependencies,
   so the sim crate's library and tests name no parser.
@@ -74,18 +76,16 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   `DynSolverPool`, `SolverError`) and every DDS adapter live in
   `squeezer-solver` (`crates/squeezer-solver`), which depends on
   `squeezer-cards`, `squeezer-model`, `rayon` and optional `dds`. Its `dds`
-  feature is on by default (the backend is the crate's job); the root depends on
-  it with default features off and forwards its own `dds` feature. The root
-  re-exports the items through the historical `squeezer::solver` path while the
-  root package still exists. Its example-hand fixtures sit behind the
-  `test-support` feature, which the root enables from its dev-dependencies.
+  feature is on by default (the backend is the crate's job); `squeezer-sim`
+  depends on it with default features off and forwards its own `dds` feature.
+  Its example-hand fixtures sit behind the `test-support` feature, which
+  `squeezer-sim` enables from its dev-dependencies.
 - The LIN and PBN importers and the `LinFile`/`PbnFile` container writers live
   in `squeezer-io` (`crates/squeezer-io`), behind its `lin` and `pbn` features
   (both on by default). `nom` is optional and compiled only by those features,
   so `default-features = false` builds the crate without it. It depends on
   `squeezer-model` plus `squeezer-cards` (the parsers build `Cards`/`Card`) and
-  names no solver, HTTP crate or the root. The root's `lin`/`pbn` features
-  forward to it so `squeezer::linparser` and `squeezer::pbnparser` keep working.
+  names no solver, HTTP crate or other Squeezer crate above it.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record
@@ -96,4 +96,6 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Gotchas
 
 - Root `config.toml` is not read by Cargo (that needs `.cargo/config.toml`), so `target-cpu=native` is not applied; set `RUSTFLAGS` explicitly when needed.
-- `tests/uniformity_check.rs` is not a `#[test]` function, so it never runs.
+- `crates/squeezer-cards/tests/uniformity_check.rs` is not a `#[test]`
+  function, so it never runs; it also needs the crate's `rand` feature to
+  compile. Fixing it is out of scope for the split.

@@ -3,8 +3,9 @@
 *.lib
 *.lin
 *.pbn
-!tests/*.lin
-!tests/*.pbn
+# The parser fixtures live in crates/*/tests/fixtures, not at the root.
+!crates/*/tests/fixtures/*.lin
+!crates/*/tests/fixtures/*.pbn
 libdds*
 .idea/
 dds290-dll/

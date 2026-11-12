@@ -23,3 +23,9 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 [dev-dependencies]
 # The deal serde round-trip tests serialise to JSON.
 serde_json = "1.0"
+# The deal-generation benchmark measures the dealer's constraint matrix.
+criterion = { version = "*", features = ["html_reports"] }
+
+[[bench]]
+name = "deal_constraints"
+harness = false

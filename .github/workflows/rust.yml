@@ -21,5 +21,34 @@ jobs:
         submodules: recursive
     - name: Run tests
       run: cargo test --workspace --verbose
+    - name: Run tests with every feature
+      run: cargo test --workspace --all-features --verbose
+    - name: Build every target
+      run: cargo build --workspace --all-targets --all-features --verbose
+    # The pure crates must build without the native solver, so check them with
+    # no features at all rather than relying on `--workspace`'s feature union.
+    - name: Check the pure crates without default features
+      run: |
+        cargo check -p squeezer-cards --no-default-features
+        cargo check -p squeezer-model --no-default-features
+        cargo check -p squeezer-solver --no-default-features
+        cargo check -p squeezer-io --no-default-features
+        cargo check -p squeezer-sim --no-default-features
+    # Every supported feature combination, one crate at a time: a crate must
+    # not regress to requiring a feature it does not own.
+    - name: Check the feature matrix
+      run: |
+        cargo check -p squeezer-cards --no-default-features --features rand
+        cargo check -p squeezer-cards --no-default-features --features serde
+        cargo check -p squeezer-model --no-default-features --features serde
+        cargo check -p squeezer-solver --features dds
+        cargo check -p squeezer-io --no-default-features --features lin
+        cargo check -p squeezer-io --no-default-features --features pbn
+        cargo check -p squeezer-io --no-default-features --features serde
+        cargo check -p squeezer-sim --no-default-features --features dds
+        cargo check -p squeezer-sim --no-default-features --features formatters
+        cargo check -p squeezer-sim --no-default-features --features serde
+        cargo check -p squeezer-bbo --no-default-features --features async
+        cargo check -p squeezer-bbo --no-default-features --features blocking
     - name: Run fmt
       run: cargo fmt --all --check

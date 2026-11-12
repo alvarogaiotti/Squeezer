@@ -20,13 +20,13 @@ Profiling was done before accepting each optimization:
   routines. Native LTO was tried separately and discarded because it failed to link; the Rust
   adapter optimization below is intentionally measured in isolation rather than misrepresented as a
   native-solver speedup.
-- `perf record` on the 1,000-deal lead pipeline (`benches/bench_leadsim.rs`, 43,750 samples over
+- `perf record` on the 1,000-deal lead pipeline (`crates/squeezer-sim/benches/bench_leadsim.rs`, 43,750 samples over
   five seconds, 44.8 s per iteration) confirmed the same picture for the all-legal-card path: no Rust
   symbol reached the 0.5% reporting threshold, and the top entries were native search routines
   (`Moves::MoveGen123` 10.72%, `QuickTricks`, alpha-beta, transposition-table lookups).
 
 Because native search cannot be improved from Rust without rewriting DDS, the simulation paths were
-profiled in two layers. A new mock-solver benchmark, `benches/simulation_paths.rs`, substitutes a
+profiled in two layers. A new mock-solver benchmark, `crates/squeezer-sim/benches/simulation_paths.rs`, substitutes a
 `SolverContext` that returns one legal-card result per card. That makes the cost we can actually
 change — position derivation, equivalence-class expansion, denomination baselines, statistics, and
 report construction — measurable on its own instead of being hidden behind a 7–45 s native solve.
@@ -41,7 +41,7 @@ not Criterion's within-run confidence interval.
 
 ## 1. Allocation-free fixed buffers in `analyze_hand`
 
-**Changed:** `src/performance_analysis.rs` now copies play cards directly into its existing
+**Changed:** `crates/squeezer-sim/src/performance_analysis.rs` now copies play cards directly into its existing
 `[Card; 52]` scratch array. Complete-trick DD results use a four-byte stack array, and the short
 final trick consumes the existing DD iterator directly. This removes one `Vec<Card>` allocation per
 hand and one `Vec<u8>` allocation per complete trick.
@@ -60,7 +60,7 @@ kept: it is a small, safe allocation reduction with no API or behavior change.
 
 ## 2. Fixed-size scan for `trick_winner`
 
-**Changed:** `src/record/position.rs` replaces the closure plus `max_by_key` state machine with a
+**Changed:** `crates/squeezer-model/src/record/position.rs` replaces the closure plus `max_by_key` state machine with a
 local winning-reference loop over the four-card trick. The `>=` comparison deliberately preserves
 `max_by_key`'s last-element behavior when strengths tie, including the existing degenerate
 duplicate-card behavior of this public helper.
@@ -82,7 +82,7 @@ It adds no unsafe code or public surface, so it is kept.
 
 ## 3. Direct rank-lane extraction in the DDS position bridge
 
-**Changed:** `src/dds_bridge.rs` now copies the four 16-bit lanes of each `Cards` bitboard directly
+**Changed:** `crates/squeezer-solver/src/adapters.rs` now copies the four 16-bit lanes of each `Cards` bitboard directly
 into DDS's `remain_cards[hand][suit]` masks. The previous implementation iterated over every set bit
 and performed a suit match and rank shift for each card. The full `0xffff` lane mask is intentional:
 it preserves even malformed rank bits that the old conversion passed through.
@@ -90,10 +90,10 @@ it preserves even malformed rank bits that the old conversion passed through.
 **Coverage:** a new reference-comparison test checks every suit/rank bit in the example deal. Existing
 mid-trick leader/current-card tests and DDS oracle tests remain in place.
 
-The permanent regression benchmark is `benches/dds_conversion.rs`:
+The permanent regression benchmark is `crates/squeezer-solver/benches/dds_conversion.rs`:
 
 ```text
-cargo bench --bench dds_conversion -- --noplot --warm-up-time 1 --measurement-time 3 --sample-size 20
+cargo bench -p squeezer-solver --bench dds_conversion -- --noplot --warm-up-time 1 --measurement-time 3 --sample-size 20
 ```
 
 | Version | Median | Run-median range |
@@ -115,14 +115,14 @@ the benchmark/dealer closure accounted for 12.09%. In an unconditioned deal the 
 exactly the cards left in the deck; more generally, any seat whose fill equals the remaining deck
 has no sampling decision left.
 
-**Changed:** `src/dealer.rs` now takes the remaining deck directly when `fill == deck.len()`,
+**Changed:** `crates/squeezer-model/src/dealer.rs` now takes the remaining deck directly when `fill == deck.len()`,
 using a `Cards::take_all` helper in `squeezer-cards`' `card` module. The public `Cards::pick_rng` and
 `FastSampler` behavior, including caller-supplied RNG consumption, is unchanged.
 
 **Coverage:** the new `take_all` unit test covers non-empty and empty decks, and the existing dealer
 suite covers unconstrained, predealt, conditioned, constrained, and accept-function generation.
 
-The permanent matrix benchmark is `benches/deal_constraints.rs`. Each case ran three independent
+The permanent matrix benchmark is `crates/squeezer-model/benches/deal_constraints.rs`. Each case ran three independent
 Criterion measurements with a one-second warm-up, two-second measurement, and 10 samples:
 
 | Case | `HEAD` median (range) | Fast path median (range) | Improvement |
@@ -150,13 +150,13 @@ profile of contract payoff attributed 56% to `Position::new`, because every cont
 deal derived its opening position through the general validation path, which rescans all 52 cards for
 duplicates and recomputes the trailing-trick arithmetic for a table that is empty by construction.
 
-**Changed, Card EV:** `src/simulation/card_ev.rs` now hoists the three per-deal vectors
+**Changed, Card EV:** `crates/squeezer-sim/src/simulation/card_ev.rs` now hoists the three per-deal vectors
 (`physical`, `scores`, and `other_scores`) out of the deal loop and reuses them by `clear`/`extend`.
 The allocation that remains per physical card is gone, as is the per-deal growth of the two other
 buffers; the loop now iterates the reused `physical` buffer by reference and copies the
 `Copy` outcome instead of consuming the vector.
 
-**Changed, positions:** `src/record/position.rs` adds a private `Position::from_valid_opening`, and
+**Changed, positions:** `crates/squeezer-model/src/record/position.rs` adds a private `Position::from_valid_opening`, and
 `from_deal_prefix` returns it directly for the empty prefix. `Deal` already guarantees four disjoint
 13-card hands, so the duplicate scan and the played-count arithmetic that `Position::new` performs
 cannot fail for this input. The general path is untouched: a four-play prefix still scans the plays,
@@ -208,7 +208,7 @@ so a candidate doomed by its first seat still paid for the other three. The reje
 small — 20.5 candidates per produced deal for a 15-17 1NT, 114 for a weak two with a closure — so most
 of that work was thrown away.
 
-**Method:** the twelve-case matrix in `benches/deal_constraints.rs`, released build,
+**Method:** the twelve-case matrix in `crates/squeezer-model/benches/deal_constraints.rs`, released build,
 `--no-default-features`, `taskset -c 0`, Criterion with a two-second measurement and 10 samples, three
 independent runs, median of the three run estimates. The before column is ticket 01's pre-change run
 of the same bench on the same machine; after-run spreads stayed under 0.2%.
@@ -295,6 +295,10 @@ much work a rejected candidate costs, and ticket 01 measured identical acceptanc
   gain-to-risk ratio, so it is recorded in `SESSION.md` rather than implemented.
 
 ## Validation
+
+> Recorded before the crate split, against the then-monolithic root package.
+> The workspace is virtual now, so the root-level commands below are history;
+> use the per-crate commands in `AGENTS.md` for current runs.
 
 - `cargo test` — passed: 279 unit tests, integration tests, and 57 doctests.
 - `cargo test --no-default-features` — passed: 195 unit tests and 54 doctests.

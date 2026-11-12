@@ -48,7 +48,7 @@ pub mod simulation;
 pub use error::{AnalysisError, SimulationError};
 
 /// The card and model vocabulary the simulation modules share, mirroring the
-/// root crate's historical prelude so the moved code reads the same.
+/// historical prelude so the moved code reads the same.
 ///
 /// This is crate-internal: consumers import from [`squeezer_cards`] and
 /// [`squeezer_model`] directly.

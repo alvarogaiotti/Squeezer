@@ -3,7 +3,7 @@
 
 //! The errors the simulation and analysis layers own.
 //!
-//! These replace the root crate's former crate-wide boundary error for the
+//! These replace the dissolved root crate's crate-wide boundary error for the
 //! moved code. A simulation error names the three things a Monte Carlo run can
 //! fail on; an analysis error carries the analyser's own error type as a
 //! parameter, so the seam stays generic over backends.

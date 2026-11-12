@@ -6,7 +6,7 @@
 //! Writing needs no parser and no native solver, so this module is
 //! unconditional: a consumer can export a [`crate::record::Board`] or
 //! [`crate::record::Deal`] without an import parser (and therefore without
-//! `nom`). The LIN **importer** stays in the root crate behind `lin`, and the
+//! `nom`). The LIN importer lives in `squeezer-io` behind `lin`, and the
 //! `LinFile`/`PbnFile` container writers stay with those parser-side types.
 //!
 //! # Formats

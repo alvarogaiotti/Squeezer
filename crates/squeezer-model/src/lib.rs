@@ -19,8 +19,8 @@
 )]
 
 //! The bridge model vocabulary: the whole domain model, from the card
-//! evaluator and hand shapes up to deals, dealers, recorded boards, auctions,
-//! plays and positions.
+//! evaluator and ready-made hand predicates up through hand shapes, constraints
+//! and deals, to dealers, recorded boards, auctions, plays and positions.
 //!
 //! This crate sits directly above [`squeezer_cards`]: it depends on the card
 //! vocabulary, `rand`, `bitvec` and `itertools`, and deliberately names no
@@ -33,7 +33,8 @@
 //! [`SeatError`], [`DealerError`], [`DealError`], [`BoardError`],
 //! [`AuctionError`], [`PositionError`]); the crate defines no crate-wide error
 //! enum. The LIN and PBN writers for [`Deal`] and [`Board`] live here too; the
-//! file-container writers need the parsers and stay in the root crate.
+//! `LinFile` and `PbnFile` container writers need the parsers and live in
+//! `squeezer-io`.
 
 pub mod contract;
 pub mod dealer;
@@ -43,6 +44,7 @@ mod range;
 pub mod record;
 pub mod shape;
 pub mod shapeparser;
+pub mod utils;
 
 pub use contract::*;
 pub use dealer::*;
@@ -51,9 +53,10 @@ pub use hand_constraint::*;
 pub use record::*;
 pub use shape::*;
 pub use shapeparser::*;
+pub use utils::*;
 
-/// The items the moved record and dealer modules share, mirroring the root
-/// crate's historical prelude so the code reads the same in both crates.
+/// The items the moved record and dealer modules share, mirroring the
+/// historical prelude so the code reads the same.
 ///
 /// This is crate-internal: consumers import from [`squeezer_cards`] and this
 /// crate's root, not through here.

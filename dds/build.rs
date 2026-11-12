@@ -7,7 +7,7 @@
 // `vendor/dds/library/src` are compiled with a hand-rolled C++ invocation and
 // archived with `ar`. The resulting archive is linked into every crate that
 // depends on `dds` through the `cargo:rustc-link-*` directives below, which is
-// why this crate owns `links = "dds"` rather than the root package.
+// why this crate, not a consumer, owns `links = "dds"`.
 //
 // TODO: this targets Linux/ELF (GCC flags, `ar`, `stdc++`/`pthread`/`m`); a
 // Windows/MSVC build would need its own flags and library naming.

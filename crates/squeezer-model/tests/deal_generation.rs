@@ -1,36 +1,38 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use squeezer::*;
+use squeezer_cards::{Cards, Suit};
+use squeezer_model::*;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 #[test]
 fn deal_generation() {
-    let south_specs =
-        HandConstraint::new(&["3262", "2362", "2263", "2272"], HcpRange::new(18, 20)).unwrap();
+    let south_specs = HandConstraint::new(&["3262", "2362", "2263", "2272"], HcpRange::new(18, 20))
+        .expect("South shape and HCP pattern parses");
     let west_spec = HandConstraintBuilder::new()
         .with_longest(Suit::Spades)
-        .unwrap()
+        .expect("spades-longest patterns parse")
         .with_range(8, 15)
         .remove_shape("7xxx")
-        .unwrap()
+        .expect("7xxx parses")
         .remove_shape("8xxx")
-        .unwrap()
+        .expect("8xxx parses")
         .remove_shape("9xxx")
-        .unwrap()
+        .expect("9xxx parses")
         .build()
-        .unwrap();
-    let predeal = Cards::from_str("SQ63H542DK42").unwrap();
+        .expect("West constraint is non-empty");
+    let predeal = Cards::from_str("SQ63H542DK42").expect("predeal parses");
     let dealer = DealerBuilder::new()
         .predeal(Seat::North, predeal)
-        .unwrap()
+        .expect("predeal is disjoint")
         .with_hand_constraint(Seat::South, south_specs)
         .with_hand_constraint(Seat::West, west_spec)
         .with_function(|deal: &Deal| deal.south().spades().high_card_points() > 2)
         .build()
-        .unwrap();
+        .expect("dealer builds");
     for _ in 0..10 {
-        let deal = dealer.deal().unwrap();
+        let deal = dealer.deal().expect("constraint has a satisfying deal");
         // The constraints actually filter: south holds 18-20 HCP with 6+
         // diamonds, west holds 8-15 HCP with spades longest but no 7+ spades.
         assert!((18..=20).contains(&deal.south().hcp()));
