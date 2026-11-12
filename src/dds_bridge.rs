@@ -1,10 +1,14 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! Adapters from the format-independent core records to the DDS bindings.
+//! Adapters from the format-independent model records to the DDS bindings.
 //!
-//! The `record` module stays free of the solver: the trait implementations
-//! that mention `dds` types live here, behind the `dds` feature, so a
+//! `squeezer-model` must not name `dds`, so the trait implementations that
+//! mention DDS types cannot live there. The types are also foreign to this
+//! crate now, so `impl AsDDSDeal for Deal` (and the two `TryFrom` impls) would
+//! violate the orphan rule. The adapters below are ordinary local items: a
+//! borrowing newtype for [`Deal`], and free functions for [`Position`] and
+//! [`PlayRecord`]. The `record` modules stay free of the solver, so a
 //! no-default-features build never links the C++ library.
 
 use crate::prelude::*;
@@ -72,14 +76,20 @@ fn dds_hand_encoding(seat: Seat) -> DdsHandEncoding {
     }
 }
 
-impl AsDDSDeal for Deal {
+/// A borrowed [`Deal`] that can be read as DDS's rank-bitmask matrix.
+///
+/// This is a local newtype because `AsDDSDeal` and `Deal` are both foreign:
+/// the orphan rule leaves the implementation no home other than a type this
+/// crate defines. The solver converts a [`Position`] directly, so this adapter
+/// exists for the `Deal`-based path rather than for a current call site.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct DdsDealAdapter<'a>(pub(crate) &'a Deal);
+
+impl AsDDSDeal for DdsDealAdapter<'_> {
     /// Packs the four hands into DDS's 4x4 `rank-bitmask` matrix.
-    ///
-    /// Callers that mutate a copy of the hands (the payoff simulation) rebuild
-    /// a [`Deal`] with [`Deal::from_cards_unchecked`] before converting.
     fn as_dds_deal(&self) -> DDSDealRepr {
         let mut remain_cards = [[0; 4]; 4];
-        for (seat, cards) in self.into_iter().enumerate() {
+        for (seat, cards) in self.0.into_iter().enumerate() {
             // `Cards: IntoIterator` yields individual cards, so name the four
             // suits explicitly to keep one DDS row per suit.
             let suits = [
@@ -96,73 +106,103 @@ impl AsDDSDeal for Deal {
     }
 }
 
-impl TryFrom<&Position> for DdsDeal {
-    type Error = ConstructDdsDealError;
-
-    /// Builds DDS's raw solver input for a partially played [`Position`].
-    ///
-    /// DDS's `first` names the *leader of the current trick*, not the seat to
-    /// play next: it attributes `currentTrickSuit`/`currentTrickRank` entries
-    /// to `first`, `first + 1`, ... (`HAND_ID` in `init.cpp`). For an opening
-    /// lead the two coincide; for a partial trick the leader is the seat that
-    /// played the first card still on the table.
-    #[allow(clippy::cast_possible_truncation)]
-    fn try_from(position: &Position) -> Result<Self, Self::Error> {
-        let mut remain_cards = [[0u32; 4]; 4];
-        for (seat, cards) in position.hands().iter().enumerate() {
-            // `Card` stores its rank at `rank + 16 * suit`, so each 16-bit
-            // lane of the hand bitboard is already the rank mask DDS expects.
-            // Copy four lanes directly instead of walking every set card. Keep
-            // the full lane mask rather than `0x7ffc`: malformed rank bits were
-            // passed through by the old card-by-card conversion too.
-            const LANE_MASK: u64 = 0xffff;
-            let bits = cards.as_bits();
-            remain_cards[seat] = [
-                (bits & LANE_MASK) as u32,
-                ((bits >> 16) & LANE_MASK) as u32,
-                ((bits >> 32) & LANE_MASK) as u32,
-                ((bits >> 48) & LANE_MASK) as u32,
-            ];
-        }
-
-        let mut current_trick = [None; 3];
-        for (index, play) in position.table().iter().enumerate() {
-            current_trick[index] = Some(DdsCardAdapter(play.card));
-        }
-        let leader = position
-            .table()
-            .first()
-            .map_or(position.to_play(), |play| play.seat);
-
-        DdsDealBuilder::new()
-            .trump(dds_strain(position.trump()))
-            .first(dds_hand_encoding(leader))
-            .remain_cards(DDSDealRepr::from(remain_cards))
-            .current_trick(current_trick)
-            .build()
+/// Builds DDS's raw solver input for a partially played [`Position`].
+///
+/// DDS's `first` names the *leader of the current trick*, not the seat to play
+/// next: it attributes `currentTrickSuit`/`currentTrickRank` entries to
+/// `first`, `first + 1`, ... (`HAND_ID` in `init.cpp`). For an opening lead the
+/// two coincide; for a partial trick the leader is the seat that played the
+/// first card still on the table.
+///
+/// # Errors
+///
+/// Returns [`ConstructDdsDealError`] when the position violates a DDS input
+/// invariant (for example a current trick longer than three cards).
+#[allow(clippy::cast_possible_truncation)]
+pub fn position_to_dds_deal(position: &Position) -> Result<DdsDeal, ConstructDdsDealError> {
+    let mut remain_cards = [[0u32; 4]; 4];
+    for (seat, cards) in position.hands().iter().enumerate() {
+        // `Card` stores its rank at `rank + 16 * suit`, so each 16-bit lane of
+        // the hand bitboard is already the rank mask DDS expects. Copy four
+        // lanes directly instead of walking every set card. Keep the full lane
+        // mask rather than `0x7ffc`: malformed rank bits were passed through by
+        // the old card-by-card conversion too.
+        const LANE_MASK: u64 = 0xffff;
+        let bits = cards.as_bits();
+        remain_cards[seat] = [
+            (bits & LANE_MASK) as u32,
+            ((bits >> 16) & LANE_MASK) as u32,
+            ((bits >> 32) & LANE_MASK) as u32,
+            ((bits >> 48) & LANE_MASK) as u32,
+        ];
     }
+
+    let mut current_trick = [None; 3];
+    for (index, play) in position.table().iter().enumerate() {
+        current_trick[index] = Some(DdsCardAdapter(play.card));
+    }
+    let leader = position
+        .table()
+        .first()
+        .map_or(position.to_play(), |play| play.seat);
+
+    DdsDealBuilder::new()
+        .trump(dds_strain(position.trump()))
+        .first(dds_hand_encoding(leader))
+        .remain_cards(DDSDealRepr::from(remain_cards))
+        .current_trick(current_trick)
+        .build()
 }
 
-impl TryFrom<&PlayRecord> for PlayTraceBin {
-    type Error = BuildSequenceError;
+/// Builds DDS's flat suit/rank play trace from a recorded [`PlayRecord`].
+///
+/// # Errors
+///
+/// Returns [`BuildSequenceError`] for an empty record or one longer than the
+/// 52-card sequence DDS accepts.
+pub fn play_record_to_trace(record: &PlayRecord) -> Result<PlayTraceBin, BuildSequenceError> {
+    let len = record.len();
+    if len == 0 {
+        return Err(BuildSequenceError::SequenceTooShort);
+    }
+    if len > SEQUENCE_LENGTH {
+        return Err(BuildSequenceError::SequenceTooLong);
+    }
 
-    /// Builds DDS's flat suit/rank play trace from the recorded cards.
-    fn try_from(record: &PlayRecord) -> Result<Self, Self::Error> {
-        let len = record.len();
-        if len == 0 {
-            return Err(BuildSequenceError::SequenceTooShort);
-        }
-        if len > SEQUENCE_LENGTH {
-            return Err(BuildSequenceError::SequenceTooLong);
-        }
+    let (suitseq, rankseq): (Vec<_>, Vec<_>) = record
+        .cards()
+        .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
+        .unzip();
+    Ok(PlayTraceBin::from_sequences(
+        SuitSeq::try_from(suitseq.as_slice())?,
+        RankSeq::try_from(rankseq.as_slice())?,
+    ))
+}
 
-        let (suitseq, rankseq): (Vec<_>, Vec<_>) = record
-            .cards()
-            .map(|card| (i32::from(card.suit() as u8), i32::from(card.rank())))
-            .unzip();
-        Ok(Self::from_sequences(
-            SuitSeq::try_from(suitseq.as_slice())?,
-            RankSeq::try_from(rankseq.as_slice())?,
-        ))
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One whole suit per seat, so every row of the DDS matrix is either the
+    /// full rank mask (`1 << 2..=1 << 14`) or zero.
+    #[test]
+    fn deal_adapter_packs_one_rank_mask_per_occupied_suit() {
+        let deal = Deal::new([
+            Cards::from_str("SAKQJT98765432").expect("spades hand parses"),
+            Cards::from_str("HAKQJT98765432").expect("hearts hand parses"),
+            Cards::from_str("DAKQJT98765432").expect("diamonds hand parses"),
+            Cards::from_str("CAKQJT98765432").expect("clubs hand parses"),
+        ])
+        .expect("one suit per seat is a valid deal");
+        let full_rank_mask: u32 = (2..=14).map(|rank| 1u32 << rank).sum();
+
+        let expected = [
+            [full_rank_mask, 0, 0, 0],
+            [0, full_rank_mask, 0, 0],
+            [0, 0, full_rank_mask, 0],
+            [0, 0, 0, full_rank_mask],
+        ];
+        let packed = DdsDealAdapter(&deal).as_dds_deal();
+        assert_eq!(packed.as_array(), expected);
     }
 }

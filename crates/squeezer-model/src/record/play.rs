@@ -16,12 +16,26 @@ use super::position::trick_winner;
 ///
 /// The winner of each complete trick leads the next, so a short group anywhere
 /// but last would leave the attribution without the seat that leads the next
-/// trick.
+/// trick. Callers outside the model crate (the LIN and PBN importers) get this
+/// from [`attribute_plays`] and [`validate_trick_lengths`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ShortTrickNotFinal;
+pub struct ShortTrickNotFinal;
+
+impl fmt::Display for ShortTrickNotFinal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("only the final trick of a play may hold fewer than four cards")
+    }
+}
+
+impl Error for ShortTrickNotFinal {}
 
 /// Checks that only the final group of a recorded play is short.
-pub(crate) fn validate_trick_lengths(groups: &[Vec<Card>]) -> Result<(), ShortTrickNotFinal> {
+///
+/// # Errors
+///
+/// Returns [`ShortTrickNotFinal`] when a group before the last holds fewer
+/// than four cards.
+pub fn validate_trick_lengths(groups: &[Vec<Card>]) -> Result<(), ShortTrickNotFinal> {
     if groups.iter().rev().skip(1).any(|group| group.len() < 4) {
         return Err(ShortTrickNotFinal);
     }
@@ -35,7 +49,11 @@ pub(crate) fn validate_trick_lengths(groups: &[Vec<Card>]) -> Result<(), ShortTr
 /// a trick the seats rotate, and the winner of each complete trick leads the
 /// next one. A short final group is allowed: a claim or a cut-off record ends
 /// the play mid-trick, and no later trick can follow it.
-pub(crate) fn attribute_plays(
+///
+/// # Errors
+///
+/// Returns [`ShortTrickNotFinal`] when a group before the last is short.
+pub fn attribute_plays(
     groups: &[Vec<Card>],
     contract: Contract,
 ) -> Result<PlayRecord, ShortTrickNotFinal> {

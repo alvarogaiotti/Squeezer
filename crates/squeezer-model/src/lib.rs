@@ -18,32 +18,54 @@
     clippy::needless_doctest_main
 )]
 
-//! The bridge model vocabulary: hand shapes and their pattern DSL, per-seat
-//! hand constraints, the contract vocabulary (seats, vulnerability, strains,
-//! contracts) and the card evaluator.
+//! The bridge model vocabulary: the whole domain model, from the card
+//! evaluator and hand shapes up to deals, dealers, recorded boards, auctions,
+//! plays and positions.
 //!
 //! This crate sits directly above [`squeezer_cards`]: it depends on the card
-//! vocabulary, `bitvec` and `itertools`, and deliberately names no solver,
-//! import parser or network crate. A consumer that only builds and checks
-//! hands therefore never compiles the native double-dummy library. `serde`
-//! support is optional.
+//! vocabulary, `rand`, `bitvec` and `itertools`, and deliberately names no
+//! solver, import parser or network crate. A consumer that only builds,
+//! generates and checks hands and deals therefore never compiles the native
+//! double-dummy library. `serde` support is optional.
 //!
 //! Every fallible surface reports a typed error owned by the module that
 //! produced it ([`CreationShapeError`], [`ConstraintError`], [`ContractError`],
-//! [`SeatError`]); the crate defines no crate-wide error enum.
+//! [`SeatError`], [`DealerError`], [`DealError`], [`BoardError`],
+//! [`AuctionError`], [`PositionError`]); the crate defines no crate-wide error
+//! enum. The LIN and PBN writers for [`Deal`] and [`Board`] live here too; the
+//! file-container writers need the parsers and stay in the root crate.
 
 pub mod contract;
+pub mod dealer;
 pub mod evaluator;
 pub mod hand_constraint;
 mod range;
+pub mod record;
 pub mod shape;
 pub mod shapeparser;
 
 pub use contract::*;
+pub use dealer::*;
 pub use evaluator::*;
 pub use hand_constraint::*;
+pub use record::*;
 pub use shape::*;
 pub use shapeparser::*;
+
+/// The items the moved record and dealer modules share, mirroring the root
+/// crate's historical prelude so the code reads the same in both crates.
+///
+/// This is crate-internal: consumers import from [`squeezer_cards`] and this
+/// crate's root, not through here.
+pub(crate) mod prelude {
+    pub(crate) use crate::*;
+    pub(crate) use squeezer_cards::*;
+    // The unit tests parse cards from strings; the library itself never needs
+    // this trait, so the import is test-only to keep the lib warning-free.
+    #[cfg(test)]
+    pub(crate) use std::str::FromStr;
+    pub(crate) use std::{array::IntoIter, error::Error, fmt, hash::Hash};
+}
 
 // ==============================================================================
 // Table and hand limits

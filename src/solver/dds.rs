@@ -11,10 +11,10 @@
 use super::{
     CardSolve, PlayAnalyser, Solutions, SolveMode, SolveResults, Solver, SolverContext, SolverError,
 };
+use crate::dds_bridge::{play_record_to_trace, position_to_dds_deal};
 use crate::prelude::*;
 use ::core::ffi::{c_int, c_void};
-use dds::context::{self, FutureTricks, PlayTraceBin, SolvedPlay};
-use dds::deal::DdsDeal;
+use dds::context::{self, FutureTricks, SolvedPlay};
 
 /// DDS's "no fault" return code; every other code is an error.
 const RETURN_NO_FAULT: c_int = 1;
@@ -84,7 +84,7 @@ impl SolverContext for DdsContext {
         solutions: Solutions,
     ) -> Result<SolveResults, SolverError> {
         let raw = self.handle()?;
-        let deal = DdsDeal::try_from(position)
+        let deal = position_to_dds_deal(position)
             .map_err(|error| SolverError::Position(error.to_string()))?;
         let mut future = FutureTricks::default();
         let code = unsafe {
@@ -128,13 +128,13 @@ impl PlayAnalyser for DdsSolver {
     fn analyse_play(&self, board: &Board) -> Result<Vec<u8>, SolverError> {
         let position = Position::after_play(board, 0)
             .map_err(|error| SolverError::Position(error.to_string()))?;
-        let deal = DdsDeal::try_from(&position)
+        let deal = position_to_dds_deal(&position)
             .map_err(|error| SolverError::Position(error.to_string()))?;
         let play = board
             .play()
             .ok_or_else(|| SolverError::Position("the board records no play".to_owned()))?;
-        let trace = PlayTraceBin::try_from(play)
-            .map_err(|error| SolverError::Position(error.to_string()))?;
+        let trace =
+            play_record_to_trace(play).map_err(|error| SolverError::Position(error.to_string()))?;
 
         let mut solved = SolvedPlay::new();
         let code = unsafe { context::AnalysePlayBin(deal, trace, &raw mut solved, 0) };
@@ -351,7 +351,7 @@ mod tests {
         let position = Position::after_play(&board, 2).expect("contract present");
         assert_eq!(position.to_play(), Seat::South);
 
-        let deal = DdsDeal::try_from(&position).expect("mid-trick position converts");
+        let deal = position_to_dds_deal(&position).expect("mid-trick position converts");
         assert_eq!(deal.first(), Seat::North as i32);
         assert_eq!(deal.trump(), 0);
         assert_eq!(deal.current_trick_suit(), [0, 0, 0]);
@@ -369,7 +369,7 @@ mod tests {
     fn position_bridge_encodes_every_suit_rank_bit() {
         let board = example_board();
         let position = Position::after_play(&board, 0).expect("contract present");
-        let actual = DdsDeal::try_from(&position)
+        let actual = position_to_dds_deal(&position)
             .expect("opening position converts")
             .remain_cards();
 

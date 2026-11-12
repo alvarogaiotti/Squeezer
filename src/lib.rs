@@ -144,20 +144,18 @@ mod utils;
 pub mod prelude {
     #[cfg(feature = "dds")]
     pub extern crate dds;
-    pub const MAX_N_OF_BOARDS: u8 = 128;
     pub use crate::card::*;
-    pub use crate::dealer::*;
     pub use crate::error::*;
-    pub use crate::record::*;
     #[cfg(feature = "dds")]
     pub use crate::simulation::*;
     pub use crate::solver::*;
     pub use crate::utils::*;
-    /// Shape, constraint, contract and evaluator vocabulary; the constants the
-    /// model crate owns (hand and suit limits) come with it.
+    /// Shape, constraint, contract, record and dealer vocabulary; the model
+    /// crate owns the deals, boards, auctions, plays and positions too, and
+    /// the constants it owns (hand and suit limits) come with it.
     pub use squeezer_model::*;
     pub use std::str::FromStr;
 
-    pub(crate) use std::{array::IntoIter, error::Error, fmt, hash::Hash};
+    pub(crate) use std::hash::Hash;
 }
 pub use prelude::*;

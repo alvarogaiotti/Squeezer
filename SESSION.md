@@ -101,8 +101,6 @@
   `squeezer_model::*`, which re-exports the model's `contract` module. Both
   paths name the same items, but `squeezer::contract` and
   `squeezer::prelude::contract` resolve through different modules.
-- `MAX_N_OF_BOARDS` stays in the root prelude: it bounds a recorded board, so it
-  belongs with the record layer rather than the hand model.
 
 ### Parsing and serialization
 - `.gitignore`'s global `*.lin`/`*.pbn` rules left the seven `tests/*.lin`

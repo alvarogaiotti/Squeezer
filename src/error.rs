@@ -201,9 +201,10 @@ mod tests {
             ),
             |e| matches!(e, SqueezerError::ConstraintError(_)),
         );
-        assert_wraps(&SqueezerError::from(DealerError::new("dealer")), |e| {
-            matches!(e, SqueezerError::DealingError(_))
-        });
+        assert_wraps(
+            &SqueezerError::from(DealerError::Message("dealer".to_owned())),
+            |e| matches!(e, SqueezerError::DealingError(_)),
+        );
         assert_wraps(&SqueezerError::from(ContractError::MissingLevel), |e| {
             matches!(e, SqueezerError::ContractError(_))
         });

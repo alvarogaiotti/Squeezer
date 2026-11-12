@@ -201,74 +201,6 @@ impl Board {
     }
 }
 
-#[cfg(feature = "lin")]
-impl crate::linparser::LinFile {
-    /// Writes the file metadata and its boards as LIN.
-    ///
-    /// The importer requires a `pn|` line, so one is always emitted; `vg|` and
-    /// `rs|` are emitted only when present. Each board's `qx|` room (kept in
-    /// [`crate::linparser::LinMetadata`], not on the board) is written before
-    /// the board itself.
-    ///
-    /// # Lossy metadata
-    ///
-    /// `vg|`, `rs|` and `pn|` are comma-separated lists and LIN has no escaping,
-    /// so a player name, team or result string that itself contains a comma
-    /// re-parses as extra fields. Such values are not round-trippable; the
-    /// board data is unaffected.
-    ///
-    /// # Errors
-    ///
-    /// Propagates the writer's error; writing to a [`String`] never fails.
-    pub fn write_lin(&self, writer: &mut impl fmt::Write) -> fmt::Result {
-        if let Some(tournament) = &self.metadata.tournament_info {
-            write!(
-                writer,
-                "vg|{},{},{},{},{},{},{},{},{}|",
-                tournament.tournament,
-                tournament.round,
-                tournament.board_range,
-                tournament.board_start,
-                tournament.board_end,
-                tournament.team1,
-                tournament.team1_score,
-                tournament.team2,
-                tournament.team2_score,
-            )?;
-        }
-
-        if let Some(results) = &self.metadata.results {
-            write!(writer, "rs|{}|", results.results.join(","))?;
-        }
-
-        write!(writer, "pn|{}|", self.metadata.players.players.join(","))?;
-        writer.write_str("pg||")?;
-
-        for (index, board) in self.boards.iter().enumerate() {
-            if let Some(room) = self.metadata.rooms.get(index).copied().flatten() {
-                let code = match room {
-                    crate::linparser::Room::Open => 'o',
-                    crate::linparser::Room::Closed => 'c',
-                };
-                match board.number() {
-                    Some(number) => write!(writer, "qx|{code}{number}|")?,
-                    None => write!(writer, "qx|{code}|")?,
-                }
-            }
-            board.write_lin(writer)?;
-        }
-
-        Ok(())
-    }
-
-    /// Formats the file metadata and its boards as LIN.
-    #[must_use]
-    #[inline]
-    pub fn as_lin(&self) -> String {
-        super::written_string(0, |lin| self.write_lin(lin))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU8;
@@ -333,11 +265,10 @@ mod tests {
         );
     }
 
+    /// Board 1 rotates to North, but this board stores West as dealer: the
+    /// writer must emit the stored dealer, not derive one from the number.
     #[test]
     fn md_encodes_the_stored_dealer_not_the_board_number() {
-        // Board 1 rotates to North, but this board stores West as dealer. The
-        // writer must emit the stored dealer rather than deriving it from the
-        // number (the old `Deal::as_lin` derived it and got this wrong).
         let board = Board::builder(one_suit_per_seat(), Seat::West, Vulnerability::None)
             .number(1)
             .build()
@@ -347,76 +278,5 @@ mod tests {
             lin.starts_with("st||md|2"),
             "dealer digit should encode the stored West dealer: {lin}"
         );
-
-        // And the importer agrees: the same `md|` digit comes back as West,
-        // not as the North that board 1 would otherwise rotate to.
-        #[cfg(feature = "lin")]
-        {
-            use crate::linparser::LinFile;
-            let parsed =
-                <LinFile as FromStr>::from_str(&format!("pn|N,E,S,W|{lin}")).expect("reparses");
-            assert_eq!(parsed.boards[0].dealer(), Seat::West);
-            assert_eq!(parsed.boards[0].number(), Some(1));
-        }
-    }
-
-    #[cfg(feature = "lin")]
-    #[test]
-    fn fixture_board_round_trips_through_lin() {
-        use crate::linparser::LinFile;
-        let data = std::fs::read_to_string("tests/4207070707.lin").expect("fixture is readable");
-        let file = <LinFile as FromStr>::from_str(&data).expect("fixture parses");
-        let board = &file.boards[0];
-        let lin = board.as_lin();
-        let reparsed =
-            <LinFile as FromStr>::from_str(&format!("pn|a,b,c,d|{lin}")).expect("output reparses");
-        assert_eq!(&reparsed.boards[0], board);
-    }
-
-    /// The fixture's metadata is comma-free, so it survives the comma-joined
-    /// `vg|`/`rs|`/`pn|` lines. This does not claim arbitrary metadata
-    /// round-trips; see [`comma_in_metadata_is_documented_as_lossy`].
-    #[cfg(feature = "lin")]
-    #[test]
-    fn lin_file_round_trips_the_comma_free_fixture() {
-        use crate::linparser::LinFile;
-        let data = std::fs::read_to_string("tests/83469.lin").expect("fixture is readable");
-        let file = <LinFile as FromStr>::from_str(&data).expect("fixture parses");
-        let reparsed =
-            <LinFile as FromStr>::from_str(&file.as_lin()).expect("re-serialized file parses");
-        assert_eq!(reparsed.boards, file.boards);
-        assert_eq!(reparsed.metadata.rooms, file.metadata.rooms);
-        assert_eq!(reparsed.metadata.players, file.metadata.players);
-        assert_eq!(
-            reparsed.metadata.tournament_info,
-            file.metadata.tournament_info
-        );
-        assert_eq!(reparsed.metadata.results, file.metadata.results);
-    }
-
-    /// LIN has no escaping, so a comma inside a `pn|` name splits into extra
-    /// players on the way back. This pins the documented lossiness rather than
-    /// pretending the metadata round-trips.
-    #[cfg(feature = "lin")]
-    #[test]
-    fn comma_in_metadata_is_documented_as_lossy() {
-        use crate::linparser::{LinFile, LinMetadata, Players};
-        let board = Board::builder(one_suit_per_seat(), Seat::North, Vulnerability::None)
-            .build()
-            .expect("a bare deal is a valid board");
-        let file = LinFile {
-            metadata: LinMetadata {
-                tournament_info: None,
-                results: None,
-                players: Players {
-                    players: vec!["Smith, John".to_string(), "Doe".to_string()],
-                },
-                rooms: vec![None],
-            },
-            boards: vec![board],
-        };
-        let reparsed = <LinFile as FromStr>::from_str(&file.as_lin()).expect("file reparses");
-        assert_ne!(reparsed.metadata.players, file.metadata.players);
-        assert_eq!(reparsed.metadata.players.players.len(), 3);
     }
 }

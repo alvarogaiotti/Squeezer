@@ -17,7 +17,9 @@
 //! You can index by [`Seat`] or `usize`:
 //!
 //! ```rust
-//! # use squeezer::*;
+//! # use squeezer_model::*;
+//! # use squeezer_cards::*;
+//! # use std::str::FromStr;
 //! let hands = [
 //!     Cards::from_str("SAKQJT98765432")?,
 //!     Cards::from_str("HAKQJT98765432")?,
@@ -51,7 +53,9 @@ use crate::prelude::*;
 /// You can index by `Seat` or `usize`:
 /// ```rust
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # use squeezer::*;
+/// # use squeezer_model::*;
+/// # use squeezer_cards::*;
+/// # use std::str::FromStr;
 /// let deal = DealerBuilder::new().build()?.deal()?;
 /// let north = deal[Seat::North];
 /// let north = deal[0]; // Equivalent
@@ -202,7 +206,9 @@ impl Deal {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
+    /// # use squeezer_cards::*;
+    /// # use std::str::FromStr;
     /// let deal = DealerBuilder::new().build()?.deal()?;
     /// if deal.check(|d: &Deal| d.north().hcp() >= 12) {
     ///     println!("North has opening hand");
