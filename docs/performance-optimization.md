@@ -46,9 +46,9 @@ not Criterion's within-run confidence interval.
 final trick consumes the existing DD iterator directly. This removes one `Vec<Card>` allocation per
 hand and one `Vec<u8>` allocation per complete trick.
 
-**Coverage:** empty and partial play records (including rotating seats and DD deltas), missing DD
-data for a complete trick retaining the existing panic, and the existing full-hand/DDS-backed
-analysis tests.
+**Coverage:** empty and partial play records (including rotating seats and DD deltas), a missing DD
+result for a complete trick (now a typed `AnalysisInputError` rather than a panic), and the
+existing full-hand/DDS-backed analysis tests.
 
 | Version | Median | Run-median range |
 | --- | ---: | ---: |
@@ -56,7 +56,8 @@ analysis tests.
 | Allocation change only | 217.04 ns/hand | 214.87–221.32 ns (2.97%) |
 
 This is a **23.0% improvement**, comfortably outside the observed run-to-run variance. The change is
-kept: it is a small, safe allocation reduction with no API or behavior change.
+kept: it is a small, safe allocation reduction with no allocation or hot-path behaviour change.
+Malformed DD input later became a typed error instead of a panic, which does not touch this path.
 
 ## 2. Fixed-size scan for `trick_winner`
 

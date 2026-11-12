@@ -333,6 +333,11 @@ impl<D: Dealer> CardEvBuilder<D> {
     }
 
     /// Sets the seat to move. Defaults to the contract's opening leader.
+    ///
+    /// With an empty play trace this is the opening leader the sampled deals
+    /// are solved for. With a non-empty trace the last card was played by
+    /// `seat`'s predecessor, so the trace reconstructs the earlier turns and
+    /// `seat` is where play resumes.
     #[must_use]
     pub fn seat(mut self, seat: Seat) -> Self {
         self.seat = Some(seat);
@@ -449,19 +454,16 @@ impl<D: Dealer> CardEvSimulation<D> {
 
         // The shared engine generates the deals sequentially and solves every
         // legal card of each deal in one call; only the derivation below
-        // remains here. The opening position is the empty-prefix case, which
-        // `from_deal_prefix` handles with the contract's leader.
+        // remains here. `seat` is the position's opening leader when there is
+        // no trace, and the seat to move once the trace reconstructs the
+        // earlier plays.
         let solved = solve_all_cards_pool(
             solver_factory,
             &dealer,
             num_deals,
             |deal, deal_index| -> Result<Position, SimulationError> {
-                Position::from_deal_prefix_with_contract(deal, &prefix, contract).map_err(|cause| {
-                    SimulationError::invalid_input(
-                        "card ev",
-                        format!("cannot derive position for deal {deal_index}: {cause}"),
-                    )
-                })
+                Position::from_deal_prefix(deal, &prefix, contract.strain(), seat)
+                    .map_err(|source| SimulationError::position(deal_index, source))
             },
         )?;
 
@@ -638,6 +640,7 @@ fn cumulative(histogram: &[usize; 14]) -> [(usize, usize); 14] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::simulation::test_support::ConstantFactory;
     use squeezer_solver::test_fixtures::example_deal;
 
     /// A dealer that always returns DDS's example hand 0.
@@ -664,6 +667,104 @@ mod tests {
             Vulnerable::No,
             Doubled::NotDoubled,
         )
+    }
+
+    /// A dealer that returns a scripted sequence of deals, so one sampled
+    /// deal can be consistent with the play trace and a later one not.
+    struct ScriptedDealer {
+        deals: std::cell::RefCell<std::collections::VecDeque<Deal>>,
+    }
+
+    impl ScriptedDealer {
+        fn new(deals: Vec<Deal>) -> Self {
+            Self {
+                deals: std::cell::RefCell::new(deals.into()),
+            }
+        }
+    }
+
+    impl Dealer for ScriptedDealer {
+        fn deal(&self) -> Result<Deal, DealerError> {
+            Ok(self
+                .deals
+                .borrow_mut()
+                .pop_front()
+                .expect("the script holds one deal per requested deal"))
+        }
+
+        fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS] {
+            [None; NUMBER_OF_HANDS]
+        }
+
+        fn known(&self) -> [Cards; NUMBER_OF_HANDS] {
+            [Cards::EMPTY; NUMBER_OF_HANDS]
+        }
+
+        fn current_hand(&self, _seat: Seat) -> Cards {
+            Cards::EMPTY
+        }
+    }
+
+    /// The example deal with S3 moved from East to West, so a trace where West
+    /// played S3 is consistent with it.
+    fn deal_with_west_spade_three() -> Deal {
+        let mut hands = *example_deal().hands();
+        hands[Seat::West as usize] = hands[Seat::West as usize].remove(Card::S4).insert(Card::S3);
+        hands[Seat::East as usize] = hands[Seat::East as usize].remove(Card::S3).insert(Card::S4);
+        Deal::new(hands).expect("the swap keeps the hands a partition")
+    }
+
+    #[test]
+    fn seat_sets_the_opening_leader_without_a_play_trace() {
+        // The contract's own leader is North; asking for East must move the
+        // position instead of being silently ignored on an empty trace.
+        let evaluation = CardEvaluation::builder()
+            .num_deals(1)
+            .dealer(example_dealer())
+            .contract(example_contract())
+            .seat(Seat::East)
+            .solver_factory(Box::new(ConstantFactory))
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect("the mock always solves");
+
+        assert_eq!(evaluation.position.to_play(), Seat::East);
+        assert_eq!(evaluation.position.trump(), Strain::Spades);
+    }
+
+    #[test]
+    fn position_derivation_failure_keeps_the_typed_cause_and_deal_index() {
+        // Deal 0 holds S3 in West, so its trace is consistent. Deal 1 is the
+        // example deal, whose West spades are A, T, 9, 4 and 2; with North to
+        // move the last traced card belongs to West, so only deal 1 is
+        // inconsistent.
+        let error = CardEvaluation::builder()
+            .num_deals(2)
+            .dealer(ScriptedDealer::new(vec![
+                deal_with_west_spade_three(),
+                example_deal(),
+            ]))
+            .contract(example_contract())
+            .play_trace(vec![Card::S3])
+            .solver_factory(Box::new(ConstantFactory))
+            .build()
+            .expect("valid configuration")
+            .run()
+            .expect_err("the second deal's West does not hold S3");
+
+        match error {
+            SimulationError::Position { deal_index, source } => {
+                assert_eq!(deal_index, 1);
+                assert_eq!(
+                    source,
+                    PositionError::PrefixCardNotHeld {
+                        play: Play::new(Seat::West, Card::S3),
+                    }
+                );
+            }
+            other => panic!("expected the typed position error, got {other:?}"),
+        }
     }
 
     fn evaluate(contract: Contract, denomination: Denomination) -> CardEvaluation {
