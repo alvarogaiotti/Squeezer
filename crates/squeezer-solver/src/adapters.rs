@@ -17,13 +17,13 @@
 //! the seam's backend-free `DdTable`.
 
 use crate::prelude::*;
-use crate::{DdTable, SolverError};
+use crate::{DdTable, Par, ParSide, SolverError};
 use dds::analyseplay::PlayTraceBin;
 use dds::deal::{
     AsDDSDeal, ConstructDdsDealError, DDSDealRepr, DdsDeal, DdsDealBuilder, DdsHandEncoding,
     DdsRank, DdsSuit,
 };
-use dds::tables::{DdTableDeal, DdTableResults, Populated};
+use dds::tables::{DdTableDeal, DdTableResults, ParResults, Populated, VulnerabilityEncoding};
 use dds::traits::AsDDSCard;
 use dds::utils::{BuildSequenceError, RankSeq, SEQUENCE_LENGTH, SuitSeq};
 
@@ -147,6 +147,90 @@ pub(crate) fn dd_table_from_dds(
         }
     }
     Ok(table)
+}
+
+/// Reads the seam's [`DdTable`] as the populated table DDS par consumes.
+///
+/// This is the reverse of [`dd_table_from_dds`], and it exists for par: DDS
+/// derives par from a table, not from a deal, so a caller that already holds a
+/// table must be able to hand it back without recalculating one.
+pub(crate) fn dd_table_to_dds(table: &DdTable) -> DdTableResults<Populated> {
+    let mut tricks = [[0u8; 4]; 5];
+    for strain in Strain::ALL {
+        // DDS's `res_table` rows follow its `DdsSuit` encoding, the same order
+        // the read side uses.
+        let row = dds_strain(strain) as usize;
+        for seat in Seat::iter() {
+            // Reuse the seat adapter rather than `enumerate()`: a reordered
+            // `Seat::iter()` must not silently transpose the table.
+            tricks[row][dds_hand_encoding(seat) as usize] = table.tricks(strain, seat);
+        }
+    }
+    DdTableResults::from_tricks(tricks)
+}
+
+/// Translates the model's vulnerability into DDS's par encoding.
+pub(crate) fn vulnerability_encoding(vulnerability: Vulnerability) -> VulnerabilityEncoding {
+    match vulnerability {
+        Vulnerability::None => VulnerabilityEncoding::None,
+        Vulnerability::NS => VulnerabilityEncoding::Ns,
+        Vulnerability::EW => VulnerabilityEncoding::Ew,
+        Vulnerability::All => VulnerabilityEncoding::Both,
+    }
+}
+
+/// Reads DDS's par text as the seam's backend-free [`Par`].
+///
+/// DDS formats each side as `"<side> <score>"` and `"<side>:<contracts>"`, with
+/// the side prefix repeated on both. The seam's [`Par`] already names the side,
+/// so the prefix is stripped and the score parsed into points. DDS fills both
+/// sides even when neither can make anything; the contract list is then empty.
+pub(crate) fn par_from_dds(results: &ParResults) -> Result<Par, SolverError> {
+    let side = |index: usize, name: &str| -> Result<ParSide, SolverError> {
+        let score_text = results.score_for_side(index).ok_or_else(|| {
+            SolverError::Backend(format!("DDS returned no readable par score for {name}"))
+        })?;
+        let (score_side, points) = score_text.split_once(' ').ok_or_else(|| {
+            SolverError::Backend(format!(
+                "DDS returned a malformed par score: {score_text:?}"
+            ))
+        })?;
+        // DDS prints the side it is scoring; checking it catches a side swap
+        // instead of mislabelling both scores.
+        if score_side != name {
+            return Err(SolverError::Backend(format!(
+                "DDS returned a {score_side} par score for the {name} side"
+            )));
+        }
+        let score = points.parse::<i32>().map_err(|_| {
+            SolverError::Backend(format!("DDS returned a non-numeric par score: {points:?}"))
+        })?;
+
+        let contracts_text = results.contracts_for_side(index).ok_or_else(|| {
+            SolverError::Backend(format!("DDS returned no readable par contracts for {name}"))
+        })?;
+        let (contracts_side, contracts) = contracts_text.split_once(':').ok_or_else(|| {
+            SolverError::Backend(format!(
+                "DDS returned a malformed par contract list: {contracts_text:?}"
+            ))
+        })?;
+        if contracts_side != name {
+            return Err(SolverError::Backend(format!(
+                "DDS returned a {contracts_side} par contract list for the {name} side"
+            )));
+        }
+
+        Ok(ParSide {
+            score,
+            contracts: contracts.to_owned(),
+        })
+    };
+
+    // DDS's side encoding is 0 = NS, 1 = EW (`parResults.parScore`).
+    Ok(Par {
+        ns: side(0, "NS")?,
+        ew: side(1, "EW")?,
+    })
 }
 
 /// A borrowed [`Position`] read as DDS's raw solver input.
@@ -290,5 +374,20 @@ mod tests {
         ];
         let packed = DdsDealAdapter(&deal).as_dds_deal();
         assert_eq!(packed.as_array(), expected);
+    }
+
+    #[test]
+    fn vulnerability_maps_to_the_dds_par_encoding() {
+        // DDS documents par/table vulnerability as None 0, Both 1, NS 2,
+        // EW 3 (`dll.h`). The model orders `All` second, so copying the
+        // discriminant would silently turn "both" into "NS".
+        for (vulnerability, expected) in [
+            (Vulnerability::None, 0),
+            (Vulnerability::All, 1),
+            (Vulnerability::NS, 2),
+            (Vulnerability::EW, 3),
+        ] {
+            assert_eq!(vulnerability_encoding(vulnerability) as i32, expected);
+        }
     }
 }
