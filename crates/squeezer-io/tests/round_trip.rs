@@ -10,13 +10,41 @@
 use std::num::NonZeroU8;
 use std::str::FromStr;
 
-use quickcheck::{Arbitrary, Gen};
+use quickcheck::{Arbitrary, Gen, QuickCheck};
 
 use squeezer_cards::*;
 use squeezer_model::record::position::trick_winner;
 use squeezer_model::*;
 
 mod common;
+
+/// What a file format can carry of a board.
+///
+/// The LIN and PBN generators differ only in these two facts, so they are data
+/// consumed by the single [`representable_board`] builder and by each format's
+/// `Arbitrary` wrapper. Keeping the difference in one value is what stops the
+/// two generators from drifting into different sampled domains.
+#[derive(Clone, Copy)]
+struct Representability {
+    /// Whether the format records a claimed trick count: LIN's `mc|` tag.
+    records_claim: bool,
+    /// Whether a call keeps its alert marker and annotation: LIN's `!` and
+    /// `an|`, which PBN does not write and its importer discards.
+    records_call_metadata: bool,
+}
+
+/// LIN keeps every modeled field, including the claim and the call metadata.
+const LIN_REPRESENTABILITY: Representability = Representability {
+    records_claim: true,
+    records_call_metadata: true,
+};
+
+/// PBN has no claim tag, and its importer discards alert markers and note
+/// references, so the generator leaves those fields absent.
+const PBN_REPRESENTABILITY: Representability = Representability {
+    records_claim: false,
+    records_call_metadata: false,
+};
 
 /// A board that a LIN round trip can represent.
 ///
@@ -55,22 +83,21 @@ fn arbitrary_deal(g: &mut Gen) -> Deal {
     Deal::new(hands).expect("the four hands partition the deck")
 }
 
-/// A legal auction, built one legal call at a time and stopped as soon as the
-/// call list completes.
+/// A legal, complete auction, built one legal call at a time and stopped as
+/// soon as the call list completes.
 ///
 /// The completion rule is [`Auction::is_complete`], the same predicate
-/// validation and the writers use: the generator must not append a call after
-/// the fourth opening pass or the third closing pass.
-fn arbitrary_auction(g: &mut Gen, dealer: Seat) -> Option<Auction> {
-    let len = usize::arbitrary(g) % 13;
-    if len == 0 {
-        return None;
-    }
-
-    let mut calls = Vec::with_capacity(len);
+/// validation and the writers use: the loop stops on the call that ends the
+/// auction, so the generator can never append a call after the fourth opening
+/// pass or the third closing pass, and it never emits a cut auction either.
+/// Bids strictly increase and there are only thirty-five, so the loop always
+/// reaches its closing passes.
+fn arbitrary_auction(g: &mut Gen, dealer: Seat) -> Auction {
+    let mut calls = Vec::new();
     let mut highest: Option<(u8, Strain)> = None;
     let mut last_non_pass: Option<(Call, Seat)> = None;
-    for index in 0..len {
+    let mut index = 0usize;
+    loop {
         let seat = dealer + index;
         let mut options = vec![Call::Pass];
         for level in 1..=7u8 {
@@ -114,8 +141,14 @@ fn arbitrary_auction(g: &mut Gen, dealer: Seat) -> Option<Auction> {
         if Auction::new(calls.clone()).is_complete() {
             break;
         }
+        index += 1;
     }
-    Some(Auction::new(calls))
+    Auction::new(calls)
+}
+
+/// The four opening passes: a complete auction with no contract.
+fn pass_out() -> Auction {
+    Auction::new(vec![RecordedCall::new(Call::Pass); 4])
 }
 
 fn arbitrary_annotation(g: &mut Gen) -> Option<String> {
@@ -166,19 +199,49 @@ fn arbitrary_play(g: &mut Gen, deal: &Deal, contract: Contract) -> PlayRecord {
     PlayRecord::new(plays)
 }
 
-fn arbitrary_board(g: &mut Gen) -> Board {
+/// A board the given format can represent, built once for both formats.
+///
+/// The shared domain is derived, never stored: the contract comes from the
+/// auction and the play is built only when a contract exists, because `[Play]`
+/// names a leader only the contract fixes and both importers re-derive the
+/// contract from the auction. Only the [`Representability`] decides which
+/// optional parts survive: the claim and the call metadata.
+///
+/// A random legal auction almost always contains a bid — four opening passes
+/// need four consecutive picks from up to thirty-six options — so two auctions
+/// in eight are fixed pass-outs, to exercise the contractless writer and
+/// importer paths. A further one in eight records no auction at all, which both
+/// formats distinguish from a passed-out one.
+fn representable_board(g: &mut Gen, format: Representability) -> Board {
     let deal = arbitrary_deal(g);
     let dealer = arbitrary_seat(g);
     let vulnerability = arbitrary_vulnerability(g);
     let number = bool::arbitrary(g).then(|| u8::arbitrary(g));
-    let auction = arbitrary_auction(g, dealer);
+    let auction = match u8::arbitrary(g) % 8 {
+        0 => None,
+        1 | 2 => Some(pass_out()),
+        _ => Some(arbitrary_auction(g, dealer)),
+    };
+    let auction = auction.map(|auction| {
+        if format.records_call_metadata {
+            auction
+        } else {
+            // PBN writes no alert marker and no annotation, and its importer
+            // reads note references and suffixes only to discard them, so a
+            // call carrying either cannot survive the round trip.
+            without_call_metadata(&auction)
+        }
+    });
     let contract = auction
         .as_ref()
         .and_then(|auction| auction.contract(dealer, vulnerability));
     let play = contract
         .as_ref()
         .map(|contract| arbitrary_play(g, &deal, *contract));
-    let claim = bool::arbitrary(g).then(|| u8::arbitrary(g) % 14);
+    // The claim is independent of the play: LIN's `mc|` needs no preceding
+    // `pc|` cards, so a claimed board with no recorded play is representable
+    // and sampled on its own.
+    let claim = (format.records_claim && bool::arbitrary(g)).then(|| u8::arbitrary(g) % 14);
     Board::new(
         deal,
         number,
@@ -194,18 +257,16 @@ fn arbitrary_board(g: &mut Gen) -> Board {
 
 impl Arbitrary for AnyBoard {
     fn arbitrary(g: &mut Gen) -> Self {
-        Self(arbitrary_board(g))
+        Self(representable_board(g, LIN_REPRESENTABILITY))
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(shrink_board(&self.0).into_iter().map(Self))
     }
 }
 
 /// An auction with every call's LIN-only metadata stripped.
-///
-/// PBN writes no alert marker and no annotation, and the importer reads
-/// note references and suffixes only to discard them, so a call that
-/// carries either cannot survive a round trip. Stripping the metadata
-/// after [`arbitrary_auction`] reuses its legality rules exactly instead of
-/// duplicating them.
-fn plain_auction(auction: &Auction) -> Auction {
+fn without_call_metadata(auction: &Auction) -> Auction {
     Auction::new(
         auction
             .calls()
@@ -215,66 +276,193 @@ fn plain_auction(auction: &Auction) -> Auction {
     )
 }
 
-/// A board that a PBN round trip can represent.
-///
-/// Two fields are outside the format, so the generator leaves them absent:
-///
-/// - `claim` is `None`: PBN has no tag for a claimed trick count (LIN's
-///   `mc|`).
-/// - Every call is plain (`alert = false`, `annotation = None`): PBN's
-///   alert suffix and note references are dropped by the importer, and call
-///   annotations are deferred.
-///
-/// The contract is derived from the auction and the play is built only when
-/// a contract exists, mirroring [`arbitrary_board`]. A play needs a
-/// contract because `[Play]` names the leader the contract fixes, and
-/// deriving the contract keeps the `[Declarer]`/`[Contract]` tags in
-/// agreement with the `[Auction]` that the importer re-derives it from. A
-/// contract-only board (no auction) is representable, but is not sampled
-/// here so the PBN domain matches the LIN generator's.
-///
-/// A random legal auction almost always contains a bid — four opening
-/// passes need four consecutive picks from up to 36 options — so pass-outs
-/// would otherwise never be sampled. One auction in four is therefore a
-/// fixed pass-out, to exercise the contractless writer and importer paths
-/// too.
+/// A board that a PBN round trip can represent: the same domain as
+/// [`AnyBoard`], with the fields PBN cannot write left absent by
+/// [`PBN_REPRESENTABILITY`].
 #[derive(Clone, Debug)]
 struct AnyPbnBoard(Board);
 
-fn pbn_representable_board(g: &mut Gen) -> Board {
-    let deal = arbitrary_deal(g);
-    let dealer = arbitrary_seat(g);
-    let vulnerability = arbitrary_vulnerability(g);
-    let number = bool::arbitrary(g).then(|| u8::arbitrary(g));
-    let auction = if u8::arbitrary(g) % 4 == 0 {
-        Some(Auction::new(vec![RecordedCall::new(Call::Pass); 4]))
-    } else {
-        arbitrary_auction(g, dealer)
-    };
-    let auction = auction.as_ref().map(plain_auction);
-    let contract = auction
-        .as_ref()
-        .and_then(|auction| auction.contract(dealer, vulnerability));
-    let play = contract
-        .as_ref()
-        .map(|contract| arbitrary_play(g, &deal, *contract));
-    Board::new(
-        deal,
-        number,
-        dealer,
-        vulnerability,
-        auction,
-        contract,
-        play,
-        None,
-    )
-    .expect("the generator only builds boards that satisfy the invariants")
-}
-
 impl Arbitrary for AnyPbnBoard {
     fn arbitrary(g: &mut Gen) -> Self {
-        Self(pbn_representable_board(g))
+        Self(representable_board(g, PBN_REPRESENTABILITY))
     }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(shrink_board(&self.0).into_iter().map(Self))
+    }
+}
+
+/// The board fields a shrink candidate keeps or replaces.
+///
+/// Bundling them turns every candidate into a one-field edit of the board under
+/// shrink, instead of a repeated seven-argument call whose two `Option<u8>`
+/// fields are easy to transpose.
+#[derive(Clone)]
+struct Parts<'a> {
+    deal: &'a Deal,
+    number: Option<u8>,
+    dealer: Seat,
+    vulnerability: Vulnerability,
+    auction: Option<Auction>,
+    play: Option<PlayRecord>,
+    claim: Option<u8>,
+}
+
+impl<'a> Parts<'a> {
+    fn of(board: &'a Board) -> Self {
+        Self {
+            deal: board.deal(),
+            number: board.number(),
+            dealer: board.dealer(),
+            vulnerability: board.vulnerability(),
+            auction: board.auction().cloned(),
+            play: board.play().cloned(),
+            claim: board.claim(),
+        }
+    }
+
+    /// Builds the candidate, deriving the contract its auction implies.
+    ///
+    /// The contract is never a candidate on its own: [`Board::new`] rejects a
+    /// stored contract that disagrees with its auction, so every auction edit
+    /// re-derives it. A candidate whose parts no longer fit — a shortened
+    /// auction that stopped being legal, say — builds to `None` and is dropped.
+    fn build(&self) -> Option<Board> {
+        let contract = self
+            .auction
+            .as_ref()
+            .and_then(|auction| auction.contract(self.dealer, self.vulnerability));
+        Board::new(
+            self.deal.clone(),
+            self.number,
+            self.dealer,
+            self.vulnerability,
+            self.auction.clone(),
+            contract,
+            self.play.clone(),
+            self.claim,
+        )
+        .ok()
+    }
+}
+
+/// The boards a shrinker tries next, biggest reduction first.
+///
+/// quickcheck keeps the first candidate that still fails, so the order decides
+/// how fast a failure reaches a small case: dropping the auction and the play
+/// comes before trimming a single call, and the purely cosmetic fields (board
+/// number, claim) come last. Both formats share this one shrinker.
+///
+/// A trimmed auction is cut: both formats represent one (LIN writes the calls
+/// it has, PBN marks the cut with `*`), and the shrink-candidate properties pin
+/// that every candidate survives a round trip.
+///
+/// The deal is not shrunk: a [`Deal`] is exactly thirteen cards per seat, so
+/// there is no smaller deal to shrink to — the deal *is* part of the offending
+/// board a report should show.
+fn shrink_board(board: &Board) -> Vec<Board> {
+    let base = Parts::of(board);
+    let mut candidates = Vec::new();
+    let mut push = |candidate: Parts<'_>| {
+        let candidate = candidate.build();
+        // An equal candidate would make quickcheck shrink the same value
+        // forever, so it is never emitted.
+        if let Some(candidate) = candidate
+            && candidate != *board
+            && !candidates.contains(&candidate)
+        {
+            candidates.push(candidate);
+        }
+    };
+
+    // A board with no auction has no contract and no play to hang off it.
+    if base.auction.is_some() {
+        push(Parts {
+            auction: None,
+            play: None,
+            ..base.clone()
+        });
+    }
+
+    if base.play.is_some() {
+        push(Parts {
+            play: None,
+            ..base.clone()
+        });
+    }
+
+    // Removing the play's last card. A one-card play has the candidate above as
+    // its smaller case, and `Board::new` normalises an empty play anyway.
+    if let Some(play) = &base.play
+        && play.len() > 1
+    {
+        push(Parts {
+            play: Some(PlayRecord::new(play.plays()[..play.len() - 1].to_vec())),
+            ..base.clone()
+        });
+    }
+
+    // Removing the auction's last call. The shortest auction is one call: an
+    // empty auction writes no tag at all and re-imports as no auction, which is
+    // the candidate above, not a board of its own.
+    if let Some(auction) = &base.auction
+        && auction.len() > 1
+    {
+        // A shorter call list can re-derive a different contract and leader, so
+        // the play is dropped rather than re-attributed.
+        push(Parts {
+            auction: Some(Auction::new(auction.calls()[..auction.len() - 1].to_vec())),
+            play: None,
+            ..base.clone()
+        });
+    }
+
+    // LIN-only call metadata: dropping it keeps the calls and the play.
+    if let Some(auction) = &base.auction
+        && auction
+            .calls()
+            .iter()
+            .any(|recorded| recorded.alert || recorded.annotation.is_some())
+    {
+        push(Parts {
+            auction: Some(without_call_metadata(auction)),
+            ..base.clone()
+        });
+    }
+
+    if base.number.is_some() {
+        push(Parts {
+            number: None,
+            ..base.clone()
+        });
+    }
+
+    if base.claim.is_some() {
+        push(Parts {
+            claim: None,
+            ..base.clone()
+        });
+    }
+
+    // Rotating the dealer changes the declarer and the opening leader, so the
+    // play is dropped rather than re-attributed. Legality is unaffected: every
+    // seat rotates together, so who is entitled to double whom is preserved.
+    if base.dealer != Seat::North {
+        push(Parts {
+            dealer: Seat::North,
+            play: None,
+            ..base.clone()
+        });
+    }
+
+    if base.vulnerability != Vulnerability::None {
+        push(Parts {
+            vulnerability: Vulnerability::None,
+            ..base.clone()
+        });
+    }
+
+    candidates
 }
 
 /// An auction straight from the round-trip generator, with the dealer its
@@ -288,47 +476,46 @@ struct AnyGeneratedAuction {
 impl Arbitrary for AnyGeneratedAuction {
     fn arbitrary(g: &mut Gen) -> Self {
         let dealer = arbitrary_seat(g);
-        // An empty generated call list means "no auction"; substitute one legal
-        // pass so every sampled case actually exercises the rule.
-        let auction = arbitrary_auction(g, dealer)
-            .unwrap_or_else(|| Auction::new(vec![RecordedCall::new(Call::Pass)]));
-        Self { dealer, auction }
+        Self {
+            dealer,
+            auction: arbitrary_auction(g, dealer),
+        }
     }
 }
 
-/// The generator must stop at completion: a call after the fourth opening pass
-/// or the third closing pass would make `Board::new` reject the generated
+/// The generator must emit auctions that pass the completion rule: the loop
+/// stops exactly at the call that ends the auction, so [`Auction::is_complete`]
+/// holds, and nothing can follow the end, so [`Auction::validate`] holds too.
+/// A cut or over-long auction would make `Board::new` reject the generated
 /// board, and the round-trip properties would panic instead of testing the
 /// formats.
 #[quickcheck_macros::quickcheck]
-fn generated_auctions_are_legal(any: AnyGeneratedAuction) -> bool {
-    any.auction.validate(any.dealer).is_ok()
+fn generated_auctions_are_complete_and_legal(any: AnyGeneratedAuction) -> bool {
+    any.auction.is_complete() && any.auction.validate(any.dealer).is_ok()
 }
 
-#[quickcheck_macros::quickcheck]
-fn lin_round_trips_generated_boards(any: AnyBoard) -> bool {
-    let board = any.0;
-    // The importer requires a `pn|` line, so wrap the board in a one-board
-    // file. The room is not part of the board and stays `None`.
+/// `parse(write(board)) == board` through the LIN importer.
+///
+/// The importer requires a `pn|` line, so the board is wrapped in a one-board
+/// file; the room is not part of the board and stays `None`.
+fn lin_round_trips(board: &Board) -> bool {
     let lin = format!("pn|N,E,S,W|{}", board.as_lin());
     let Ok(file) = <squeezer_io::linparser::LinFile as FromStr>::from_str(&lin) else {
         return false;
     };
-    file.boards.len() == 1 && file.boards[0] == board
+    file.boards.len() == 1 && file.boards[0] == *board
 }
 
-/// `parse(write(board)) == board` for every field PBN models.
+/// `parse(write(board)) == board` through the PBN importer.
 ///
 /// A board's own writer is a complete one-game file: it always emits
 /// `[Dealer]`, `[Vulnerable]` and `[Deal]`, the three tags an importer
 /// needs to build a board, so no wrapper is required (unlike LIN's `pn|`).
 ///
-/// The panics carry the written PBN so a failure says which part of the
-/// format broke; the property still returns `bool`, as quickcheck expects,
-/// and a failure is never a silent `false`.
-#[quickcheck_macros::quickcheck]
-fn pbn_round_trips_generated_boards(any: AnyPbnBoard) -> bool {
-    let board = any.0;
+/// Unlike [`lin_round_trips`], the assertions panic rather than return `false`:
+/// that puts the written PBN in the failure message, so a report says which
+/// part of the format broke. quickcheck treats either outcome as a failure.
+fn pbn_round_trips(board: &Board) -> bool {
     let pbn = board.as_pbn();
     let file = <squeezer_io::pbnparser::PbnFile as FromStr>::from_str(&pbn)
         .unwrap_or_else(|error| panic!("the writer's output must re-import: {error}"));
@@ -338,10 +525,166 @@ fn pbn_round_trips_generated_boards(any: AnyPbnBoard) -> bool {
         "a board writes exactly one game:\n{pbn}"
     );
     assert_eq!(
-        file.boards[0], board,
+        file.boards[0], *board,
         "the board must survive a PBN round trip:\n{pbn}"
     );
     true
+}
+
+#[quickcheck_macros::quickcheck]
+fn lin_round_trips_generated_boards(any: AnyBoard) -> bool {
+    lin_round_trips(&any.0)
+}
+
+#[quickcheck_macros::quickcheck]
+fn pbn_round_trips_generated_boards(any: AnyPbnBoard) -> bool {
+    pbn_round_trips(&any.0)
+}
+
+/// Every board a shrinker proposes must stay inside the format's domain: a
+/// reported case has to be a board the format can represent, including the
+/// cut auction and the shortened play a reduction produces.
+#[quickcheck_macros::quickcheck]
+fn lin_shrink_candidates_stay_in_the_format(any: AnyBoard) -> bool {
+    any.shrink().all(|candidate| lin_round_trips(&candidate.0))
+}
+
+#[quickcheck_macros::quickcheck]
+fn pbn_shrink_candidates_stay_in_the_format(any: AnyPbnBoard) -> bool {
+    any.shrink().all(|candidate| pbn_round_trips(&candidate.0))
+}
+
+/// A property that rejects every LIN board, so quickcheck has to shrink
+/// whatever it drew.
+fn rejects_every_lin_board(_: AnyBoard) -> bool {
+    false
+}
+
+/// A property that rejects every PBN board.
+fn rejects_every_pbn_board(_: AnyPbnBoard) -> bool {
+    false
+}
+
+/// A failing LIN property reports the offending board.
+///
+/// quickcheck only names the arguments once a shrunk candidate failed too, so
+/// an empty shrinker reports `No Arguments Provided` instead of the board. The
+/// small case itself is pinned by
+/// [`a_deliberately_failing_board_shrinks_to_a_small_case`].
+#[test]
+fn a_failing_lin_property_reports_the_board() {
+    let mut quickcheck = QuickCheck::new().tests(1);
+    let failure = quickcheck
+        .quicktest(rejects_every_lin_board as fn(AnyBoard) -> bool)
+        .expect_err("the property always fails");
+
+    let report = format!("{failure:?}");
+    assert!(
+        report.contains("AnyBoard("),
+        "the report must name the offending board: {report}"
+    );
+    assert!(
+        !report.contains("No Arguments Provided"),
+        "the shrinker must report a witness, not the empty-shrinker message: {report}"
+    );
+}
+
+/// The same guarantee for a PBN failure.
+#[test]
+fn a_failing_pbn_property_reports_the_board() {
+    let mut quickcheck = QuickCheck::new().tests(1);
+    let failure = quickcheck
+        .quicktest(rejects_every_pbn_board as fn(AnyPbnBoard) -> bool)
+        .expect_err("the property always fails");
+
+    let report = format!("{failure:?}");
+    assert!(
+        report.contains("AnyPbnBoard("),
+        "the report must name the offending board: {report}"
+    );
+    assert!(
+        !report.contains("No Arguments Provided"),
+        "the shrinker must report a witness, not the empty-shrinker message: {report}"
+    );
+}
+
+/// A board with every field LIN carries filled in: a numbered board with a
+/// doubled auction, a whole trick of play and a claim. It is the largest case
+/// [`representable_board`] can build for LIN.
+fn largest_lin_board() -> Board {
+    let deal = one_suit_per_seat();
+    let auction = Auction::new(vec![
+        RecordedCall::new(Call::Bid {
+            level: NonZeroU8::new(1).expect("1 is non-zero"),
+            strain: Strain::Spades,
+        }),
+        RecordedCall::new(Call::Double),
+        RecordedCall::new(Call::Pass),
+        RecordedCall::new(Call::Pass),
+        RecordedCall::new(Call::Pass),
+    ]);
+    let contract = auction
+        .contract(Seat::North, Vulnerability::All)
+        .expect("the auction names a contract");
+    // The play starts with the declarer's left-hand opponent and rotates, as
+    // the importers attribute it.
+    let play = PlayRecord::new(
+        [Seat::East, Seat::South, Seat::West, Seat::North]
+            .into_iter()
+            .map(|seat| {
+                Play::new(
+                    seat,
+                    deal[seat]
+                        .into_iter()
+                        .next()
+                        .expect("every hand holds thirteen cards"),
+                )
+            })
+            .collect(),
+    );
+    Board::builder(deal, Seat::North, Vulnerability::All)
+        .number(7)
+        .auction(auction)
+        .contract(contract)
+        .play(play)
+        .claim(9)
+        .build()
+        .expect("the largest LIN board is valid")
+}
+
+/// Replays quickcheck's shrinking loop: take the first candidate whose
+/// property still returns `false`, and shrink that, until none does.
+fn shrink_to_fixpoint(board: AnyBoard) -> AnyBoard {
+    let mut current = board;
+    'outer: loop {
+        for candidate in current.clone().shrink() {
+            // A property returns `false` on failure, so this candidate is still
+            // a witness and becomes the next value to shrink.
+            if !rejects_every_lin_board(candidate.clone()) {
+                current = candidate;
+                continue 'outer;
+            }
+        }
+        return current;
+    }
+}
+
+/// The deliberately failing board shrinks to a small case.
+///
+/// The property rejects every board, so the whole chain of reductions is
+/// accepted and the fixpoint is the smallest board the shrinker can build: the
+/// deal alone, dealt by North and non-vulnerable.
+#[test]
+fn a_deliberately_failing_board_shrinks_to_a_small_case() {
+    let largest = largest_lin_board();
+    let shrunk = shrink_to_fixpoint(AnyBoard(largest.clone()));
+    let smallest = Board::builder(largest.deal().clone(), Seat::North, Vulnerability::None)
+        .build()
+        .expect("a bare deal is a valid board");
+    assert_eq!(
+        shrunk.0, smallest,
+        "the shrinker must strip every optional part"
+    );
 }
 
 /// A deal with one whole suit per seat, so a golden hand listing is easy to
