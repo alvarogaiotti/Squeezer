@@ -46,6 +46,7 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Features
 
 - `simulation` requires `dds`; `performance_analysis` requires both `dds` and `lin` (it consumes LIN plays). Verify combos with `cargo check --no-default-features --features dds,lin`.
+- `formatters` is opt-in (not in `default`): it enables `dep:colored` and, because the renderers live in the `dds`-gated simulation module, `dds`.
 - `bbo` = blocking (`reqwest::blocking`); `bbo_async` = async (`reqwest`, default). Both share `scraper` + `url` for parsing hand-record links. Enabling `bbo` compiles a live-network test with hardcoded credentials in `src/bbo/mod.rs` — do not run it.
 - Clippy `pedantic` is enabled crate-wide with a broad allow list in `src/lib.rs`; don't chase the allowed lints.
 

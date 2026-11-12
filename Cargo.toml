@@ -14,7 +14,7 @@ resolver = "3"
 [dependencies]
 log = { version = "*" }
 rand = "*"
-colored = "*"
+colored = { version = "*", optional = true }
 itertools = "*"
 serde = { version = "1.0", features = ["derive"], optional = true }
 reqwest = { version = "*", features = ["cookies", "blocking"], optional = true }
@@ -36,6 +36,9 @@ bbo_async = ["dep:time", "dep:reqwest", "dep:scraper", "dep:url"]
 lin = ["dep:nom"]
 pbn = ["dep:nom"]
 dds = ["dep:dds"]
+# The terminal renderers live in the simulation module, which is gated on `dds`,
+# so opting into formatters also opts into the solver they report on.
+formatters = ["dep:colored", "dds"]
 serde = ["dep:serde", "dds?/serde", "bitvec/serde"]
 
 [dev-dependencies]
