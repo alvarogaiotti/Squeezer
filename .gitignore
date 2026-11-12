@@ -10,15 +10,18 @@ libdds*
 .idea/
 dds290-dll/
 rusty-tags.vi
-Cargo.lock
 .cargo/
 .replit/
 .replit*
 dds/target
 hash_testing.py
 
+# `Cargo.lock` is deliberately tracked; see the Gotchas in AGENTS.md.
+
 # Local working directories and third-party reference checkouts; not part of
-# the crate. The issue tracker lives in `.scratch/` locally.
+# the crate. The issue tracker lives in `.scratch/` locally and the OpenCode
+# session state in `.opencode/`.
 /.scratch/
+/.opencode/
 /tmp/
 /references/

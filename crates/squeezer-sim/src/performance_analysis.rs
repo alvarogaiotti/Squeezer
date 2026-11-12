@@ -1,19 +1,21 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! High-performance bridge hand analysis with SIMD optimization.
+//! Bridge hand analysis: compare recorded play against double-dummy results.
 //!
-//! This module analyzes player performance by comparing actual play against
-//! double-dummy optimal play. The implementation uses SIMD instructions to
-//! preprocess all 48 cards in a deal at once, then performs fast trick-winner
-//! determination with minimal per-trick overhead.
+//! The analysis loop resolves each trick's winner with the canonical rule in
+//! `squeezer-model` (through [`find_trick_winner_naive`]) and inspects each
+//! recorded card once. The preprocessed/SIMD path in [`PreprocessedDeal`] and
+//! [`find_trick_winner`] is a supported benchmark harness: it is exported so
+//! external measurements can reproduce the comparison, but [`analyze_hand`]
+//! never constructs it.
 //!
-//! ## Performance Strategy
+//! ## Performance strategy
 //!
-//! 1. **Batch preprocessing**: All 48 cards are encoded once with trump information
-//! 2. **SIMD operations**: Process 16 cards at a time using SSE/AVX
-//! 3. **Branchless logic**: Per-trick evaluation uses conditional moves, not branches
-//! 4. **Cache-friendly**: Preprocessed data is contiguous and aligned
+//! 1. **Stack trick buffers**: a complete trick is a fixed four-card array
+//! 2. **One DD-sequence pass**: each recorded card is inspected once
+//! 3. **Reserved records**: a player's `Vec` reserves a full hand up front, so
+//!    pushing a card during analysis never reallocates
 #![allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
 
 use crate::prelude::*;
@@ -405,17 +407,27 @@ impl HandAnalysis {
 
 /// Preprocessed card data for fast comparison.
 ///
-/// Encoding (u16):
-/// - Trump cards: 256 + rank (values: 258-270)
-/// - Non-trump: rank (values: 2-14)
+/// # Purpose
 ///
-/// Card encoding (u8):
-/// - Card = rank + 16 * suit
-/// - Suit extraction: card >> 4 (gives 0=spades, 1=hearts, 2=diamonds, 3=clubs)
-/// - Rank extraction: card & 0x0F (gives 2-14)
+/// This type is a supported benchmark harness, not part of [`analyze_hand`].
+/// It encodes all 48 cards once so [`find_trick_winner`] can be measured
+/// against the canonical [`find_trick_winner_naive`] rule. The production
+/// analysis path never constructs one; the type stays public so external
+/// measurement tools can reproduce the encoding and the comparison without
+/// reimplementing either.
 ///
-/// This allows us to handle trump priority in a single preprocessing pass,
-/// then adjust for lead suit per-trick with simple addition.
+/// Encoding (u8):
+/// - `card = rank + 16 * suit` (rank 2-14; suit 0=spades, 1=hearts,
+///   2=diamonds, 3=clubs), so non-trump values are 2-62
+/// - A trump card adds 128, so every trump outranks every non-trump card
+/// - A non-trump card in the lead suit adds 64 at comparison time
+/// - Suit extraction: `card >> 4`; rank extraction: `card & 0x0F`
+///
+/// This handles trump priority in one preprocessing pass, then adjusts for the
+/// lead suit per trick with simple addition. The scalar constructors define
+/// this contract; [`PreprocessedDeal::new_sse2`] is an unverified measurement
+/// experiment that does not implement it, so never pass its output to
+/// [`find_trick_winner`].
 #[repr(align(64))] // Cache line alignment
 #[derive(Debug)]
 pub struct PreprocessedDeal {
@@ -447,7 +459,7 @@ impl PreprocessedDeal {
                 let card = cards[i].as_u8();
                 let suit = card >> 4; // Extract suit (0-3)
 
-                // Branchless: add 256 if trump
+                // Branchless: add 128 if trump, so it outranks every card
                 let is_trump = u8::from(suit == trump_id);
                 result[i] = (is_trump << 7) + card;
             }
@@ -461,8 +473,13 @@ impl PreprocessedDeal {
     }
 
     /// SSE2 implementation (`x86_64`) - processes 16 cards at once.
+    ///
+    /// Benchmark experiment only; see [`PreprocessedDeal`] for why its output
+    /// is not interchangeable with the scalar encoding.
     /// # Safety
-    /// Requires SSE2
+    /// The caller must ensure SSE2 is available at runtime (for example with
+    /// `is_x86_feature_detected!("sse2")`); the target-feature attribute does
+    /// not check it.
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "sse2")]
     #[must_use]
@@ -531,8 +548,12 @@ impl PreprocessedDeal {
     }
 
     /// AVX2 implementation (`x86_64`) - processes 32 cards at once.
+    ///
+    /// Benchmark harness only; see [`PreprocessedDeal`].
     /// # Safety
-    /// Requires AVX2
+    /// The caller must ensure AVX2 is available at runtime (for example with
+    /// `is_x86_feature_detected!("avx2")`); the target-feature attribute does
+    /// not check it.
     #[target_feature(enable = "avx2")]
     #[must_use]
     pub unsafe fn new_avx2(cards: &[Card; 48], trump: Option<Suit>) -> Self {
@@ -623,7 +644,13 @@ impl PreprocessedDeal {
 
 /// Finds the winner of a trick using preprocessed card strengths.
 ///
-/// This is the hot path - called 12 times per hand.
+/// # Purpose
+///
+/// This is the benchmarked alternative to [`find_trick_winner_naive`], whose
+/// canonical rule the analysis path actually uses. It is a supported public
+/// entry point for measurement, not a hot path called by [`analyze_hand`].
+/// `original_cards` must be the same four cards encoded in `preprocessed`.
+///
 /// # Panics
 /// Will panic only if unable to find the highest card in the trick
 #[inline]
@@ -633,16 +660,15 @@ pub fn find_trick_winner(
     original_cards: [Card; 4],
     lead_suit: Suit,
 ) -> usize {
-    // Adjust for lead suit
-    // Trump cards (>= 256) already have priority
-    // Non-trump lead suit cards get +128 bonus
+    // Adjust for the lead suit. Trump cards already carry the 128 bit, so they
+    // outrank every non-trump card; a non-trump lead-suit card gets +64.
     let mut strengths = [0u8; 4];
 
     for i in 0..4 {
         let base = preprocessed[i];
         let suit = original_cards[i].suit();
 
-        // Branchless: add 128 if not trump and is lead suit
+        // Branchless: add 64 if not trump and is lead suit
         let is_not_trump = u8::from(base < 128);
         let is_lead = u8::from(suit == lead_suit);
         let lead_bonus = is_not_trump * is_lead * 64;
@@ -661,12 +687,14 @@ pub fn find_trick_winner(
 
 /// Finds the winner of a single trick as the index into `original_cards`.
 ///
-/// Kept as a distinct public entry point with its original signature, but the
-/// rule itself lives in [`trick_winner`](squeezer_model::record::position::trick_winner),
-/// which this delegates to. `lead_suit` is redundant with
+/// This is the rule the analysis path uses: [`analyze_hand`] calls it for every
+/// trick. The rule itself lives in
+/// [`trick_winner`], which this delegates to. `lead_suit` is redundant with
 /// `original_cards[0].suit()` — every caller passes exactly that — and is
 /// retained only for signature compatibility; it is not consulted. A `None`
-/// trump means no trump.
+/// trump means no trump. The name `naive` records its origin as the reference
+/// implementation used to validate [`find_trick_winner`]; it is not a
+/// degraded path.
 #[inline]
 #[must_use]
 pub fn find_trick_winner_naive(
@@ -878,7 +906,8 @@ pub fn analyze_hand(input: AnalysisInput) -> Result<HandAnalysis, AnalysisInputE
             prev_tricks = dd_tricks;
         }
 
-        // Find winner using SIMD-friendly comparison
+        // Find the winner with the canonical rule; the preprocessed path is
+        // benchmark-only.
         let winner_position_in_trick = find_trick_winner_naive(trick_cards, lead_suit, trump);
         current_leader = current_leader + winner_position_in_trick;
     }
@@ -931,7 +960,7 @@ mod tests {
 
         let preprocessed = PreprocessedDeal::new_scalar(&cards, Some(Suit::Spades));
 
-        assert_eq!(preprocessed.cards[0], 142); // 256 + 14
+        assert_eq!(preprocessed.cards[0], 142); // trump bonus 128 + spade ace (14)
         assert_eq!(preprocessed.cards[1], 0b0000_1110_u8 ^ 0b0001_0000_u8);
     }
 

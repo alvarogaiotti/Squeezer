@@ -5,10 +5,10 @@ use squeezer_cards::{Cards, Suit};
 use squeezer_model::*;
 use std::str::FromStr;
 
-/// Smoke test for a constrained dealer. It names no simulation API; the file
-/// and function keep their historical name.
+/// Smoke test for a constrained dealer: a predeal, per-seat shape and HCP
+/// constraints, and a user predicate must all agree on the produced deal.
 #[test]
-fn simulation() {
+fn constrained_dealer_produces_a_matching_deal() {
     let south_specs = HandConstraint::new(&["3262", "2362", "2263", "2272"], HcpRange::new(18, 20))
         .expect("South shape and HCP pattern parses");
     let west_spec = HandConstraintBuilder::new()

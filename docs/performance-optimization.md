@@ -400,8 +400,9 @@ Ticket-12 commands:
 - A separate `Cards::high_card_points` mask refactor was screened but discarded: the constraint check
   measured 1.2839 ns versus 1.2749 ns on `HEAD` (a slight regression), and the end-to-end constrained
   dealer check was unchanged within noise. It is not part of the final diff.
-- The SIMD preprocessing/trick-winner benchmark paths were not rewritten. They are small,
-  benchmark-only paths in the current analysis flow, and the fixed winner loop addresses the measured
+- The SIMD preprocessing/trick-winner benchmark paths were not rewritten. They are benchmark
+  harnesses (`PreprocessedDeal`/`find_trick_winner`) exported for measurement, not part of
+  `analyze_hand`, which uses the canonical scalar rule; the fixed winner loop addresses the measured
   hot path without architecture-specific unsafe code.
 - A native DDS `-flto` experiment was discarded before acceptance: adding `-flto` to the C++ archive
   made `rust-lld` leave the `dds_c_*` symbols unresolved, so it could not produce a runnable
