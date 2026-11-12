@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! The LIN importer: nom parsers that build [`crate::record::Board`]s.
+//! The LIN importer: nom parsers that build [`squeezer_model::record::Board`]s.
 //!
 //! Every failure is reported as a [`LinError`] carrying a
 //! [`ParseLinErrorKind`]; nothing is swallowed with `unwrap_or` defaults, so a
@@ -21,9 +21,9 @@ use nom::{
 use std::num::NonZeroU8;
 use std::str::FromStr;
 
-use crate::contract::{Seat, Strain, Vulnerability};
 use crate::prelude::*;
-use crate::record::play::{attribute_plays, validate_trick_lengths};
+use squeezer_model::contract::{Seat, Strain, Vulnerability};
+use squeezer_model::record::play::{attribute_plays, validate_trick_lengths};
 
 use super::types::{
     LinFile, LinMetadata, ParseLinError, ParseLinErrorKind, Players, Results, Room, TournamentInfo,

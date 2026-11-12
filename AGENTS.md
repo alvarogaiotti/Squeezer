@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards` and `squeezer-model`).
-- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-model`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards`, `squeezer-io` and `squeezer-model`).
+- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-io`, `crates/squeezer-model`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -52,10 +52,17 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   `squeezer-model` enables `rand` because its dealer draws from the samplers.
 - Shape, shape parsing, hand constraints, the contract vocabulary, the
   evaluator, the dealer and the whole record layer (`Deal`, `Board`, `Auction`,
-  `Play`, `Position` and their writers) live in `squeezer-model`
-  (`crates/squeezer-model`), which depends on `squeezer-cards`, `rand`, `bitvec`
-  and `itertools` with `serde` optional and names no solver, parser or network
-  crate.
+  `Play`, `Position`) live in `squeezer-model` (`crates/squeezer-model`), which
+  depends on `squeezer-cards`, `rand`, `bitvec` and `itertools` with `serde`
+  optional and names no solver, parser or network crate. The `Deal` and `Board`
+  writers stay here, unconditional: exporting a board needs no parser.
+- The LIN and PBN importers and the `LinFile`/`PbnFile` container writers live
+  in `squeezer-io` (`crates/squeezer-io`), behind its `lin` and `pbn` features
+  (both on by default). `nom` is optional and compiled only by those features,
+  so `default-features = false` builds the crate without it. It depends on
+  `squeezer-model` plus `squeezer-cards` (the parsers build `Cards`/`Card`) and
+  names no solver, HTTP crate or the root. The root's `lin`/`pbn` features
+  forward to it so `squeezer::linparser` and `squeezer::pbnparser` keep working.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record

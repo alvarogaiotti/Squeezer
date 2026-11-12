@@ -273,25 +273,31 @@ mod tests {
     #[cfg(feature = "lin")]
     #[test]
     fn lin_error_converts_to_its_variant() {
-        use crate::linparser::ParseLinErrorKind;
-        let error = SqueezerError::from(ParseLinError::new(
-            ParseLinErrorKind::Syntax,
-            "garbage".to_owned(),
-        ));
+        use crate::linparser::{LinFile, ParseLinError};
+        // Build the error through the public importer, not a crate-private
+        // constructor: the error type now belongs to `squeezer-io`.
+        let error = SqueezerError::from(
+            "not a LIN file"
+                .parse::<LinFile>()
+                .expect_err("garbage cannot parse"),
+        );
         assert!(matches!(error, SqueezerError::LinParsing(_)));
-        assert!(error.source().is_some());
+        let source = error.source().expect("the parse error is the source");
+        assert!(source.downcast_ref::<ParseLinError>().is_some());
     }
 
     #[cfg(feature = "pbn")]
     #[test]
     fn pbn_error_converts_to_its_variant() {
-        use crate::pbnparser::ParsePbnErrorKind;
-        let error = SqueezerError::from(ParsePbnError::new(
-            ParsePbnErrorKind::Syntax,
-            "[Deal \"garbage\"]".to_owned(),
-        ));
+        use crate::pbnparser::{ParsePbnError, PbnFile};
+        let error = SqueezerError::from(
+            "[Deal \"garbage\"]"
+                .parse::<PbnFile>()
+                .expect_err("the deal is not four hands"),
+        );
         assert!(matches!(error, SqueezerError::PbnParsing(_)));
-        assert!(error.source().is_some());
+        let source = error.source().expect("the parse error is the source");
+        assert!(source.downcast_ref::<ParsePbnError>().is_some());
     }
 
     #[cfg(feature = "dds")]

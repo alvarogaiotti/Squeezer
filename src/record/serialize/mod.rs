@@ -3,14 +3,9 @@
 
 //! Outbound serialization for the record types.
 //!
-//! The [`Deal`](crate::Deal) and [`Board`](crate::Board) writers live in
-//! `squeezer-model`; this module re-exports them and keeps the container
-//! writers for `LinFile` and `PbnFile`, whose types belong to the importers in
-//! this crate.
+//! The [`Deal`](squeezer_model::Deal) and [`Board`](squeezer_model::Board)
+//! writers live in `squeezer-model` and are re-exported here. The `LinFile` and
+//! `PbnFile` container writers live with their importer types in `squeezer-io`,
+//! behind the `lin` and `pbn` features.
 
 pub use squeezer_model::record::serialize::*;
-
-mod containers;
-
-#[cfg(test)]
-mod tests;

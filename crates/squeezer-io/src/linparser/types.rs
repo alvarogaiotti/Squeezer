@@ -3,7 +3,7 @@
 
 //! File-level metadata and errors for the LIN importer.
 //!
-//! The importer produces [`crate::record::Board`]s and keeps only the
+//! The importer produces [`squeezer_model::record::Board`]s and keeps only the
 //! information that is not part of a board here: tournament details, results,
 //! player names and the room each board was played in. `Room` is a LIN notion
 //! and deliberately does not leak into the core record types.

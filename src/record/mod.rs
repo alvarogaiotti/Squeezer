@@ -9,8 +9,9 @@
 //! these types, including their module paths (`record::auction::Call`,
 //! `record::position::trick_winner`).
 //!
-//! The `LinFile` and `PbnFile` container writers stay in [`serialize`]: their
-//! types belong to the importers, which this crate still owns.
+//! The `LinFile` and `PbnFile` container writers live with the importers in
+//! `squeezer-io`; only the `Deal` and `Board` writers re-exported here stay in
+//! the model crate.
 
 /// The auction vocabulary; see [`squeezer_model::record::auction`].
 pub use squeezer_model::record::auction;

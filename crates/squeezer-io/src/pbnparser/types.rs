@@ -3,11 +3,11 @@
 
 //! File-level types and errors for the PBN importer.
 //!
-//! The importer produces [`crate::record::Board`]s and keeps only the boards
+//! The importer produces [`squeezer_model::record::Board`]s and keeps only the boards
 //! here. PBN's unmodeled tags (the export-format mandatory set and the
 //! supplemental tags) are read and dropped (documented lossy), so unlike LIN
 //! there is no file-level metadata type: the format contract stores everything
-//! that survives on [`crate::record::Board`].
+//! that survives on [`squeezer_model::record::Board`].
 
 use crate::prelude::*;
 

@@ -1,20 +1,26 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! PBN importer tests: the tracked `tests/*.pbn` fixtures become `Board`s, and
-//! malformed input fails at import with a `ParsePbnError` instead of yielding a
-//! corrupt board or a silent default.
+//! PBN importer tests: the tracked `tests/fixtures/*.pbn` fixtures become
+//! `Board`s, and malformed input fails at import with a `ParsePbnError` instead
+//! of yielding a corrupt board or a silent default.
+//!
+//! Fixtures are resolved from the crate manifest directory, so the tests run
+//! whatever the process working directory is.
 
 use std::num::NonZeroU8;
 use std::str::FromStr;
 
-use squeezer::pbnparser::{ParsePbnErrorKind, PbnFile, parse_pbn_file};
-use squeezer::{
-    Board, Call, Card, Cards, Contract, Doubled, Play, Seat, Strain, Vulnerability, Vulnerable,
+use squeezer_cards::{Card, Cards};
+use squeezer_io::pbnparser::{ParsePbnErrorKind, PbnFile, parse_pbn_file};
+use squeezer_model::{
+    Board, Call, Contract, Doubled, Play, Seat, Strain, Vulnerability, Vulnerable,
 };
 
+mod common;
+
 fn parse_fixture(path: &str) -> PbnFile {
-    let data = std::fs::read_to_string(path).expect("fixture is readable");
+    let data = common::read_fixture(path);
     PbnFile::from_str(&data).unwrap_or_else(|error| panic!("{path} should parse: {error}"))
 }
 
@@ -42,20 +48,20 @@ fn assert_one_suit_per_seat(board: &Board) {
 #[test]
 fn parses_every_valid_fixture() {
     for (path, boards) in [
-        ("tests/deal_only.pbn", 1),
-        ("tests/numbered_vulnerable.pbn", 1),
-        ("tests/contract.pbn", 1),
-        ("tests/unknown_hand.pbn", 1),
-        ("tests/lowercase.pbn", 1),
-        ("tests/two_games.pbn", 2),
-        ("tests/wire_example.pbn", 1),
-        ("tests/auction.pbn", 1),
-        ("tests/all_pass.pbn", 1),
-        ("tests/truncated_auction.pbn", 1),
-        ("tests/full_play.pbn", 1),
-        ("tests/short_play.pbn", 1),
-        ("tests/annotated.pbn", 1),
-        ("tests/multi_board.pbn", 2),
+        ("deal_only.pbn", 1),
+        ("numbered_vulnerable.pbn", 1),
+        ("contract.pbn", 1),
+        ("unknown_hand.pbn", 1),
+        ("lowercase.pbn", 1),
+        ("two_games.pbn", 2),
+        ("wire_example.pbn", 1),
+        ("auction.pbn", 1),
+        ("all_pass.pbn", 1),
+        ("truncated_auction.pbn", 1),
+        ("full_play.pbn", 1),
+        ("short_play.pbn", 1),
+        ("annotated.pbn", 1),
+        ("multi_board.pbn", 2),
     ] {
         assert_eq!(parse_fixture(path).boards.len(), boards, "{path}");
     }
@@ -63,7 +69,7 @@ fn parses_every_valid_fixture() {
 
 #[test]
 fn deal_only_fixture_has_no_number_or_contract() {
-    let board = only_board("tests/deal_only.pbn");
+    let board = only_board("deal_only.pbn");
 
     assert_eq!(board.number(), None);
     assert_eq!(board.dealer(), Seat::North);
@@ -76,7 +82,7 @@ fn deal_only_fixture_has_no_number_or_contract() {
 
 #[test]
 fn numbered_vulnerable_fixture_carries_its_identification() {
-    let board = only_board("tests/numbered_vulnerable.pbn");
+    let board = only_board("numbered_vulnerable.pbn");
 
     assert_eq!(board.number(), Some(12));
     assert_eq!(board.dealer(), Seat::West);
@@ -86,7 +92,7 @@ fn numbered_vulnerable_fixture_carries_its_identification() {
 
 #[test]
 fn contract_fixture_builds_a_doubled_contract() {
-    let board = only_board("tests/contract.pbn");
+    let board = only_board("contract.pbn");
 
     assert_eq!(board.number(), Some(3));
     assert_eq!(board.dealer(), Seat::North);
@@ -106,7 +112,7 @@ fn contract_fixture_builds_a_doubled_contract() {
 
 #[test]
 fn unknown_hand_fixture_is_filled_from_the_deck() {
-    let board = only_board("tests/unknown_hand.pbn");
+    let board = only_board("unknown_hand.pbn");
 
     assert_eq!(board.number(), Some(4));
     assert_eq!(board.vulnerability(), Vulnerability::EW);
@@ -115,7 +121,7 @@ fn unknown_hand_fixture_is_filled_from_the_deck() {
 
 #[test]
 fn lowercase_fixture_accepts_lowercase_and_out_of_order_ranks() {
-    let board = only_board("tests/lowercase.pbn");
+    let board = only_board("lowercase.pbn");
 
     assert_eq!(board.number(), Some(5));
     assert_eq!(board.dealer(), Seat::East);
@@ -125,7 +131,7 @@ fn lowercase_fixture_accepts_lowercase_and_out_of_order_ranks() {
 
 #[test]
 fn two_game_fixture_parses_in_file_order() {
-    let file = parse_fixture("tests/two_games.pbn");
+    let file = parse_fixture("two_games.pbn");
 
     assert_eq!(file.boards.len(), 2);
     assert_eq!(file.boards[0].number(), Some(1));
@@ -138,7 +144,7 @@ fn two_game_fixture_parses_in_file_order() {
 
 #[test]
 fn wire_example_fixture_is_accepted() {
-    let board = only_board("tests/wire_example.pbn");
+    let board = only_board("wire_example.pbn");
 
     assert_eq!(board.number(), Some(1));
     assert_eq!(board.dealer(), Seat::North);
@@ -176,7 +182,7 @@ fn wire_example_fixture_is_accepted() {
 
 #[test]
 fn auction_fixture_derives_the_contract() {
-    let board = only_board("tests/auction.pbn");
+    let board = only_board("auction.pbn");
 
     assert_eq!(board.number(), Some(6));
     let auction = board.auction().expect("the auction section was parsed");
@@ -196,7 +202,7 @@ fn auction_fixture_derives_the_contract() {
 
 #[test]
 fn all_pass_fixture_expands_ap_and_has_no_contract() {
-    let board = only_board("tests/all_pass.pbn");
+    let board = only_board("all_pass.pbn");
 
     assert_eq!(board.dealer(), Seat::East);
     let auction = board.auction().expect("the auction section was parsed");
@@ -213,7 +219,7 @@ fn all_pass_fixture_expands_ap_and_has_no_contract() {
 
 #[test]
 fn truncated_auction_fixture_stops_at_the_star() {
-    let board = only_board("tests/truncated_auction.pbn");
+    let board = only_board("truncated_auction.pbn");
 
     let auction = board.auction().expect("the auction section was parsed");
     assert_eq!(auction.len(), 3, "the tokens after `*` are ignored");
@@ -226,7 +232,7 @@ fn truncated_auction_fixture_stops_at_the_star() {
 
 #[test]
 fn full_play_fixture_attributes_every_trick_to_its_winner() {
-    let board = only_board("tests/full_play.pbn");
+    let board = only_board("full_play.pbn");
 
     let plays = board.play().expect("the play section was parsed").plays();
     assert_eq!(plays.len(), 52);
@@ -248,7 +254,7 @@ fn full_play_fixture_attributes_every_trick_to_its_winner() {
 
 #[test]
 fn short_play_fixture_allows_a_short_final_trick() {
-    let board = only_board("tests/short_play.pbn");
+    let board = only_board("short_play.pbn");
 
     let plays = board.play().expect("the play section was parsed").plays();
     assert_eq!(plays.len(), 5);
@@ -257,7 +263,7 @@ fn short_play_fixture_allows_a_short_final_trick() {
 
 #[test]
 fn annotated_fixture_ignores_annotations_and_placeholders() {
-    let board = only_board("tests/annotated.pbn");
+    let board = only_board("annotated.pbn");
 
     let auction = board.auction().expect("the auction section was parsed");
     assert_eq!(
@@ -299,7 +305,7 @@ fn annotated_fixture_ignores_annotations_and_placeholders() {
 
 #[test]
 fn malformed_fixture_is_a_hands_error() {
-    let data = std::fs::read_to_string("tests/malformed.pbn").expect("fixture is readable");
+    let data = common::read_fixture("malformed.pbn");
     let error = parse_pbn_file(&data).expect_err("a short hand cannot be a deal");
     assert_eq!(error.kind(), &ParsePbnErrorKind::Hands);
 }
@@ -310,7 +316,7 @@ fn malformed_fixture_is_a_hands_error() {
 
 #[test]
 fn pbn_file_writer_separates_games_with_one_empty_line() {
-    let file = parse_fixture("tests/two_games.pbn");
+    let file = parse_fixture("two_games.pbn");
     let written = file.as_pbn();
 
     assert_eq!(
@@ -326,7 +332,7 @@ fn pbn_file_writer_separates_games_with_one_empty_line() {
 
 #[test]
 fn multi_board_fixture_round_trips_board_for_board() {
-    let file = parse_fixture("tests/multi_board.pbn");
+    let file = parse_fixture("multi_board.pbn");
     assert_eq!(file.boards.len(), 2, "the fixture holds two games");
 
     // The whole file is round-tripped (not just one `Board::as_pbn`) because

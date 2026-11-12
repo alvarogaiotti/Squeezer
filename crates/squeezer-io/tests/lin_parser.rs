@@ -1,19 +1,25 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! Importer tests: the `tests/*.lin` fixtures become `Board`s, and malformed
-//! input fails at import with a `ParseLinError` instead of yielding a corrupt
-//! board or a silent default.
+//! Importer tests: the `tests/fixtures/*.lin` fixtures become `Board`s, and
+//! malformed input fails at import with a `ParseLinError` instead of yielding a
+//! corrupt board or a silent default.
+//!
+//! Fixtures are resolved from the crate manifest directory, so the tests run
+//! whatever the process working directory is.
 
 use std::str::FromStr;
 
-use squeezer::linparser::{LinFile, ParseLinError, ParseLinErrorKind, Room};
-use squeezer::{
-    Board, Call, Card, Cards, Contract, Doubled, Play, Seat, Strain, Vulnerability, Vulnerable,
+use squeezer_cards::{Card, Cards};
+use squeezer_io::linparser::{LinFile, ParseLinError, ParseLinErrorKind, Room};
+use squeezer_model::{
+    Board, Call, Contract, Doubled, Play, Seat, Strain, Vulnerability, Vulnerable,
 };
 
+mod common;
+
 fn parse_fixture(path: &str) -> LinFile {
-    let data = std::fs::read_to_string(path).expect("fixture is readable");
+    let data = common::read_fixture(path);
     LinFile::from_str(&data).unwrap_or_else(|error| panic!("{path} should parse: {error}"))
 }
 
@@ -34,13 +40,13 @@ fn assert_hand(board: &Board, seat: Seat, hand: &str) {
 #[test]
 fn parses_every_fixture() {
     for path in [
-        "tests/4207070707.lin",
-        "tests/4207076395.lin",
-        "tests/4207079732.lin",
-        "tests/4207083254.lin",
-        "tests/4207093356.lin",
-        "tests/4207094241.lin",
-        "tests/83469.lin",
+        "4207070707.lin",
+        "4207076395.lin",
+        "4207079732.lin",
+        "4207083254.lin",
+        "4207093356.lin",
+        "4207094241.lin",
+        "83469.lin",
     ] {
         let file = parse_fixture(path);
         assert!(!file.boards.is_empty(), "{path} has boards");
@@ -49,7 +55,7 @@ fn parses_every_fixture() {
 
 #[test]
 fn parses_83469_into_28_boards_with_tournament_metadata() {
-    let file = parse_fixture("tests/83469.lin");
+    let file = parse_fixture("83469.lin");
     assert_eq!(file.boards.len(), 28);
 
     let tournament = file
@@ -70,7 +76,7 @@ fn parses_83469_into_28_boards_with_tournament_metadata() {
 
 #[test]
 fn parses_83469_open_room_board() {
-    let board = &parse_fixture("tests/83469.lin").boards[0];
+    let board = &parse_fixture("83469.lin").boards[0];
 
     assert_eq!(board.number(), Some(15));
     assert_eq!(board.dealer(), Seat::South);
@@ -117,7 +123,7 @@ fn parses_83469_open_room_board() {
 
 #[test]
 fn parses_83469_closed_room_board() {
-    let file = parse_fixture("tests/83469.lin");
+    let file = parse_fixture("83469.lin");
     assert_eq!(file.metadata.rooms[0], Some(Room::Open));
     assert_eq!(file.metadata.rooms[1], Some(Room::Closed));
 
@@ -139,7 +145,7 @@ fn parses_83469_closed_room_board() {
 fn parses_a_claimed_board_with_a_short_final_trick() {
     // Board 16's play is cut off after one card of the last trick, so the final
     // `pg||` group holds a single card.
-    let file = parse_fixture("tests/83469.lin");
+    let file = parse_fixture("83469.lin");
     let board = &file.boards[2];
     assert_eq!(board.number(), Some(16));
     assert_eq!(board.play().expect("play").len(), 17);
@@ -148,7 +154,7 @@ fn parses_a_claimed_board_with_a_short_final_trick() {
 
 #[test]
 fn parses_4207070707_board() {
-    let board = only_board("tests/4207070707.lin");
+    let board = only_board("4207070707.lin");
 
     assert_eq!(board.number(), Some(1));
     assert_eq!(board.dealer(), Seat::North);
@@ -183,7 +189,7 @@ fn parses_4207070707_board() {
 fn parses_the_4207_fixture_contracts() {
     let cases = [
         (
-            "tests/4207076395.lin",
+            "4207076395.lin",
             Contract::new(
                 6,
                 Strain::Diamonds,
@@ -193,7 +199,7 @@ fn parses_the_4207_fixture_contracts() {
             ),
         ),
         (
-            "tests/4207079732.lin",
+            "4207079732.lin",
             Contract::new(
                 3,
                 Strain::NoTrumps,
@@ -203,7 +209,7 @@ fn parses_the_4207_fixture_contracts() {
             ),
         ),
         (
-            "tests/4207083254.lin",
+            "4207083254.lin",
             Contract::new(
                 3,
                 Strain::Clubs,
@@ -220,7 +226,7 @@ fn parses_the_4207_fixture_contracts() {
 
 #[test]
 fn parses_a_passed_out_board() {
-    let board = only_board("tests/4207094241.lin");
+    let board = only_board("4207094241.lin");
     assert_eq!(board.dealer(), Seat::East);
     assert_eq!(board.vulnerability(), Vulnerability::EW);
     assert_eq!(board.contract(), None);

@@ -4,17 +4,20 @@
 //! Writers for the importer-owned file containers.
 //!
 //! The board and deal writers live in `squeezer-model`; a `LinFile` or
-//! `PbnFile` can only be written where its type exists, so these impls stay
-//! in the root crate next to the parsers.
+//! `PbnFile` can only be written where its type exists, so these impls live
+//! here with the importers. Each one is gated on the feature that defines its
+//! container type.
 
-#[cfg(any(feature = "lin", feature = "pbn"))]
+#[cfg(feature = "lin")]
+use crate::linparser::{LinFile, Room};
+#[cfg(feature = "pbn")]
+use crate::pbnparser::PbnFile;
 use std::fmt;
 
 /// Renders a container writer into a fresh `String`.
 ///
 /// The two `as_*` methods share this shape; the `expect` is sound because
 /// [`fmt::Write`] for [`String`] never fails.
-#[cfg(any(feature = "lin", feature = "pbn"))]
 fn written_string(capacity: usize, write: impl FnOnce(&mut String) -> fmt::Result) -> String {
     let mut out = String::with_capacity(capacity);
     write(&mut out).expect("writing to a String is infallible");
@@ -22,13 +25,13 @@ fn written_string(capacity: usize, write: impl FnOnce(&mut String) -> fmt::Resul
 }
 
 #[cfg(feature = "lin")]
-impl crate::linparser::LinFile {
+impl LinFile {
     /// Writes the file metadata and its boards as LIN.
     ///
     /// The importer requires a `pn|` line, so one is always emitted; `vg|` and
     /// `rs|` are emitted only when present. Each board's `qx|` room (kept in
-    /// [`crate::linparser::LinMetadata`], not on the board) is written before
-    /// the board itself.
+    /// [`LinMetadata`](crate::linparser::LinMetadata), not on the board) is
+    /// written before the board itself.
     ///
     /// # Lossy metadata
     ///
@@ -67,8 +70,8 @@ impl crate::linparser::LinFile {
         for (index, board) in self.boards.iter().enumerate() {
             if let Some(room) = self.metadata.rooms.get(index).copied().flatten() {
                 let code = match room {
-                    crate::linparser::Room::Open => 'o',
-                    crate::linparser::Room::Closed => 'c',
+                    Room::Open => 'o',
+                    Room::Closed => 'c',
                 };
                 match board.number() {
                     Some(number) => write!(writer, "qx|{code}{number}|")?,
@@ -90,7 +93,7 @@ impl crate::linparser::LinFile {
 }
 
 #[cfg(feature = "pbn")]
-impl crate::pbnparser::PbnFile {
+impl PbnFile {
     /// Writes every board as PBN, with one empty line between games.
     ///
     /// PBN separates games with a semi-empty line. Each board's own writer
