@@ -49,9 +49,11 @@
 //!
 //! Table, par and play analysis are rare, per-hand operations, not per-solve
 //! ones, so they are separate traits ([`DdTableCalculator`], [`ParCalculator`],
-//! [`PlayAnalyser`]) rather than methods on [`SolverContext`]. Play analysis in
-//! particular cannot live on a context: DDS's `AnalysePlay` builds a private
-//! context of its own, so the operation belongs to the backend.
+//! [`PlayAnalyser`]) rather than methods on [`SolverContext`]. A DD table rides
+//! on the factory itself ([`ContextFactory`] extends [`DdTableCalculator`]), so
+//! a caller holding only a `Box<dyn ContextFactory>` can request one. Play
+//! analysis in particular cannot live on a context: DDS's `AnalysePlay` builds
+//! a private context of its own, so the operation belongs to the backend.
 //!
 //! # Where DDS is allowed
 //!
@@ -247,14 +249,19 @@ pub trait SolverContext: Send {
 /// Object-safe, so a simulation can take a `Box<dyn ContextFactory>` and stay
 /// free of any solver type parameter. The blanket implementation below makes
 /// every [`Solver`] a `ContextFactory`.
-pub trait ContextFactory: Send + Sync {
+///
+/// The factory also carries the cold [`DdTableCalculator`] capability, so a
+/// caller holding only the boxed factory can compute a DD table without
+/// reaching for a backend type. A backend that cannot produce tables leaves
+/// that trait's default error in place.
+pub trait ContextFactory: DdTableCalculator + Send + Sync {
     /// Creates a context with an empty transposition table.
     fn new_context(&self) -> Box<dyn SolverContext>;
 }
 
 impl<S> ContextFactory for S
 where
-    S: Solver + Send + Sync,
+    S: Solver + DdTableCalculator + Send + Sync,
 {
     fn new_context(&self) -> Box<dyn SolverContext> {
         Box::new(Solver::new_context(self))
@@ -273,19 +280,89 @@ pub trait Solver {
     fn new_context(&self) -> Self::Context;
 }
 
-/// A cold capability: computing a full double-dummy table for a deal.
-pub trait DdTableCalculator {
-    /// The backend's DD-table representation.
-    type Table;
-    /// The backend's error type.
-    type Error;
+/// A completed double-dummy table: the tricks each seat takes declaring each
+/// strain, playing every hand double-dummy.
+///
+/// The seam owns this representation so a caller (par, a report, a test) never
+/// sees a backend's table struct. Rows follow [`Strain::ALL`] and columns follow
+/// [`Seat::iter`]: spades, hearts, diamonds, clubs, no-trumps; north, east,
+/// south, west.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DdTable {
+    /// `tricks[strain][seat]`, indexed by the enums' discriminants.
+    tricks: [[u8; 4]; 5],
+}
 
+impl DdTable {
+    /// A table with every count zero, ready for [`DdTable::with`].
+    ///
+    /// Backends and tests fill it by naming each strain and seat rather than
+    /// relying on the row and column order of the storage.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            tricks: [[0; 4]; 5],
+        }
+    }
+
+    /// A copy of this table with `seat`'s tricks in `strain` set to `tricks`.
+    #[must_use]
+    pub const fn with(mut self, strain: Strain, seat: Seat, tricks: u8) -> Self {
+        self.tricks[strain_index(strain)][seat_index(seat)] = tricks;
+        self
+    }
+
+    /// The number of tricks `seat` takes declaring `strain` on double-dummy
+    /// play.
+    #[must_use]
+    pub const fn tricks(&self, strain: Strain, seat: Seat) -> u8 {
+        self.tricks[strain_index(strain)][seat_index(seat)]
+    }
+}
+
+/// The row for `strain`, named explicitly so a reordered discriminant cannot
+/// silently transpose the table.
+const fn strain_index(strain: Strain) -> usize {
+    match strain {
+        Strain::Spades => 0,
+        Strain::Hearts => 1,
+        Strain::Diamonds => 2,
+        Strain::Clubs => 3,
+        Strain::NoTrumps => 4,
+    }
+}
+
+/// The column for `seat`, named explicitly for the same reason.
+const fn seat_index(seat: Seat) -> usize {
+    match seat {
+        Seat::North => 0,
+        Seat::East => 1,
+        Seat::South => 2,
+        Seat::West => 3,
+    }
+}
+
+/// A cold capability: computing a full double-dummy table for a deal.
+///
+/// Backends that support tables (such as `DdsSolver`) override the method;
+/// every other backend keeps the default error, so the capability can ride
+/// along on [`ContextFactory`] without forcing table support on a mock.
+pub trait DdTableCalculator {
     /// Computes the DD table for `deal`.
+    ///
+    /// The calculation is issued on the factory, not on a [`SolverContext`], so
+    /// the caller needs no live context and the call is safe from any worker;
+    /// the backend chooses which context it uses for the one-off work.
     ///
     /// # Errors
     ///
-    /// Returns the backend's error when the deal is rejected.
-    fn dd_table(&self, deal: &Deal) -> Result<Self::Table, Self::Error>;
+    /// Returns [`SolverError::Backend`] when the backend does not support DD
+    /// tables or rejects the deal.
+    fn dd_table(&self, _deal: &Deal) -> Result<DdTable, SolverError> {
+        Err(SolverError::Backend(
+            "this solver backend does not calculate DD tables".to_owned(),
+        ))
+    }
 }
 
 /// A cold capability: deriving par from a precomputed DD table.
@@ -402,6 +479,9 @@ mod tests {
         fn reset(&mut self) {}
     }
 
+    // The mock has no table support, so it keeps the trait's default error.
+    impl DdTableCalculator for MockSolver {}
+
     #[test]
     fn a_boxed_factory_drives_a_trivial_simulation() {
         let factory: Box<dyn ContextFactory> = Box::new(MockSolver);
@@ -476,6 +556,8 @@ mod tests {
                 })
             }
         }
+
+        impl DdTableCalculator for CountingFactory {}
 
         let created = Arc::new(AtomicUsize::new(0));
         let pool = DynSolverPool::new(

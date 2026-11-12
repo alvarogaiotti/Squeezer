@@ -1071,6 +1071,8 @@ mod tests {
         }
     }
 
+    impl DdTableCalculator for RecordingFactory {}
+
     impl SolverContext for RecordingContext {
         fn solve(
             &mut self,

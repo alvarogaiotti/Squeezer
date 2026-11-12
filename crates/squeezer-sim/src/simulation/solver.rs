@@ -195,7 +195,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use squeezer_solver::{CardSolve, SolveMode, SolverContext, SolverError};
+    use squeezer_solver::{CardSolve, DdTableCalculator, SolveMode, SolverContext, SolverError};
 
     /// Fully predealt dealer: every `deal()` returns the same hands, so
     /// batching and indices are deterministic without seeding any RNG.
@@ -236,6 +236,10 @@ mod test {
             Box::new(ConstantContext)
         }
     }
+
+    // The test backend solves positions but has no DD table capability, so the
+    // trait's default error is enough.
+    impl DdTableCalculator for ConstantFactory {}
 
     impl SolverContext for ConstantContext {
         fn solve(

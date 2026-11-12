@@ -9,12 +9,16 @@
 //! context handle never leaves this module.
 
 use super::{
-    CardSolve, PlayAnalyser, Solutions, SolveMode, SolveResults, Solver, SolverContext, SolverError,
+    CardSolve, DdTable, DdTableCalculator, PlayAnalyser, Solutions, SolveMode, SolveResults,
+    Solver, SolverContext, SolverError,
 };
-use crate::adapters::{play_record_to_trace, position_to_dds_deal};
+use crate::adapters::{
+    DdsDealAdapter, dd_table_from_dds, play_record_to_trace, position_to_dds_deal,
+};
 use crate::prelude::*;
 use ::core::ffi::{c_int, c_void};
-use dds::context::{self, FutureTricks, SolvedPlay};
+use dds::context::{self, DdTableResults, FutureTricks, SolvedPlay};
+use dds::tables::NotPopulated;
 
 /// DDS's "no fault" return code; every other code is an error.
 const RETURN_NO_FAULT: c_int = 1;
@@ -98,8 +102,7 @@ impl SolverContext for DdsContext {
             )
         };
         if code != RETURN_NO_FAULT {
-            let error = dds::ddserror::DdsError::from(code);
-            return Err(SolverError::Backend(error.to_string()));
+            return Err(backend_error(code));
         }
         Ok(read_results(&future))
     }
@@ -114,6 +117,30 @@ impl SolverContext for DdsContext {
         if let Ok(raw) = self.handle() {
             unsafe { context::dds_c_reset_for_solve(raw) };
         }
+    }
+}
+
+/// A cold capability: the full DD table for an unplayed deal.
+impl DdTableCalculator for DdsSolver {
+    /// Computes the table on a fresh context of its own.
+    ///
+    /// A DD table is a per-deal operation, not a per-solve one, so it does not
+    /// borrow a worker's context: this keeps the factory usable from any thread
+    /// and leaves the worker's transposition table untouched. The new context
+    /// is dropped with this call.
+    fn dd_table(&self, deal: &Deal) -> Result<DdTable, SolverError> {
+        let context = Solver::new_context(self);
+        let raw = context.handle()?;
+        let table_deal = DdsDealAdapter(deal).to_table_deal();
+        let mut results = DdTableResults::<NotPopulated>::default();
+        let code =
+            unsafe { context::dds_c_calc_dd_table(raw, &raw const table_deal, &raw mut results) };
+        if code != RETURN_NO_FAULT {
+            return Err(backend_error(code));
+        }
+        // `dds_c_calc_dd_table` returned success, so the buffer it filled is
+        // complete: this is the only place that may claim the marker.
+        dd_table_from_dds(&results.populated())
     }
 }
 
@@ -139,8 +166,7 @@ impl PlayAnalyser for DdsSolver {
         let mut solved = SolvedPlay::new();
         let code = unsafe { context::AnalysePlayBin(deal, trace, &raw mut solved, 0) };
         if code != RETURN_NO_FAULT {
-            let error = dds::ddserror::DdsError::from(code);
-            return Err(SolverError::Backend(error.to_string()));
+            return Err(backend_error(code));
         }
         // DDS reports the starting position then the result after each card,
         // but caps the sequence at 49 entries ("the last trick holds no
@@ -176,6 +202,15 @@ impl PlayAnalyser for DdsSolver {
         tricks.resize(play.len() + 1, last);
         Ok(tricks)
     }
+}
+
+/// Wraps a non-success DDS return code as the seam's backend error.
+///
+/// Callers check the code for [`RETURN_NO_FAULT`] first; this keeps the
+/// conversion (and the DDS error vocabulary) out of every DDS call site.
+fn backend_error(code: c_int) -> SolverError {
+    let error = dds::ddserror::DdsError::from(code);
+    SolverError::Backend(error.to_string())
 }
 
 /// Translates the seam's solution level into DDS's `solutions` code.
@@ -244,7 +279,10 @@ fn expand_equals(card: Card, equals: c_int) -> Cards {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_fixtures::{example_board, example_board_hand0_play, example_board_with};
+    use crate::test_fixtures::{
+        example_board, example_board_hand0_play, example_board_with, example_deal, opening_position,
+    };
+    use crate::{ContextFactory, DdTableCalculator};
     use std::str::FromStr;
 
     fn card(suit: Suit, rank: u8) -> Card {
@@ -255,6 +293,48 @@ mod tests {
     /// method of the same name.
     fn context() -> DdsContext {
         Solver::new_context(&DdsSolver)
+    }
+
+    #[test]
+    fn dd_table_matches_the_dds_example_hand() {
+        let table = DdsSolver
+            .dd_table(&example_deal())
+            .expect("example hand 0 has a DD table");
+
+        // DDS's `examples/hands.cpp` hand 0, with one row per strain and one
+        // column per seat. This is DDS's own oracle, not a recomputation of the
+        // adapter's output.
+        let expected = [
+            [5, 8, 5, 8], // spades
+            [6, 6, 6, 6], // hearts
+            [5, 7, 5, 7], // diamonds
+            [7, 5, 7, 5], // clubs
+            [6, 6, 6, 6], // no trumps
+        ];
+        for (strain, row) in Strain::ALL.into_iter().zip(expected) {
+            for (seat, tricks) in Seat::iter().zip(row) {
+                assert_eq!(table.tricks(strain, seat), tricks, "{strain} by {seat}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_boxed_factory_calculates_a_dd_table_through_the_seam() {
+        // The surface a simulation holds: only the object-safe factory, with no
+        // backend type in sight, must still answer the cold table capability.
+        let factory: Box<dyn ContextFactory> = Box::new(DdsSolver::new());
+        let table = factory
+            .dd_table(&example_deal())
+            .expect("example hand 0 has a DD table");
+        assert_eq!(table.tricks(Strain::Spades, Seat::North), 5);
+
+        let mut context = factory.new_context();
+        assert_eq!(
+            context
+                .solve_tricks(&opening_position())
+                .expect("example hand 0 solves"),
+            5
+        );
     }
 
     #[test]

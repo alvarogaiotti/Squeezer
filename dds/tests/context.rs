@@ -113,16 +113,32 @@ fn calc_dd_table_matches_example_hand() {
         with_context(|ctx| unsafe { context::dds_c_calc_dd_table(ctx, &table_deal, &mut table) });
 
     assert_eq!(rc, 1);
-    assert_eq!(
-        table.res_table,
-        [
-            [5, 8, 5, 8],
-            [6, 6, 6, 6],
-            [5, 7, 5, 7],
-            [7, 5, 7, 5],
-            [6, 6, 6, 6],
-        ]
-    );
+    let table = table.populated();
+    let strains = [
+        DdsSuit::Spades,
+        DdsSuit::Hearts,
+        DdsSuit::Diamonds,
+        DdsSuit::Clubs,
+        DdsSuit::NoTrump,
+    ];
+    let seats = [
+        DdsHandEncoding::North,
+        DdsHandEncoding::East,
+        DdsHandEncoding::South,
+        DdsHandEncoding::West,
+    ];
+    let expected = [
+        [5, 8, 5, 8],
+        [6, 6, 6, 6],
+        [5, 7, 5, 7],
+        [7, 5, 7, 5],
+        [6, 6, 6, 6],
+    ];
+    for (strain, row) in strains.into_iter().zip(expected) {
+        for (seat, tricks) in seats.into_iter().zip(row) {
+            assert_eq!(table.tricks(strain, seat), tricks, "{strain} by {seat:?}");
+        }
+    }
 }
 
 #[test]

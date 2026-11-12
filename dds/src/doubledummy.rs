@@ -23,7 +23,9 @@ use crate::{
 /// This struct implements all the needed traits linked to a double dummy analysis
 /// such as:
 /// - Play analysis [`PlayAnalyzer`]
-/// - Par calculation [`DdTableCalculator`](crate::tables::DdTableCalculator)
+/// - Table calculation [`DdTableCalculator`](crate::tables::DdTableCalculator),
+///   which is deprecated: new table work goes through `squeezer-solver`'s
+///   `DdTableCalculator` for `DdsSolver`, which owns its context.
 /// - Board solution [`BridgeSolver`]
 ///
 /// To use it, import the required trait, instantiate this struct and use it.

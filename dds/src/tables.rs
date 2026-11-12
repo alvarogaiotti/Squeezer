@@ -13,13 +13,21 @@ use crate::{
         ddsffi::{DDS_HANDS, DDS_STRAINS, DDS_SUITS, MAXNOOFTABLES},
     },
     ddserror::DdsError,
-    deal::DdsSuit,
+    deal::{DdsHandEncoding, DdsSuit},
     doubledummy::DoubleDummySolver,
     utils::if_no_fault_return,
 };
 
-/// Trait that abstracts the ability to solve a doubledummy table, or par table,
-/// like the one you see in scores after a tournament.
+/// Legacy DDS-only ability to solve a double-dummy table.
+///
+/// Deprecated in favour of `squeezer_solver::DdTableCalculator` for
+/// `squeezer_solver::DdsSolver`: the seam owns a context per calculation and
+/// returns a backend-free table, whereas this path draws on DDS's legacy
+/// thread-local context and exposes `DdTableResults`.
+#[deprecated(
+    since = "0.1.0",
+    note = "use `squeezer_solver::DdTableCalculator` with `DdsSolver` instead"
+)]
 pub trait DdTableCalculator {
     /// Calculates all the table for a given deal, returning the maximum result for every contract
     /// played by every player. Disregards information about seat, e.g. if both the pairs can make
@@ -52,6 +60,7 @@ pub trait DdTableCalculator {
         for<'a> &'a T: Into<DdTableDeal>;
 }
 
+#[allow(deprecated)]
 impl DdTableCalculator for DoubleDummySolver {
     fn calculate_complete_table<T>(
         &self,
@@ -299,8 +308,13 @@ impl DdTableDealsPbn {
 /// A struct that keeps the result of the double dummy result for a deal, basically saving the
 /// result for every suit for every player. The generic you see is for keeping track of the state
 /// of the table.
+///
+/// The counts are not public: a caller reads them through
+/// [`DdTableResults::tricks`] after a successful computation has promoted the
+/// buffer with [`DdTableResults::populated`], rather than indexing the raw C
+/// layout.
 pub struct DdTableResults<T: TablePopulated> {
-    pub res_table: [[::std::os::raw::c_int; DDS_HANDS as usize]; DDS_STRAINS as usize],
+    pub(crate) res_table: [[::std::os::raw::c_int; DDS_HANDS as usize]; DDS_STRAINS as usize],
     #[cfg_attr(feature = "serde", serde(skip_serializing))]
     state: PhantomData<T>,
 }
@@ -329,12 +343,31 @@ impl DdTableResults<NotPopulated> {
         }
     }
 
+    /// Promotes a buffer that a successful DDS call filled into a populated
+    /// table.
+    ///
+    /// Only call this after the DD-table entry point (or the par entry point)
+    /// has returned success: the marker exists to keep a partially written
+    /// buffer from being read as a table. It records the caller's assertion; it
+    /// does not inspect the buffer, so promoting an untouched default yields a
+    /// table of zeroes.
     #[must_use]
-    const fn populated(self) -> DdTableResults<Populated> {
+    pub const fn populated(self) -> DdTableResults<Populated> {
         DdTableResults {
             res_table: self.res_table,
             state: PhantomData,
         }
+    }
+}
+
+impl DdTableResults<Populated> {
+    /// The tricks `seat` takes declaring `strain`.
+    ///
+    /// DDS's own encoding is 0 = spades through 4 = no-trumps for the strain
+    /// and 0 = north through 3 = west for the seat.
+    #[must_use]
+    pub const fn tricks(&self, strain: DdsSuit, seat: DdsHandEncoding) -> ::std::os::raw::c_int {
+        self.res_table[strain as usize][seat as usize]
     }
 }
 
@@ -781,11 +814,24 @@ mod test {
     ];
 
     fn check_table(table: &DdTableResults<Populated>, hand_no: usize) {
-        for strain in 0..5 {
-            for player in 0..4 {
+        let strains = [
+            DdsSuit::Spades,
+            DdsSuit::Hearts,
+            DdsSuit::Diamonds,
+            DdsSuit::Clubs,
+            DdsSuit::NoTrump,
+        ];
+        let seats = [
+            DdsHandEncoding::North,
+            DdsHandEncoding::East,
+            DdsHandEncoding::South,
+            DdsHandEncoding::West,
+        ];
+        for (strain_index, strain) in strains.into_iter().enumerate() {
+            for (seat_index, seat) in seats.into_iter().enumerate() {
                 assert_eq!(
-                    table.res_table[strain][player],
-                    DDTABLE[hand_no][4 * strain + player]
+                    table.tricks(strain, seat),
+                    DDTABLE[hand_no][4 * strain_index + seat_index]
                 );
             }
         }

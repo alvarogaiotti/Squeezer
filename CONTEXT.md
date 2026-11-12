@@ -102,6 +102,11 @@ _Avoid_: correct play, ground truth.
 How an outcome is valued: raw bridge points by default, or a comparison to a
 baseline under a scoring (IMPs, matchpoints).
 
+**DD table**:
+The double-dummy trick count for every strain and every Seat in one Deal — the
+input to par and to a scored report, not a claim about any played card.
+_Avoid_: results table, score table.
+
 **Par**:
 The double-dummy contract and score at which neither side can improve,
 computed from a DD table.

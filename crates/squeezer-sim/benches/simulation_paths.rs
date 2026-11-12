@@ -19,6 +19,8 @@ impl ContextFactory for FixedFactory {
     }
 }
 
+impl DdTableCalculator for FixedFactory {}
+
 impl SolverContext for FixedContext {
     fn solve(
         &mut self,
