@@ -32,7 +32,7 @@
 //! produces the wrong number of variants is an error, not a scrambled buffer.
 
 use crate::prelude::*;
-use squeezer_solver::{ContextFactory, DynSolverPool};
+use squeezer_solver::{ContextFactory, SolverPool};
 
 /// Per-deal trick counts in variant order, with the global deal index.
 #[derive(Debug, Clone)]
@@ -143,7 +143,7 @@ where
         ));
     }
     let deals = generate_deals(dealer, num_deals)?;
-    let pool = DynSolverPool::with_available_workers(factory);
+    let pool = SolverPool::with_available_workers(factory);
     pool.try_map(num_deals, |context, deal_index| {
         let positions = fan_out(&deals[deal_index], deal_index)?;
         if positions.len() != variants_per_deal {
@@ -180,7 +180,7 @@ where
     F: Fn(&Deal, usize) -> Result<Position, SimulationError> + Send + Sync,
 {
     let deals = generate_deals(dealer, num_deals)?;
-    let pool = DynSolverPool::with_available_workers(factory);
+    let pool = SolverPool::with_available_workers(factory);
     pool.try_map(num_deals, |context, deal_index| {
         let position = fan_out(&deals[deal_index], deal_index)?;
         let results = context.solve_all_cards(&position)?;

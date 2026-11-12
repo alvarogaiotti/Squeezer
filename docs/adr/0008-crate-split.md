@@ -20,7 +20,7 @@ to draw.
 | --- | --- | --- |
 | `squeezer-cards` | `Card`, `Cards`, `Suit`, `InvalidCardError`, the card samplers | `rand` (optional), `serde` (optional) |
 | `squeezer-model` | shape and shape parsing, hand constraints, the contract vocabulary (`Seat`, `Vulnerability`, `Strain`, `Doubled`, `Vulnerable`, `Contract`), `Deal`, `Dealer`, `Board`, `Auction`, `Play`, `Position`, the `Deal`/`Board` writers | `squeezer-cards`, `bitvec`, `itertools`, `rand`, `serde` (optional) |
-| `squeezer-solver` | the solver trait, `SolverPool`/`DynSolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
+| `squeezer-solver` | the solver trait, `SolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
 | `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `squeezer-cards`, `nom`, `serde` (optional) |
 | `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log` |
 | `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `squeezer-cards`, `rayon`, `serde` (optional) |

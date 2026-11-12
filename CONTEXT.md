@@ -79,6 +79,12 @@ _Avoid_: deal order, seat order.
 **Solver context**:
 A stateful double-dummy solver handle owning its transposition table.
 
+**Pool chunk**:
+A contiguous slice of the indices passed to `SolverPool::map`, handled by one
+rayon job with one solver context. The pool creates at most one chunk per
+worker, so the chunk is the unit of context creation and table reuse.
+_Avoid_: batch (the retired DDS batch entry points), partition.
+
 **Transposition table (TT)**:
 A solver's memo of already-solved sub-positions. It is owned per solver context,
 survives across solves that are similar, and may be cleared explicitly.

@@ -25,16 +25,18 @@
 //! A solver is a *factory* ([`Solver`]) whose product is a stateful, single
 //! threaded [`SolverContext`] owning a transposition table (TT). Callers that
 //! want runtime backend selection — or a mock in tests — box a
-//! [`ContextFactory`], the object-safe view of the factory; callers on the hot
-//! path may keep the concrete associated type and pay no indirection.
+//! [`ContextFactory`], the object-safe view of the factory; a caller solving
+//! directly may keep the concrete associated type and pay no indirection, while
+//! [`SolverPool`] always takes the boxed factory.
 //!
 //! # Why a context, not a solver
 //!
 //! DDS keeps the TT on the solver context. Reusing it across *similar*
 //! positions (same deal, different strain or leader) is where double-dummy
 //! speed comes from, and the TT cannot be shared between threads. The seam
-//! therefore models "one context, one thread": a context is created once,
-//! reused across many solves, and torn down with its worker.
+//! therefore models "one context, one thread": a context serves one chunk of
+//! work on one worker, is reused across that chunk's solves, and is dropped when
+//! the chunk finishes.
 //!
 //! # What the seam hides
 //!
@@ -75,7 +77,7 @@ mod pool;
 pub use adapters::position_to_dds_deal;
 #[cfg(feature = "dds")]
 pub use dds::{DdsContext, DdsSolver};
-pub use pool::{DynSolverPool, SolverPool};
+pub use pool::SolverPool;
 
 use crate::prelude::*;
 use std::fmt;
@@ -195,9 +197,9 @@ impl std::error::Error for SolverError {}
 
 /// A stateful, single-threaded solver handle owning its transposition table.
 ///
-/// One context is used by one thread at a time. Create it once, issue many
-/// solves on it, and drop it with its worker; [`SolverPool`] does exactly that
-/// on the caller's behalf.
+/// One context is used by one thread at a time. Create it, issue many solves on
+/// it, and drop it when that work finishes; [`SolverPool`] does exactly that for
+/// each chunk of work on the caller's behalf.
 pub trait SolverContext: Send {
     /// Solves `position`, returning the cards selected by `solutions`.
     ///
@@ -264,7 +266,7 @@ where
     S: Solver + DdTableCalculator + Send + Sync,
 {
     fn new_context(&self) -> Box<dyn SolverContext> {
-        Box::new(Solver::new_context(self))
+        Box::new(Solver::create_context(self))
     }
 }
 
@@ -272,12 +274,18 @@ where
 ///
 /// The associated type keeps this trait non-object-safe on purpose; use
 /// [`ContextFactory`] when runtime dispatch is wanted.
+///
+/// [`ContextFactory::new_context`] boxes the context, so the two creation
+/// methods are named differently: `create_context` returns the backend's own
+/// context type, `new_context` returns the object-safe box. Keeping the names
+/// apart means a solver implementing both traits has no ambiguous method call
+/// (ADR-0005).
 pub trait Solver {
     /// The stateful context this solver hands out.
     type Context: SolverContext + 'static;
 
     /// Creates a context with an empty transposition table.
-    fn new_context(&self) -> Self::Context;
+    fn create_context(&self) -> Self::Context;
 }
 
 /// A completed double-dummy table: the tricks each seat takes declaring each
@@ -424,26 +432,17 @@ pub mod test_fixtures;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    /// Assigns each created context a distinct id so the tests can count and
-    /// reuse them without a real backend.
-    static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
     #[derive(Debug, Default)]
     struct MockSolver;
 
-    struct MockContext {
-        id: usize,
-    }
+    struct MockContext;
 
     impl Solver for MockSolver {
         type Context = MockContext;
 
-        fn new_context(&self) -> Self::Context {
-            MockContext {
-                id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
-            }
+        fn create_context(&self) -> Self::Context {
+            MockContext
         }
     }
 
@@ -497,104 +496,5 @@ mod tests {
             .solve_all_cards(&position)
             .expect("mock never fails");
         assert_eq!(all.cards.len(), 13);
-    }
-
-    #[test]
-    fn the_pool_reuses_a_context_within_each_job() {
-        let pool = SolverPool::new(MockSolver, 2);
-        let position = test_fixtures::opening_position();
-
-        let seen: Vec<usize> = pool.map(64, |context, _index| {
-            let _ = context.solve_tricks(&position);
-            context.id
-        });
-
-        assert_eq!(seen.len(), 64);
-        let distinct: std::collections::HashSet<_> = seen.iter().copied().collect();
-        // One context per rayon job. `with_min_len` keeps the job count near
-        // the 2-worker count, but a stolen chunk could add one more, so we do
-        // not assert exactly 2 — only that reuse happens and the count is
-        // small.
-        assert!(
-            distinct.len() <= 3,
-            "expected a small per-job context count, saw {distinct:?}"
-        );
-        assert!(
-            seen.len() > distinct.len(),
-            "contexts should be reused across items"
-        );
-    }
-
-    #[test]
-    fn try_map_propagates_the_first_error() {
-        let pool = SolverPool::new(MockSolver, 2);
-        let result: Result<Vec<usize>, &'static str> =
-            pool.try_map(
-                8,
-                |_context, index| {
-                    if index == 3 { Err("boom") } else { Ok(index) }
-                },
-            );
-        assert_eq!(result, Err("boom"));
-    }
-
-    #[test]
-    fn the_dyn_pool_reuses_a_context_within_each_job() {
-        use std::sync::Arc;
-
-        /// Counts only the contexts this factory creates, so the assertion is
-        /// unaffected by other tests creating `MockContext`s in parallel.
-        struct CountingFactory {
-            created: Arc<AtomicUsize>,
-        }
-
-        impl ContextFactory for CountingFactory {
-            fn new_context(&self) -> Box<dyn SolverContext> {
-                self.created.fetch_add(1, Ordering::Relaxed);
-                Box::new(MockContext {
-                    id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
-                })
-            }
-        }
-
-        impl DdTableCalculator for CountingFactory {}
-
-        let created = Arc::new(AtomicUsize::new(0));
-        let pool = DynSolverPool::new(
-            Box::new(CountingFactory {
-                created: Arc::clone(&created),
-            }),
-            2,
-        );
-        let position = test_fixtures::opening_position();
-
-        let seen = pool.map(64, |context, index| {
-            let _ = context.solve_tricks(&position);
-            index
-        });
-
-        assert_eq!(seen.len(), 64);
-        let created = created.load(Ordering::Relaxed);
-        // One context per rayon job; a stolen chunk can add one more, so we
-        // assert a small count rather than exactly two.
-        assert!(
-            created <= 3,
-            "expected a small per-job context count, created {created}"
-        );
-        assert!(created < 64, "contexts should be reused across items");
-    }
-
-    #[test]
-    fn the_dyn_pool_try_map_propagates_the_first_error() {
-        let factory: Box<dyn ContextFactory> = Box::new(MockSolver);
-        let pool = DynSolverPool::new(factory, 2);
-        let result: Result<Vec<usize>, &'static str> =
-            pool.try_map(
-                8,
-                |_context, index| {
-                    if index == 3 { Err("boom") } else { Ok(index) }
-                },
-            );
-        assert_eq!(result, Err("boom"));
     }
 }

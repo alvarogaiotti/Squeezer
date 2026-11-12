@@ -19,7 +19,8 @@ use crate::{
 /// a `thread_local`, so calling one from several threads is safe (each thread
 /// gets its own context); the older "SEGFAULT under threads" warning applied to
 /// DDS 2.9's global state. For transposition-table reuse, still prefer the
-/// `squeezer` solver seam's pool, which keeps one context per worker.
+/// `squeezer` solver seam's pool, which keeps a context per chunk of work,
+/// bounded by its worker count.
 /// This struct implements all the needed traits linked to a double dummy analysis
 /// such as:
 /// - Play analysis [`PlayAnalyzer`]
