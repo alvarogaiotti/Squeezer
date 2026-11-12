@@ -103,6 +103,9 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 ## Gotchas
 
 - Root `config.toml` is not read by Cargo (that needs `.cargo/config.toml`), so `target-cpu=native` is not applied; set `RUSTFLAGS` explicitly when needed.
-- `crates/squeezer-cards/tests/uniformity_check.rs` is not a `#[test]`
-  function, so it never runs; it also needs the crate's `rand` feature to
-  compile. Fixing it is out of scope for the split.
+- `crates/squeezer-cards/tests/sampler_choice.rs` and
+  `tests/uniformity_check.rs` are gated on the crate's `rand` feature through
+  `required-features`, and the default feature set leaves `rand` off. CI runs
+  them explicitly with `cargo test -p squeezer-cards --features rand`, and the
+  `--all-features` run covers them too. Locally, `cargo test -p squeezer-cards
+  --no-default-features` never compiles them.

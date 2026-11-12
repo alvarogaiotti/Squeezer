@@ -74,6 +74,17 @@ The order in which the dealer fills, and therefore checks, the four seats for
 one candidate. Not the canonical seat order of a Deal.
 _Avoid_: deal order, seat order.
 
+### Card sampling
+
+**Sampler**:
+The policy that chooses which cards leave a deck. `Sampler::Fast` draws by
+rejection-sampling random masks; `Sampler::Uniform` draws by a partial
+Fisher-Yates shuffle. Both give every fixed-size subset the same probability,
+so the names distinguish the algorithms, not their distributions. The typed
+spellings `FastSampler` and `UniformSampler` select the same algorithms at
+compile time.
+_Avoid_: picker, selector (the method is `pick`).
+
 ### Double-dummy evaluation
 
 **Solver context**:

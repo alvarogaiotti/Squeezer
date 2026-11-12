@@ -487,6 +487,35 @@ pub trait CardSampler {
     fn pick_n<R: Rng>(deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards>;
 }
 
+/// A sampler chosen at run time instead of through a type parameter.
+///
+/// The typed samplers ([`FastSampler`], [`UniformSampler`]) let the compiler
+/// pick the algorithm; this enum lets a caller pick it from data. Both
+/// spellings are equivalent — [`Sampler::Fast`] delegates to [`FastSampler`]
+/// and [`Sampler::Uniform`] to [`UniformSampler`] — and both draw every
+/// fixed-size subset of a deck with equal probability.
+#[cfg(feature = "rand")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum Sampler {
+    /// Rejection-samples random masks; the cheapest draw on a large deck.
+    #[default]
+    Fast,
+    /// Shuffles by partial Fisher-Yates; the straightforward-by-construction
+    /// draw.
+    Uniform,
+}
+
+#[cfg(feature = "rand")]
+impl Sampler {
+    /// Delegates to the typed sampler the variant names.
+    fn pick_n<R: Rng>(self, deck: &mut Cards, num: usize, rng: &mut R) -> Option<Cards> {
+        match self {
+            Sampler::Fast => FastSampler::pick_n(deck, num, rng),
+            Sampler::Uniform => UniformSampler::pick_n(deck, num, rng),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 impl CardSampler for FastSampler {
     fn pick_n<R: Rng>(deck: &mut Cards, mut num: usize, rng: &mut R) -> Option<Cards> {
@@ -712,13 +741,29 @@ impl Cards {
         }
     }
 
-    /// Randomly pick `num` cards to remove from the deck.
+    /// Randomly pick `num` cards to remove from the deck with the default
+    /// sampler ([`Sampler::Fast`]).
     /// Returns `None` only if there aren't enough cards.
+    /// # Panics
+    /// When `num >= 53`
     #[cfg(feature = "rand")]
     #[must_use]
     #[inline]
+    #[track_caller]
     pub fn pick(&mut self, num: usize) -> Option<Cards> {
-        self.pick_rng::<_, FastSampler>(&mut rand::rng(), num)
+        self.pick_with(num, Sampler::default())
+    }
+
+    /// Randomly pick `num` cards to remove from the deck with `sampler`.
+    /// Returns `None` only if there aren't enough cards.
+    /// # Panics
+    /// When `num >= 53`
+    #[cfg(feature = "rand")]
+    #[must_use]
+    #[inline]
+    #[track_caller]
+    pub fn pick_with(&mut self, num: usize, sampler: Sampler) -> Option<Cards> {
+        self.pick_rng_with(&mut rand::rng(), num, sampler)
     }
 
     /// Randomly pick `num` cards to remove from the deck using specified RNG.
@@ -726,13 +771,49 @@ impl Cards {
     /// # Panics
     /// When `num >= 53`
     #[cfg(feature = "rand")]
+    #[track_caller]
     pub fn pick_rng<R: Rng, S: CardSampler>(&mut self, rng: &mut R, num: usize) -> Option<Cards> {
-        assert!(num <= 52);
-        if self.len() < num as u8 {
-            None
-        } else {
+        if self.can_draw(num) {
             S::pick_n(self, num, rng)
+        } else {
+            None
         }
+    }
+
+    /// Like [`Cards::pick_rng`], with the sampler chosen at run time.
+    /// Returns `None` only if there aren't enough cards.
+    /// # Panics
+    /// When `num >= 53`
+    #[cfg(feature = "rand")]
+    #[track_caller]
+    pub fn pick_rng_with<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        num: usize,
+        sampler: Sampler,
+    ) -> Option<Cards> {
+        if self.can_draw(num) {
+            sampler.pick_n(self, num, rng)
+        } else {
+            None
+        }
+    }
+
+    /// The shared guard for every sampling entry point: reject a draw the deck
+    /// cannot satisfy before the sampler consumes any randomness.
+    ///
+    /// `num > 52` is a caller bug rather than a deck that happens to be too
+    /// small, so it panics; every smaller over-draw returns `false` instead.
+    /// The public entry points carry `#[track_caller]` so that panic points at
+    /// the caller, not at this helper.
+    /// # Panics
+    /// When `num >= 53`
+    #[cfg(feature = "rand")]
+    #[inline]
+    #[track_caller]
+    fn can_draw(self, num: usize) -> bool {
+        assert!(num <= 52, "cannot draw {num} cards from a 52-card deck");
+        self.len() >= num as u8
     }
 
     /// Removes and returns every card currently in this set.
