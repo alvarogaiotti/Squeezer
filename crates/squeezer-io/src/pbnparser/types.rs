@@ -12,6 +12,12 @@
 use crate::prelude::*;
 
 /// What went wrong while importing a PBN file.
+///
+/// This is the importer's public taxonomy: [`ParsePbnError::kind`] returns it
+/// and callers may match on it. It is `#[non_exhaustive]`, so a new category
+/// can be added without breaking a caller; match with a wildcard arm. When the
+/// failure wrapped a model error, [`ParsePbnError::detail`] carries that
+/// error's exact message.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -48,6 +54,11 @@ pub enum ParsePbnErrorKind {
     /// A `[Play]` section was present without a contract, its tag value was not
     /// the contract's leader, or its cards could not be attributed to seats.
     Play,
+    /// An auction or play body carried a PBN irregularity marker the model
+    /// cannot represent: `^I` (insufficient bid), `^S` (call out of
+    /// rotation) or `^L` (lead out of turn). `^R` (revoke) is accepted
+    /// because the card that follows is still a real play.
+    Irregularity,
     /// The parts of a board did not fit together.
     Board,
     /// Parsing stopped before the end of the input.
@@ -60,11 +71,26 @@ pub enum ParsePbnErrorKind {
 pub struct ParsePbnError {
     pbn: String,
     kind: ParsePbnErrorKind,
+    detail: Option<String>,
 }
 
 impl ParsePbnError {
     pub(crate) fn new(kind: ParsePbnErrorKind, pbn: String) -> Self {
-        Self { pbn, kind }
+        Self {
+            pbn,
+            kind,
+            detail: None,
+        }
+    }
+
+    /// Builds the public error, carrying the parser's typed cause when one
+    /// reached the top level.
+    pub(crate) fn with_detail(
+        kind: ParsePbnErrorKind,
+        pbn: String,
+        detail: Option<String>,
+    ) -> Self {
+        Self { pbn, kind, detail }
     }
 
     /// The category of the failure.
@@ -72,15 +98,25 @@ impl ParsePbnError {
     pub const fn kind(&self) -> &ParsePbnErrorKind {
         &self.kind
     }
+
+    /// The exact message explaining the failure, when the parser recorded one.
+    ///
+    /// It is usually the underlying model error's own wording, such as
+    /// `"'X' is not a valid seat"` for a bad `[Dealer]`, but a parser rule may
+    /// supply the message too (for example, a dangling revoke marker).
+    #[must_use]
+    pub fn detail(&self) -> Option<&str> {
+        self.detail.as_deref()
+    }
 }
 
 impl std::fmt::Display for ParsePbnError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "unable to parse PBN input ({:?}):\n{}",
-            self.kind, self.pbn
-        )
+        write!(f, "unable to parse PBN input ({:?})", self.kind)?;
+        if let Some(detail) = &self.detail {
+            write!(f, ": {detail}")?;
+        }
+        write!(f, ":\n{}", self.pbn)
     }
 }
 

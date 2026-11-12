@@ -29,15 +29,30 @@ use super::types::{
     LinFile, LinMetadata, ParseLinError, ParseLinErrorKind, Players, Results, Room, TournamentInfo,
 };
 
-/// The nom error threaded through the parsers: just the category of failure.
+/// The nom error threaded through the parsers: the category plus, when a model
+/// error caused it, that error's exact message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct LinError {
     pub(crate) kind: ParseLinErrorKind,
+    pub(crate) detail: Option<String>,
 }
 
 impl LinError {
     const fn new(kind: ParseLinErrorKind) -> Self {
-        Self { kind }
+        Self { kind, detail: None }
+    }
+
+    fn with_detail(kind: ParseLinErrorKind, detail: impl Into<String>) -> Self {
+        Self {
+            kind,
+            detail: Some(detail.into()),
+        }
+    }
+
+    /// Wraps a model error, keeping its `Display` wording as the detail rather
+    /// than flattening it into the category.
+    fn caused(kind: ParseLinErrorKind, cause: impl std::fmt::Display) -> Self {
+        Self::with_detail(kind, cause.to_string())
     }
 }
 
@@ -72,11 +87,15 @@ fn pg(input: &str) -> LinResult<'_, ()> {
     Ok((input, ()))
 }
 
-fn parse_number<T: FromStr>(value: &str) -> Result<T, nom::Err<LinError>> {
+fn parse_number<T>(value: &str) -> Result<T, nom::Err<LinError>>
+where
+    T: FromStr,
+    T::Err: std::fmt::Display,
+{
     value
         .trim()
         .parse::<T>()
-        .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Number)))
+        .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Number, cause)))
 }
 
 // ============================================================================
@@ -187,13 +206,21 @@ fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Cards; 4])> {
         Some('2') => Seat::West,
         Some('3') => Seat::North,
         Some('4') => Seat::East,
-        _ => return Err(nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands))),
+        _ => {
+            return Err(nom::Err::Failure(LinError::with_detail(
+                ParseLinErrorKind::Hands,
+                "the dealer digit must be 1 (South), 2 (West), 3 (North) or 4 (East)",
+            )));
+        }
     };
     let hands_str: String = chars.collect();
 
     let parts: Vec<&str> = hands_str.split(',').collect();
     if !(3..=4).contains(&parts.len()) {
-        return Err(nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands)));
+        return Err(nom::Err::Failure(LinError::with_detail(
+            ParseLinErrorKind::Hands,
+            format!("a deal lists three or four hands, found {}", parts.len()),
+        )));
     }
 
     let mut listed: Vec<Option<Cards>> = Vec::with_capacity(4);
@@ -201,8 +228,9 @@ fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Cards; 4])> {
         if part.is_empty() {
             listed.push(None);
         } else {
-            let cards = Cards::from_str(part)
-                .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands)))?;
+            let cards = Cards::from_str(part).map_err(|cause| {
+                nom::Err::Failure(LinError::caused(ParseLinErrorKind::Hands, cause))
+            })?;
             listed.push(Some(cards));
         }
     }
@@ -214,7 +242,10 @@ fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Cards; 4])> {
     let mut deck = Cards::ALL;
     for cards in listed.iter().flatten() {
         if !deck.contains(*cards) {
-            return Err(nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands)));
+            return Err(nom::Err::Failure(LinError::with_detail(
+                ParseLinErrorKind::Hands,
+                "a card is listed in more than one hand",
+            )));
         }
         deck -= *cards;
     }
@@ -226,7 +257,10 @@ fn parse_dealer_and_hands(input: &str) -> LinResult<'_, (Seat, [Cards; 4])> {
         .filter_map(|(index, cards)| cards.is_none().then_some(index))
         .collect();
     if empty_indices.len() > 1 {
-        return Err(nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands)));
+        return Err(nom::Err::Failure(LinError::with_detail(
+            ParseLinErrorKind::Hands,
+            "more than one hand is omitted",
+        )));
     }
     if let Some(&index) = empty_indices.first() {
         listed[index] = Some(deck);
@@ -337,7 +371,7 @@ fn parse_played_card(input: &str) -> LinResult<'_, Card> {
     let (input, _) = ws(char('|'))(input)?;
 
     let card = Card::from_str(card)
-        .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Card)))?;
+        .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Card, cause)))?;
     Ok((input, card))
 }
 
@@ -356,10 +390,12 @@ fn parse_claim(input: &str) -> LinResult<'_, u8> {
     let (input, _) = ws(tag("mc|"))(input)?;
     let (input, value) = ws(take_until("|"))(input)?;
     let (input, _) = ws(char('|'))(input)?;
+    // A claim count is its own category, not a board number, so it keeps
+    // `Claim` rather than going through `parse_number`.
     let claim = value
         .trim()
         .parse::<u8>()
-        .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Claim)))?;
+        .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Claim, cause)))?;
     Ok((input, claim))
 }
 
@@ -387,7 +423,7 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
     let (input, _) = opt(pg).parse(input)?;
     let (input, groups) = many0(parse_trick).parse(input)?;
     validate_trick_lengths(&groups)
-        .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Card)))?;
+        .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Card, cause)))?;
     let (input, claim) = opt(parse_claim).parse(input)?;
     let (input, _) = opt(pg).parse(input)?;
 
@@ -399,8 +435,8 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
         (Some(qx), _) => Some(qx),
         (None, rh) => rh,
     };
-    let deal =
-        Deal::new(hands).map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Hands)))?;
+    let deal = Deal::new(hands)
+        .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Hands, cause)))?;
 
     // Play attribution needs the contract's opening leader and trump.
     let play = if groups.is_empty() {
@@ -408,10 +444,9 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
     } else {
         let contract =
             contract.ok_or_else(|| nom::Err::Failure(LinError::new(ParseLinErrorKind::Board)))?;
-        Some(
-            attribute_plays(&groups, contract)
-                .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Card)))?,
-        )
+        let plays = attribute_plays(&groups, contract)
+            .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Card, cause)))?;
+        Some(plays)
     };
 
     let board = Board::new(
@@ -424,7 +459,7 @@ fn parse_deal(input: &str) -> LinResult<'_, (Board, Option<Room>)> {
         play,
         claim,
     )
-    .map_err(|_| nom::Err::Failure(LinError::new(ParseLinErrorKind::Board)))?;
+    .map_err(|cause| nom::Err::Failure(LinError::caused(ParseLinErrorKind::Board, cause)))?;
 
     Ok((input, (board, room)))
 }
@@ -446,9 +481,11 @@ pub fn parse_bridge_file(input: &str) -> Result<LinFile, ParseLinError> {
             ParseLinErrorKind::Trailing,
             rest.to_string(),
         )),
-        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => {
-            Err(ParseLinError::new(error.kind, input.to_string()))
-        }
+        Err(nom::Err::Error(error) | nom::Err::Failure(error)) => Err(ParseLinError::with_detail(
+            error.kind,
+            input.to_string(),
+            error.detail,
+        )),
         Err(nom::Err::Incomplete(_)) => {
             unreachable!("complete parsers never return Incomplete")
         }

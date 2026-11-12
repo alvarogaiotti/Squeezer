@@ -10,6 +10,8 @@
 //! play's `pc|` cards. The importer is lossy for anything the record model does
 //! not represent, and every malformed line fails at import with a
 //! [`ParseLinError`] rather than yielding a corrupt board or a silent default.
+//! `ParseLinErrorKind` is that error's public taxonomy, and
+//! `ParseLinError::detail` carries the exact message explaining the failure.
 //! A [`LinFile`] writes back through [`LinFile::as_lin`], whose output this
 //! importer re-reads.
 
