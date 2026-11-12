@@ -431,6 +431,14 @@ One crate with a feature-gated backend (ADR-0004), and inside it:
 - `src/simulation/`: card EV, leads, contract payoff, shared pool solver.
 - `src/solver/`: the ADR-0005 seam.
 
+**Since this note was written**, ticket 08 of the crate split gave deal
+generation its own module, `src/dealer.rs` (`Dealer`, `DealerBuilder`,
+`StandardDealer`, `DealerError`, `AcceptFunction`), and deleted the
+errors-only `src/dealproduction.rs`; `src/record/deal.rs` now holds only
+`Deal`, `DealError`, `Seat` and `Vulnerability`. The paths cited below describe
+the tree at the time of writing; see `docs/adr/0008-crate-split.md` for the
+target layout.
+
 ### 4.3 Where their design is deeper
 
 Depth here means behaviour behind a small interface.

@@ -115,7 +115,7 @@ the benchmark/dealer closure accounted for 12.09%. In an unconditioned deal the 
 exactly the cards left in the deck; more generally, any seat whose fill equals the remaining deck
 has no sampling decision left.
 
-**Changed:** `src/record/deal.rs` now takes the remaining deck directly when `fill == deck.len()`,
+**Changed:** `src/dealer.rs` now takes the remaining deck directly when `fill == deck.len()`,
 using a crate-private `Cards::take_all` helper in `src/card.rs`. The public `Cards::pick_rng` and
 `FastSampler` behavior, including caller-supplied RNG consumption, is unchanged.
 

@@ -16,7 +16,7 @@
 //! `DdsError`, and only under the `dds` feature.
 
 use crate::card::InvalidCardError;
-use crate::dealproduction::DealerError;
+use crate::dealer::DealerError;
 use crate::hand_constraint::ConstraintError;
 #[cfg(feature = "lin")]
 use crate::linparser::ParseLinError;

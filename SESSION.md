@@ -343,12 +343,8 @@
 - `benches/simulation_paths.rs` runs entirely on a mock `FixedContext` and its
   body names no DDS type, yet `Cargo.toml:79-82` requires `dds` for that bench;
   the feature is required for a bench that never touches the backend.
-- `src/dealproduction.rs` is named like the production module but holds only
-  `DealerError`; the dealer (`DealerBuilder`, `Dealer::deal`) lives in
-  `src/record/deal.rs`. Reading the name as the pipeline misdirects exactly the
-  "how would a predicate fit generation" question.
 - The crate doc claims "~10-50 microseconds" with shape constraints
-  (`src/record/deal.rs:25-29,1491-1498`); the measured medians are 143 ns-1.79 µs
+  (`src/dealer.rs:891-892`); the measured medians are 143 ns-1.79 µs
   (`docs/performance-optimization.md:127-137`). The doc is one to two orders out.
 - In the vendored tree, `vendor/rusty-bidding-bot/docs/LANGUAGE.md:547-548` says
   an unmatched call gets a built-in natural interpretation, but the engine passes
@@ -377,7 +373,7 @@
   `bench/results/CURRENT.md:34` report ~10% slower. Nothing points forward from
   the pre-test, so it reads as current.
 - `Evaluator` (`src/evaluator.rs:25-53`) is exported but unreachable from the
-  constraint layer; the doc comments at `src/record/deal.rs:20,903,1212` still
+  constraint layer; the doc comments at `src/dealer.rs:271` still
   claim per-seat constraints cover "controls", which no longer matches
   `ConstraintBranch { shapes, hcp }` (`src/hand_constraint.rs:123-128`).
 - `Evaluator` has no `Debug`/`Clone`/serde derives, unlike every constraint type

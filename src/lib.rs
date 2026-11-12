@@ -109,7 +109,7 @@ pub mod card;
 mod contract;
 #[cfg(feature = "dds")]
 mod dds_bridge;
-mod dealproduction;
+pub mod dealer;
 mod error;
 mod evaluator;
 mod hand_constraint;
@@ -148,7 +148,7 @@ pub mod prelude {
     pub use crate::contract::*;
     pub const NUMBER_OF_HANDS: usize = 4;
     pub use crate::card::*;
-    pub use crate::dealproduction::*;
+    pub use crate::dealer::*;
     pub use crate::error::*;
     pub use crate::evaluator::*;
     pub use crate::hand_constraint::*;
