@@ -150,7 +150,13 @@ fn bench_mock_lead<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
                     .build()
                     .expect("lead configuration is valid")
             },
-            |simulation| black_box(simulation.run().expect("lead runs")),
+            |simulation| {
+                let analysis = simulation.run().expect("lead runs");
+                // Read the view, so the benchmark times the lead derivations
+                // the formatter consumes rather than a discarded result.
+                black_box(analysis.rankings());
+                black_box(analysis.best_by_set_percentage().map(|value| value.card));
+            },
             BatchSize::SmallInput,
         );
     });

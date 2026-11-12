@@ -7,7 +7,7 @@ use std::hint::black_box;
 use std::str::FromStr;
 
 #[inline]
-fn lead_simulation_test(_: ()) {
+fn lead_analysis_test(_: ()) {
     let hand = Cards::from_str("AQT KQ732 432 43").expect("fixed hand parses");
     let dealer = DealerBuilder::new()
         .predeal(Seat::South, hand)
@@ -23,13 +23,19 @@ fn lead_simulation_test(_: ()) {
         .expect("fixed dealer builds");
     let contract =
         Contract::from_str_and_vuln("2HE", Vulnerable::No).expect("fixed contract parses");
-    let simulation = LeadSimulation::new(1000, dealer, contract);
-    simulation.run().expect("lead simulation runs");
+    let analysis = LeadSimulation::new(1000, dealer, contract)
+        .run()
+        .expect("lead analysis runs");
+    // Read the view the way the terminal formatter does, so the benchmark
+    // covers the ranking and per-suit derivations, not just the solve.
+    black_box(analysis.rankings());
+    black_box(analysis.analyze_all_suits().len());
+    black_box(analysis.best_by_set_percentage().map(|value| value.card));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("Lead simulation benchmark", |b| {
-        b.iter(|| lead_simulation_test(black_box(())))
+        b.iter(|| lead_analysis_test(black_box(())))
     });
 }
 
