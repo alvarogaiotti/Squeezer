@@ -35,17 +35,19 @@
 //!
 //! # Errors
 //!
-//! A simulation reports [`SimulationError`]: invalid builder input, a dealer
-//! failure or a solver failure. Performance analysis reports
+//! A simulation reports [`SimulationError`]: invalid builder input, a sampled
+//! deal whose play trace does not derive a position, a dealer failure or a
+//! solver failure, each keeping its typed cause. Performance analysis reports
 //! [`AnalysisError<E>`], parameterised by the analyser's own error, so a custom
 //! backend keeps its error type instead of being flattened into a crate-wide
-//! enum.
+//! enum; a recorded play whose DD sequence is too short is a typed
+//! [`AnalysisError::PlaySequence`].
 
 mod error;
 pub mod performance_analysis;
 pub mod simulation;
 
-pub use error::{AnalysisError, SimulationError};
+pub use error::{AnalysisError, AnalysisInputError, SimulationError};
 
 /// The card and model vocabulary the simulation modules share, mirroring the
 /// historical prelude so the moved code reads the same.
@@ -53,7 +55,7 @@ pub use error::{AnalysisError, SimulationError};
 /// This is crate-internal: consumers import from [`squeezer_cards`] and
 /// [`squeezer_model`] directly.
 mod prelude {
-    pub(crate) use crate::error::{AnalysisError, SimulationError};
+    pub(crate) use crate::error::{AnalysisError, AnalysisInputError, SimulationError};
     pub(crate) use crate::simulation::*;
     pub(crate) use squeezer_cards::*;
     pub(crate) use squeezer_model::*;

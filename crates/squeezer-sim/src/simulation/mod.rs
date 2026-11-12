@@ -7,6 +7,8 @@ pub mod formatters;
 pub mod lead;
 pub mod payoff;
 mod solver;
+#[cfg(test)]
+mod test_support;
 
 pub use card_ev::*;
 pub use core::*;

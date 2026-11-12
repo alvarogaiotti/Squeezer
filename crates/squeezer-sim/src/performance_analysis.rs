@@ -725,9 +725,12 @@ fn evaluate_play(prev_tricks: u8, curr_tricks: u8) -> CardResult {
 /// just played. It carries no `dds` types, so the analysis is
 /// backend-independent.
 ///
-/// The caller contract is that every entry is a trick count in `0..=13`.
-/// [`analyze_hand`] feeds them to `Tricks::new_unchecked` (only debug-checked),
-/// so an out-of-range value is a caller bug, not a recoverable error.
+/// The caller contract is that every entry is a trick count in `0..=13` and
+/// that the sequence holds the starting position plus one value per recorded
+/// card. [`analyze_hand`] feeds the values to `Tricks::new_unchecked` (only
+/// debug-checked), so an out-of-range value is a caller bug; a sequence that
+/// is too short to cover the recorded play is an [`AnalysisInputError`], not a
+/// panic.
 #[derive(Debug, Clone)]
 pub struct AnalysisInput {
     pub contract: Contract,
@@ -744,8 +747,9 @@ pub struct AnalysisInput {
 /// # Errors
 ///
 /// Returns [`AnalysisError::Analyser`] with the analyser's own error when the
-/// board cannot be analysed, or [`AnalysisError::InvalidInput`] when it lacks a
-/// contract or a play.
+/// board cannot be analysed, [`AnalysisError::InvalidInput`] when it lacks a
+/// contract or a play, and [`AnalysisError::PlaySequence`] when the analyser's
+/// DD sequence does not cover the recorded play.
 pub fn analyze_board<A>(
     analyser: &A,
     board: &Board,
@@ -762,11 +766,12 @@ where
     let dd_results = analyser
         .analyse_play(board)
         .map_err(AnalysisError::analyser)?;
-    Ok(analyze_hand(AnalysisInput {
+    analyze_hand(AnalysisInput {
         contract,
         play_sequence,
         dd_results,
-    }))
+    })
+    .map_err(AnalysisError::PlaySequence)
 }
 
 /// Turns a backend-agnostic DD sequence into per-play results and per-seat
@@ -774,15 +779,28 @@ where
 ///
 /// The winner of each trick is re-derived from the cards and the contract's
 /// strain, so the recorded play is expected to be a legal, complete
-/// playthrough (as [`Board`] guarantees). See [`AnalysisInput`] for the
-/// `dd_results` contract.
+/// playthrough (as [`Board`] guarantees). A short final trick is analysed card
+/// by card, so an unplayed deal need not end on a completed trick.
+///
+/// See [`AnalysisInput`] for the `dd_results` contract: the sequence must hold
+/// the starting position plus one value per recorded card. Extra values are
+/// ignored.
+///
+/// # Errors
+///
+/// Returns [`AnalysisInputError::PlaySequenceTooLong`] when the record claims
+/// more than 52 cards, [`AnalysisInputError::MissingInitialTricks`] when the
+/// DD sequence is empty, and [`AnalysisInputError::MissingTrickResult`] when it
+/// ends before the recorded play does.
 ///
 /// # Panics
-/// Panics if `dd_results` does not start with the initial position, or if it
-/// runs out before the recorded play does.
-#[must_use]
+///
+/// Panics only on an internal invariant violation: the sequence length is
+/// checked above, so no input reaches the hot loop's `expect` calls. They stay
+/// explicit so a future edit that removes the check fails loudly instead of
+/// analysing a wrong trick count.
 #[allow(clippy::needless_pass_by_value)]
-pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
+pub fn analyze_hand(input: AnalysisInput) -> Result<HandAnalysis, AnalysisInputError> {
     let AnalysisInput {
         contract,
         play_sequence,
@@ -792,6 +810,9 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 
     let mut cards_array: [Card; 52] = [Card::NONCE; 52];
     let seq_len = play_sequence.len();
+    if seq_len > cards_array.len() {
+        return Err(AnalysisInputError::PlaySequenceTooLong { cards: seq_len });
+    }
     let tricks_to_analyze = seq_len / 4;
     let extra_cards = seq_len % 4;
 
@@ -809,10 +830,23 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         PlayerRecord::new(),
     ];
 
+    // The analysis indexes DD results by play, so the initial position plus
+    // every recorded card must be present. Checking the length once keeps the
+    // hot loop on the allocation-free path.
+    let recorded_results = dd_results.len();
+    if recorded_results == 0 {
+        return Err(AnalysisInputError::MissingInitialTricks);
+    }
+    if recorded_results <= seq_len {
+        return Err(AnalysisInputError::MissingTrickResult {
+            play_index: recorded_results - 1,
+        });
+    }
+
     let mut dd_iter = dd_results.into_iter();
     let mut prev_tricks = dd_iter
         .next()
-        .expect("DD results should include initial state");
+        .expect("the DD sequence is non-empty, checked above");
 
     let mut current_leader = contract.leader();
     let mut trick_cards = [Card::NONCE; 4];
@@ -831,7 +865,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         for value in &mut trick_dd {
             *value = dd_iter
                 .next()
-                .unwrap_or_else(|| panic!("Missing DD results for trick {trick_idx}"));
+                .expect("the sequence covers every recorded play, checked above");
         }
 
         // Analyze each card play
@@ -855,13 +889,10 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         trick_cards[..extra_cards]
             .copy_from_slice(&cards_array[card_offset..card_offset + extra_cards]);
 
-        // A short final trick historically stops at whichever of the play and
-        // DD iterators runs out first. Keep that behaviour while avoiding a
-        // second temporary vector.
         for (offset, seat) in current_leader.iter_from().enumerate().take(extra_cards) {
-            let Some(dd_tricks) = dd_iter.next() else {
-                break;
-            };
+            let dd_tricks = dd_iter
+                .next()
+                .expect("the sequence covers every recorded play, checked above");
             let result = evaluate_play(prev_tricks, dd_tricks);
             let card = trick_cards[offset];
 
@@ -870,7 +901,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         }
     }
 
-    HandAnalysis { contract, records }
+    Ok(HandAnalysis { contract, records })
 }
 
 // ============================================================================
@@ -880,6 +911,17 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The contract shared by the synthetic hand-analysis tests: 1H by South.
+    fn hearts_contract() -> Contract {
+        Contract::new(
+            1,
+            Strain::Hearts,
+            Seat::South,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        )
+    }
 
     #[test]
     fn test_preprocessed_deal_scalar() {
@@ -1125,7 +1167,8 @@ mod tests {
             contract,
             play_sequence,
             dd_results,
-        });
+        })
+        .expect("the DD sequence covers every recorded play");
 
         let play = |seat: Seat, index: usize| {
             *analysis
@@ -1181,19 +1224,14 @@ mod tests {
 
     #[test]
     fn analyze_hand_handles_an_empty_and_partial_play() {
-        let contract = Contract::new(
-            1,
-            Strain::Hearts,
-            Seat::South,
-            Vulnerable::No,
-            Doubled::NotDoubled,
-        );
+        let contract = hearts_contract();
 
         let empty = analyze_hand(AnalysisInput {
             contract,
             play_sequence: PlayRecord::new(Vec::new()),
             dd_results: vec![7],
-        });
+        })
+        .expect("the opening position is the only required result");
         assert!(empty.player(Seat::North).is_empty());
         assert!(empty.player(Seat::East).is_empty());
         assert!(empty.player(Seat::South).is_empty());
@@ -1206,7 +1244,8 @@ mod tests {
                 Play::new(Seat::North, Card::HA),
             ]),
             dd_results: vec![7, 8, 6],
-        });
+        })
+        .expect("both cards of the short final trick have a DD result");
         let west = partial.player(Seat::West).plays().next().copied();
         let north = partial.player(Seat::North).plays().next().copied();
         assert_eq!(west.map(|play| play.card), Some(Card::SA));
@@ -1228,16 +1267,85 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Missing DD results for trick 0")]
-    fn analyze_hand_reports_a_missing_trick_sequence() {
-        let contract = Contract::new(
-            1,
-            Strain::Hearts,
-            Seat::South,
-            Vulnerable::No,
-            Doubled::NotDoubled,
+    fn analyze_hand_reports_missing_dd_results_in_a_short_final_trick() {
+        let contract = hearts_contract();
+        let error = analyze_hand(AnalysisInput {
+            contract,
+            play_sequence: PlayRecord::new(vec![
+                Play::new(Seat::West, Card::SA),
+                Play::new(Seat::North, Card::HA),
+            ]),
+            dd_results: vec![7, 8],
+        })
+        .expect_err("the second card of the short trick has no DD result");
+
+        assert_eq!(
+            error,
+            AnalysisInputError::MissingTrickResult { play_index: 1 }
         );
-        let _ = analyze_hand(AnalysisInput {
+    }
+
+    #[test]
+    fn analyze_hand_requires_the_initial_dd_position() {
+        let contract = hearts_contract();
+        let error = analyze_hand(AnalysisInput {
+            contract,
+            play_sequence: PlayRecord::new(Vec::new()),
+            dd_results: Vec::new(),
+        })
+        .expect_err("an empty DD sequence has no starting position");
+
+        assert_eq!(error, AnalysisInputError::MissingInitialTricks);
+    }
+
+    #[test]
+    fn analyze_hand_rejects_a_play_longer_than_a_deal() {
+        let contract = hearts_contract();
+        let error = analyze_hand(AnalysisInput {
+            contract,
+            play_sequence: PlayRecord::new(vec![Play::new(Seat::West, Card::SA); 53]),
+            dd_results: vec![7; 54],
+        })
+        .expect_err("a deal has only 52 cards");
+
+        assert_eq!(error, AnalysisInputError::PlaySequenceTooLong { cards: 53 });
+    }
+
+    #[test]
+    fn analyze_board_keeps_a_short_dd_sequence_as_a_typed_error() {
+        /// An analyser that returns a fixed DD sequence, as a broken backend
+        /// might.
+        struct ScriptedAnalyser(Vec<u8>);
+
+        impl PlayAnalyser for ScriptedAnalyser {
+            type Error = std::convert::Infallible;
+
+            fn analyse_play(&self, _board: &Board) -> Result<Vec<u8>, std::convert::Infallible> {
+                Ok(self.0.clone())
+            }
+        }
+
+        let board = squeezer_solver::test_fixtures::example_board_hand0_play();
+
+        let error = analyze_board(&ScriptedAnalyser(Vec::new()), &board)
+            .expect_err("an empty DD sequence cannot cover a recorded play");
+        assert!(matches!(
+            error,
+            AnalysisError::PlaySequence(AnalysisInputError::MissingInitialTricks)
+        ));
+
+        let error = analyze_board(&ScriptedAnalyser(vec![7, 8]), &board)
+            .expect_err("two values cannot cover a 45-card play");
+        assert!(matches!(
+            error,
+            AnalysisError::PlaySequence(AnalysisInputError::MissingTrickResult { play_index: 1 })
+        ));
+    }
+
+    #[test]
+    fn analyze_hand_reports_a_complete_trick_without_dd_results() {
+        let contract = hearts_contract();
+        let error = analyze_hand(AnalysisInput {
             contract,
             play_sequence: PlayRecord::new(vec![
                 Play::new(Seat::West, Card::SA),
@@ -1246,6 +1354,12 @@ mod tests {
                 Play::new(Seat::South, Card::CA),
             ]),
             dd_results: vec![7],
-        });
+        })
+        .expect_err("a complete trick needs four DD results");
+
+        assert_eq!(
+            error,
+            AnalysisInputError::MissingTrickResult { play_index: 0 }
+        );
     }
 }

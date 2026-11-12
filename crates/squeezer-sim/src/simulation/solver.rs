@@ -195,7 +195,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use squeezer_solver::{CardSolve, SolveMode, SolverContext, SolverError};
+    use crate::simulation::test_support::ConstantFactory;
 
     /// Fully predealt dealer: every `deal()` returns the same hands, so
     /// batching and indices are deterministic without seeding any RNG.
@@ -225,45 +225,7 @@ mod test {
             .expect("fixed dealer builds")
     }
 
-    /// A factory whose contexts report a fixed DD trick count, so the engine
-    /// can be exercised without the native solver.
-    struct ConstantFactory;
-
-    struct ConstantContext;
-
-    impl ContextFactory for ConstantFactory {
-        fn new_context(&self) -> Box<dyn SolverContext> {
-            Box::new(ConstantContext)
-        }
-    }
-
-    impl SolverContext for ConstantContext {
-        fn solve(
-            &mut self,
-            position: &Position,
-            _mode: SolveMode,
-            _solutions: Solutions,
-        ) -> Result<SolveResults, SolverError> {
-            let cards = position
-                .legal_plays()
-                .into_iter()
-                .next()
-                .map(|card| {
-                    vec![CardSolve {
-                        card,
-                        tricks: 7,
-                        equivalents: Cards::EMPTY.insert(card),
-                    }]
-                })
-                .unwrap_or_default();
-            Ok(SolveResults { cards })
-        }
-
-        fn clear_tt(&mut self) {}
-
-        fn reset(&mut self) {}
-    }
-
+    /// A two-contract fan-out for the engine tests.
     #[allow(clippy::unnecessary_wraps)]
     fn fan_out_two(deal: &Deal, _deal_index: usize) -> Result<Vec<Position>, SimulationError> {
         Ok(vec![
