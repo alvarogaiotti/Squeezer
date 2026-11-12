@@ -13,6 +13,7 @@ members = [
     "crates/squeezer-cards",
     "crates/squeezer-io",
     "crates/squeezer-model",
+    "crates/squeezer-sim",
     "crates/squeezer-solver",
     "dds",
     "squeezer_macros",
@@ -22,7 +23,6 @@ resolver = "3"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 log = { version = "*" }
-colored = { version = "*", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 dds = { path = "dds", optional = true }
 # The solver seam and its DDS backend live in `squeezer-solver`; this crate
@@ -33,6 +33,10 @@ squeezer-cards = { path = "crates/squeezer-cards" }
 # compiles `nom`.
 squeezer-io = { path = "crates/squeezer-io", default-features = false }
 squeezer-model = { path = "crates/squeezer-model" }
+# Simulation and performance analysis live in `squeezer-sim`; the root
+# re-exports the historical module paths and forwards `dds`, `formatters` and
+# `serde`.
+squeezer-sim = { path = "crates/squeezer-sim", default-features = false }
 squeezer-solver = { path = "crates/squeezer-solver", default-features = false }
 thiserror = "2"
 
@@ -40,16 +44,17 @@ thiserror = "2"
 default = ["lin", "pbn", "dds"]
 lin = ["squeezer-io/lin"]
 pbn = ["squeezer-io/pbn"]
-dds = ["dep:dds", "squeezer-solver/dds"]
-# The terminal renderers live in the simulation module, which is gated on `dds`,
-# so opting into formatters also opts into the solver they report on.
-formatters = ["dep:colored", "dds"]
+dds = ["dep:dds", "squeezer-solver/dds", "squeezer-sim/dds"]
+# The terminal renderers live in `squeezer-sim` behind its own `formatters`
+# feature; they do not require the solver.
+formatters = ["squeezer-sim/formatters"]
 serde = [
     "dep:serde",
     "dds?/serde",
     "squeezer-cards/serde",
     "squeezer-io/serde",
     "squeezer-model/serde",
+    "squeezer-sim/serde",
 ]
 
 [dev-dependencies]
@@ -57,48 +62,11 @@ criterion = { version = "*", features = ["html_reports"] }
 # The library no longer draws random cards directly; the dealer lives in
 # `squeezer-model`. The tests and benchmarks that sample still need it.
 rand = "*"
-# The simulation unit tests serialise the raw-point types to JSON.
-serde_json = "1.0"
-# The root's unit tests share the DDS example-hand fixtures, which the solver
-# crate publishes only for tests. This is a dev-dependency so a normal build
-# never sees them.
-squeezer-solver = { path = "crates/squeezer-solver", default-features = false, features = ["test-support"] }
-
-[[bench]]
-name = "bench_payoff"
-harness = false
-required-features = ["dds"]
-
-[[bench]]
-name = "bench_leadsim"
-harness = false
-required-features = ["dds"]
 
 [[bench]]
 name = "deck_pick_performance"
 harness = false
 
 [[bench]]
-name = "simd_benchmark"
-harness = false
-required-features = ["dds"]
-
-[[bench]]
-name = "trick_winner_bench"
-harness = false
-required-features = ["dds"]
-
-[[bench]]
 name = "deal_constraints"
 harness = false
-
-[[bench]]
-name = "simulation_paths"
-harness = false
-required-features = ["dds"]
-
-# The pipeline test parses a LIN fixture, so it needs the importer as well as
-# the solver; the benches above need only `dds`.
-[[test]]
-name = "performance_analysis_test"
-required-features = ["dds", "lin"]

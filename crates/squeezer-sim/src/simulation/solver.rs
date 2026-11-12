@@ -28,11 +28,11 @@
 //! Deals are generated sequentially, before any parallel work, so the dealer's
 //! RNG order does not depend on the worker count and results are reproducible.
 //! The fan-out returns the [`Position`]s to solve, so all DDS FFI stays behind
-//! the seam's [`SolverContext`](crate::solver::SolverContext). A fan-out that
+//! the seam's [`SolverContext`](squeezer_solver::SolverContext). A fan-out that
 //! produces the wrong number of variants is an error, not a scrambled buffer.
 
 use crate::prelude::*;
-use crate::solver::{ContextFactory, DynSolverPool};
+use squeezer_solver::{ContextFactory, DynSolverPool};
 
 /// Per-deal trick counts in variant order, with the global deal index.
 #[derive(Debug, Clone)]
@@ -56,6 +56,31 @@ pub(crate) struct DealCards {
     pub results: SolveResults,
 }
 
+/// Resolves a builder's optional solver factory.
+///
+/// With `dds`, an omitted factory falls back to the native backend. Without it,
+/// the caller must inject one, so mock-solver tests and custom backends never
+/// link DDS.
+///
+/// The `Result` is only fallible without `dds`; keeping one signature for both
+/// builds would otherwise force every call site to branch on the feature.
+#[allow(clippy::unnecessary_wraps)]
+pub(crate) fn resolve_solver_factory(
+    factory: Option<Box<dyn ContextFactory>>,
+    _context: &'static str,
+) -> Result<Box<dyn ContextFactory>, SimulationError> {
+    match factory {
+        Some(factory) => Ok(factory),
+        #[cfg(feature = "dds")]
+        None => Ok(Box::new(squeezer_solver::DdsSolver::new())),
+        #[cfg(not(feature = "dds"))]
+        None => Err(SimulationError::invalid_input(
+            _context,
+            "a solver factory is required when the dds feature is off",
+        )),
+    }
+}
+
 /// The opening position for `deal` under `contract`.
 ///
 /// The deal's hands are unchanged and the table is empty, so the only inputs
@@ -71,7 +96,7 @@ pub(crate) fn opening_position(deal: &Deal, contract: Contract) -> Position {
 fn generate_deals<D: Dealer + ?Sized>(
     dealer: &D,
     num_deals: usize,
-) -> Result<Vec<Deal>, SqueezerError> {
+) -> Result<Vec<Deal>, SimulationError> {
     let mut deals = Vec::with_capacity(num_deals);
     for _ in 0..num_deals {
         deals.push(dealer.deal()?);
@@ -97,13 +122,13 @@ pub(crate) fn solve_tricks_pool<D, F>(
     variants_per_deal: usize,
     sim: &'static str,
     fan_out: F,
-) -> Result<Vec<DealTricks>, SqueezerError>
+) -> Result<Vec<DealTricks>, SimulationError>
 where
     D: Dealer + ?Sized,
-    F: Fn(&Deal, usize) -> Result<Vec<Position>, SqueezerError> + Send + Sync,
+    F: Fn(&Deal, usize) -> Result<Vec<Position>, SimulationError> + Send + Sync,
 {
     if variants_per_deal == 0 {
-        return Err(SqueezerError::invalid_input(
+        return Err(SimulationError::invalid_input(
             sim,
             "variants per deal must be at least 1",
         ));
@@ -113,7 +138,7 @@ where
     pool.try_map(num_deals, |context, deal_index| {
         let positions = fan_out(&deals[deal_index], deal_index)?;
         if positions.len() != variants_per_deal {
-            return Err(SqueezerError::invalid_input(
+            return Err(SimulationError::invalid_input(
                 sim,
                 format!(
                     "fan-out produced {} variants for deal {deal_index}, expected {variants_per_deal}",
@@ -140,10 +165,10 @@ pub(crate) fn solve_all_cards_pool<D, F>(
     dealer: &D,
     num_deals: usize,
     fan_out: F,
-) -> Result<Vec<DealCards>, SqueezerError>
+) -> Result<Vec<DealCards>, SimulationError>
 where
     D: Dealer + ?Sized,
-    F: Fn(&Deal, usize) -> Result<Position, SqueezerError> + Send + Sync,
+    F: Fn(&Deal, usize) -> Result<Position, SimulationError> + Send + Sync,
 {
     let deals = generate_deals(dealer, num_deals)?;
     let pool = DynSolverPool::with_available_workers(factory);
@@ -161,7 +186,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::solver::{CardSolve, SolveMode, SolverContext, SolverError};
+    use squeezer_solver::{CardSolve, SolveMode, SolverContext, SolverError};
 
     /// Fully predealt dealer: every `deal()` returns the same hands, so
     /// batching and indices are deterministic without seeding any RNG.
@@ -231,7 +256,7 @@ mod test {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn fan_out_two(deal: &Deal, _deal_index: usize) -> Result<Vec<Position>, SqueezerError> {
+    fn fan_out_two(deal: &Deal, _deal_index: usize) -> Result<Vec<Position>, SimulationError> {
         Ok(vec![
             opening_position(
                 deal,
@@ -284,7 +309,7 @@ mod test {
     #[test]
     fn tricks_pool_detects_misaligned_fan_out() {
         let misaligned =
-            |deal: &Deal, _deal_index: usize| -> Result<Vec<Position>, SqueezerError> {
+            |deal: &Deal, _deal_index: usize| -> Result<Vec<Position>, SimulationError> {
                 // Declares 2 variants but returns 1: must error, not scramble.
                 Ok(vec![opening_position(
                     deal,
@@ -306,8 +331,8 @@ mod test {
 
     #[test]
     fn tricks_pool_propagates_fan_out_errors() {
-        let failing = |_: &Deal, _: usize| -> Result<Vec<Position>, SqueezerError> {
-            Err(SqueezerError::invalid_input("test", "boom"))
+        let failing = |_: &Deal, _: usize| -> Result<Vec<Position>, SimulationError> {
+            Err(SimulationError::invalid_input("test", "boom"))
         };
         assert!(
             solve_tricks_pool(

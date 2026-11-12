@@ -21,8 +21,6 @@ use crate::dealer::DealerError;
 use crate::linparser::ParseLinError;
 #[cfg(feature = "pbn")]
 use crate::pbnparser::ParsePbnError;
-#[cfg(feature = "dds")]
-use crate::performance_analysis::{TrickDeltaError, TricksError};
 use crate::record::{AuctionError, BoardError, DealError, PositionError};
 use crate::solver::SolverError;
 use squeezer_model::{ConstraintError, ContractError, CreationShapeError, SeatError};
@@ -92,21 +90,13 @@ pub enum SqueezerError {
     /// A position could not be derived from a board.
     #[error("invalid position: {0}")]
     PositionError(#[from] PositionError),
-    /// A trick count was outside 0-13.
-    #[cfg(feature = "dds")]
-    #[error("invalid trick count: {0}")]
-    TricksError(#[from] TricksError),
-    /// A trick delta was outside 0-13.
-    #[cfg(feature = "dds")]
-    #[error("invalid trick delta: {0}")]
-    TrickDeltaError(#[from] TrickDeltaError),
 }
 
 impl SqueezerError {
     /// Builds an [`InvalidInput`](SqueezerError::InvalidInput) boundary error.
     ///
     /// A single constructor keeps the `context`/`message` pair consistent
-    /// across the simulation builders.
+    /// across the boundary producers.
     #[must_use]
     pub fn invalid_input(context: &'static str, message: impl Into<String>) -> Self {
         Self::InvalidInput {
@@ -298,17 +288,5 @@ mod tests {
         assert!(matches!(error, SqueezerError::PbnParsing(_)));
         let source = error.source().expect("the parse error is the source");
         assert!(source.downcast_ref::<ParsePbnError>().is_some());
-    }
-
-    #[cfg(feature = "dds")]
-    #[test]
-    fn trick_errors_convert_to_their_variants() {
-        let tricks = SqueezerError::from(TricksError::OutOfRange(14));
-        assert!(matches!(tricks, SqueezerError::TricksError(_)));
-        assert!(tricks.source().is_some());
-
-        let delta = SqueezerError::from(TrickDeltaError::OutOfRange(14));
-        assert!(matches!(delta, SqueezerError::TrickDeltaError(_)));
-        assert!(delta.source().is_some());
     }
 }

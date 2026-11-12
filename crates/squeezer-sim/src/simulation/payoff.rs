@@ -9,10 +9,12 @@
 //!
 //! ## Example: Contract Payoff
 //!
-//! ```
+//! ```no_run
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! use squeezer::prelude::*;
+//! use squeezer_model::*;
+//! use squeezer_sim::simulation::*;
+//! use std::str::FromStr;
 //!
 //! let contracts = vec![
 //!     Contract::from_str("3CN")?,
@@ -55,8 +57,9 @@ use super::core::{
     ComparisonResult, DealResult, DistributionData, PairwiseStatistics, Simulation,
     SimulationMetadata, SimulationOutput,
 };
-use super::{opening_position, solve_tricks_pool};
+use super::{opening_position, resolve_solver_factory, solve_tricks_pool};
 use crate::prelude::*;
+use squeezer_solver::ContextFactory;
 
 // ============================================================================
 // RAW PAYOFF DATA - Complete simulation results for detailed analysis
@@ -500,19 +503,17 @@ impl<D: Dealer> ContractPayoffBuilder<D> {
     /// When you did not define the number of deals or the dealer.
     /// TODO: Fix with typestate
     #[inline]
-    pub fn build(self) -> Result<ContractPayoffSimulation<D>, SqueezerError> {
+    pub fn build(self) -> Result<ContractPayoffSimulation<D>, SimulationError> {
         let num_deals = self.num_deals.ok_or_else(|| {
-            SqueezerError::invalid_input("contract payoff", "num_deals must be set")
+            SimulationError::invalid_input("contract payoff", "num_deals must be set")
         })?;
-        let dealer = self
-            .dealer
-            .ok_or_else(|| SqueezerError::invalid_input("contract payoff", "dealer must be set"))?;
-        let solver_factory: Box<dyn ContextFactory> = self
-            .solver_factory
-            .unwrap_or_else(|| Box::new(DdsSolver::new()));
+        let dealer = self.dealer.ok_or_else(|| {
+            SimulationError::invalid_input("contract payoff", "dealer must be set")
+        })?;
+        let solver_factory = resolve_solver_factory(self.solver_factory, "contract payoff")?;
 
         if self.contracts.len() < 2 {
-            return Err(SqueezerError::invalid_input(
+            return Err(SimulationError::invalid_input(
                 "contract payoff",
                 "at least 2 contracts required",
             ));
@@ -553,6 +554,10 @@ impl<D: Dealer> ContractPayoffSimulation<D> {
 
     /// Constructor taking an explicit [`Denomination`] and the default DDS
     /// solver. Prefer [`Self::builder`] when you need a custom solver factory.
+    ///
+    /// This convenience constructor exists only with the `dds` feature; without
+    /// it, build through [`Self::builder`] and pass a factory.
+    #[cfg(feature = "dds")]
     pub fn new(
         num_deals: usize,
         dealer: D,
@@ -573,7 +578,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
     type RawResult = RawPayoffData<Contract>;
     type Statistics = PayoffMatrix<Contract>;
 
-    fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
+    fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SimulationError> {
         let ContractPayoffSimulation {
             num_deals,
             dealer,
@@ -598,7 +603,7 @@ impl<D: Dealer> Simulation for ContractPayoffSimulation<D> {
             num_deals,
             num_contracts,
             "contract payoff",
-            |deal, _deal_index| -> Result<Vec<Position>, SqueezerError> {
+            |deal, _deal_index| -> Result<Vec<Position>, SimulationError> {
                 Ok(order
                     .iter()
                     .map(|&index| opening_position(deal, contracts[index]))
@@ -850,6 +855,7 @@ mod tests {
         assert!(matrix.rankings[1].average_score >= matrix.rankings[2].average_score);
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn test_contract_payoff_builder_validation() {
         // Two contracts, so only the condition named by each case is missing.
@@ -924,6 +930,7 @@ mod tests {
     /// contract) resolves to that opponent's score, so `RawPoints` matches the
     /// old `|a, b| a - b` and `Imps`/`Matchpoints` match the old `imps` and
     /// `matchpoints` exactly.
+    #[cfg(feature = "dds")]
     #[test]
     fn contract_payoff_matches_the_previous_pairwise_scoring() {
         let contracts = vec![
@@ -980,6 +987,7 @@ mod tests {
 
     /// The builder's default denomination is raw points: omitting
     /// `.denomination(...)` yields raw score differences.
+    #[cfg(feature = "dds")]
     #[test]
     fn contract_payoff_defaults_to_raw_points() {
         let output = ContractPayoffBuilder::new()
@@ -1008,6 +1016,7 @@ mod tests {
     /// deals are identical and the exact tricks/scores are pinned. This is
     /// the no-behavior-change proof for the engine migration: expected
     /// values were captured from the pre-refactor `run()`.
+    #[cfg(feature = "dds")]
     #[test]
     fn test_contract_payoff_fully_predealt_is_deterministic() {
         let dealer = predealt_dealer();

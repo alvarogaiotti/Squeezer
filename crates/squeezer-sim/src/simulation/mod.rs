@@ -15,4 +15,6 @@ pub use denomination::*;
 pub use formatters::*;
 pub use lead::*;
 pub use payoff::*;
-pub(crate) use solver::{opening_position, solve_all_cards_pool, solve_tricks_pool};
+pub(crate) use solver::{
+    opening_position, resolve_solver_factory, solve_all_cards_pool, solve_tricks_pool,
+};

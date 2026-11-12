@@ -2,8 +2,12 @@ use criterion::measurement::Measurement;
 use criterion::{
     BatchSize, BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main,
 };
-use squeezer::prelude::*;
+use squeezer_cards::*;
+use squeezer_model::*;
+use squeezer_sim::simulation::*;
+use squeezer_solver::*;
 use std::hint::black_box;
+use std::str::FromStr;
 
 struct FixedFactory;
 

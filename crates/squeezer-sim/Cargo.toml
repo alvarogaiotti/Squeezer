@@ -1,0 +1,67 @@
+[package]
+name = "squeezer-sim"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# The native backend is the simulation crate's default because a consumer that
+# asks for simulations usually wants real double-dummy results. Tests and
+# custom backends opt out with `default-features = false` and pass an explicit
+# solver factory; only then is the `DdsSolver` fallback compiled.
+default = ["dds"]
+dds = ["squeezer-solver/dds"]
+# The terminal renderers are the only user of `colored`; a GUI or library
+# consumer never compiles it.
+formatters = ["dep:colored"]
+# Serialisation stays opt-in, and pulls in the model and card derives because
+# the result types embed their vocabulary.
+serde = [
+    "dep:serde",
+    "squeezer-cards/serde",
+    "squeezer-model/serde",
+]
+
+[dependencies]
+# The simulation consumes the card vocabulary directly (cards in outcomes and
+# lead tables) and the model records (`Deal`, `Position`, `Contract`).
+squeezer-cards = { path = "../squeezer-cards" }
+squeezer-model = { path = "../squeezer-model" }
+# The solver seam is backend-agnostic; DDS is reachable only through this
+# crate's `dds` feature, which forwards to the solver crate's.
+squeezer-solver = { path = "../squeezer-solver", default-features = false }
+rayon = "1.12.0"
+colored = { version = "*", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+criterion = { version = "*", features = ["html_reports"] }
+# The SIMD and trick-winner benchmarks sample random cards.
+rand = "*"
+# The denomination round-trip tests serialise to JSON.
+serde_json = "1.0"
+# The mock-solver tests share DDS's example-hand fixtures, which the solver
+# crate publishes only for tests. This is a dev-dependency so a normal build
+# never sees them.
+squeezer-solver = { path = "../squeezer-solver", default-features = false, features = ["test-support"] }
+
+[[bench]]
+name = "bench_payoff"
+harness = false
+required-features = ["dds"]
+
+[[bench]]
+name = "bench_leadsim"
+harness = false
+required-features = ["dds"]
+
+[[bench]]
+name = "simd_benchmark"
+harness = false
+
+[[bench]]
+name = "trick_winner_bench"
+harness = false
+
+[[bench]]
+name = "simulation_paths"
+harness = false

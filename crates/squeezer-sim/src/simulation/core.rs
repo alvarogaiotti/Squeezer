@@ -38,7 +38,7 @@ pub trait Simulation {
     /// This function tries to do it's best to realize if something is wrong before calling the DDS
     /// library to ensure informative errors, but somethings might slip through and
     /// you'll have to rely on DDS errors to understand what went wrong.
-    fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError>;
+    fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SimulationError>;
 }
 
 // ============================================================================

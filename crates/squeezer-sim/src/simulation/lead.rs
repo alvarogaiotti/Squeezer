@@ -7,10 +7,12 @@
 //!
 //! ## Example
 //!
-//! ```
+//! ```no_run
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! use squeezer::prelude::*;
+//! use squeezer_model::*;
+//! use squeezer_sim::simulation::*;
+//! use std::str::FromStr;
 //!
 //! let sim = LeadSimulation::builder()
 //!     .num_deals(10)
@@ -38,7 +40,9 @@
 //! # }
 //! ```
 
+use super::resolve_solver_factory;
 use crate::prelude::*;
+use squeezer_solver::ContextFactory;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -551,25 +555,25 @@ impl<D: Dealer> LeadSimulationBuilder<D> {
     #[inline]
     /// # Errors
     /// ATM errors if some field is not set. TODO: evolve into typestate
-    pub fn build(self) -> Result<LeadSimulation<D>, SqueezerError> {
+    pub fn build(self) -> Result<LeadSimulation<D>, SimulationError> {
         let num_deals = self.num_deals.ok_or_else(|| {
-            SqueezerError::invalid_input("lead simulation", "num_deals must be set")
+            SimulationError::invalid_input("lead simulation", "num_deals must be set")
         })?;
         let dealer = self.dealer.ok_or_else(|| {
-            SqueezerError::invalid_input("lead simulation", "dealer must be defined")
+            SimulationError::invalid_input("lead simulation", "dealer must be defined")
         })?;
         let contract = self.contract.ok_or_else(|| {
-            SqueezerError::invalid_input("lead simulation", "contract must be set")
+            SimulationError::invalid_input("lead simulation", "contract must be set")
         })?;
+
+        let solver_factory = resolve_solver_factory(self.solver_factory, "lead simulation")?;
 
         Ok(LeadSimulation {
             num_deals,
             dealer,
             contract,
             store_deal_details: self.store_deal_details,
-            solver_factory: self
-                .solver_factory
-                .unwrap_or_else(|| Box::new(DdsSolver::new())),
+            solver_factory,
         })
     }
 }
@@ -599,7 +603,11 @@ impl<D: Dealer + Default> LeadSimulation<D> {
 }
 
 impl<D: Dealer> LeadSimulation<D> {
-    /// Legacy constructor for backwards compatibility
+    /// Legacy constructor for backwards compatibility.
+    ///
+    /// This convenience constructor exists only with the `dds` feature; without
+    /// it, build through [`Self::builder`] and pass a factory.
+    #[cfg(feature = "dds")]
     pub fn new(num_deals: usize, dealer: D, contract: Contract) -> Self {
         Self {
             num_deals,
@@ -618,7 +626,7 @@ impl<D: Dealer> Simulation for LeadSimulation<D> {
     /// Runs the lead analysis as a view over [`CardEvaluation`] at the opening
     /// position: one all-legal solve per deal, then the lead-specific view
     /// (`tricks_to_beat`, set percentage, distributions, per-suit) is derived.
-    fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SqueezerError> {
+    fn run(self) -> Result<SimulationOutput<Self::RawResult, Self::Statistics>, SimulationError> {
         let LeadSimulation {
             num_deals,
             dealer,
@@ -1193,6 +1201,7 @@ mod tests {
         assert_eq!(comp.better_card_matchpoints, Some(card1));
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn test_lead_simulation_builder_validation() {
         let dealer = StandardDealer::default();
@@ -1238,7 +1247,7 @@ mod tests {
 
     /// A dealer that always returns DDS's example hand 0.
     fn example_dealer() -> impl Dealer {
-        let deal = crate::solver::test_fixtures::example_deal();
+        let deal = squeezer_solver::test_fixtures::example_deal();
         DealerBuilder::new()
             .predeal(Seat::North, deal[Seat::North])
             .expect("north parses")
@@ -1254,6 +1263,7 @@ mod tests {
 
     /// The lead view over `CardEvaluation` reproduces `LeadSimulation`'s set
     /// percentage, and both agree with the hand-computed fixture.
+    #[cfg(feature = "dds")]
     #[test]
     fn lead_view_reproduces_lead_simulation_set_percentage() {
         // 3S by West needs 9 tricks. A diamond lead holds declarer to 8 (set);
@@ -1310,6 +1320,7 @@ mod tests {
     /// class, so the lead view must list all 13 physical cards of the opening
     /// leader's hand. This is the intended design-ticket-06 behaviour, so it is
     /// pinned here rather than left implicit.
+    #[cfg(feature = "dds")]
     #[test]
     fn lead_view_lists_every_physical_card_not_just_class_representatives() {
         let contract = Contract::new(
