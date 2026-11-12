@@ -31,9 +31,9 @@
 //! LIN is:
 //!
 //! - `[Result]` (tricks won) and [`Board::claim`] (LIN's `mc|`) have no
-//!   counterpart. A play shorter than 52 cards — and an auction that does not
-//!   reach a pass-out — ends with `*` to mark the cut (there is no place to
-//!   record *why* it was cut, e.g. a claim).
+//!   counterpart. A play shorter than 52 cards — and an auction that is still
+//!   cut — ends with `*` to mark the cut (there is no place to record *why* it
+//!   was cut, e.g. a claim).
 //! - A call's `alert` marker and `annotation` (PBN note references, `[Note]`
 //!   text, suffixes and NAGs) are read and discarded by the importer, so they
 //!   do not survive a round trip.
@@ -126,30 +126,6 @@ pub(crate) fn call_token(call: Call) -> String {
         Call::Redouble => "XX".to_string(),
         Call::Bid { level, strain } => format!("{level}{}", strain_token(strain)),
     }
-}
-
-/// True when `auction` reached its natural end: either four opening passes (a
-/// passed-out board) or a bid followed by three closing passes.
-///
-/// The model stores a raw call list with no completion flag, so this is how the
-/// writer decides whether to terminate the section with `*`, PBN's marker for a
-/// cut-off auction (PBN 2.1; see the spec's format contract).
-fn auction_is_complete(auction: &Auction) -> bool {
-    let calls = auction.calls();
-    if calls.len() < 4 {
-        return false;
-    }
-    if calls.iter().all(|recorded| recorded.call == Call::Pass) {
-        // Only four opening passes end an auction that never had a bid; more
-        // passes than that cannot be a completed auction.
-        return calls.len() == 4;
-    }
-    calls
-        .iter()
-        .rev()
-        .take_while(|recorded| recorded.call == Call::Pass)
-        .count()
-        >= 3
 }
 
 /// Writes an `Auction` or `Play` body: tokens whitespace-separated, four per
@@ -284,7 +260,9 @@ impl Board {
             )?;
             // A cut-off auction ends with `*`, mirroring a cut-off play; a
             // completed auction ends on its closing (or opening) passes.
-            if !auction_is_complete(auction) {
+            // `Auction::is_complete` is the single completion rule shared with
+            // validation and the importers.
+            if !auction.is_complete() {
                 writer.write_str("*\n")?;
             }
         }
@@ -596,6 +574,48 @@ mod tests {
         ]
         .concat();
         assert_eq!(board.as_pbn(), expected);
+    }
+
+    #[test]
+    fn a_doubled_auction_completes_without_a_star() {
+        // North 1S, East double, then three passes close the auction. The
+        // double resets the closing pass count, so exactly three are needed.
+        let auction = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            pass(),
+            pass(),
+            pass(),
+        ]);
+        let board = Board::builder(one_suit_per_seat(), Seat::North, Vulnerability::None)
+            .auction(auction)
+            .build()
+            .expect("the auction is complete and legal");
+        assert!(
+            !board.as_pbn().ends_with("*\n"),
+            "a complete auction must not end with a star: {}",
+            board.as_pbn()
+        );
+    }
+
+    #[test]
+    fn two_passes_after_a_double_leave_the_auction_cut() {
+        // 1S X Pass Pass is two closing passes, so the auction is still cut.
+        let auction = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            pass(),
+            pass(),
+        ]);
+        let board = Board::builder(one_suit_per_seat(), Seat::North, Vulnerability::None)
+            .auction(auction)
+            .build()
+            .expect("a cut auction is a valid board");
+        assert!(
+            board.as_pbn().ends_with("*\n"),
+            "a cut auction must end with a star: {}",
+            board.as_pbn()
+        );
     }
 
     #[test]

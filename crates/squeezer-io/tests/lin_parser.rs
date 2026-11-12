@@ -29,6 +29,10 @@ fn only_board(path: &str) -> Board {
     boards.remove(0)
 }
 
+fn parse_lin(lin: &str) -> LinFile {
+    LinFile::from_str(lin).unwrap_or_else(|error| panic!("valid LIN should parse: {error}"))
+}
+
 fn assert_hand(board: &Board, seat: Seat, hand: &str) {
     assert_eq!(
         board.deal()[seat],
@@ -235,6 +239,56 @@ fn parses_a_passed_out_board() {
     assert_eq!(board.auction().expect("auction").len(), 4);
 }
 
+#[test]
+fn a_completed_lin_auction_keeps_its_contract() {
+    // North 1S and three passes: the auction is complete.
+    let lin = format!("{VALID_HEAD}mb|1S|mb|p|mb|p|mb|p|");
+    let board = &parse_lin(&lin).boards[0];
+    let auction = board.auction().expect("the auction was recorded");
+    assert_eq!(auction.len(), 4);
+    assert!(auction.is_complete());
+    assert_eq!(
+        board.contract(),
+        Some(Contract::new(
+            1,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        ))
+    );
+}
+
+#[test]
+fn a_doubled_lin_auction_completes_after_three_passes() {
+    // North 1S, East doubles, then three passes: the double resets the
+    // closing pass count, so this is a complete auction.
+    let lin = format!("{VALID_HEAD}mb|1S|mb|d|mb|p|mb|p|mb|p|");
+    let board = &parse_lin(&lin).boards[0];
+    assert_eq!(board.auction().expect("auction").len(), 5);
+    assert_eq!(
+        board.contract(),
+        Some(Contract::new(
+            1,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::Doubled,
+        ))
+    );
+}
+
+#[test]
+fn a_cut_lin_auction_is_recorded_as_incomplete() {
+    // 1S, pass, 2S and then the record stops: a cut auction, not a completed
+    // one, but still a valid board.
+    let lin = format!("{VALID_HEAD}mb|1S|mb|p|mb|2S|");
+    let board = &parse_lin(&lin).boards[0];
+    let auction = board.auction().expect("the auction was recorded");
+    assert_eq!(auction.len(), 3);
+    assert!(!auction.is_complete());
+}
+
 // ============================================================================
 // Malformed input fails at import
 // ============================================================================
@@ -302,6 +356,35 @@ fn illegal_auction_is_an_error() {
     let lin = format!("{VALID_HEAD}mb|d|mb|p|mb|p|mb|p|");
     let error = import_error(&lin);
     assert_eq!(error.kind(), &ParseLinErrorKind::Board);
+}
+
+#[test]
+fn a_bid_after_four_opening_passes_is_an_error() {
+    // The auction passed out after four passes; the following 1S cannot turn
+    // the board into a 1S contract.
+    let lin = format!("{VALID_HEAD}mb|p|mb|p|mb|p|mb|p|mb|1S|");
+    let error = import_error(&lin);
+    assert_eq!(error.kind(), &ParseLinErrorKind::Board);
+    assert!(
+        error
+            .detail()
+            .is_some_and(|detail| detail.contains("after the auction")),
+        "the error should say the auction ended: {error}"
+    );
+}
+
+#[test]
+fn a_call_after_the_third_closing_pass_is_an_error() {
+    // 1S and three passes close the auction; the later 2S is illegal.
+    let lin = format!("{VALID_HEAD}mb|1S|mb|p|mb|p|mb|p|mb|2S|");
+    let error = import_error(&lin);
+    assert_eq!(error.kind(), &ParseLinErrorKind::Board);
+    assert!(
+        error
+            .detail()
+            .is_some_and(|detail| detail.contains("after the auction")),
+        "the error should say the auction ended: {error}"
+    );
 }
 
 #[test]

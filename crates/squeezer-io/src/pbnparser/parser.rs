@@ -834,6 +834,10 @@ fn parse_call_token(token: &str) -> Result<Call, PbnError> {
 /// and discarded. `*` ends the section and any body token after it is ignored.
 /// An irregularity marker (`^I`, `^S`, `^R`, `^L`) is rejected: it changes who
 /// made which call, and the layout below assumes the plain rotation.
+///
+/// `AP` always means four passes, so a call before it makes the last pass
+/// follow the auction's end; validation reports that rather than reinterpreting
+/// `AP` as "and the rest are passes".
 fn parse_auction(game: &PbnGame, dealer: Seat) -> Result<Option<Auction>, PbnError> {
     let Some(body) = &game.auction else {
         return Ok(None);
@@ -1032,7 +1036,10 @@ fn build_board(game: &PbnGame) -> Result<Board, PbnError> {
 
     // `Pass` stores no contract, so `Board::new` sees `None` and cannot
     // cross-check it. A passed-out tag against an auction that produced a
-    // contract is therefore rejected here instead.
+    // contract is therefore rejected here instead. An auction that continued
+    // after its ending call derives no contract (`Auction::contract` refuses
+    // it), so the clear `CallAfterEnd` error from `Board::new` below is the one
+    // reported rather than this cross-check.
     if contract_tag.is_some() && stored_contract.is_none() && derived_contract.is_some() {
         return Err(PbnError::new(ParsePbnErrorKind::Board));
     }

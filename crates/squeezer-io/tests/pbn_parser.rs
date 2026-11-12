@@ -24,6 +24,10 @@ fn parse_fixture(path: &str) -> PbnFile {
     PbnFile::from_str(&data).unwrap_or_else(|error| panic!("{path} should parse: {error}"))
 }
 
+fn parse(input: &str) -> PbnFile {
+    PbnFile::from_str(input).unwrap_or_else(|error| panic!("valid PBN should parse: {error}"))
+}
+
 fn only_board(path: &str) -> Board {
     let mut boards = parse_fixture(path).boards;
     assert_eq!(boards.len(), 1, "{path} holds one board");
@@ -228,6 +232,61 @@ fn truncated_auction_fixture_stops_at_the_star() {
     assert_eq!(contract.strain(), Strain::Spades);
     assert_eq!(contract.declarer(), Seat::North);
     assert_eq!(contract.vulnerable(), Vulnerable::No);
+}
+
+#[test]
+fn a_completed_pbn_auction_needs_no_star_and_keeps_its_contract() {
+    let pbn = format!("{}[Auction \"N\"]\n1S Pass Pass Pass\n", identification());
+    let board = &parse(&pbn).boards[0];
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 4);
+    assert!(auction.is_complete());
+    assert_eq!(
+        board.contract(),
+        Some(Contract::new(
+            1,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        ))
+    );
+}
+
+#[test]
+fn four_opening_passes_without_a_star_are_a_pass_out() {
+    let pbn = format!("{}[Auction \"N\"]\nPass Pass Pass Pass\n", identification());
+    let board = &parse(&pbn).boards[0];
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 4);
+    assert!(auction.is_complete());
+    assert_eq!(board.contract(), None);
+}
+
+#[test]
+fn a_doubled_pbn_auction_completes_after_three_passes() {
+    let pbn = format!("{}[Auction \"N\"]\n1S X Pass Pass Pass\n", identification());
+    let board = &parse(&pbn).boards[0];
+    assert_eq!(board.auction().expect("auction").len(), 5);
+    assert_eq!(
+        board.contract(),
+        Some(Contract::new(
+            1,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::Doubled,
+        ))
+    );
+}
+
+#[test]
+fn a_cut_pbn_auction_without_a_star_is_recorded_as_incomplete() {
+    let pbn = format!("{}[Auction \"N\"]\n1S Pass 2S\n", identification());
+    let board = &parse(&pbn).boards[0];
+    let auction = board.auction().expect("the auction section was parsed");
+    assert_eq!(auction.len(), 3);
+    assert!(!auction.is_complete());
 }
 
 #[test]
@@ -500,6 +559,76 @@ fn board_errors_keep_the_exact_cause() {
     assert_eq!(
         error.detail(),
         Some("E played A♠, which is not in their hand")
+    );
+}
+
+#[test]
+fn a_bid_after_four_opening_passes_is_an_error() {
+    // The auction passed out after four passes; the following 1S cannot turn
+    // the board into a 1S contract.
+    let pbn = format!(
+        "{}[Auction \"N\"]\nPass Pass Pass Pass 1S\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("the auction had already ended");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Board);
+    assert!(
+        error
+            .detail()
+            .is_some_and(|detail| detail.contains("after the auction")),
+        "the error should say the auction ended: {error}"
+    );
+}
+
+#[test]
+fn a_pass_contract_cannot_rescue_an_auction_that_ended_early() {
+    // The `[Contract "Pass"]` tag would make this board a pass-out, but the
+    // auction itself is illegal: the 1S follows the fourth pass. The importer
+    // must reject it rather than let the tag silence the auction error.
+    let pbn = format!(
+        "{}[Contract \"Pass\"]\n[Auction \"N\"]\nPass Pass Pass Pass 1S\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("the auction had already ended");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Board);
+    assert!(
+        error
+            .detail()
+            .is_some_and(|detail| detail.contains("after the auction")),
+        "the error should say the auction ended: {error}"
+    );
+}
+
+#[test]
+fn all_pass_after_a_bid_is_rejected() {
+    // `AP` is four passes, not "three more passes", so `1S AP` puts the fourth
+    // pass after the auction's end. Rejecting it is clearer than silently
+    // treating `AP` as a closing shorthand.
+    let pbn = format!("{}[Auction \"N\"]\n1S AP\n", identification());
+    let error = parse_pbn_file(&pbn).expect_err("the fourth pass follows the auction end");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Board);
+    assert!(
+        error
+            .detail()
+            .is_some_and(|detail| detail.contains("after the auction")),
+        "the error should say the auction ended: {error}"
+    );
+}
+
+#[test]
+fn a_call_after_the_third_closing_pass_is_an_error() {
+    // 1S and three passes close the auction; the later 2S is illegal.
+    let pbn = format!(
+        "{}[Auction \"N\"]\n1S Pass Pass Pass 2S\n",
+        identification()
+    );
+    let error = parse_pbn_file(&pbn).expect_err("the auction had already ended");
+    assert_eq!(error.kind(), &ParsePbnErrorKind::Board);
+    assert!(
+        error
+            .detail()
+            .is_some_and(|detail| detail.contains("after the auction")),
+        "the error should say the auction ended: {error}"
     );
 }
 
