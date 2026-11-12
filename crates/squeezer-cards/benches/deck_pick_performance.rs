@@ -1,5 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use squeezer::{Cards, FastSampler, UniformSampler};
+use squeezer_cards::{Cards, FastSampler, UniformSampler};
 
 fn bench_speed(c: &mut Criterion) {
     let mut group = c.benchmark_group("sampler_speed");

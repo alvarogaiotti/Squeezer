@@ -7,7 +7,8 @@
 //! 26-32 Zar points. The Zar evaluator and the convention itself live outside
 //! the library on purpose: neither is a reusable bridge primitive.
 
-use squeezer::prelude::*;
+use squeezer_cards::Cards;
+use squeezer_model::*;
 
 /// Zar's 6-4-2-1 honour valuation.
 const ZAR_EVALUATOR: Evaluator = Evaluator::new(&[6, 4, 2, 1]);

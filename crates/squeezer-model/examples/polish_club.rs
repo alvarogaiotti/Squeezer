@@ -9,7 +9,8 @@
 //! This lives outside the library on purpose: it is one bidding convention,
 //! not a reusable bridge primitive.
 
-use squeezer::prelude::*;
+use squeezer_cards::Suit;
+use squeezer_model::*;
 
 /// Builds the Polish Club 1♣ opening constraint.
 ///

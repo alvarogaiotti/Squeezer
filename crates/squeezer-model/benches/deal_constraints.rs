@@ -1,7 +1,9 @@
 use criterion::measurement::Measurement;
 use criterion::{BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main};
-use squeezer::prelude::*;
+use squeezer_cards::{Cards, Suit};
+use squeezer_model::*;
 use std::hint::black_box;
+use std::str::FromStr;
 
 fn balanced_shape() -> HandConstraint {
     HandConstraint::new(&["(4432)", "(4333)", "(5332)"], HcpRange::new(0, 37))

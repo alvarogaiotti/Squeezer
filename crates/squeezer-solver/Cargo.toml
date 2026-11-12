@@ -8,12 +8,12 @@ edition = "2024"
 # `squeezer-bbo`'s default client: `cargo test -p squeezer-solver` exercises the
 # real backend, and a consumer that injects its own backend (or a mock in tests)
 # opts out with `default-features = false`. The seam and the pool never name
-# DDS themselves, and the root crate depends on this crate with default
-# features off so its own `dds` feature stays authoritative.
+# DDS themselves, and `squeezer-sim` depends on this crate with default features
+# off so its own `dds` feature stays authoritative.
 default = ["dds"]
 dds = ["dep:dds"]
-# Publishes the example-hand fixtures the root crate's tests share. This is not
-# general API: the module is off by default and the root enables it as a
+# Publishes the example-hand fixtures `squeezer-sim`'s tests share. This is not
+# general API: the module is off by default and the sim crate enables it as a
 # dev-dependency, so a normal build never sees it.
 test-support = []
 

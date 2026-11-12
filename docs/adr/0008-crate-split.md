@@ -36,9 +36,9 @@ dependency. Cards sits below the solver in the graph, so this keeps the order.
 `squeezer-io` also names `squeezer-cards` directly: the importers build `Cards`
 and `Card` values from file input, and the model re-exports none of the card
 vocabulary. That is a lower layer, so it adds no cycle. During the migration the
-root package keeps re-export shims for the historical paths (`squeezer::linparser`,
-`squeezer::pbnparser`, the prelude), so it depends on the extracted crates it
-re-exports until the last ticket dissolves it.
+root package kept re-export shims for the historical paths
+(`squeezer::linparser`, `squeezer::pbnparser`, the prelude), so it depended on
+the extracted crates it re-exported until the final ticket dissolved it.
 
 `squeezer-sim` likewise names `squeezer-cards` directly: card-EV and lead
 results carry `Card` and `Cards`, and the model re-exports none of that
@@ -94,9 +94,10 @@ its guarantee.
 - This is a structural change with a real migration cost: files, tests, benches
   and fixtures move one crate at a time, and the workspace must compile and pass
   after every ticket. During the extraction, a bare `cargo test` at the root no
-  longer tests the whole workspace — the extracted crates' tests appear only
-  under `--workspace` or `-p <crate>` — so those flags become the norm, and CI
-  gains a feature-matrix check per crate.
+  longer tested the whole workspace — the extracted crates' tests appeared only
+  under `--workspace` or `-p <crate>` — so those flags became the norm, and CI
+  gained a feature-matrix check per crate. Once the final ticket dissolved the
+  root package, bare `cargo test` again covers every member.
 - No DDS impl survives on a public card or model type: `AsDDSCard for Card` is
   deleted, and the rest are replaced by solver-local adapters, used where the
   backend needs them. Nothing outside this repository implements or consumes

@@ -58,10 +58,8 @@
 //! This crate owns every use of the native library besides the `dds` FFI
 //! package's own, behind the `dds` feature. The card and model crates never see
 //! a DDS type: the adapters in the `adapters` module translate their records
-//! through local newtypes and free functions. While the root package still
-//! exists it also names `dds` to keep its historical `squeezer::dds` path, but
-//! it forwards all solver work here; the split's target is that only this crate
-//! and the FFI package name DDS.
+//! through local newtypes and free functions. Only this crate and the FFI
+//! package name DDS.
 
 #[cfg(feature = "dds")]
 mod adapters;
@@ -80,8 +78,8 @@ pub use pool::{DynSolverPool, SolverPool};
 use crate::prelude::*;
 use std::fmt;
 
-/// The card and model vocabulary the solver modules share, mirroring the root
-/// crate's historical prelude so the moved code reads the same.
+/// The card and model vocabulary the solver modules share, mirroring the
+/// historical prelude so the moved code reads the same.
 ///
 /// This is crate-internal: consumers import from [`squeezer_cards`] and
 /// [`squeezer_model`] directly.
@@ -163,8 +161,7 @@ impl SolveResults {
 /// Why a solve or a context operation failed.
 ///
 /// Deliberately free of backend types so the seam carries no `dds` feature.
-/// The root crate wraps it in its own error enum at the boundary where a
-/// caller needs one error type.
+/// Callers map it into the error type their own layer exposes.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SolverError {
@@ -342,7 +339,7 @@ pub trait PlayAnalyser {
 /// Shared test fixtures: DDS's `examples/hands.cpp` hand 0, used by both the
 /// backend-agnostic mock tests and the DDS seam tests.
 ///
-/// Gated so a normal build never publishes test data; the root crate enables
+/// Gated so a normal build never publishes test data; `squeezer-sim` enables
 /// the `test-support` feature from its dev-dependencies.
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_fixtures;

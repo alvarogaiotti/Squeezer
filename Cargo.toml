@@ -1,13 +1,8 @@
-[package]
-name = "squeezer"
-version = "0.1.0"
-edition = "2024"
-
 [workspace]
-# The root package is implicitly a workspace member. The `dds` build script
-# resolves the vendored sources as `../vendor/dds`, which is why that member and
-# `squeezer_macros` keep their current locations; extracted crates live under
-# `crates/`.
+# There is no root package and no umbrella crate: each vocabulary has exactly
+# one home under `crates/`. The `dds` build script resolves the vendored sources
+# as `../vendor/dds`, so that member and `squeezer_macros` keep their current
+# locations.
 members = [
     "crates/squeezer-bbo",
     "crates/squeezer-cards",
@@ -19,54 +14,3 @@ members = [
     "squeezer_macros",
 ]
 resolver = "3"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[dependencies]
-log = { version = "*" }
-serde = { version = "1.0", features = ["derive"], optional = true }
-dds = { path = "dds", optional = true }
-# The solver seam and its DDS backend live in `squeezer-solver`; this crate
-# re-exports them and forwards its `dds` feature.
-squeezer-cards = { path = "crates/squeezer-cards" }
-# The LIN/PBN importers and container writers live in `squeezer-io`; the root's
-# `lin`/`pbn` features forward to it, so a build that disables both never
-# compiles `nom`.
-squeezer-io = { path = "crates/squeezer-io", default-features = false }
-squeezer-model = { path = "crates/squeezer-model" }
-# Simulation and performance analysis live in `squeezer-sim`; the root
-# re-exports the historical module paths and forwards `dds`, `formatters` and
-# `serde`.
-squeezer-sim = { path = "crates/squeezer-sim", default-features = false }
-squeezer-solver = { path = "crates/squeezer-solver", default-features = false }
-thiserror = "2"
-
-[features]
-default = ["lin", "pbn", "dds"]
-lin = ["squeezer-io/lin"]
-pbn = ["squeezer-io/pbn"]
-dds = ["dep:dds", "squeezer-solver/dds", "squeezer-sim/dds"]
-# The terminal renderers live in `squeezer-sim` behind its own `formatters`
-# feature; they do not require the solver.
-formatters = ["squeezer-sim/formatters"]
-serde = [
-    "dep:serde",
-    "dds?/serde",
-    "squeezer-cards/serde",
-    "squeezer-io/serde",
-    "squeezer-model/serde",
-    "squeezer-sim/serde",
-]
-
-[dev-dependencies]
-criterion = { version = "*", features = ["html_reports"] }
-# The library no longer draws random cards directly; the dealer lives in
-# `squeezer-model`. The tests and benchmarks that sample still need it.
-rand = "*"
-
-[[bench]]
-name = "deck_pick_performance"
-harness = false
-
-[[bench]]
-name = "deal_constraints"
-harness = false

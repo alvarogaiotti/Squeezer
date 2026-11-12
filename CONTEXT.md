@@ -1,25 +1,36 @@
 # Squeezer
 
-A library for bridge deal generation, double-dummy solving, simulation, and
+A workspace for bridge deal generation, double-dummy solving, simulation, and
 performance analysis. This glossary fixes the vocabulary the code and docs
 use; it is not a spec.
+
+## Crates
+
+There is no umbrella crate. Each library crate owns one vocabulary and depends
+only on the crates beneath it; the split is recorded in
+[ADR-0008](docs/adr/0008-crate-split.md).
+
+| Crate | Vocabulary |
+| --- | --- |
+| `squeezer-cards` | `Suit`, `Card`, `Cards`, the samplers |
+| `squeezer-model` | shapes and constraints, the contract vocabulary, `Deal`, the dealer, and the recorded-board types |
+| `squeezer-solver` | the solver seam, its context pool, and the DDS backend behind a feature |
+| `squeezer-io` | LIN and PBN import and the file-container writers |
+| `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` |
+| `squeezer-sim` | simulation and performance analysis |
 
 ## Language
 
 ### Deals and records
 
 **Deal**:
-The four 13-card hands, with no contract and no play.
+The four seats' thirteen-card holdings, with no contract and no play.
 _Avoid_: board (that is a recorded Deal).
 
 **Board**:
 A Deal together with its dealer, vulnerability, auction, contract, and play —
 the unit a LIN or PBN file describes.
 _Avoid_: hand (that is one player's cards), record (alone).
-
-**Hand**:
-One seat's cards.
-_Avoid_: using "hand" for a Deal or a Board.
 
 **Seat**:
 One of the four positions: North, East, South, West.

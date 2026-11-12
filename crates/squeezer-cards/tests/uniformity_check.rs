@@ -1,6 +1,9 @@
-use squeezer::{Cards, FastSampler, UniformSampler};
+use squeezer_cards::{Cards, FastSampler, UniformSampler};
 use std::collections::HashMap;
 
+// Deliberately not a `#[test]`: it draws 200 million hands and would dominate
+// every test run. Keep it compiled so it does not rot, and run it by hand after
+// removing the comment below if the samplers change.
 #[allow(dead_code)]
 //#[test]
 fn uniformity_test() {
