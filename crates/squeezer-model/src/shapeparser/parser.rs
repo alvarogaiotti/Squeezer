@@ -3,9 +3,7 @@
 
 use std::cmp::Ordering;
 
-use super::{
-    Length, Pattern, ShapeCreator, Token, fmt, interpreter::CreationShapeError, scanner::Scanner,
-};
+use super::{Length, Pattern, Token, fmt, interpreter::CreationShapeError, scanner::Scanner};
 
 /// Parser for parsing shape describing strings.
 /// Uses the following DSL:
@@ -27,19 +25,6 @@ use super::{
 pub(super) struct Parser {
     tokens: Vec<Token>,
     current: usize,
-}
-
-/// Function to validate a string shape pattern.
-///
-/// # Errors
-/// Returns an error when the pattern is not a possible shape pattern.
-pub fn validate_shape(shape: &str) -> Result<(), CreationShapeError> {
-    let scanner = Scanner::from(shape);
-    let tokens = scanner.scan_tokens()?;
-    let mut parser = Parser::from(tokens);
-    let patterns = parser.parse()?;
-    let _checked: ShapeCreator = ShapeCreator::try_from(patterns)?;
-    Ok(())
 }
 
 impl Parser {

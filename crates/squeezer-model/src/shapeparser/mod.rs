@@ -7,7 +7,6 @@ mod interpreter;
 mod parser;
 mod scanner;
 pub use interpreter::*;
-pub use parser::validate_shape;
 use parser::{Modifier, ParsingShapeError};
 
 /// A pattern is a shape pattern, which is formed by 4 Lenght tokens.

@@ -18,9 +18,9 @@
     clippy::needless_doctest_main
 )]
 
-//! The bridge model vocabulary: the whole domain model, from the card
-//! evaluator and ready-made hand predicates up through hand shapes, constraints
-//! and deals, to dealers, recorded boards, auctions, plays and positions.
+//! The bridge model vocabulary: the whole domain model, from ready-made hand
+//! predicates up through hand shapes, constraints and deals, to dealers,
+//! recorded boards, auctions, plays and positions.
 //!
 //! This crate sits directly above [`squeezer_cards`]: it depends on the card
 //! vocabulary, `rand`, `bitvec` and `itertools`, and deliberately names no
@@ -38,7 +38,6 @@
 
 pub mod contract;
 pub mod dealer;
-pub mod evaluator;
 pub mod hand_constraint;
 mod range;
 pub mod record;
@@ -48,7 +47,6 @@ pub mod utils;
 
 pub use contract::*;
 pub use dealer::*;
-pub use evaluator::*;
 pub use hand_constraint::*;
 pub use record::*;
 pub use shape::*;

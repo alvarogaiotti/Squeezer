@@ -692,16 +692,8 @@ mod tests {
                 .expect("the script holds one deal per requested deal"))
         }
 
-        fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS] {
-            [None; NUMBER_OF_HANDS]
-        }
-
         fn known(&self) -> [Cards; NUMBER_OF_HANDS] {
             [Cards::EMPTY; NUMBER_OF_HANDS]
-        }
-
-        fn current_hand(&self, _seat: Seat) -> Cards {
-            Cards::EMPTY
         }
     }
 
