@@ -20,7 +20,7 @@
 //! ## Key Features
 //!
 //! - **Predealing**: Assign specific cards to specific seats
-//! - **Hand constraints**: Specify shape, HCP, etc. per seat
+//! - **Hand constraints**: Specify a shape and HCP window per seat
 //! - **Custom acceptance**: Add arbitrary cross-hand validation logic
 //! - **Bounded effort**: A rejection budget turns an impossible spec into a
 //!   typed error instead of an endless loop
@@ -276,7 +276,8 @@ pub struct DealerBuilder {
     /// Available cards for random dealing (cards not predealed)
     deck: Cards,
 
-    /// Per-seat constraints (shape, HCP, controls, etc.)
+    /// Per-seat constraints (shape and HCP windows; controls and other
+    /// custom valuations belong in the cross-hand acceptance function).
     hand_constraints: [Option<HandConstraint>; NUMBER_OF_HANDS],
 
     /// Cards to predeal to specific seats (can be partial hands)
@@ -288,11 +289,6 @@ pub struct DealerBuilder {
     /// with the predealt cards, per seat.
     conditioned_by: [Cards; NUMBER_OF_HANDS],
 
-    /// The subset of `conditioned_by` that the seat has already played. Kept
-    /// separately from `conditioned_by` so a candidate check can tell a card
-    /// still in hand from one that is already gone.
-    played_by: [Cards; NUMBER_OF_HANDS],
-
     /// Bounded rejection-sampling budget.
     attempt_budget: u32,
 }
@@ -303,7 +299,6 @@ impl std::fmt::Debug for DealerBuilder {
             .field("hand_constraints", &self.hand_constraints)
             .field("predealt_hands", &self.predealt_hands)
             .field("conditioned_by", &self.conditioned_by)
-            .field("played_by", &self.played_by)
             .field("attempt_budget", &self.attempt_budget)
             .finish_non_exhaustive()
     }
@@ -327,7 +322,6 @@ impl DealerBuilder {
             hand_constraints: [None, None, None, None],
             predealt_hands: [None; 4],
             conditioned_by: [Cards::EMPTY; 4],
-            played_by: [Cards::EMPTY; 4],
             deck: Cards::ALL,
             attempt_budget: DEFAULT_ATTEMPT_BUDGET,
         }
@@ -499,9 +493,6 @@ impl DealerBuilder {
         for play in record.plays() {
             let seat = play.seat as usize;
             self.conditioned_by[seat] = self.conditioned_by[seat].insert(play.card);
-            // Record the played subset too: a played card is fixed to the
-            // seat's reconstructed original hand, but is no longer playable.
-            self.played_by[seat] = self.played_by[seat].insert(play.card);
         }
         self
     }
@@ -510,9 +501,7 @@ impl DealerBuilder {
     ///
     /// The escape hatch for information that is not a `PlayRecord` (for
     /// example, cards revealed by a claim or an opponent's explanation). The
-    /// cards join the predealt and played cards in the seat's known set and,
-    /// unlike played cards, are treated as still in hand by
-    /// [`Dealer::current_hand`].
+    /// cards join the predealt and played cards in the seat's known set.
     ///
     /// # Example
     ///
@@ -703,7 +692,6 @@ impl DealerBuilder {
         Ok(StandardDealer {
             predeal: self.predealt_hands,
             known,
-            played: self.played_by,
             deck_starting_state: deck,
             accept_function: self.accept,
             fill_order,
@@ -865,26 +853,14 @@ pub trait Dealer {
     /// require more candidate deals to be generated and rejected.
     fn deal(&self) -> Result<Deal, DealerError>;
 
-    /// Returns the predealed cards for each seat.
-    ///
-    /// Used internally and for inspection/debugging. This is the raw
-    /// predeal only; see [`Dealer::known`] for the full conditioning seed.
-    fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS];
-
     /// Returns the known cards for each seat.
     ///
     /// The conditioning seed: predealt ∪ played ∪ directly-known, deduplicated
     /// per seat. These are the cards the sampler fixes before filling each
-    /// hand to 13.
+    /// hand to 13. This is the dealer's only conditioning inspection surface:
+    /// the raw predeal is not exposed, because no consumer needs to tell a
+    /// predealt card from one seeded by a play record or [`DealerBuilder::with_known`].
     fn known(&self) -> [Cards; NUMBER_OF_HANDS];
-
-    /// Returns the cards `seat` can still play.
-    ///
-    /// This is [`Dealer::known`] minus the cards `seat` has already played:
-    /// conditioning fixes a played card to the seat's reconstructed original
-    /// hand, but that card is no longer available. Card-EV candidate validation
-    /// uses this so a played card cannot pass as a candidate.
-    fn current_hand(&self, seat: Seat) -> Cards;
 }
 
 /// Standard implementation of the `Dealer` trait.
@@ -932,8 +908,6 @@ pub struct StandardDealer {
     predeal: [Option<Cards>; NUMBER_OF_HANDS],
     /// Cards fixed to each seat: `predeal ∪ played ∪ directly-known`.
     known: [Cards; NUMBER_OF_HANDS],
-    /// Cards each seat has already played; a subset of `known`.
-    played: [Cards; NUMBER_OF_HANDS],
     /// Available cards for random dealing
     deck_starting_state: Cards,
     /// The order in which seats are filled and checked for each candidate.
@@ -955,7 +929,6 @@ impl std::fmt::Debug for StandardDealer {
         f.debug_struct("StandardDealer")
             .field("predeal", &self.predeal)
             .field("known", &self.known)
-            .field("played", &self.played)
             .field("fill_order", &self.fill_order)
             .field("hand_constraints", &self.hand_constraints)
             .field("attempt_budget", &self.attempt_budget)
@@ -972,7 +945,6 @@ impl StandardDealer {
         Self {
             predeal: [None; 4],
             known: [Cards::EMPTY; 4],
-            played: [Cards::EMPTY; 4],
             deck_starting_state: Cards::ALL,
             // With no constraints every seat is in the same tier, so the
             // canonical positional order is also the constrained-first order.
@@ -992,18 +964,8 @@ impl Default for StandardDealer {
 
 impl Dealer for StandardDealer {
     #[inline]
-    fn predealt(&self) -> [Option<Cards>; NUMBER_OF_HANDS] {
-        self.predeal
-    }
-
-    #[inline]
     fn known(&self) -> [Cards; NUMBER_OF_HANDS] {
         self.known
-    }
-
-    #[inline]
-    fn current_hand(&self, seat: Seat) -> Cards {
-        self.known[seat as usize].difference(self.played[seat as usize])
     }
 
     /// Generates a deal using rejection sampling.
@@ -1172,11 +1134,6 @@ mod tests {
 
         assert_eq!(dealer.known()[Seat::North as usize], predeal);
         assert_eq!(dealer.known()[Seat::East as usize], Cards::from(Card::H2));
-
-        // A played card stays in the known (original-hand) seed but drops out
-        // of the current hand.
-        assert_eq!(dealer.current_hand(Seat::North), Cards::from(Card::SK));
-        assert_eq!(dealer.current_hand(Seat::East), Cards::EMPTY);
 
         let deal = dealer.deal().expect("dealer deals");
         assert!(deal.north().contains(predeal));

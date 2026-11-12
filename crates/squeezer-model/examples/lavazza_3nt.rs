@@ -4,14 +4,16 @@
 //! # Lavazza 3NT opening
 //!
 //! Deals one hand that satisfies the Lavazza 3NT opening: a long minor and
-//! 26-32 Zar points. The Zar evaluator and the convention itself live outside
+//! 26-32 Zar points. The Zar valuation and the convention itself live outside
 //! the library on purpose: neither is a reusable bridge primitive.
 
 use squeezer_cards::Cards;
 use squeezer_model::*;
 
-/// Zar's 6-4-2-1 honour valuation.
-const ZAR_EVALUATOR: Evaluator = Evaluator::new(&[6, 4, 2, 1]);
+/// Zar's honour valuation: 6-4-2-1 for ace, king, queen, jack.
+const fn zar_honour_points(hand: Cards) -> u8 {
+    6 * hand.aces().len() + 4 * hand.kings().len() + 2 * hand.queens().len() + hand.jacks().len()
+}
 
 /// Removes points for honours that are wasted in short suits.
 fn devaluate_short_honors(hand: Cards) -> u8 {
@@ -68,8 +70,7 @@ fn evaluate_length_and_concentration(hand: Cards) -> u8 {
 /// Zar points: honour values plus length/concentration, net of short honours.
 #[must_use]
 fn zar_points(hand: Cards) -> u8 {
-    ZAR_EVALUATOR.evaluate(hand) + evaluate_length_and_concentration(hand)
-        - devaluate_short_honors(hand)
+    zar_honour_points(hand) + evaluate_length_and_concentration(hand) - devaluate_short_honors(hand)
 }
 
 /// The Lavazza 3NT shape family: a long minor (seven, eight or nine cards).

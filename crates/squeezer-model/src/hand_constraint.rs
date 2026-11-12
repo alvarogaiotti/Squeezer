@@ -24,8 +24,10 @@
 //! - **Strings stay behind the seam.** Callers pass pattern strings once at
 //!   construction; the scanner/parser/interpreter pipeline (`shapeparser`)
 //!   is an internal implementation detail. There is a single
-//!   parse-once/check-many path, so the old double pipeline (a dead
-//!   `validate_shape` beside `ShapeCreator::build_shape`) cannot recur.
+//!   parse-once/check-many path, so a second, hand-rolled validation pipeline
+//!   cannot recur. Callers holding a [`Shapes`] set or per-suit [`LenRange`]s
+//!   can skip pattern strings entirely with [`HandConstraint::from_shapes`]
+//!   and [`HandConstraint::from_len_ranges`].
 //! - **No `All` variant on the hot path.** "All shapes allowed" is stored as
 //!   a full bit table (`Shapes::all()`), so `check` never dispatches on an
 //!   enum variant with surprising semantics (`add` as silent no-op).
@@ -42,7 +44,7 @@ use squeezer_cards::{Cards, Suit};
 
 use crate::MAX_HCP_IN_HAND;
 use crate::range::Bounded;
-use crate::shape::Shapes;
+use crate::shape::{LenRange, Shapes};
 use crate::shapeparser::CreationShapeError;
 
 /// Represents an *inclusive* range of High Card Points.
@@ -340,6 +342,76 @@ impl HandConstraint {
                     pattern: pattern.to_owned(),
                     cause,
                 })?;
+        }
+        Ok(Self::from_compiled(shapes, hcp))
+    }
+
+    /// Builds a constraint from per-suit length ranges and an HCP range.
+    ///
+    /// The typed alternative to spelling a shape family as pattern strings:
+    /// each [`LenRange`] is one suit in S, H, D, C order, and the constraint
+    /// accepts every 13-card shape that fits all four windows. Ranges that
+    /// admit no complete hand are rejected instead of becoming a constraint
+    /// that can never match.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::EmptyConstraint`] when no 13-card shape fits
+    /// the ranges.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer_cards::Cards;
+    /// # use squeezer_model::*;
+    /// # use std::str::FromStr;
+    /// // Six spades, three or four hearts, at most three in each minor.
+    /// let constraint = HandConstraint::from_len_ranges(
+    ///     [
+    ///         LenRange::new(6, 6),
+    ///         LenRange::new(3, 4),
+    ///         LenRange::new(0, 3),
+    ///         LenRange::new(0, 3),
+    ///     ],
+    ///     HcpRange::new(5, 10),
+    /// )?;
+    /// assert!(constraint.check(Cards::from_str("SKQJT98H5432D32C2")?));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_len_ranges(ranges: [LenRange; 4], hcp: HcpRange) -> Result<Self, ConstraintError> {
+        Self::from_shapes(Shapes::from(&ranges), hcp)
+    }
+
+    /// Builds a constraint from a precompiled [`Shapes`] set and an HCP range.
+    ///
+    /// This is the seam for callers that already hold a shape set (for example
+    /// one built from [`Shapes::from`] or [`Shapes::add_balanced`]) and do not
+    /// want to round-trip it through pattern strings.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintError::EmptyConstraint`] when `shapes` accepts no
+    /// shape.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer_cards::Cards;
+    /// # use squeezer_model::*;
+    /// # use std::str::FromStr;
+    /// let mut shapes = Shapes::new();
+    /// shapes.add_balanced();
+    /// let balanced = HandConstraint::from_shapes(shapes, HcpRange::new(12, 14))?;
+    /// assert!(balanced.check(Cards::from_str("AK52.K532.A2.432")?));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_shapes(shapes: Shapes, hcp: HcpRange) -> Result<Self, ConstraintError> {
+        if shapes.is_empty() {
+            return Err(ConstraintError::EmptyConstraint);
         }
         Ok(Self::from_compiled(shapes, hcp))
     }
@@ -780,6 +852,55 @@ mod test {
         let constraint = HandConstraint::hcp(12..=14);
         assert!(constraint.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
         assert!(!HandConstraint::hcp(12..14).check(Cards::from_str("AK52.K532.A2.432").unwrap()));
+    }
+
+    #[test]
+    fn from_len_ranges_builds_a_six_four_family() {
+        // Spades exactly six, hearts three or four, both minors at most
+        // three: the 6-3 and 6-4 shapes.
+        let ranges = [
+            LenRange::new(6, 6),
+            LenRange::new(3, 4),
+            LenRange::new(0, 3),
+            LenRange::new(0, 3),
+        ];
+        let constraint = HandConstraint::from_len_ranges(ranges, HcpRange::new(5, 10))
+            .expect("the ranges admit those shapes");
+
+        assert!(constraint.check(Cards::from_str("SKQJT98H5432D32C2").expect("hand parses"))); // 6-4-2-1
+        assert!(constraint.check(Cards::from_str("SKQJT98H543D32C32").expect("hand parses"))); // 6-3-2-2
+        // Five spades: the shape family rules it out.
+        assert!(!constraint.check(Cards::from_str("SKQJT9H5432D32C32").expect("hand parses")));
+        // The same 6-4-2-1 shape, but 13 HCP is outside the window.
+        assert!(!constraint.check(Cards::from_str("SAKQJT9HK432D32C2").expect("hand parses")));
+    }
+
+    #[test]
+    fn from_len_ranges_rejects_a_family_no_hand_can_satisfy() {
+        let err = HandConstraint::from_len_ranges([LenRange::new(13, 13); 4], HcpRange::default())
+            .unwrap_err();
+        assert!(matches!(err, ConstraintError::EmptyConstraint));
+    }
+
+    #[test]
+    fn from_shapes_uses_a_precompiled_set() {
+        let mut shapes = Shapes::new();
+        shapes.add_balanced();
+        let balanced = HandConstraint::from_shapes(shapes, HcpRange::new(12, 14))
+            .expect("balanced shapes exist");
+
+        // 4-4-3-2 with 14 HCP.
+        assert!(balanced.check(Cards::from_str("AK52.K532.A2.432").expect("hand parses")));
+        // Same shape, 26 HCP: the HCP window still applies.
+        assert!(!balanced.check(Cards::from_str("AKQJ.AKQ2.AK2.32").expect("hand parses")));
+        // 12 HCP but 5-4-2-2, outside the precompiled set.
+        assert!(!balanced.check(Cards::from_str("AKQ52.K532.32.32").expect("hand parses")));
+    }
+
+    #[test]
+    fn from_shapes_rejects_an_empty_set() {
+        let err = HandConstraint::from_shapes(Shapes::new(), HcpRange::new(0, 37)).unwrap_err();
+        assert!(matches!(err, ConstraintError::EmptyConstraint));
     }
 
     #[test]

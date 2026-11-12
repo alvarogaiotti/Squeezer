@@ -65,9 +65,9 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - Card primitives live in `squeezer-cards` (`crates/squeezer-cards`) with `rand`
   (the samplers) and `serde` optional and no workspace dependency;
   `squeezer-model` enables `rand` because its dealer draws from the samplers.
-- Shape, shape parsing, hand constraints, the contract vocabulary, the
-  evaluator, the dealer and the whole record layer (`Deal`, `Board`, `Auction`,
-  `Play`, `Position` and their writers) live in `squeezer-model`
+- Shape, shape parsing, hand constraints, the contract vocabulary, the dealer
+  and the whole record layer (`Deal`, `Board`, `Auction`, `Play`, `Position`
+  and their writers) live in `squeezer-model`
   (`crates/squeezer-model`), which depends on `squeezer-cards`, `rand`, `bitvec`
   and `itertools` with `serde` optional and names no solver, parser or network
   crate. The `Deal` and `Board` writers stay here, unconditional: exporting a
