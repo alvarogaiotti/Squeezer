@@ -14,8 +14,8 @@ use crate::{
 /// See <https://github.com/dds-bridge/dds/blob/develop/doc/DLL-dds_x.pdf> for documentation.
 ///
 /// This is the single-deal surface only. Concurrency is owned by the caller's
-/// thread pool (one context per worker), not by DDS's batch entry points, so the
-/// parallel variants have been removed.
+/// thread pool (a bounded set of contexts, at most one per worker at a time),
+/// not by DDS's batch entry points, so the parallel variants have been removed.
 pub trait BridgeSolver {
     /// Returns the number of tricks makable in one contract by one player.
     /// # Errors

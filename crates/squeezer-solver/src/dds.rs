@@ -40,7 +40,7 @@ impl DdsSolver {
 impl Solver for DdsSolver {
     type Context = DdsContext;
 
-    fn new_context(&self) -> Self::Context {
+    fn create_context(&self) -> Self::Context {
         // A NULL handle is kept rather than panicking: creation failure is a
         // resource error the caller should be able to observe from `solve`,
         // not a reason to abort a worker thread.
@@ -129,7 +129,7 @@ impl DdTableCalculator for DdsSolver {
     /// and leaves the worker's transposition table untouched. The new context
     /// is dropped with this call.
     fn dd_table(&self, deal: &Deal) -> Result<DdTable, SolverError> {
-        let context = Solver::new_context(self);
+        let context = Solver::create_context(self);
         let raw = context.handle()?;
         let table_deal = DdsDealAdapter(deal).to_table_deal();
         let mut results = DdTableResults::<NotPopulated>::default();
@@ -289,10 +289,9 @@ mod tests {
         Card::new(suit, rank)
     }
 
-    /// A fresh context, disambiguated from the blanket `ContextFactory`
-    /// method of the same name.
+    /// A fresh concrete DDS context.
     fn context() -> DdsContext {
-        Solver::new_context(&DdsSolver)
+        Solver::create_context(&DdsSolver)
     }
 
     #[test]

@@ -30,10 +30,13 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 - `cargo test --workspace` runs every crate's tests with its default features; add `--all-features` for the optional paths. A bare `cargo test` already covers every member because there is no root package, but `--workspace` makes that explicit. `cargo build --workspace --all-targets` compiles the tests, benchmarks and examples.
 - Each pure crate must also check without defaults: `cargo check -p squeezer-cards --no-default-features`, and the same for `squeezer-model`, `squeezer-solver` and `squeezer-sim`; `squeezer-io` takes `--no-default-features` too (its parsers are the optional part).
-- Solver concurrency is owned by our own pool: each rayon *job* (chunk of work)
-  gets its own DDS context (`SolverPool`/`DynSolverPool`), with at most one
-  context live per worker at a time, so `workers × TT-cap` bounds instantaneous
-  memory and plain `cargo test` (no thread cap) is safe. `AnalysePlayBin`
+- Solver concurrency is owned by our own pool: `SolverPool` slices a call into
+  at most one chunk per worker, each chunk creates one DDS context and reuses it
+  for every index in that chunk, and contexts are dropped with their chunk. At
+  most one context is live per worker at any instant, and a call creates no more
+  contexts than it has chunks (at most `workers`), so `workers × TT-cap` bounds
+  instantaneous memory and plain `cargo test` (no thread cap) is safe.
+  `AnalysePlayBin`
   builds its own local context per call, and so does the DD-table calculation,
   so both are concurrent-safe; a worker that invokes either transiently holds a
   second context besides its own.
@@ -74,7 +77,7 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   board needs no parser.
 - The solver seam (`Solver`, `SolverContext`, `ContextFactory`, the
   `DdTableCalculator`/`ParCalculator`/`PlayAnalyser` traits, `SolverPool`,
-  `DynSolverPool`, `SolverError`) and every DDS adapter live in
+  `SolverError`) and every DDS adapter live in
   `squeezer-solver` (`crates/squeezer-solver`), which depends on
   `squeezer-cards`, `squeezer-model`, `rayon` and optional `dds`. Its `dds`
   feature is on by default (the backend is the crate's job); `squeezer-sim`
