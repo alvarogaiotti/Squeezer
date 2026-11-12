@@ -48,14 +48,14 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - `simulation` requires `dds`; `performance_analysis` requires both `dds` and `lin` (it consumes LIN plays). Verify combos with `cargo check --no-default-features --features dds,lin`.
 - `formatters` is opt-in (not in `default`): it enables `dep:colored` and, because the renderers live in the `dds`-gated simulation module, `dds`.
 - Card primitives live in `squeezer-cards` (`crates/squeezer-cards`) with `rand`
-  (the samplers) and `serde` optional and no workspace dependency; the root
-  library enables `rand` for the dealer and forwards `serde`.
-- Shape, shape parsing, hand constraints, the contract vocabulary and the
-  evaluator live in `squeezer-model` (`crates/squeezer-model`), which depends on
-  `squeezer-cards`, `bitvec` and `itertools` with `serde` optional and names no
-  solver, parser or network crate. Its tests draw cards through the card
-  samplers, so `squeezer-cards` is also a dev-dependency with `rand` enabled;
-  the library build itself carries no RNG.
+  (the samplers) and `serde` optional and no workspace dependency;
+  `squeezer-model` enables `rand` because its dealer draws from the samplers.
+- Shape, shape parsing, hand constraints, the contract vocabulary, the
+  evaluator, the dealer and the whole record layer (`Deal`, `Board`, `Auction`,
+  `Play`, `Position` and their writers) live in `squeezer-model`
+  (`crates/squeezer-model`), which depends on `squeezer-cards`, `rand`, `bitvec`
+  and `itertools` with `serde` optional and names no solver, parser or network
+  crate.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record

@@ -10,13 +10,16 @@ default = []
 serde = ["dep:serde", "bitvec/serde", "squeezer-cards/serde"]
 
 [dependencies]
-squeezer-cards = { path = "../squeezer-cards" }
+# The dealer draws through the card samplers, so this crate turns on the cards
+# crate's optional `rand`.
+squeezer-cards = { path = "../squeezer-cards", features = ["rand"] }
+# Kept in the cards crate's major line: the dealer hands `rand::rng()` to the
+# cards samplers, so both crates must agree on the `Rng` trait.
+rand = "0.9"
 bitvec = { version = "*", features = ["atomic", "std"] }
 itertools = "*"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
-# The shape and evaluator tests draw cards through the card samplers, so the
-# test build turns on the cards crate's optional `rand`; the library build
-# itself carries no RNG.
-squeezer-cards = { path = "../squeezer-cards", features = ["rand"] }
+# The deal serde round-trip tests serialise to JSON.
+serde_json = "1.0"

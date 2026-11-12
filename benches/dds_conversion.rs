@@ -1,6 +1,6 @@
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dds::deal::DdsDeal;
 use squeezer::prelude::*;
+use squeezer::solver::position_to_dds_deal;
 use std::hint::black_box;
 
 fn example_position() -> Position {
@@ -30,7 +30,9 @@ fn benchmark_dds_conversion(c: &mut Criterion) {
 
     group.bench_function("position_to_dds_deal", |b| {
         b.iter(|| {
-            black_box(DdsDeal::try_from(black_box(&position)).expect("position converts to DDS"));
+            black_box(
+                position_to_dds_deal(black_box(&position)).expect("position converts to DDS"),
+            );
         });
     });
 

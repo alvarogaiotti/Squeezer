@@ -6,8 +6,8 @@ edition = "2024"
 [features]
 # Neither dependency is part of the core vocabulary: a consumer that only
 # parses and compares cards does not compile `rand`, and one that never
-# serialises does not compile `serde`. `squeezer` enables `rand` because its
-# dealer draws from the samplers.
+# serialises does not compile `serde`. `squeezer-model` enables `rand` because
+# its dealer draws from the samplers.
 default = []
 rand = ["dep:rand"]
 serde = ["dep:serde"]

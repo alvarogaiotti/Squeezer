@@ -38,6 +38,10 @@
 mod dds;
 mod pool;
 
+/// The [`Position`] to raw-DDS-deal adapter, published so callers and
+/// benchmarks can measure the conversion without going through a solve.
+#[cfg(feature = "dds")]
+pub use crate::dds_bridge::position_to_dds_deal;
 #[cfg(feature = "dds")]
 pub use dds::{DdsContext, DdsSolver};
 pub use pool::{DynSolverPool, SolverPool};

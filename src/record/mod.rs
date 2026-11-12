@@ -1,22 +1,29 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-//! Format-independent bridge record types.
+//! Format-independent bridge record types, re-exported from `squeezer-model`.
 //!
-//! This module is deliberately free of `lin` and `dds`: it models a deal, a
-//! recorded board, its auction and its play using only core card types, so the
-//! same types can be built by the LIN importer, by the dealer, or by hand
-//! without pulling in a parser or a solver.
+//! The deal, board, auction, play and position vocabulary and their `Deal` and
+//! `Board` writers live in the model crate. This module keeps the historical
+//! `squeezer::record::...` paths for the parsers and solver that still build
+//! these types, including their module paths (`record::auction::Call`,
+//! `record::position::trick_winner`).
+//!
+//! The `LinFile` and `PbnFile` container writers stay in [`serialize`]: their
+//! types belong to the importers, which this crate still owns.
 
-pub mod auction;
-pub mod board;
-pub mod deal;
-pub mod play;
-pub mod position;
+/// The auction vocabulary; see [`squeezer_model::record::auction`].
+pub use squeezer_model::record::auction;
+/// The board record; see [`squeezer_model::record::board`].
+pub use squeezer_model::record::board;
+/// The deal and its four-seat invariant; see [`squeezer_model::record::deal`].
+pub use squeezer_model::record::deal;
+/// The recorded play; see [`squeezer_model::record::play`].
+pub use squeezer_model::record::play;
+/// Partially played positions and the trick-winner rule; see
+/// [`squeezer_model::record::position`].
+pub use squeezer_model::record::position;
+/// The `Deal`/`Board` writers, plus this crate's file-container writers.
 pub mod serialize;
 
-pub use auction::*;
-pub use board::*;
-pub use deal::*;
-pub use play::*;
-pub use position::*;
+pub use squeezer_model::record::*;
