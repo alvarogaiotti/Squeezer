@@ -16,6 +16,7 @@
 //! `DdsError`, and only under the `dds` feature.
 
 use crate::card::InvalidCardError;
+use crate::contract::ContractError;
 use crate::dealer::DealerError;
 use crate::hand_constraint::ConstraintError;
 #[cfg(feature = "lin")]
@@ -72,6 +73,9 @@ pub enum SqueezerError {
     /// error never names DDS.
     #[error("solver failed: {0}")]
     Solver(#[from] SolverError),
+    /// A string did not spell a valid contract.
+    #[error("invalid contract: {0}")]
+    ContractError(#[from] ContractError),
     /// Four hands did not form a valid deal.
     #[error("invalid deal: {0}")]
     DealError(#[from] DealError),
@@ -112,9 +116,9 @@ impl SqueezerError {
 mod tests {
     use super::*;
     use crate::card::{Card, InvalidCardError};
+    use crate::contract::Seat;
     use crate::hand_constraint::{HandConstraint, HandConstraintBuilder, HcpRange};
     use crate::record::auction::Call;
-    use crate::record::deal::Seat;
     use crate::shapeparser::ShapeCreator;
     use std::error::Error;
 
@@ -195,6 +199,9 @@ mod tests {
         );
         assert_wraps(&SqueezerError::from(DealerError::new("dealer")), |e| {
             matches!(e, SqueezerError::DealingError(_))
+        });
+        assert_wraps(&SqueezerError::from(ContractError::MissingLevel), |e| {
+            matches!(e, SqueezerError::ContractError(_))
         });
         assert_wraps(&SqueezerError::from(SolverError::NoCards), |e| {
             matches!(e, SqueezerError::Solver(_))

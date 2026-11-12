@@ -68,6 +68,17 @@
   at derivation as well as at `Board` import. Fine for board-derived positions;
   worth knowing for direct callers.
 
+### Contract vocabulary
+- `ContractError`'s `Display` keeps the pre-move wording verbatim ("no contract
+  dealer", "Not a strain.", "Wrong contract level") because ticket 09 changed
+  the error's type, not its output. `CONTEXT.md` calls the role the *declarer*,
+  so a later cleanup should align the strings and their casing.
+- `Contract::strain()` carries `#[allow(clippy::cast_possible_truncation)]` but
+  performs no cast.
+- The LIN importer derives seats from the `md|` digit and the PBN importer maps
+  `[Dealer]`/`[Declarer]` through `Seat::try_from(...).ok()`, so the new
+  `SeatError` payload is discarded and reported as the parser's own error kind.
+
 ### Card types and shape
 - `Card::from_u8` is `pub(crate)` in `squeezer-cards` with no caller; it is kept
   only as the counterpart of the public `Card::as_u8`, and `dead_code` hides it.

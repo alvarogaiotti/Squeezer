@@ -7,6 +7,7 @@
 //! final trick is simply a short trailing group and no contract is needed to
 //! attribute the cards. Tricks are the derived groups of four.
 
+use crate::contract::{Contract, Seat};
 use crate::prelude::*;
 
 use super::position::trick_winner;

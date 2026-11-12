@@ -21,6 +21,7 @@ use nom::{
 use std::num::NonZeroU8;
 use std::str::FromStr;
 
+use crate::contract::{Seat, Strain, Vulnerability};
 use crate::prelude::*;
 use crate::record::play::{attribute_plays, validate_trick_lengths};
 

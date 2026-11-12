@@ -111,7 +111,11 @@
 pub mod card {
     pub use squeezer_cards::card::*;
 }
-mod contract;
+/// The contract vocabulary: seats, vulnerability, and what was bid.
+///
+/// Public so the moved items have a discoverable home; the prelude still
+/// re-exports them flat, so `squeezer::Seat` keeps working.
+pub mod contract;
 #[cfg(feature = "dds")]
 mod dds_bridge;
 pub mod dealer;
