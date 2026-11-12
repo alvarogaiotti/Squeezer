@@ -1,7 +1,8 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::prelude::*;
+use std::fmt;
+
 mod interpreter;
 mod parser;
 mod scanner;

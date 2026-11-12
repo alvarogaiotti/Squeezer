@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::prelude::*;
+use squeezer_cards::Cards;
 
 /// Struct for evaluating card holdings with a particular logic:
 /// for example: controls, or aces, or 6421, or other counting methods.
@@ -11,7 +11,8 @@ use crate::prelude::*;
 /// # Example
 ///
 /// ```
-/// # use squeezer::{Evaluator,Cards, DealerError};
+/// # use squeezer_cards::Cards;
+/// # use squeezer_model::Evaluator;
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 ///  //                         A=4, K=3, Q=2, J=1

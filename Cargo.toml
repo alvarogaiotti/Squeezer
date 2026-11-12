@@ -8,7 +8,13 @@ edition = "2024"
 # resolves the vendored sources as `../vendor/dds`, which is why that member and
 # `squeezer_macros` keep their current locations; extracted crates live under
 # `crates/`.
-members = ["crates/squeezer-bbo", "crates/squeezer-cards", "dds", "squeezer_macros"]
+members = [
+    "crates/squeezer-bbo",
+    "crates/squeezer-cards",
+    "crates/squeezer-model",
+    "dds",
+    "squeezer_macros",
+]
 resolver = "3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,15 +22,14 @@ resolver = "3"
 log = { version = "*" }
 rand = "*"
 colored = { version = "*", optional = true }
-itertools = "*"
 serde = { version = "1.0", features = ["derive"], optional = true }
 dds = { path = "dds", optional = true }
-bitvec = { version = "*", features = ["atomic", "std"] }
 nom = {version = "8.0.0", optional=true}
 rayon = "1.12.0"
 # The dealer draws from the card samplers, so the library turns on the cards
 # crate's optional `rand`.
 squeezer-cards = { path = "crates/squeezer-cards", features = ["rand"] }
+squeezer-model = { path = "crates/squeezer-model" }
 thiserror = "2"
 
 [features]
@@ -35,7 +40,12 @@ dds = ["dep:dds"]
 # The terminal renderers live in the simulation module, which is gated on `dds`,
 # so opting into formatters also opts into the solver they report on.
 formatters = ["dep:colored", "dds"]
-serde = ["dep:serde", "dds?/serde", "bitvec/serde", "squeezer-cards/serde"]
+serde = [
+    "dep:serde",
+    "dds?/serde",
+    "squeezer-cards/serde",
+    "squeezer-model/serde",
+]
 
 [dev-dependencies]
 criterion = { version = "*", features = ["html_reports"] }

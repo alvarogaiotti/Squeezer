@@ -30,6 +30,15 @@ pub(crate) fn dds_suit(suit: Suit) -> DdsSuit {
     }
 }
 
+/// Translates a contract strain into DDS's trump enum.
+///
+/// This was an `impl From<Strain> for DdsSuit` while `Strain` lived in this
+/// crate. `squeezer-model` must not name `dds`, and both the trait and the
+/// enum are foreign here now, so the conversion is an ordinary function.
+fn dds_strain(strain: Strain) -> DdsSuit {
+    strain.as_suit().map_or(DdsSuit::NoTrump, dds_suit)
+}
+
 /// A [`Card`] in the shape the DDS deal builder reads.
 ///
 /// `AsDDSCard` is foreign to this crate, so the card type cannot implement it
@@ -49,14 +58,17 @@ impl AsDDSCard for DdsCardAdapter {
     }
 }
 
-impl From<Seat> for DdsHandEncoding {
-    fn from(value: Seat) -> Self {
-        match value {
-            Seat::North => Self::North,
-            Seat::East => Self::East,
-            Seat::South => Self::South,
-            Seat::West => Self::West,
-        }
+/// Translates a seat into DDS's hand encoding.
+///
+/// `Seat` lives in `squeezer-model` now, so this is a function rather than an
+/// `impl From<Seat> for DdsHandEncoding`: both the trait and the enum are
+/// foreign here.
+fn dds_hand_encoding(seat: Seat) -> DdsHandEncoding {
+    match seat {
+        Seat::North => DdsHandEncoding::North,
+        Seat::East => DdsHandEncoding::East,
+        Seat::South => DdsHandEncoding::South,
+        Seat::West => DdsHandEncoding::West,
     }
 }
 
@@ -123,8 +135,8 @@ impl TryFrom<&Position> for DdsDeal {
             .map_or(position.to_play(), |play| play.seat);
 
         DdsDealBuilder::new()
-            .trump(position.trump().into())
-            .first(leader.into())
+            .trump(dds_strain(position.trump()))
+            .first(dds_hand_encoding(leader))
             .remain_cards(DDSDealRepr::from(remain_cards))
             .current_trick(current_trick)
             .build()

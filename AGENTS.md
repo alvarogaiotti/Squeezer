@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo` and `squeezer-cards`).
-- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards` and `squeezer-model`).
+- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-model`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -50,6 +50,12 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - Card primitives live in `squeezer-cards` (`crates/squeezer-cards`) with `rand`
   (the samplers) and `serde` optional and no workspace dependency; the root
   library enables `rand` for the dealer and forwards `serde`.
+- Shape, shape parsing, hand constraints, the contract vocabulary and the
+  evaluator live in `squeezer-model` (`crates/squeezer-model`), which depends on
+  `squeezer-cards`, `bitvec` and `itertools` with `serde` optional and names no
+  solver, parser or network crate. Its tests draw cards through the card
+  samplers, so `squeezer-cards` is also a dev-dependency with `rand` enabled;
+  the library build itself carries no RNG.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record

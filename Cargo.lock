@@ -1787,11 +1787,9 @@ dependencies = [
 name = "squeezer"
 version = "0.1.0"
 dependencies = [
- "bitvec",
  "colored",
  "criterion",
  "dds",
- "itertools 0.14.0",
  "log",
  "nom",
  "quickcheck",
@@ -1801,6 +1799,7 @@ dependencies = [
  "serde",
  "serde_json",
  "squeezer-cards",
+ "squeezer-model",
  "thiserror",
 ]
 
@@ -1821,6 +1820,16 @@ version = "0.1.0"
 dependencies = [
  "rand 0.9.2",
  "serde",
+]
+
+[[package]]
+name = "squeezer-model"
+version = "0.1.0"
+dependencies = [
+ "bitvec",
+ "itertools 0.13.0",
+ "serde",
+ "squeezer-cards",
 ]
 
 [[package]]
