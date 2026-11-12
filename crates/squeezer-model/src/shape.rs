@@ -25,9 +25,10 @@
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! # use squeezer::Shapes;
+//! # use squeezer_model::Shapes;
+//! # use squeezer_cards::Cards;
 //! # use std::str::FromStr;
-//! # let hand = squeezer::Cards::from_str("AKQ2.KQ32.AK2.32")?;
+//! # let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
 //! // Create constraint for balanced hands (4333, 4432, 5332)
 //! let mut shapes = Shapes::new();
 //! shapes.add_balanced();
@@ -43,11 +44,17 @@
 //! # Ok(())}
 //! ```
 
-use crate::card::Suit;
-use crate::prelude::*;
+use std::fmt;
+use std::ops::RangeInclusive;
+use std::str::FromStr;
+
+use bitvec::{BitArr, bitarr};
+use itertools::Itertools;
+use squeezer_cards::{Cards, Suit};
+
 use crate::range::Bounded;
 use crate::shapeparser::{CreationShapeError, ShapeCreator, ShapePattern};
-use bitvec::{BitArr, bitarr};
+use crate::{MAX_LENGTH, RANKS, SUITS, ZERO_LENGTH};
 
 /// Number of buckets in the shape hash table.
 ///
@@ -80,9 +87,10 @@ type ShapeTable = BitArr!(for SHAPE_TABLE_BUCKETS);
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// # use squeezer::Shape;
+/// # use squeezer_cards::Cards;
+/// # use squeezer_model::Shape;
 /// # use std::str::FromStr;
-/// # let hand = squeezer::Cards::from_str("AKQ2.KQ32.AK2.32")?;
+/// # let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
 /// // Create from a pattern string
 /// let shape = Shape::try_from("5332")?; // All permutations of 5-3-3-2
 ///
@@ -141,7 +149,7 @@ impl Shape {
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// # use squeezer::Shape;
+    /// # use squeezer_model::Shape;
     /// let shape = Shape::new_from_pattern("5422")?;
     /// # Ok(())}
     /// ```
@@ -173,7 +181,7 @@ impl Shape {
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// # use squeezer::Shape;
+    /// # use squeezer_model::Shape;
     /// let shape = Shape::new_from_patterns(&["4333", "4432", "5332"])?;
     /// # Ok(())}
     /// ```
@@ -231,7 +239,8 @@ impl Shape {
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// # use squeezer::{Cards, Shape};
+    /// # use squeezer_cards::Cards;
+    /// # use squeezer_model::Shape;
     /// # use std::str::FromStr;
     /// # let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
     /// let shape = Shape::new_from_pattern("5332")?;
@@ -264,7 +273,7 @@ impl Shape {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Shape;
+    /// # use squeezer_model::Shape;
     /// # let shape = Shape::All;
     /// let ranges = shape.len_ranges();
     /// println!("Spades: {}-{}", ranges[0].min(), ranges[0].max());
@@ -291,7 +300,8 @@ impl Shape {
     /// # Usage Pattern
     ///
     /// ```rust
-    /// # use squeezer::{Shape, Cards};
+    /// # use squeezer_cards::Cards;
+    /// # use squeezer_model::Shape;
     /// # use std::str::FromStr;
     /// # let hand = Cards::from_str("AKQ2.KQ32.AK2.32").expect("a bridge hand parses");
     /// # let constraint = Shape::All;
@@ -339,9 +349,10 @@ impl Shape {
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// # use squeezer::{Shapes, Suit};
+/// # use squeezer_cards::{Cards, Suit};
+/// # use squeezer_model::Shapes;
 /// # use std::str::FromStr;
-/// # let hand = squeezer::Cards::from_str("AKQ2.KQ32.AK2.32")?;
+/// # let hand = Cards::from_str("AKQ2.KQ32.AK2.32")?;
 /// let mut shapes = Shapes::new();
 /// shapes.add_balanced(); // 4333, 4432, 5332
 /// shapes.add_shape("5422")?;
@@ -621,7 +632,7 @@ impl Shapes {
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// # use squeezer::Shape;
+    /// # use squeezer_model::Shape;
     /// let pattern = "4333";
     /// let mut shapes = Shape::All;
     /// shapes.remove_shape(pattern)?;
@@ -753,7 +764,7 @@ impl Shapes {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::Shapes;
+    /// # use squeezer_model::Shapes;
     /// let shapes = Shapes::default();
     /// let ranges = shapes.len_ranges();
     /// assert!(ranges[0].contains(5)); // Check if 5 spades is allowed
@@ -779,7 +790,7 @@ impl From<&[LenRange; SUITS]> for Shapes {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::{LenRange, Shapes};
+    /// # use squeezer_model::{LenRange, Shapes};
     /// let ranges = [
     ///     LenRange::new(5, 7), // Spades: 5-7 cards
     ///     LenRange::new(3, 5), // Hearts: 3-5 cards
@@ -835,7 +846,7 @@ impl LenRange {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::LenRange;
+    /// # use squeezer_model::LenRange;
     /// let range = LenRange::new(5, 7);
     /// assert_eq!(range.min(), 5);
     /// assert_eq!(range.max(), 7);
@@ -854,7 +865,7 @@ impl LenRange {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::LenRange;
+    /// # use squeezer_model::LenRange;
     /// let range = LenRange::new(3, 5);
     /// for len in range.as_range() {
     ///     println!("Length: {}", len); // Prints 3, 4, 5
@@ -884,7 +895,7 @@ impl LenRange {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::LenRange;
+    /// # use squeezer_model::LenRange;
     /// let range = LenRange::new(5, 7);
     /// assert!(range.contains(6));
     /// assert!(!range.contains(4));
@@ -899,6 +910,7 @@ impl LenRange {
 #[allow(unused_imports)]
 mod test {
     use crate::*;
+    use squeezer_cards::Cards;
 
     /// Verifies that the hash function produces no collisions for all valid bridge shapes.
     ///

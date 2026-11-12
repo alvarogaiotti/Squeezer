@@ -1,0 +1,22 @@
+[package]
+name = "squeezer-model"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# Serialisation stays opt-in: a consumer that only generates and checks hands
+# does not compile the derive machinery, nor `bitvec`'s serde support.
+default = []
+serde = ["dep:serde", "bitvec/serde", "squeezer-cards/serde"]
+
+[dependencies]
+squeezer-cards = { path = "../squeezer-cards" }
+bitvec = { version = "*", features = ["atomic", "std"] }
+itertools = "*"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+# The shape and evaluator tests draw cards through the card samplers, so the
+# test build turns on the cards crate's optional `rand`; the library build
+# itself carries no RNG.
+squeezer-cards = { path = "../squeezer-cards", features = ["rand"] }

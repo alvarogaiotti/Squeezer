@@ -8,7 +8,9 @@
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! # use squeezer::*;
+//! # use squeezer_cards::Cards;
+//! # use squeezer_model::*;
+//! # use std::str::FromStr;
 //! // Parse once, check millions of times.
 //! let constraint = HandConstraint::new(&["(4432)", "(4333)", "(5332)"], HcpRange::new(12, 14))?;
 //! let hand = Cards::from_str("AK52.K532.A2.432")?;
@@ -34,9 +36,14 @@
 //!   [`ConstraintError`], preserving the parser's cause instead of
 //!   flattening it into strings.
 
-use crate::prelude::*;
+use std::ops::{RangeBounds, RangeInclusive};
+
+use squeezer_cards::{Cards, Suit};
+
+use crate::MAX_HCP_IN_HAND;
 use crate::range::Bounded;
-use std::ops::RangeBounds;
+use crate::shape::Shapes;
+use crate::shapeparser::CreationShapeError;
 
 /// Represents an *inclusive* range of High Card Points.
 ///
@@ -148,10 +155,10 @@ const fn longest_patterns(suit: Suit) -> [&'static str; 3] {
 
 /// Typed error for everything the hand-constraint surface can reject.
 ///
-/// This replaces the old split where `add_shape` returned `DealerError`
-/// (a display string, detail discarded) while `remove_shape` returned
-/// `Box<dyn Error>`. Every variant preserves its cause for `source()`-based
-/// inspection and testing.
+/// This replaces the old split where `add_shape` returned the crate-wide
+/// dealer error (a display string with the detail discarded) while
+/// `remove_shape` returned `Box<dyn Error>`. Every variant preserves its cause
+/// for `source()`-based inspection and testing.
 #[derive(Debug, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
@@ -266,7 +273,9 @@ impl HandConstraint {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_cards::Cards;
+    /// # use squeezer_model::*;
+    /// # use std::str::FromStr;
     /// let weak_nt = HandConstraint::new(&["(4432)", "(4333)"], HcpRange::new(12, 14))?;
     /// assert!(weak_nt.check(Cards::from_str("AK52.K532.A2.432")?));
     /// # Ok(())
@@ -303,7 +312,9 @@ impl HandConstraint {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_cards::{Cards, Suit};
+    /// # use squeezer_model::*;
+    /// # use std::str::FromStr;
     /// let spades = HandConstraint::longest(Suit::Spades, HcpRange::new(5, 10))?;
     /// assert!(spades.check(Cards::from_str("AKQJ432.32.32.32")?));
     /// # Ok(())
@@ -329,7 +340,9 @@ impl HandConstraint {
     /// # Example
     ///
     /// ```rust
-    /// # use squeezer::*;
+    /// # use squeezer_cards::Cards;
+    /// # use squeezer_model::*;
+    /// # use std::str::FromStr;
     /// let opener = HandConstraint::hcp(12..=17);
     /// assert!(opener.check(Cards::from_str("AK52.K532.A2.432").unwrap()));
     /// ```

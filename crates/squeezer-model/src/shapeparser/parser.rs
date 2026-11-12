@@ -3,12 +3,9 @@
 
 use std::cmp::Ordering;
 
-use crate::{
-    ShapeCreator,
-    shapeparser::{Length, Pattern, Token, fmt},
+use super::{
+    Length, Pattern, ShapeCreator, Token, fmt, interpreter::CreationShapeError, scanner::Scanner,
 };
-
-use super::{DealerError, interpreter::CreationShapeError, scanner::Scanner};
 
 /// Parser for parsing shape describing strings.
 /// Uses the following DSL:
@@ -36,18 +33,13 @@ pub(super) struct Parser {
 ///
 /// # Errors
 /// Returns an error when the pattern is not a possible shape pattern.
-pub fn validate_shape(shape: &str) -> Result<(), DealerError> {
+pub fn validate_shape(shape: &str) -> Result<(), CreationShapeError> {
     let scanner = Scanner::from(shape);
-    let tokens = scanner
-        .scan_tokens()
-        .map_err(Into::<CreationShapeError>::into)?;
+    let tokens = scanner.scan_tokens()?;
     let mut parser = Parser::from(tokens);
-    let patterns = parser
-        .parse()
-        .map_err(|err| Into::<DealerError>::into(Into::<CreationShapeError>::into(err)))?;
-    ShapeCreator::try_from(patterns)
-        .map_err(|err| Into::<CreationShapeError>::into(err).into())
-        .map(|_| ())
+    let patterns = parser.parse()?;
+    let _checked: ShapeCreator = ShapeCreator::try_from(patterns)?;
+    Ok(())
 }
 
 impl Parser {

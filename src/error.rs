@@ -16,9 +16,7 @@
 //! `DdsError`, and only under the `dds` feature.
 
 use crate::card::InvalidCardError;
-use crate::contract::ContractError;
 use crate::dealer::DealerError;
-use crate::hand_constraint::ConstraintError;
 #[cfg(feature = "lin")]
 use crate::linparser::ParseLinError;
 #[cfg(feature = "pbn")]
@@ -26,8 +24,8 @@ use crate::pbnparser::ParsePbnError;
 #[cfg(feature = "dds")]
 use crate::performance_analysis::{TrickDeltaError, TricksError};
 use crate::record::{AuctionError, BoardError, DealError, PositionError};
-use crate::shapeparser::CreationShapeError;
 use crate::solver::SolverError;
+use squeezer_model::{ConstraintError, ContractError, CreationShapeError, SeatError};
 
 /// Error wrapper for the entire library, so we expose just this one at the
 /// highest level.
@@ -73,6 +71,12 @@ pub enum SqueezerError {
     /// error never names DDS.
     #[error("solver failed: {0}")]
     Solver(#[from] SolverError),
+    /// A character did not name a seat.
+    ///
+    /// `SeatError`'s own `Display` already names the character, so the wrapper
+    /// adds no prefix and does not double it.
+    #[error("{0}")]
+    SeatError(#[from] SeatError),
     /// A string did not spell a valid contract.
     #[error("invalid contract: {0}")]
     ContractError(#[from] ContractError),
@@ -116,16 +120,16 @@ impl SqueezerError {
 mod tests {
     use super::*;
     use crate::card::{Card, InvalidCardError};
-    use crate::contract::Seat;
-    use crate::hand_constraint::{HandConstraint, HandConstraintBuilder, HcpRange};
     use crate::record::auction::Call;
-    use crate::shapeparser::ShapeCreator;
+    use squeezer_model::{HandConstraint, HandConstraintBuilder, HcpRange, Seat, Shapes};
     use std::error::Error;
 
     /// Builds a malformed-pattern error through the real parser, so the test
     /// exercises the same cause a caller would see.
     fn creation_shape_error() -> CreationShapeError {
-        ShapeCreator::build_shape("not a shape!!").expect_err("pattern is malformed")
+        Shapes::new()
+            .add_shape("not a shape!!")
+            .expect_err("pattern is malformed")
     }
 
     #[test]
@@ -203,6 +207,10 @@ mod tests {
         assert_wraps(&SqueezerError::from(ContractError::MissingLevel), |e| {
             matches!(e, SqueezerError::ContractError(_))
         });
+        assert_wraps(
+            &SqueezerError::from(SeatError::NotASeat { character: 'Q' }),
+            |e| matches!(e, SqueezerError::SeatError(_)),
+        );
         assert_wraps(&SqueezerError::from(SolverError::NoCards), |e| {
             matches!(e, SqueezerError::Solver(_))
         });

@@ -87,6 +87,23 @@
   `UniformSampler`; only the library's dealer tests do. A card-crate sampler test
   would need `--features rand` to run in CI's feature matrix.
 
+### Model crate
+- `AsDDSContract` and `ContractScorer` for `Contract` were dead impls in the
+  root and are deleted rather than re-homed (ticket 11): `Contract` now lives in
+  `squeezer-model`, so both the trait and the type are foreign to the root. The
+  solver ticket must reintroduce them through local newtypes if a caller needs
+  them. `impl From<Strain> for DdsSuit` became the free function
+  `dds_bridge::dds_strain`, and `impl From<Seat> for DdsHandEncoding` became
+  `dds_bridge::dds_hand_encoding`.
+- `shapeparser::validate_shape` returns the model-local `CreationShapeError`
+  instead of `DealerError`; it has no caller, but the public signature changed.
+- The root keeps a `squeezer::contract` shim while the prelude also globs
+  `squeezer_model::*`, which re-exports the model's `contract` module. Both
+  paths name the same items, but `squeezer::contract` and
+  `squeezer::prelude::contract` resolve through different modules.
+- `MAX_N_OF_BOARDS` stays in the root prelude: it bounds a recorded board, so it
+  belongs with the record layer rather than the hand model.
+
 ### Parsing and serialization
 - `.gitignore`'s global `*.lin`/`*.pbn` rules left the seven `tests/*.lin`
   fixtures untracked, so a clean checkout could not run `tests/lin_parser.rs`

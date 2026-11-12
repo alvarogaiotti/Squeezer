@@ -6,8 +6,8 @@
 //! This module is the one home of [`Seat`], [`Vulnerability`], [`Vulnerable`],
 //! [`Doubled`], [`Strain`] and [`Contract`]. It imports the specific items it
 //! needs (the card vocabulary, the table-size constant and standard-library
-//! traits) rather than the crate prelude glob, so the dependency runs one way:
-//! the deal, board, auction, position, serializer and parser modules import
+//! traits) rather than a crate-wide prelude, so the dependency runs one way:
+//! the deal, board, auction, position, serializer and parser layers import
 //! these types from here, and nothing here names a record type.
 //!
 //! Parsing a seat or a contract reports [`SeatError`] and [`ContractError`],
@@ -19,8 +19,9 @@ use std::array::IntoIter;
 use std::fmt;
 use std::str::FromStr;
 
+use squeezer_cards::Suit;
+
 use crate::NUMBER_OF_HANDS;
-use crate::card::Suit;
 
 /// Why a character is not a seat.
 ///
@@ -185,7 +186,7 @@ impl Seat {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// assert_eq!(Seat::North.next(), Seat::East);
     /// assert_eq!(Seat::West.next(), Seat::North);
     /// # Ok(())
@@ -210,7 +211,7 @@ impl Seat {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// assert_eq!(Seat::East.previous(), Seat::North);
     /// assert_eq!(Seat::North.previous(), Seat::West);
     /// # Ok(())
@@ -238,7 +239,7 @@ impl Seat {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// assert!(Seat::North.is_same_line(&Seat::South));  // Partners
     /// assert!(Seat::East.is_same_line(&Seat::West));    // Partners
     /// assert!(!Seat::North.is_same_line(&Seat::East));  // Opponents
@@ -278,7 +279,7 @@ impl Seat {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// assert_eq!(Seat::North.long_str(), "North");
     /// # Ok(())
     /// # }
@@ -302,7 +303,7 @@ impl Seat {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// let mut iter = Seat::North.iter_from();
     /// assert_eq!(iter.next(), Some(Seat::North));
     /// assert_eq!(iter.next(), Some(Seat::East));
@@ -325,7 +326,7 @@ impl Seat {
 ///
 /// ```rust
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # use squeezer::*;
+/// # use squeezer_model::*;
 /// let seats: Vec<_> = Seat::North.iter_from().take(5).collect();
 /// assert_eq!(seats, vec![Seat::North, Seat::East, Seat::South, Seat::West, Seat::North]);
 /// # Ok(())
@@ -494,7 +495,7 @@ impl Vulnerability {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// let vuln = Vulnerability::NS;
     /// assert_eq!(vuln.is_vulnerable(Seat::North), Vulnerable::Yes);
     /// assert_eq!(vuln.is_vulnerable(Seat::East), Vulnerable::No);
@@ -516,7 +517,7 @@ impl Vulnerability {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use squeezer::*;
+    /// # use squeezer_model::*;
     /// assert_eq!(Vulnerability::from_number(1), Vulnerability::None);
     /// assert_eq!(Vulnerability::from_number(2), Vulnerability::NS);
     /// assert_eq!(Vulnerability::from_number(17), Vulnerability::None); // Wraps
@@ -672,20 +673,6 @@ impl Ord for Contract {
     }
 }
 
-#[cfg(feature = "dds")]
-impl dds::traits::AsDDSContract for Contract {
-    fn as_dds_contract(&self) -> (dds::deal::DdsSuit, dds::deal::DdsHandEncoding) {
-        (self.strain.into(), (self.declarer.next()).into())
-    }
-}
-
-#[cfg(feature = "dds")]
-impl dds::traits::ContractScorer for Contract {
-    fn score(&self, tricks: u8) -> i32 {
-        self.score(tricks)
-    }
-}
-
 /// Enum modelling whether a [`Contract`] is not doubled,
 /// doubled or redoubled
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
@@ -731,19 +718,6 @@ impl Ord for Strain {
                 Ordering::Greater => Ordering::Less,
                 Ordering::Equal => comp,
             }
-        }
-    }
-}
-
-#[cfg(feature = "dds")]
-impl From<Strain> for dds::deal::DdsSuit {
-    fn from(value: Strain) -> Self {
-        match value {
-            Strain::NoTrumps => Self::NoTrump,
-            Strain::Spades => Self::Spades,
-            Strain::Hearts => Self::Hearts,
-            Strain::Diamonds => Self::Diamonds,
-            Strain::Clubs => Self::Clubs,
         }
     }
 }
@@ -963,8 +937,8 @@ impl Contract {
             .try_into()?;
         Ok(Self {
             vuln,
-            doubled,
             level,
+            doubled,
             strain,
             declarer,
         })
@@ -1035,8 +1009,8 @@ impl FromStr for Contract {
         };
         Ok(Self {
             vuln,
-            doubled,
             level,
+            doubled,
             strain,
             declarer,
         })
@@ -1142,7 +1116,7 @@ mod test {
     use std::str::FromStr;
 
     use super::{Contract, ContractError, Seat, SeatError, Strain, Vulnerability, Vulnerable};
-    use crate::card::Suit;
+    use squeezer_cards::Suit;
 
     /// Tests seat rotation.
     #[test]

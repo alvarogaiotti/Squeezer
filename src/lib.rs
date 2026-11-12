@@ -113,15 +113,16 @@ pub mod card {
 }
 /// The contract vocabulary: seats, vulnerability, and what was bid.
 ///
-/// Public so the moved items have a discoverable home; the prelude still
-/// re-exports them flat, so `squeezer::Seat` keeps working.
-pub mod contract;
+/// It lives in `squeezer-model`; this shim keeps the historical
+/// `squeezer::contract` path, and the prelude still re-exports the items flat,
+/// so `squeezer::Seat` keeps working.
+pub mod contract {
+    pub use squeezer_model::contract::*;
+}
 #[cfg(feature = "dds")]
 mod dds_bridge;
 pub mod dealer;
 mod error;
-mod evaluator;
-mod hand_constraint;
 #[cfg(feature = "lin")]
 pub mod linparser;
 #[cfg(feature = "pbn")]
@@ -132,10 +133,7 @@ pub mod pbnparser;
 /// [`PlayAnalyser`]: solver::PlayAnalyser
 #[cfg(feature = "dds")]
 pub mod performance_analysis;
-mod range;
 pub mod record;
-mod shape;
-mod shapeparser;
 #[cfg(feature = "dds")]
 pub mod simulation;
 /// Backend-agnostic double-dummy solver seam; feature-independent, so the core
@@ -146,31 +144,20 @@ mod utils;
 pub mod prelude {
     #[cfg(feature = "dds")]
     pub extern crate dds;
-    pub const ZERO_LENGTH: u8 = 0;
-    pub const MAX_HCP_IN_HAND: u8 = 37;
-    pub const MAX_HCP_IN_DECK: u8 = 40;
-    pub const MAX_LENGTH: u8 = 13;
-    pub const SUITS: usize = 4;
-    pub const SHAPE_COMBINATIONS: usize = 560;
     pub const MAX_N_OF_BOARDS: u8 = 128;
-    pub const RANKS: u8 = 13;
-    pub use crate::contract::*;
-    pub const NUMBER_OF_HANDS: usize = 4;
     pub use crate::card::*;
     pub use crate::dealer::*;
     pub use crate::error::*;
-    pub use crate::evaluator::*;
-    pub use crate::hand_constraint::*;
     pub use crate::record::*;
-    pub use crate::shape::*;
-    pub use crate::shapeparser::*;
     #[cfg(feature = "dds")]
     pub use crate::simulation::*;
     pub use crate::solver::*;
     pub use crate::utils::*;
-    pub(crate) use itertools::Itertools;
+    /// Shape, constraint, contract and evaluator vocabulary; the constants the
+    /// model crate owns (hand and suit limits) come with it.
+    pub use squeezer_model::*;
     pub use std::str::FromStr;
 
-    pub(crate) use std::{array::IntoIter, error::Error, fmt, hash::Hash, ops::RangeInclusive};
+    pub(crate) use std::{array::IntoIter, error::Error, fmt, hash::Hash};
 }
 pub use prelude::*;
