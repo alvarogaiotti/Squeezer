@@ -1,7 +1,26 @@
 // Copyright (C) 2025 Alvaro Gaiotti
 // See end of file for license information
 
-//! The backend-agnostic double-dummy solver seam.
+#![warn(clippy::pedantic)]
+#![allow(
+    dead_code,
+    clippy::module_name_repetitions,
+    clippy::integer_division_remainder_used,
+    clippy::missing_docs_in_private_items,
+    clippy::pub_with_shorthand,
+    clippy::question_mark_used,
+    clippy::as_conversions,
+    clippy::indexing_slicing,
+    clippy::missing_trait_methods,
+    clippy::single_call_fn,
+    clippy::unseparated_literal_suffix,
+    clippy::implicit_return,
+    clippy::should_panic_without_expect,
+    clippy::needless_doctest_main
+)]
+
+//! The backend-agnostic double-dummy solver seam, its worker pool, and the
+//! DDS adapters and backend behind the `dds` feature.
 //!
 //! A solver is a *factory* ([`Solver`]) whose product is a stateful, single
 //! threaded [`SolverContext`] owning a transposition table (TT). Callers that
@@ -33,7 +52,19 @@
 //! [`PlayAnalyser`]) rather than methods on [`SolverContext`]. Play analysis in
 //! particular cannot live on a context: DDS's `AnalysePlay` builds a private
 //! context of its own, so the operation belongs to the backend.
+//!
+//! # Where DDS is allowed
+//!
+//! This crate owns every use of the native library besides the `dds` FFI
+//! package's own, behind the `dds` feature. The card and model crates never see
+//! a DDS type: the adapters in the `adapters` module translate their records
+//! through local newtypes and free functions. While the root package still
+//! exists it also names `dds` to keep its historical `squeezer::dds` path, but
+//! it forwards all solver work here; the split's target is that only this crate
+//! and the FFI package name DDS.
 
+#[cfg(feature = "dds")]
+mod adapters;
 #[cfg(feature = "dds")]
 mod dds;
 mod pool;
@@ -41,13 +72,23 @@ mod pool;
 /// The [`Position`] to raw-DDS-deal adapter, published so callers and
 /// benchmarks can measure the conversion without going through a solve.
 #[cfg(feature = "dds")]
-pub use crate::dds_bridge::position_to_dds_deal;
+pub use adapters::position_to_dds_deal;
 #[cfg(feature = "dds")]
 pub use dds::{DdsContext, DdsSolver};
 pub use pool::{DynSolverPool, SolverPool};
 
 use crate::prelude::*;
 use std::fmt;
+
+/// The card and model vocabulary the solver modules share, mirroring the root
+/// crate's historical prelude so the moved code reads the same.
+///
+/// This is crate-internal: consumers import from [`squeezer_cards`] and
+/// [`squeezer_model`] directly.
+mod prelude {
+    pub(crate) use squeezer_cards::*;
+    pub(crate) use squeezer_model::*;
+}
 
 /// How eagerly the backend should reuse its transposition table.
 ///
@@ -121,8 +162,9 @@ impl SolveResults {
 
 /// Why a solve or a context operation failed.
 ///
-/// Deliberately free of backend types so the core can carry it without the
-/// `dds` feature. Ticket 12 will fold this into the unified error boundary.
+/// Deliberately free of backend types so the seam carries no `dds` feature.
+/// The root crate wraps it in its own error enum at the boundary where a
+/// caller needs one error type.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SolverError {
@@ -299,103 +341,11 @@ pub trait PlayAnalyser {
 
 /// Shared test fixtures: DDS's `examples/hands.cpp` hand 0, used by both the
 /// backend-agnostic mock tests and the DDS seam tests.
-#[cfg(test)]
-pub(crate) mod test_fixtures {
-    use crate::prelude::*;
-
-    /// The four parsed hands of DDS example hand 0.
-    pub(crate) fn example_deal() -> Deal {
-        Deal::new([
-            Cards::from_str("SQJ6 HK652 DJ85 CT98").expect("north parses"),
-            Cards::from_str("S873 HJ97 DAT764 CQ4").expect("east parses"),
-            Cards::from_str("SK5 HT83 DKQ9 CA7652").expect("south parses"),
-            Cards::from_str("SAT942 HAQ4 D32 CKJ3").expect("west parses"),
-        ])
-        .expect("example hand 0 is a partition")
-    }
-
-    /// A spade contract declared by West, so North is on opening lead.
-    pub(crate) fn example_contract() -> Contract {
-        Contract::new(
-            1,
-            Strain::Spades,
-            Seat::West,
-            Vulnerable::No,
-            Doubled::NotDoubled,
-        )
-    }
-
-    /// The example deal with `plays` already recorded.
-    pub(crate) fn example_board_with(plays: Vec<Play>) -> Board {
-        Board::builder(example_deal(), Seat::North, Vulnerability::None)
-            .contract(example_contract())
-            .play(PlayRecord::new(plays))
-            .build()
-            .expect("example board is consistent")
-    }
-
-    /// The example deal at the opening lead.
-    pub(crate) fn example_board() -> Board {
-        Board::builder(example_deal(), Seat::North, Vulnerability::None)
-            .contract(example_contract())
-            .build()
-            .expect("example board is consistent")
-    }
-
-    /// The opening position of the example board.
-    pub(crate) fn opening_position() -> Position {
-        Position::after_play(&example_board(), 0).expect("the board carries a contract")
-    }
-
-    /// DDS's `examples/hands.cpp` hand-0 play: 45 cards in play order.
-    ///
-    /// Its `AnalysePlayBin` oracle is 46 values, all `8` (the declarer's
-    /// double-dummy tricks), which is why this play is the independent
-    /// reference for the seam's play analysis.
-    pub(crate) const EXAMPLE_HAND0_PLAY: &str = "CTC4CACJH8H4HKH9D5DAD9D2S7S5S2SQD8D4DQD3H3HAH6H7C3C8CQC2S3SKSAS6HQH5HJHTCKC9D6C5S4SJS8C6DJ";
-
-    /// Parses a flat DDS play string (`"CTC4CA…"`, suit then rank) into cards.
-    pub(crate) fn parse_play(sequence: &str) -> Vec<Card> {
-        sequence
-            .as_bytes()
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|pair| {
-                let token = std::str::from_utf8(pair).expect("play strings are ASCII");
-                Card::from_str(token).expect("valid card token")
-            })
-            .collect()
-    }
-
-    /// Attributes an ordered card list to seats trick by trick.
-    ///
-    /// The contract supplies the opening leader and the winner rule; this is
-    /// what a [`Board`]'s play validation needs, since a DDS `PlayTraceBin` is
-    /// seat-free.
-    pub(crate) fn attribute_seats(cards: &[Card], contract: Contract) -> Vec<Play> {
-        let mut plays = Vec::with_capacity(cards.len());
-        let mut leader = contract.leader();
-        for trick in cards.chunks(4) {
-            let group: Vec<Play> = trick
-                .iter()
-                .enumerate()
-                .map(|(offset, &card)| Play::new(leader + offset, card))
-                .collect();
-            if group.len() == 4 {
-                leader = crate::record::position::trick_winner(&group, contract.strain());
-            }
-            plays.extend(group);
-        }
-        plays
-    }
-
-    /// The example board with DDS hand 0's 45-card play recorded.
-    pub(crate) fn example_board_hand0_play() -> Board {
-        let cards = parse_play(EXAMPLE_HAND0_PLAY);
-        example_board_with(attribute_seats(&cards, example_contract()))
-    }
-}
+///
+/// Gated so a normal build never publishes test data; the root crate enables
+/// the `test-support` feature from its dev-dependencies.
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_fixtures;
 
 #[cfg(test)]
 mod tests {

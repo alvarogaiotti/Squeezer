@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards` and `squeezer-model`).
-- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-model`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards`, `squeezer-model` and `squeezer-solver`).
+- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-model`, `crates/squeezer-solver`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -56,6 +56,16 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   (`crates/squeezer-model`), which depends on `squeezer-cards`, `rand`, `bitvec`
   and `itertools` with `serde` optional and names no solver, parser or network
   crate.
+- The solver seam (`Solver`, `SolverContext`, `ContextFactory`, the
+  `DdTableCalculator`/`ParCalculator`/`PlayAnalyser` traits, `SolverPool`,
+  `DynSolverPool`, `SolverError`) and every DDS adapter live in
+  `squeezer-solver` (`crates/squeezer-solver`), which depends on
+  `squeezer-cards`, `squeezer-model`, `rayon` and optional `dds`. Its `dds`
+  feature is on by default (the backend is the crate's job); the root depends on
+  it with default features off and forwards its own `dds` feature. The root
+  re-exports the items through the historical `squeezer::solver` path while the
+  root package still exists. Its example-hand fixtures sit behind the
+  `test-support` feature, which the root enables from its dev-dependencies.
 - BBO downloads live in the `squeezer-bbo` member (`crates/squeezer-bbo`): its
   `blocking` feature uses `reqwest::blocking`, `async` (its default) uses async
   `reqwest`, and both share `scraper`, `url` and `time` for parsing hand-record

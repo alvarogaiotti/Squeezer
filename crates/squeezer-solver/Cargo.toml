@@ -1,0 +1,36 @@
+[package]
+name = "squeezer-solver"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# The native backend is the crate's main job, so it is the default, mirroring
+# `squeezer-bbo`'s default client: `cargo test -p squeezer-solver` exercises the
+# real backend, and a consumer that injects its own backend (or a mock in tests)
+# opts out with `default-features = false`. The seam and the pool never name
+# DDS themselves, and the root crate depends on this crate with default
+# features off so its own `dds` feature stays authoritative.
+default = ["dds"]
+dds = ["dep:dds"]
+# Publishes the example-hand fixtures the root crate's tests share. This is not
+# general API: the module is off by default and the root enables it as a
+# dev-dependency, so a normal build never sees it.
+test-support = []
+
+[dependencies]
+# The solver names the card vocabulary directly (`Card`, `Cards`, `Suit`) as
+# well as the model records (`Deal`, `Position`, `PlayRecord`), so it depends on
+# both crates rather than reaching through `squeezer-model`'s private prelude.
+squeezer-cards = { path = "../squeezer-cards" }
+squeezer-model = { path = "../squeezer-model" }
+rayon = "1.12.0"
+dds = { path = "../../dds", optional = true }
+
+[dev-dependencies]
+# The DDS conversion benchmark measures the published position adapter.
+criterion = { version = "*", features = ["html_reports"] }
+
+[[bench]]
+name = "dds_conversion"
+harness = false
+required-features = ["dds"]
