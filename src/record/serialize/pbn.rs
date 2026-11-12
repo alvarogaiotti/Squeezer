@@ -48,6 +48,7 @@
 //! A board with no contract has no known opening leader, so its play is omitted
 //! entirely (there is no `[Play]` section without a `[Contract]`).
 
+use crate::contract::{Contract, Seat, Strain, Vulnerability};
 use crate::prelude::*;
 
 /// The PBN wire letter for a seat: `N`, `E`, `S` or `W`.

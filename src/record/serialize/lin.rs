@@ -23,6 +23,7 @@
 //! [`crate::record::Board::dealer`] and the same S,W,N,E listing, so the dealer
 //! is never re-derived from the board number.
 
+use crate::contract::{Seat, Strain, Vulnerability};
 use crate::prelude::*;
 
 /// The `md|` dealer digit, which numbers the dealer in the S,W,N,E listing:

@@ -17,6 +17,7 @@
 //! from a [`Contract`]. [`Position::new`] is the raw constructor for callers
 //! that already hold the parts.
 
+use crate::contract::{Contract, Seat, Strain};
 use crate::prelude::*;
 
 /// Why a [`Position`] cannot be built from its parts or derived from a deal.

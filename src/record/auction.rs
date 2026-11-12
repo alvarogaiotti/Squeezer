@@ -10,6 +10,7 @@
 
 use std::num::NonZeroU8;
 
+use crate::contract::{Contract, Doubled, Seat, Strain, Vulnerability, Vulnerable};
 use crate::prelude::*;
 
 /// A single call in an auction: a pass, a double, a redouble, or a bid.

@@ -10,6 +10,7 @@
 //! legality (revokes) is deliberately not validated, because a revoke is a
 //! rules event rather than a data-integrity error.
 
+use crate::contract::{Contract, Seat, Vulnerability, Vulnerable};
 use crate::prelude::*;
 use crate::record::{Auction, AuctionError, Deal, PlayRecord};
 

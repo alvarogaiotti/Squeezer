@@ -1,7 +1,600 @@
 // Copyright (C) 2024 Alvaro Gaiotti
 // See end of file for license information
 
-use crate::prelude::*;
+//! The contract vocabulary: seats, vulnerability, and what was bid.
+//!
+//! This module is the one home of [`Seat`], [`Vulnerability`], [`Vulnerable`],
+//! [`Doubled`], [`Strain`] and [`Contract`]. It imports the specific items it
+//! needs (the card vocabulary, the table-size constant and standard-library
+//! traits) rather than the crate prelude glob, so the dependency runs one way:
+//! the deal, board, auction, position, serializer and parser modules import
+//! these types from here, and nothing here names a record type.
+//!
+//! Parsing a seat or a contract reports [`SeatError`] and [`ContractError`],
+//! the contract-local errors. They are not dealer errors: a malformed contract
+//! string is an input failure of this module, whether it arrives from a file,
+//! a literal or a test.
+
+use std::array::IntoIter;
+use std::fmt;
+use std::str::FromStr;
+
+use crate::NUMBER_OF_HANDS;
+use crate::card::Suit;
+
+/// Why a character is not a seat.
+///
+/// [`Seat`] parses from the four letters `N`, `E`, `S` and `W`, in either case.
+/// The error names the offending character rather than the whole input, so a
+/// caller can point at the token that failed.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum SeatError {
+    /// The character is not one of `N`, `E`, `S` or `W`.
+    NotASeat {
+        /// The character that failed to name a seat.
+        character: char,
+    },
+}
+
+impl fmt::Display for SeatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotASeat { character } => write!(f, "'{character}' is not a valid seat"),
+        }
+    }
+}
+
+impl std::error::Error for SeatError {}
+
+/// Why a string is not a contract.
+///
+/// This is the contract layer's parse error. It wraps [`SeatError`] for a
+/// declarer that is not a seat, so the cause stays typed rather than being
+/// flattened into a message.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ContractError {
+    /// The string ended before a contract level.
+    MissingLevel,
+    /// The level character was not a decimal digit.
+    LevelNotADigit(char),
+    /// The level was a digit outside 1-7.
+    LevelOutOfRange(u8),
+    /// The string ended before a strain.
+    MissingStrain,
+    /// The strain character is not one of `S`, `H`, `D`, `C` or `N`.
+    UnknownStrain(char),
+    /// The string ended before a declarer.
+    MissingDeclarer,
+    /// The string ended after an `X` or `XX` suffix, before the declarer.
+    MissingDeclarerAfterDoubled,
+    /// The declarer character is not a seat.
+    Seat(SeatError),
+    /// The vulnerability suffix is not `N` or `V`.
+    UnknownVulnerability(char),
+}
+
+impl fmt::Display for ContractError {
+    /// The messages are the wording the contract parser produced before this
+    /// module owned the error (it came from the dealer error), preserved
+    /// verbatim so the move changes no user-visible output. The variants, not
+    /// the strings, are the structured contract.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingLevel => write!(f, "no contract level"),
+            Self::LevelNotADigit(_) => write!(f, "contract level too high"),
+            Self::LevelOutOfRange(_) => write!(f, "Wrong contract level"),
+            Self::MissingStrain => write!(f, "no contract strain"),
+            Self::UnknownStrain(_) => write!(f, "Not a strain."),
+            Self::MissingDeclarer => write!(f, "no contract dealer"),
+            Self::MissingDeclarerAfterDoubled => {
+                write!(f, "contract is incomplete: hasn't dealer specified")
+            }
+            Self::Seat(cause) => write!(f, "{cause}"),
+            Self::UnknownVulnerability(_) => write!(f, "unrecognized vulnerability"),
+        }
+    }
+}
+
+impl std::error::Error for ContractError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Seat(cause) => Some(cause),
+            Self::MissingLevel
+            | Self::LevelNotADigit(_)
+            | Self::LevelOutOfRange(_)
+            | Self::MissingStrain
+            | Self::UnknownStrain(_)
+            | Self::MissingDeclarer
+            | Self::MissingDeclarerAfterDoubled
+            | Self::UnknownVulnerability(_) => None,
+        }
+    }
+}
+
+impl From<SeatError> for ContractError {
+    fn from(value: SeatError) -> Self {
+        Self::Seat(value)
+    }
+}
+
+/// Represents a seat at the bridge table.
+///
+/// The four seats are arranged around the table with North-South as partners
+/// and East-West as partners. Seats are numbered 0-3 for efficient array indexing.
+///
+/// # Partnerships
+///
+/// - **North-South**: Same parity (0, 2) - both even
+/// - **East-West**: Same parity (1, 3) - both odd
+///
+/// Use `is_same_line()` to check if two seats are partners.
+///
+/// # Rotation Order
+///
+/// Seats rotate clockwise: North → East → South → West → North
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(u8)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Seat {
+    /// North (index 0), partners with South
+    #[default]
+    North = 0,
+    /// East (index 1), partners with West
+    East = 1,
+    /// South (index 2), partners with North
+    South = 2,
+    /// West (index 3), partners with East
+    West = 3,
+}
+
+impl fmt::Display for Seat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::North => write!(f, "N"),
+            Self::East => write!(f, "E"),
+            Self::West => write!(f, "W"),
+            Self::South => write!(f, "S"),
+        }
+    }
+}
+
+impl TryFrom<char> for Seat {
+    type Error = SeatError;
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            'N' | 'n' => Ok(Self::North),
+            'S' | 's' => Ok(Self::South),
+            'W' | 'w' => Ok(Self::West),
+            'E' | 'e' => Ok(Self::East),
+            _ => Err(SeatError::NotASeat { character: value }),
+        }
+    }
+}
+
+impl Seat {
+    /// Returns the next seat in clockwise rotation.
+    ///
+    /// Order: North → East → South → West → North (wraps around)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// assert_eq!(Seat::North.next(), Seat::East);
+    /// assert_eq!(Seat::West.next(), Seat::North);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn next(self) -> Seat {
+        match self {
+            Self::North => Self::East,
+            Self::East => Self::South,
+            Self::South => Self::West,
+            Self::West => Self::North,
+        }
+    }
+
+    /// Returns the previous seat in counter-clockwise rotation.
+    ///
+    /// Order: North ← West ← South ← East ← North (wraps around)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// assert_eq!(Seat::East.previous(), Seat::North);
+    /// assert_eq!(Seat::North.previous(), Seat::West);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn previous(self) -> Seat {
+        match self {
+            Self::North => Self::West,
+            Self::East => Self::North,
+            Self::South => Self::East,
+            Self::West => Self::South,
+        }
+    }
+
+    /// Checks if two seats are partners (on the same line).
+    ///
+    /// In bridge, North-South are partners (both have even indices: 0, 2)
+    /// and East-West are partners (both have odd indices: 1, 3).
+    ///
+    /// This is implemented via a parity check: same parity = same partnership.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// assert!(Seat::North.is_same_line(&Seat::South));  // Partners
+    /// assert!(Seat::East.is_same_line(&Seat::West));    // Partners
+    /// assert!(!Seat::North.is_same_line(&Seat::East));  // Opponents
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn is_same_line(&self, other: &Seat) -> bool {
+        (*self as u8) % 2 == (*other as u8) % 2
+    }
+
+    /// Returns the partner of this player
+    #[must_use]
+    #[inline]
+    pub fn partner(&self) -> Seat {
+        match self {
+            Self::North => Self::South,
+            Self::East => Self::West,
+            Self::South => Self::North,
+            Self::West => Self::East,
+        }
+    }
+
+    /// Returns an iterator over all four seats starting from North.
+    ///
+    /// Order: North → East → South → West
+    #[must_use]
+    #[inline]
+    pub fn iter() -> IntoIter<Seat, 4> {
+        [Seat::North, Seat::East, Seat::South, Seat::West].into_iter()
+    }
+
+    /// Returns the full English name of the seat.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// assert_eq!(Seat::North.long_str(), "North");
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn long_str(&self) -> &str {
+        match self {
+            Self::North => "North",
+            Self::East => "East",
+            Self::West => "West",
+            Self::South => "South",
+        }
+    }
+
+    /// Returns an infinite iterator starting from this seat, rotating clockwise.
+    ///
+    /// **Warning**: This iterator never terminates! Use `.take(n)` to limit it.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let mut iter = Seat::North.iter_from();
+    /// assert_eq!(iter.next(), Some(Seat::North));
+    /// assert_eq!(iter.next(), Some(Seat::East));
+    /// // Continues forever...
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn iter_from(self) -> RotatingSeatIterator {
+        RotatingSeatIterator::new(self)
+    }
+}
+
+/// An infinite iterator that cycles through seats in clockwise order.
+///
+/// **Warning**: This iterator never stops! Always use `.take(n)` or break manually.
+///
+/// # Example
+///
+/// ```rust
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use squeezer::*;
+/// let seats: Vec<_> = Seat::North.iter_from().take(5).collect();
+/// assert_eq!(seats, vec![Seat::North, Seat::East, Seat::South, Seat::West, Seat::North]);
+/// # Ok(())
+/// # }
+/// ```
+pub struct RotatingSeatIterator {
+    state: Seat,
+}
+
+impl Iterator for RotatingSeatIterator {
+    type Item = Seat;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.state = self.state.next();
+        Some(self.state)
+    }
+}
+
+impl RotatingSeatIterator {
+    /// Creates a new rotating iterator starting from the given seat.
+    ///
+    /// The first call to `.next()` will return the starting seat.
+    #[inline]
+    #[must_use]
+    pub fn new(state: Seat) -> Self {
+        Self {
+            state: state.previous(),
+        }
+    }
+
+    /// Updates the iterator's current position.
+    pub fn set_state(&mut self, state: Seat) {
+        self.state = state;
+    }
+
+    /// Returns the current seat position (before the next `.next()` call).
+    #[must_use]
+    pub fn state(&self) -> Seat {
+        self.state
+    }
+}
+
+/// Macro to implement arithmetic operations and conversions for `Seat`.
+///
+/// This allows natural seat rotation via addition: `Seat::North + 2 == Seat::South`
+///
+/// The modulo operation ensures wrapping: `Seat::West + 1 == Seat::North`
+macro_rules! impl_add_and_from_ints_for_seat {
+    ($($t:ty),*) => {
+        $(
+        impl std::ops::Add<$t> for Seat {
+            type Output = Seat;
+
+            #[inline]
+            fn add(self, rhs: $t) -> Self::Output {
+                (self as $t + rhs).into()
+            }
+        }
+
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        impl From<$t> for Seat {
+            #[inline]
+            fn from(n: $t) -> Self {
+                match n % NUMBER_OF_HANDS as $t {
+                    x if x == Seat::North as $t => Seat::North,
+                    x if x == Seat::East as $t => Seat::East,
+                    x if x == Seat::South as $t => Seat::South,
+                    x if x == Seat::West as $t => Seat::West,
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        impl std::ops::Add<&$t> for Seat {
+            type Output = Seat;
+
+            #[inline]
+            fn add(self, rhs: &$t) -> Self::Output {
+                (self as $t + *rhs).into()
+            }
+        }
+
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        impl From<&$t> for Seat {
+            #[inline]
+            fn from(n: &$t) -> Self {
+                match *n % NUMBER_OF_HANDS as $t {
+                    x if x == Seat::North as $t => Seat::North,
+                    x if x == Seat::East as $t => Seat::East,
+                    x if x == Seat::South as $t => Seat::South,
+                    x if x == Seat::West as $t => Seat::West,
+                    _ => unreachable!(),
+                }
+            }
+        }
+        )*
+    };
+}
+impl_add_and_from_ints_for_seat!(usize, u64, u32, u16, u8, isize, i64, i32, i16, i8);
+
+/// Represents vulnerability state in a bridge game.
+///
+/// Vulnerability affects scoring: vulnerable pairs score more when making contracts
+/// but lose more when failing. The two partnerships (NS and EW) can be independently
+/// vulnerable or not.
+///
+/// # Binary Encoding
+///
+/// The enum values use bit flags:
+/// - Bit 0 (value 1): NS vulnerable
+/// - Bit 1 (value 2): EW vulnerable
+///
+/// This allows efficient `is_vulnerable()` checks via bitwise operations.
+///
+/// # Standard Rotation
+///
+/// In duplicate bridge, vulnerability rotates through 16 boards following a standard
+/// pattern (see `VULNERABILITY_TABLE`). Use `from_number()` to get the correct
+/// vulnerability for any board number.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+#[repr(u8)]
+pub enum Vulnerability {
+    /// Neither side vulnerable (bit pattern: 00)
+    #[default]
+    None = 0,
+    /// North-South vulnerable only (bit pattern: 01)
+    NS = 1,
+    /// East-West vulnerable only (bit pattern: 10)
+    EW = 2,
+    /// Both sides vulnerable (bit pattern: 11)
+    All = 3,
+}
+
+impl Vulnerability {
+    /// Standard vulnerability rotation for duplicate bridge boards 1-16.
+    ///
+    /// This pattern repeats every 16 boards. Pattern:
+    /// 1. None, 2. NS, 3. EW, 4. All, 5. NS, 6. EW, 7. All, 8. None,
+    /// 9. EW, 10. All, 11. None, 12. NS, 13. All, 14. None, 15. NS, 16. EW
+    pub const VULNERABILITY_TABLE: [Vulnerability; 16] = [
+        Vulnerability::None,
+        Vulnerability::NS,
+        Vulnerability::EW,
+        Vulnerability::All,
+        Vulnerability::NS,
+        Vulnerability::EW,
+        Vulnerability::All,
+        Vulnerability::None,
+        Vulnerability::EW,
+        Vulnerability::All,
+        Vulnerability::None,
+        Vulnerability::NS,
+        Vulnerability::All,
+        Vulnerability::None,
+        Vulnerability::NS,
+        Vulnerability::EW,
+    ];
+
+    /// Checks if a specific seat is vulnerable given this vulnerability state.
+    ///
+    /// Delegates to [`Vulnerable::new`], the single home of the seat-parity
+    /// bit test shared with contract scoring and LIN parsing.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// let vuln = Vulnerability::NS;
+    /// assert_eq!(vuln.is_vulnerable(Seat::North), Vulnerable::Yes);
+    /// assert_eq!(vuln.is_vulnerable(Seat::East), Vulnerable::No);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn is_vulnerable(&self, seat: Seat) -> Vulnerable {
+        Vulnerable::new(*self, seat)
+    }
+
+    /// Returns the vulnerability state for a given board number.
+    ///
+    /// Uses the standard duplicate bridge 16-board rotation pattern.
+    /// Board numbers wrap: board 17 = board 1, board 18 = board 2, etc.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use squeezer::*;
+    /// assert_eq!(Vulnerability::from_number(1), Vulnerability::None);
+    /// assert_eq!(Vulnerability::from_number(2), Vulnerability::NS);
+    /// assert_eq!(Vulnerability::from_number(17), Vulnerability::None); // Wraps
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn from_number(board_number: u8) -> Self {
+        Self::VULNERABILITY_TABLE[((board_number - 1) % 16) as usize]
+    }
+}
+
+/// Iterator over vulnerability states following the standard 16-board pattern.
+///
+/// This iterator cycles infinitely through the vulnerability rotation.
+pub struct VulnerabilityIterator {
+    board_number: u8,
+}
+
+impl VulnerabilityIterator {
+    /// Creates a new iterator starting from board 1.
+    #[inline]
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { board_number: 1 }
+    }
+
+    /// Creates an iterator starting from a specific vulnerability state.
+    ///
+    /// Starts at the first board (1-4) that has the given vulnerability.
+    #[inline]
+    #[must_use]
+    pub fn from_state(state: Vulnerability) -> Self {
+        let board_number = match state {
+            Vulnerability::None => 1,
+            Vulnerability::NS => 2,
+            Vulnerability::EW => 3,
+            Vulnerability::All => 4,
+        };
+        Self { board_number }
+    }
+
+    /// Creates an iterator starting from a specific board number.
+    #[inline]
+    #[must_use]
+    pub const fn from_board_number(board_number: u8) -> Self {
+        Self { board_number }
+    }
+}
+
+impl Default for VulnerabilityIterator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Iterator for VulnerabilityIterator {
+    type Item = Vulnerability;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let state = Vulnerability::from_number(self.board_number);
+        self.board_number = self.board_number.wrapping_add(1);
+        if self.board_number == 0 {
+            self.board_number = 1; // Handle overflow
+        }
+        Some(state)
+    }
+}
+
+impl IntoIterator for Vulnerability {
+    type IntoIter = VulnerabilityIterator;
+    type Item = Vulnerability;
+
+    fn into_iter(self) -> Self::IntoIter {
+        VulnerabilityIterator::from_state(self)
+    }
+}
 
 /// Per-seat vulnerability answer: is *this* seat vulnerable?
 ///
@@ -177,6 +770,29 @@ impl Scorable for Contract {
         self.score(tricks)
     }
 }
+
+/// Parses the `<level><strain>` prefix shared by both contract constructors.
+///
+/// Only the prefix is shared: [`Contract::from_str_and_vuln`] takes the
+/// vulnerability as an argument, while [`Contract::from_str`] reads a doubled
+/// suffix and a vulnerability letter from the rest of the string. Level fits
+/// in a `u8` because the `1..=7` check rejects every larger digit first.
+#[allow(clippy::cast_possible_truncation)]
+fn parse_level_and_strain(chars: &mut std::str::Chars<'_>) -> Result<(u8, Strain), ContractError> {
+    let level_char = chars.next().ok_or(ContractError::MissingLevel)?;
+    let level = level_char
+        .to_digit(10)
+        .ok_or(ContractError::LevelNotADigit(level_char))?;
+    if !(1..=7).contains(&level) {
+        return Err(ContractError::LevelOutOfRange(level as u8));
+    }
+    let strain = chars
+        .next()
+        .ok_or(ContractError::MissingStrain)?
+        .try_into()?;
+    Ok((level as u8, strain))
+}
+
 impl Contract {
     /// Returns the strain of the contract.
     #[allow(clippy::cast_possible_truncation)]
@@ -332,8 +948,7 @@ impl Contract {
     ///
     /// # Errors
     /// Errors if the contract string is improperly formatted
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn from_str_and_vuln(s: &str, vuln: Vulnerable) -> Result<Contract, DealerError> {
+    pub fn from_str_and_vuln(s: &str, vuln: Vulnerable) -> Result<Contract, ContractError> {
         let doubled = match s.len() - s.trim_end_matches('X').len() {
             0 => Doubled::NotDoubled,
             1 => Doubled::Doubled,
@@ -341,26 +956,15 @@ impl Contract {
             _ => unreachable!("too many `X`"),
         };
         let mut chars = s.chars();
-        let level = chars
-            .next()
-            .ok_or(DealerError::new("no contract level"))?
-            .to_digit(10)
-            .ok_or(DealerError::new("contract level too high"))?;
-        if !(1..=7).contains(&level) {
-            return Err(DealerError::new("Wrong contract level"));
-        }
-        let strain = chars
-            .next()
-            .ok_or(DealerError::new("no contract strain"))?
-            .try_into()?;
+        let (level, strain) = parse_level_and_strain(&mut chars)?;
         let declarer = chars
             .next()
-            .ok_or(DealerError::new("no contract dealer"))?
+            .ok_or(ContractError::MissingDeclarer)?
             .try_into()?;
         Ok(Self {
             vuln,
             doubled,
-            level: level as u8,
+            level,
             strain,
             declarer,
         })
@@ -386,26 +990,14 @@ impl Contract {
 }
 
 impl FromStr for Contract {
-    type Err = DealerError;
+    type Err = ContractError;
     /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
     ///
     /// # Errors
     /// Errors if the contract string is improperly formatted
-    #[allow(clippy::cast_possible_truncation)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chars = s.chars();
-        let level = chars
-            .next()
-            .ok_or(DealerError::new("no contract level"))?
-            .to_digit(10)
-            .ok_or(DealerError::new("contract level too high"))?;
-        if !(1..=7).contains(&level) {
-            return Err(DealerError::new("Wrong contract level"));
-        }
-        let strain = chars
-            .next()
-            .ok_or(DealerError::new("no contract strain"))?
-            .try_into()?;
+        let (level, strain) = parse_level_and_strain(&mut chars)?;
         let mut chars = chars.peekable();
         let doubled = if let Some(doubled) = chars.peek() {
             match *doubled {
@@ -420,27 +1012,23 @@ impl FromStr for Contract {
                             _ => Doubled::Doubled,
                         }
                     } else {
-                        return Err(DealerError::new(
-                            "contract is incomplete: hasn't dealer specified",
-                        ));
+                        return Err(ContractError::MissingDeclarerAfterDoubled);
                     }
                 }
                 _ => Doubled::NotDoubled,
             }
         } else {
-            return Err(DealerError::new(
-                "contract is incomplete: hasn't dealer specified",
-            ));
+            return Err(ContractError::MissingDeclarerAfterDoubled);
         };
         let declarer = chars
             .next()
-            .ok_or(DealerError::new("no contract dealer"))?
+            .ok_or(ContractError::MissingDeclarer)?
             .try_into()?;
         let vuln = if let Some(vuln) = chars.next() {
             match vuln {
                 'n' | 'N' => Vulnerable::No,
                 'v' | 'V' => Vulnerable::Yes,
-                _ => return Err(DealerError::new("unrecognized vulnerability")),
+                _ => return Err(ContractError::UnknownVulnerability(vuln)),
             }
         } else {
             Vulnerable::No
@@ -448,7 +1036,7 @@ impl FromStr for Contract {
         Ok(Self {
             vuln,
             doubled,
-            level: level as u8,
+            level,
             strain,
             declarer,
         })
@@ -476,7 +1064,7 @@ impl fmt::Display for Contract {
 }
 
 impl TryFrom<char> for Strain {
-    type Error = DealerError;
+    type Error = ContractError;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
         match value {
@@ -485,7 +1073,7 @@ impl TryFrom<char> for Strain {
             'D' => Ok(Self::Diamonds),
             'C' => Ok(Self::Clubs),
             'N' => Ok(Self::NoTrumps),
-            _ => Err(DealerError::new("Not a strain.")),
+            _ => Err(ContractError::UnknownStrain(value)),
         }
     }
 }
@@ -551,8 +1139,145 @@ impl fmt::Display for Strain {
 }
 #[cfg(test)]
 mod test {
-    use super::{Contract, Strain, Vulnerable};
+    use std::str::FromStr;
+
+    use super::{Contract, ContractError, Seat, SeatError, Strain, Vulnerability, Vulnerable};
     use crate::card::Suit;
+
+    /// Tests seat rotation.
+    #[test]
+    fn test_seat_rotation() {
+        assert_eq!(Seat::North.next(), Seat::East);
+        assert_eq!(Seat::East.next(), Seat::South);
+        assert_eq!(Seat::South.next(), Seat::West);
+        assert_eq!(Seat::West.next(), Seat::North);
+    }
+
+    /// Tests partnership detection.
+    #[test]
+    fn test_partnerships() {
+        assert!(Seat::North.is_same_line(&Seat::South));
+        assert!(Seat::East.is_same_line(&Seat::West));
+        assert!(!Seat::North.is_same_line(&Seat::East));
+        assert!(!Seat::South.is_same_line(&Seat::West));
+    }
+
+    /// Tests vulnerability calculation.
+    #[test]
+    fn test_vulnerability() {
+        assert_eq!(
+            Vulnerability::NS.is_vulnerable(Seat::North),
+            Vulnerable::Yes
+        );
+        assert_eq!(
+            Vulnerability::NS.is_vulnerable(Seat::South),
+            Vulnerable::Yes
+        );
+        assert_eq!(Vulnerability::NS.is_vulnerable(Seat::East), Vulnerable::No);
+        assert_eq!(Vulnerability::NS.is_vulnerable(Seat::West), Vulnerable::No);
+
+        assert_eq!(
+            Vulnerability::All.is_vulnerable(Seat::North),
+            Vulnerable::Yes
+        );
+        assert_eq!(
+            Vulnerability::None.is_vulnerable(Seat::North),
+            Vulnerable::No
+        );
+    }
+
+    /// Tests vulnerability from board number.
+    #[test]
+    fn test_vulnerability_from_board() {
+        assert_eq!(Vulnerability::from_number(1), Vulnerability::None);
+        assert_eq!(Vulnerability::from_number(2), Vulnerability::NS);
+        assert_eq!(Vulnerability::from_number(3), Vulnerability::EW);
+        assert_eq!(Vulnerability::from_number(4), Vulnerability::All);
+
+        // Test wrapping
+        assert_eq!(Vulnerability::from_number(17), Vulnerability::None);
+    }
+
+    /// Tests rotating seat iterator.
+    #[test]
+    fn test_rotating_iterator() {
+        let seats: Vec<_> = Seat::North.iter_from().take(5).collect();
+        assert_eq!(
+            seats,
+            vec![
+                Seat::North,
+                Seat::East,
+                Seat::South,
+                Seat::West,
+                Seat::North
+            ]
+        );
+    }
+
+    #[test]
+    fn seat_parse_error_names_the_offending_character() {
+        assert_eq!(
+            Seat::try_from('Q'),
+            Err(SeatError::NotASeat { character: 'Q' })
+        );
+        assert_eq!(
+            SeatError::NotASeat { character: 'Q' }.to_string(),
+            "'Q' is not a valid seat"
+        );
+    }
+
+    /// The contract error is typed per failure, and a bad declarer keeps the
+    /// seat error as its cause rather than flattening it.
+    #[test]
+    fn contract_parse_errors_are_typed() {
+        assert_eq!(
+            Contract::from_str("").expect_err("empty string has no level"),
+            ContractError::MissingLevel
+        );
+        assert_eq!(
+            Contract::from_str("8SN").expect_err("level 8 is out of range"),
+            ContractError::LevelOutOfRange(8)
+        );
+        assert_eq!(
+            Contract::from_str("4QN").expect_err("Q is not a strain"),
+            ContractError::UnknownStrain('Q')
+        );
+        assert_eq!(
+            Contract::from_str("4SNQ").expect_err("Q is not a vulnerability"),
+            ContractError::UnknownVulnerability('Q')
+        );
+
+        let error = Contract::from_str("4NQ").expect_err("Q is not a declarer");
+        assert_eq!(
+            error,
+            ContractError::Seat(SeatError::NotASeat { character: 'Q' })
+        );
+        assert_eq!(error.to_string(), "'Q' is not a valid seat");
+        assert!(
+            std::error::Error::source(&error)
+                .and_then(|source| source.downcast_ref::<SeatError>())
+                .is_some(),
+            "the seat error stays the source"
+        );
+    }
+
+    /// The pre-move messages survive the typed error, so callers that printed
+    /// a parse failure see the same text.
+    #[test]
+    fn contract_parse_error_display_preserves_messages() {
+        assert_eq!(
+            Contract::from_str("4QN")
+                .expect_err("Q is not a strain")
+                .to_string(),
+            "Not a strain."
+        );
+        assert_eq!(
+            Contract::from_str("4S")
+                .expect_err("a contract needs a declarer")
+                .to_string(),
+            "contract is incomplete: hasn't dealer specified"
+        );
+    }
 
     #[test]
     fn can_create_contract_from_str_test() {
