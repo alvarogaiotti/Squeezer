@@ -46,7 +46,13 @@ vocabulary. It is a lower layer, so the graph stays acyclic.
 
 `squeezer-bbo` depends on no other Squeezer crate, and nothing depends on
 `squeezer-sim`, `squeezer-io` or `squeezer-bbo`, so the graph is acyclic by
-construction rather than by convention.
+construction rather than by convention. `squeezer-bbo::download` returns the
+fetched LIN documents (`Vec<String>`), and
+`squeezer-io::linparser::parse_lin_documents` converts such a batch into
+`Board`s. The conversion deliberately lives in the importer crate rather than
+behind a `squeezer-bbo` feature, so the download crate keeps its edge to no
+other Squeezer crate and a consumer that only fetches text never compiles
+`nom`.
 
 Each crate defines its own error type instead of one crate-wide `SqueezerError`.
 The point is that an error names the layer that produced it; one shared enum

@@ -9,11 +9,11 @@
 //! blocking client.
 
 use crate::helpers::{
-    BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, logged_in_from_body,
+    BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, interval_pages, logged_in_from_body,
 };
-use log::{debug, info, warn};
+use log::{info, warn};
 use reqwest::Client;
-use time::{Duration, OffsetDateTime};
+use time::OffsetDateTime;
 use url::Url;
 
 /// Asynchronous BBO client, backed by `reqwest`.
@@ -125,39 +125,34 @@ impl AsyncBBOClient {
     /// Errors when the site is not reachable.
     pub async fn get_in_interval(
         &mut self,
-        mut start_time: OffsetDateTime,
-        mut end_time: OffsetDateTime,
+        start_time: OffsetDateTime,
+        end_time: OffsetDateTime,
     ) -> Result<(), BboError> {
-        if start_time < end_time {
-            debug!("swapping start_time and end_time (arguments were reversed)");
-            std::mem::swap(&mut start_time, &mut end_time);
-        }
         info!("trying to get hands links");
-        // BBO caps a listing at 28 days, so walk backwards in 28-day pages.
         let mut links = Vec::new();
-        while (start_time - end_time).whole_days() > 28 {
-            let next_start = start_time - Duration::days(28);
-            let text = self.get_hands_in_interval(start_time, next_start).await?;
+        for (page_start, page_end) in interval_pages(start_time, end_time) {
+            let text = self.get_hands_in_interval(page_start, page_end).await?;
             links.extend(hand_record_links(
-                &self.hands_url(start_time, next_start),
+                &self.hands_url(page_start, page_end),
                 &text,
             ));
-            start_time = next_start;
         }
-        let text = self.get_hands_in_interval(start_time, end_time).await?;
-        links.extend(hand_record_links(
-            &self.hands_url(start_time, end_time),
-            &text,
-        ));
         self.hands_links = links;
         Ok(())
     }
 
-    /// Downloads every collected hand, returning the first failure if any.
+    /// Downloads every collected hand record, returning the LIN document of
+    /// each in collection order.
+    ///
+    /// BBO answers a hand request with one complete LIN document, so the batch
+    /// is a `Vec` of documents rather than a single multi-board file. Use
+    /// `squeezer-io`'s `parse_lin_documents` to turn the batch into boards.
     ///
     /// # Errors
-    /// Errors when the site is not reachable or a hand cannot be fetched.
-    pub async fn download(&self) -> Result<(), BboError> {
+    /// Errors when the site is not reachable or a hand cannot be fetched. LIN
+    /// documents already fetched before the failure are not returned.
+    pub async fn download(&self) -> Result<Vec<String>, BboError> {
+        let mut documents = Vec::with_capacity(self.hands_links.len());
         let mut first_error = None;
         for hand in &self.hands_links {
             info!("downloading from {hand}");
@@ -167,14 +162,32 @@ impl AsyncBBOClient {
                     first_error.get_or_insert(BboError::Download(e));
                 }
                 Ok(response) => {
-                    // TODO: persist the returned LIN instead of discarding it.
-                    let _lin = response.text().await?;
+                    documents.push(response.text().await?);
                 }
             }
         }
         match first_error {
             Some(error) => Err(error),
-            None => Ok(()),
+            None => Ok(documents),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn download_returns_an_empty_batch_when_no_links_were_collected() {
+        let client = AsyncBBOClient::new(String::from("user"), String::from("password"));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime builds");
+
+        let lin = runtime
+            .block_on(client.download())
+            .expect("no collected links means no request");
+
+        assert!(lin.is_empty());
     }
 }

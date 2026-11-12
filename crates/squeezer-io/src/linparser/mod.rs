@@ -3,7 +3,9 @@
 
 //! The LIN importer, behind the `lin` feature: [`parse_bridge_file`] builds one
 //! [`squeezer_model::record::Board`] per board and [`LinFile`] keeps the file
-//! metadata and the boards in file order.
+//! metadata and the boards in file order. [`parse_lin_documents`] imports a
+//! batch of complete LIN documents, the shape a BBO hand download returns, and
+//! yields their boards in document order.
 //!
 //! LIN is a line grammar: file-level `vg|`/`rs|`/`pn|` lines, then per-board
 //! `qx|`/`st||`/`md|`/`sv|` lines, then the auction's `mb|` calls and the

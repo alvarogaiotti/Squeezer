@@ -25,3 +25,6 @@ url = { version = "2.5.8", optional = true }
 # `cookie` happens to enable transitively today; naming it keeps that test
 # compiling if the HTTP stack's features change.
 time = { version = "*", features = ["macros"] }
+# The async download smoke test needs a runtime to poll the future. `rt` is
+# already in the graph through `reqwest`, and the test performs no I/O.
+tokio = { version = "*", features = ["rt"] }

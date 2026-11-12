@@ -8,15 +8,16 @@
 //! with a cookie jar). See `AsyncBBOClient` (feature `async`) for the twin.
 
 use crate::helpers::{
-    BBOClient, BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, logged_in_from_body,
+    BBOClient, BBOHANDS, BBOLAND, BBOLOGIN, BboError, hand_record_links, interval_pages,
+    logged_in_from_body,
 };
 
 #[cfg(not(test))]
-use log::{debug, info, warn};
+use log::{info, warn};
 use reqwest::blocking::Client;
 #[cfg(test)]
-use std::{println as info, println as warn, println as debug}; // Workaround to use println! for logs.
-use time::{Duration, OffsetDateTime};
+use std::{println as info, println as warn}; // Workaround to use println! for logs.
+use time::OffsetDateTime;
 use url::Url;
 
 /// Synchronous BBO client, backed by `reqwest::blocking`.
@@ -118,41 +119,36 @@ impl BBOClient for BlockingBBOClient {
 
     fn get_in_interval(
         &mut self,
-        mut start_time: OffsetDateTime,
-        mut end_time: OffsetDateTime,
+        start_time: OffsetDateTime,
+        end_time: OffsetDateTime,
     ) -> Result<(), BboError> {
-        if start_time < end_time {
-            debug!("swapping start_time and end_time (arguments were reversed)");
-            std::mem::swap(&mut start_time, &mut end_time);
-        }
         info!("trying to get hands links");
-        // BBO caps a listing at 28 days, so walk backwards in 28-day pages.
         let mut links = Vec::new();
-        while (start_time - end_time).whole_days() > 28 {
-            let next_start = start_time - Duration::days(28);
-            let text = self.get_hands_in_interval(start_time, next_start)?;
+        for (page_start, page_end) in interval_pages(start_time, end_time) {
+            let text = self.get_hands_in_interval(page_start, page_end)?;
             links.extend(hand_record_links(
-                &self.hands_url(start_time, next_start),
+                &self.hands_url(page_start, page_end),
                 &text,
             ));
-            start_time = next_start;
         }
-        let text = self.get_hands_in_interval(start_time, end_time)?;
-        links.extend(hand_record_links(
-            &self.hands_url(start_time, end_time),
-            &text,
-        ));
         self.hands_links = links;
         Ok(())
     }
 }
 
 impl BlockingBBOClient {
-    /// Downloads every collected hand, returning the first failure if any.
+    /// Downloads every collected hand record, returning the LIN document of
+    /// each in collection order.
+    ///
+    /// BBO answers a hand request with one complete LIN document, so the batch
+    /// is a `Vec` of documents rather than a single multi-board file. Use
+    /// `squeezer-io`'s `parse_lin_documents` to turn the batch into boards.
     ///
     /// # Errors
-    /// Errors when the site is not reachable or a hand cannot be fetched.
-    pub fn download(&self) -> Result<(), BboError> {
+    /// Errors when the site is not reachable or a hand cannot be fetched. LIN
+    /// documents already fetched before the failure are not returned.
+    pub fn download(&self) -> Result<Vec<String>, BboError> {
+        let mut documents = Vec::with_capacity(self.hands_links.len());
         let mut first_error = None;
         for hand in &self.hands_links {
             info!("downloading from {hand}");
@@ -163,8 +159,7 @@ impl BlockingBBOClient {
                     continue;
                 }
                 Ok(response) => {
-                    // TODO: persist the returned LIN instead of discarding it.
-                    let _lin = response.text()?;
+                    documents.push(response.text()?);
                 }
             }
             // BBO is rate-sensitive; be polite between hand downloads.
@@ -172,31 +167,51 @@ impl BlockingBBOClient {
         }
         match first_error {
             Some(error) => Err(error),
-            None => Ok(()),
+            None => Ok(documents),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    // This test logs into BBO with hardcoded credentials and downloads real
-    // hands. It is kept compiled so it does not rot, but it must be run
-    // explicitly (`--ignored`) and never as part of a normal suite.
+    use super::*;
+
     #[test]
-    #[ignore = "live network test against BBO with hardcoded credentials"]
+    fn download_returns_an_empty_batch_when_no_links_were_collected() {
+        let client = BlockingBBOClient::new(String::from("user"), String::from("password"));
+
+        let lin = client
+            .download()
+            .expect("no collected links means no request");
+
+        assert!(lin.is_empty());
+    }
+
+    // This test logs into BBO with credentials from the environment and
+    // downloads real hands. It is kept compiled so it does not rot, but it must
+    // be run explicitly (`--ignored`) and never as part of a normal suite.
+    #[test]
+    #[ignore = "live network test; set BBO_USERNAME and BBO_PASSWORD and run with --ignored"]
     fn test_working_connection() {
-        use super::*;
         use time::macros::datetime;
 
-        let mut client =
-            BlockingBBOClient::new(String::from("thevava"), String::from("ekdallebol"));
+        let (Ok(username), Ok(password)) =
+            (std::env::var("BBO_USERNAME"), std::env::var("BBO_PASSWORD"))
+        else {
+            eprintln!("skipping: set BBO_USERNAME and BBO_PASSWORD to run the live BBO test");
+            return;
+        };
+
+        let mut client = BlockingBBOClient::new(username, password);
         client.login().unwrap();
         client
             .get_in_interval(
-                datetime!(2022-04-01 0:00 UTC),
                 datetime!(2022-03-03 0:00 UTC),
+                datetime!(2022-04-01 0:00 UTC),
             )
             .unwrap();
-        client.download().unwrap();
+
+        let documents = client.download().unwrap();
+        eprintln!("downloaded {} LIN documents", documents.len());
     }
 }

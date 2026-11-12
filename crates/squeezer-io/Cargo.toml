@@ -43,6 +43,10 @@ name = "lin_parser"
 required-features = ["lin"]
 
 [[test]]
+name = "bbo_downloads"
+required-features = ["lin"]
+
+[[test]]
 name = "pbn_parser"
 required-features = ["pbn"]
 

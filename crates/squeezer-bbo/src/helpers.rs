@@ -8,7 +8,7 @@
 //! listing page markup is identical for both clients.
 
 use scraper::{Html, Selector};
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 use url::Url;
 
 /// Login endpoint; the `t=` parameter is the page to land on afterwards.
@@ -100,6 +100,37 @@ pub(crate) fn logged_in_from_body(body: &str) -> bool {
     !body.contains("Please login")
 }
 
+/// The longest interval BBO returns in one listing page.
+const MAX_PAGE: Duration = Duration::days(28);
+
+/// Splits an interval into listing pages of at most 28 days.
+///
+/// BBO caps a listing at 28 days, so a wider interval is queried page by page.
+/// The arguments may arrive in either order; the pages always run from the
+/// earlier instant to the later one. A zero-length interval stays one page,
+/// because refusing it here would only move the decision to the caller.
+#[must_use]
+pub(crate) fn interval_pages(
+    start_time: OffsetDateTime,
+    end_time: OffsetDateTime,
+) -> Vec<(OffsetDateTime, OffsetDateTime)> {
+    let (start_time, end_time) = if start_time > end_time {
+        log::debug!("interval arguments were reversed; starting from the earlier instant");
+        (end_time, start_time)
+    } else {
+        (start_time, end_time)
+    };
+    let mut pages = Vec::new();
+    let mut page_start = start_time;
+    while end_time - page_start > MAX_PAGE {
+        let page_end = page_start + MAX_PAGE;
+        pages.push((page_start, page_end));
+        page_start = page_end;
+    }
+    pages.push((page_start, end_time));
+    pages
+}
+
 /// Extracts the absolute hand-record links from a listing page.
 ///
 /// The listing holds relative `fetchlin.php?...` anchors; `page_url` (the URL
@@ -161,5 +192,42 @@ mod test {
         assert!(!logged_in_from_body("Please login to continue"));
         assert!(logged_in_from_body("Welcome back, your tables await"));
         assert!(logged_in_from_body(""));
+    }
+
+    #[test]
+    fn interval_pages_split_an_ascending_interval_into_28_day_pages() {
+        use time::macros::datetime;
+
+        let start = datetime!(2022-03-03 0:00 UTC);
+        let end = datetime!(2022-04-01 0:00 UTC);
+
+        assert_eq!(
+            interval_pages(start, end),
+            vec![
+                (start, datetime!(2022-03-31 0:00 UTC)),
+                (datetime!(2022-03-31 0:00 UTC), end),
+            ]
+        );
+    }
+
+    #[test]
+    fn interval_pages_accept_either_argument_order() {
+        use time::macros::datetime;
+
+        let early = datetime!(2022-03-03 0:00 UTC);
+        let late = datetime!(2022-03-03 1:00 UTC);
+
+        assert_eq!(interval_pages(late, early), interval_pages(early, late));
+        assert_eq!(interval_pages(early, late), vec![(early, late)]);
+    }
+
+    #[test]
+    fn interval_pages_keep_an_exact_28_day_interval_in_one_page() {
+        use time::macros::datetime;
+
+        let start = datetime!(2022-03-03 0:00 UTC);
+        let end = datetime!(2022-03-31 0:00 UTC);
+
+        assert_eq!(interval_pages(start, end), vec![(start, end)]);
     }
 }
