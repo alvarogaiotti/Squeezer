@@ -9,15 +9,16 @@
 //! context handle never leaves this module.
 
 use super::{
-    CardSolve, DdTable, DdTableCalculator, PlayAnalyser, Solutions, SolveMode, SolveResults,
-    Solver, SolverContext, SolverError,
+    CardSolve, DdTable, DdTableCalculator, Par, ParCalculator, PlayAnalyser, Solutions, SolveMode,
+    SolveResults, Solver, SolverContext, SolverError,
 };
 use crate::adapters::{
-    DdsDealAdapter, dd_table_from_dds, play_record_to_trace, position_to_dds_deal,
+    DdsDealAdapter, dd_table_from_dds, dd_table_to_dds, par_from_dds, play_record_to_trace,
+    position_to_dds_deal, vulnerability_encoding,
 };
 use crate::prelude::*;
 use ::core::ffi::{c_int, c_void};
-use dds::context::{self, DdTableResults, FutureTricks, SolvedPlay};
+use dds::context::{self, DdTableResults, FutureTricks, ParResults, SolvedPlay};
 use dds::tables::NotPopulated;
 
 /// DDS's "no fault" return code; every other code is an error.
@@ -141,6 +142,35 @@ impl DdTableCalculator for DdsSolver {
         // `dds_c_calc_dd_table` returned success, so the buffer it filled is
         // complete: this is the only place that may claim the marker.
         dd_table_from_dds(&results.populated())
+    }
+}
+
+/// A cold capability: par from a precomputed DD table.
+impl ParCalculator for DdsSolver {
+    type Table = DdTable;
+    type Par = Par;
+    type Error = SolverError;
+
+    /// Derives par with DDS's legacy `Par` entry point.
+    ///
+    /// Par is a pure function of a precomputed table, so the call takes no
+    /// deal. DDS exports it only through the legacy `Par` entry point, which
+    /// accepts the populated table directly; the `dds_c_*` context shim has no
+    /// table-input par call.
+    fn par(&self, table: &DdTable, vulnerability: Vulnerability) -> Result<Par, SolverError> {
+        let dds_table = dd_table_to_dds(table);
+        let mut results = ParResults::default();
+        let code = unsafe {
+            context::Par(
+                &raw const dds_table,
+                &raw mut results,
+                vulnerability_encoding(vulnerability) as c_int,
+            )
+        };
+        if code != RETURN_NO_FAULT {
+            return Err(backend_error(code));
+        }
+        par_from_dds(&results)
     }
 }
 
@@ -282,7 +312,7 @@ mod tests {
     use crate::test_fixtures::{
         example_board, example_board_hand0_play, example_board_with, example_deal, opening_position,
     };
-    use crate::{ContextFactory, DdTableCalculator};
+    use crate::{ContextFactory, DdTableCalculator, ParCalculator};
     use std::str::FromStr;
 
     fn card(suit: Suit, rank: u8) -> Card {
@@ -315,6 +345,45 @@ mod tests {
                 assert_eq!(table.tricks(strain, seat), tricks, "{strain} by {seat}");
             }
         }
+    }
+
+    #[test]
+    fn par_from_the_example_hand_dd_table_matches_the_dds_oracle() {
+        // DDS's `examples/hands.cpp` hand 0 publishes its DD table and par
+        // together. Using the published table isolates par from table
+        // calculation: the seam must derive the same contract from known
+        // counts, not merely agree with a table it computed itself.
+        let table = DdTable::empty()
+            .with(Strain::Spades, Seat::North, 5)
+            .with(Strain::Spades, Seat::East, 8)
+            .with(Strain::Spades, Seat::South, 5)
+            .with(Strain::Spades, Seat::West, 8)
+            .with(Strain::Hearts, Seat::North, 6)
+            .with(Strain::Hearts, Seat::East, 6)
+            .with(Strain::Hearts, Seat::South, 6)
+            .with(Strain::Hearts, Seat::West, 6)
+            .with(Strain::Diamonds, Seat::North, 5)
+            .with(Strain::Diamonds, Seat::East, 7)
+            .with(Strain::Diamonds, Seat::South, 5)
+            .with(Strain::Diamonds, Seat::West, 7)
+            .with(Strain::Clubs, Seat::North, 7)
+            .with(Strain::Clubs, Seat::East, 5)
+            .with(Strain::Clubs, Seat::South, 7)
+            .with(Strain::Clubs, Seat::West, 5)
+            .with(Strain::NoTrumps, Seat::North, 6)
+            .with(Strain::NoTrumps, Seat::East, 6)
+            .with(Strain::NoTrumps, Seat::South, 6)
+            .with(Strain::NoTrumps, Seat::West, 6);
+
+        let par = DdsSolver
+            .par(&table, Vulnerability::None)
+            .expect("example hand 0 has a par result");
+
+        // The oracle is DDS's own `par_scores_`/`par_strings_` for hand 0.
+        assert_eq!(par.ns.score, -110);
+        assert_eq!(par.ns.contracts, "EW 2S");
+        assert_eq!(par.ew.score, 110);
+        assert_eq!(par.ew.contracts, "EW 2S");
     }
 
     #[test]

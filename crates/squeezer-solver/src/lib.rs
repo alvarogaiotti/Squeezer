@@ -373,6 +373,39 @@ pub trait DdTableCalculator {
     }
 }
 
+/// One side's par result: the score that can be guaranteed and the contracts
+/// that attain it.
+///
+/// A par result may name *alternatives* (`"EW 2S,EW 2H"`), so the contract
+/// list stays text: parsing it into contract types would put a second contract
+/// vocabulary beside `squeezer-model`'s, and a scored report needs the whole
+/// list to explain the score anyway.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParSide {
+    /// The par score in raw bridge points, negative when this side concedes.
+    pub score: i32,
+    /// The par contract list DDS prints for this side, with the side prefix
+    /// removed, e.g. `"EW 2S"`; empty when neither side can make anything.
+    ///
+    /// The list names whoever declares, so North-South's entry can read
+    /// `"EW 2S"`: that is the contract East-West must be allowed to play for
+    /// par to hold.
+    pub contracts: String,
+}
+
+/// The double-dummy par for a deal: the contract and score at which neither
+/// side can improve, one entry per side.
+///
+/// Par is derived from a [`DdTable`], not from a played board; [`ParCalculator`]
+/// is the cold capability that turns one into the other.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Par {
+    /// North-South's par result.
+    pub ns: ParSide,
+    /// East-West's par result.
+    pub ew: ParSide,
+}
+
 /// A cold capability: deriving par from a precomputed DD table.
 pub trait ParCalculator {
     /// The DD-table representation consumed as input.

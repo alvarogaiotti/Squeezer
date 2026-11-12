@@ -48,6 +48,10 @@ pub trait DdTableCalculator {
     /// Calculates all the table for a given deal, returning the maximum result for every contract
     /// played by every player. Disregards information about seat, e.g. if both the pairs can make
     /// 1NT, this function will return 1NT as makable for both.
+    ///
+    /// The par results DDS fills alongside the tables are returned rather than
+    /// discarded; they are meaningful only when `mode` is not
+    /// [`ParCalcMode::NoPar`].
     /// # Errors
     /// Should error only if the underlying solver errors out.
     fn calculate_all_complete_tables<T>(
@@ -55,7 +59,7 @@ pub trait DdTableCalculator {
         table_deals: &[T],
         mode: ParCalcMode,
         trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DdsError>
+    ) -> Result<AllTablesResult, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>;
 }
@@ -84,7 +88,7 @@ impl DdTableCalculator for DoubleDummySolver {
         table_deals: &[T],
         mode: ParCalcMode,
         mut trump_filter: TrumpFilter,
-    ) -> Result<DdTablesRes<Populated>, DdsError>
+    ) -> Result<AllTablesResult, DdsError>
     where
         for<'a> &'a T: Into<DdTableDeal>,
     {
@@ -103,7 +107,13 @@ impl DdTableCalculator for DoubleDummySolver {
             )
         };
 
-        if_no_fault_return!(result, resp.populated());
+        if_no_fault_return!(
+            result,
+            AllTablesResult {
+                tables: resp.populated(),
+                par: presp,
+            }
+        );
     }
 }
 
@@ -369,6 +379,26 @@ impl DdTableResults<Populated> {
     pub const fn tricks(&self, strain: DdsSuit, seat: DdsHandEncoding) -> ::std::os::raw::c_int {
         self.res_table[strain as usize][seat as usize]
     }
+
+    /// Builds a populated table from explicit trick counts.
+    ///
+    /// Rows are DDS's strains (spades through no-trumps) and columns its seats
+    /// (north through west). The marker records the caller's assertion that
+    /// every count is final; use this for counts that did not come from DDS's
+    /// table calculation, such as a table reconstructed in a test.
+    #[must_use]
+    pub fn from_tricks(tricks: [[u8; 4]; 5]) -> Self {
+        let mut res_table = [[0; 4]; 5];
+        for (row, row_tricks) in res_table.iter_mut().zip(tricks) {
+            for (cell, tricks) in row.iter_mut().zip(row_tricks) {
+                *cell = ::std::os::raw::c_int::from(tricks);
+            }
+        }
+        Self {
+            res_table,
+            state: PhantomData,
+        }
+    }
 }
 
 impl Default for DdTableResults<NotPopulated> {
@@ -438,6 +468,34 @@ impl ParResults {
             par_contracts_string: [crate::par::ParTextResultHalfBuffer([20; 128]); 2],
         }
     }
+
+    /// The par score for `side` (0 = NS, 1 = EW), e.g. `"NS -110"`.
+    ///
+    /// Returns `None` when `side` is out of range or DDS filled the field with
+    /// something that is not NUL-terminated ASCII.
+    #[must_use]
+    pub fn score_for_side(&self, side: usize) -> Option<String> {
+        c_text(self.par_score.get(side)?)
+    }
+
+    /// The par contract list for `side` (0 = NS, 1 = EW), e.g. `"NS:EW 2S"`.
+    ///
+    /// Returns `None` when `side` is out of range or DDS filled the field with
+    /// something that is not NUL-terminated ASCII.
+    #[must_use]
+    pub fn contracts_for_side(&self, side: usize) -> Option<String> {
+        c_text(self.par_contracts_string.get(side)?.0.as_slice())
+    }
+}
+
+/// Reads one NUL-terminated ASCII field from a DDS text buffer.
+fn c_text(bytes: &[::std::os::raw::c_char]) -> Option<String> {
+    let end = bytes.iter().position(|&byte| byte == 0)?;
+    let text: Vec<u8> = bytes[..end]
+        .iter()
+        .map(|&byte| byte.cast_unsigned())
+        .collect();
+    String::from_utf8(text).ok()
 }
 
 impl Default for ParResults {
@@ -469,6 +527,23 @@ impl Default for AllParResults {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// The result of a batch DD-table calculation: one table per deal, plus the
+/// par results DDS computed in the same pass.
+///
+/// DDS fills both in one `CalcAllTables` call, so returning only the tables
+/// discarded par the caller had already paid for. [`AllTablesResult::par`] is
+/// indexed by the input deal (`par.par_results[deal_index]`); DDS fills it only
+/// when the call requested par, and leaves the rest of its fixed array
+/// untouched. Note that [`DdTablesRes::no_of_boards`] keeps DDS's own meaning —
+/// four trick counts per strain per deal — not the number of deals.
+#[derive(Debug, Copy, Clone)]
+pub struct AllTablesResult {
+    /// The double-dummy tables, one per deal.
+    pub tables: DdTablesRes<Populated>,
+    /// The par results, one per input deal, for the modes that request par.
+    pub par: AllParResults,
 }
 
 #[cfg(test)]
@@ -858,6 +933,34 @@ mod test {
         });
         assert_eq!(crate::bindings::ddsffi::RETURN_NO_FAULT, result);
         table.populated()
+    }
+
+    #[test]
+    #[allow(deprecated, clippy::needless_range_loop)]
+    fn calc_all_tables_surfaces_par_results() {
+        // DDS's `examples/hands.cpp` hand 0: the table and par oracles are
+        // published together, so this checks both halves of the batch result.
+        let mut table_deal = [[0u32; 4]; 4];
+        for h in 0..4 {
+            for s in 0..4 {
+                table_deal[h][s] = HOLDINGS[0][s][h];
+            }
+        }
+
+        let result = DoubleDummySolver::new()
+            .calculate_all_complete_tables(&[table_deal], ParCalcMode::None, [0; 5])
+            .expect("example hand 0 has a table and par");
+
+        // DDS counts four trick rows per strain, so one deal with all five
+        // strains reports 20 rather than one board.
+        assert_eq!(result.tables.no_of_boards, 20);
+        check_table(&result.tables.results[0], 0);
+
+        let par = &result.par.par_results[0];
+        assert_eq!(par.score_for_side(0).as_deref(), Some("NS -110"));
+        assert_eq!(par.score_for_side(1).as_deref(), Some("EW 110"));
+        assert_eq!(par.contracts_for_side(0).as_deref(), Some("NS:EW 2S"));
+        assert_eq!(par.contracts_for_side(1).as_deref(), Some("EW:EW 2S"));
     }
 
     #[test]
