@@ -19,8 +19,12 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 [dev-dependencies]
 criterion = { version = "*", features = ["html_reports"] }
 
-# The distribution check compares the two samplers, so it only exists when
-# `rand` is on. The sampling benchmark measures the same feature-gated methods.
+# The sampler tests and the distribution check only exist when `rand` is on;
+# the sampling benchmark measures the same feature-gated methods.
+[[test]]
+name = "sampler_choice"
+required-features = ["rand"]
+
 [[test]]
 name = "uniformity_check"
 required-features = ["rand"]

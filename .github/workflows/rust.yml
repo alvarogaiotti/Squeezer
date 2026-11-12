@@ -23,6 +23,13 @@ jobs:
       run: cargo test --workspace --verbose
     - name: Run tests with every feature
       run: cargo test --workspace --all-features --verbose
+    # The sampler tests (choosing a sampler, and the uniformity check) are
+    # gated on `rand`, which squeezer-cards leaves off by default. The
+    # `--all-features` run above covers them; this step additionally pins the
+    # exact command the card samplers are expected to pass on their own, so a
+    # future workspace feature union cannot hide a regression here.
+    - name: Run the card sampler tests
+      run: cargo test -p squeezer-cards --features rand --verbose
     - name: Build every target
       run: cargo build --workspace --all-targets --all-features --verbose
     # The pure crates must build without the native solver, so check them with
