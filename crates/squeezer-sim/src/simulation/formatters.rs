@@ -13,11 +13,13 @@
 //!
 //! ## Example
 //!
-//! ```
+//! ```no_run
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! use squeezer::prelude::*;
-//! use squeezer::simulation::formatters::*;
+//! use squeezer_model::*;
+//! use squeezer_sim::simulation::formatters::*;
+//! use squeezer_sim::simulation::*;
+//! use std::str::FromStr;
 //!
 //! let sim = ContractPayoffSimulation::builder()
 //!     .num_deals(1000)
@@ -44,10 +46,10 @@
 //! # }
 //! ```
 
+use crate::simulation::{LeadStatistics, PayoffComparison, PayoffMatrix};
 use colored::Colorize;
+use squeezer_cards::Suit;
 use std::fmt::{self, Write as FmtWrite};
-
-use crate::{LeadStatistics, PayoffComparison, PayoffMatrix, Suit};
 
 // ============================================================================
 // PAYOFF MATRIX FORMATTER

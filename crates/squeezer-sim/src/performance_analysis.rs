@@ -17,7 +17,7 @@
 #![allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
 
 use crate::prelude::*;
-use crate::solver::PlayAnalyser;
+use squeezer_solver::PlayAnalyser;
 use std::fmt;
 
 #[cfg(target_arch = "x86_64")]
@@ -656,13 +656,13 @@ pub fn find_trick_winner(
         .enumerate()
         .max_by_key(|(_, s)| *s)
         .map(|(idx, _)| idx)
-        .unwrap()
+        .expect("the four strengths always have a maximum")
 }
 
 /// Finds the winner of a single trick as the index into `original_cards`.
 ///
 /// Kept as a distinct public entry point with its original signature, but the
-/// rule itself lives in [`trick_winner`](crate::record::position::trick_winner),
+/// rule itself lives in [`trick_winner`](squeezer_model::record::position::trick_winner),
 /// which this delegates to. `lead_suit` is redundant with
 /// `original_cards[0].suit()` — every caller passes exactly that — and is
 /// retained only for signature compatibility; it is not consulted. A `None`
@@ -743,21 +743,25 @@ pub struct AnalysisInput {
 ///
 /// # Errors
 ///
-/// Returns the seam's error (wrapped in [`SqueezerError`]) when the board
-/// cannot be analysed, or an invalid-input error when it lacks a contract or
-/// a play.
-pub fn analyze_board<A>(analyser: &A, board: &Board) -> Result<HandAnalysis, SqueezerError>
+/// Returns [`AnalysisError::Analyser`] with the analyser's own error when the
+/// board cannot be analysed, or [`AnalysisError::InvalidInput`] when it lacks a
+/// contract or a play.
+pub fn analyze_board<A>(
+    analyser: &A,
+    board: &Board,
+) -> Result<HandAnalysis, AnalysisError<A::Error>>
 where
     A: PlayAnalyser,
-    SqueezerError: From<A::Error>,
 {
     let contract = board.contract().ok_or_else(|| {
-        SqueezerError::invalid_input("performance analysis", "board has no contract")
+        AnalysisError::invalid_input("performance analysis", "board has no contract")
     })?;
     let play_sequence = board.play().cloned().ok_or_else(|| {
-        SqueezerError::invalid_input("performance analysis", "board records no play")
+        AnalysisError::invalid_input("performance analysis", "board records no play")
     })?;
-    let dd_results = analyser.analyse_play(board).map_err(SqueezerError::from)?;
+    let dd_results = analyser
+        .analyse_play(board)
+        .map_err(AnalysisError::analyser)?;
     Ok(analyze_hand(AnalysisInput {
         contract,
         play_sequence,
@@ -886,7 +890,7 @@ mod tests {
         let preprocessed = PreprocessedDeal::new_scalar(&cards, Some(Suit::Spades));
 
         assert_eq!(preprocessed.cards[0], 142); // 256 + 14
-        assert_eq!(preprocessed.cards[1], 14 ^ 0b0001_0000_u8);
+        assert_eq!(preprocessed.cards[1], 0b0000_1110_u8 ^ 0b0001_0000_u8);
     }
 
     #[test]
@@ -1037,14 +1041,15 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn dd_example_hand_analysis_is_all_optimal() {
         // DDS's own hand-0 oracle is 46 results, all 8 (pinned by the seam
         // test), so every recorded play is DD-optimal and no tricks are lost.
         // This is the re-baselined DDS 3.1 semantics for the analysis.
-        let board = crate::solver::test_fixtures::example_board_hand0_play();
+        let board = squeezer_solver::test_fixtures::example_board_hand0_play();
         let analysis =
-            analyze_board(&crate::solver::DdsSolver, &board).expect("example hand 0 analyses");
+            analyze_board(&squeezer_solver::DdsSolver, &board).expect("example hand 0 analyses");
 
         let mut total = 0;
         for seat in Seat::iter() {
@@ -1109,7 +1114,7 @@ mod tests {
             Card::new(Suit::Spades, 6), // Winner N
             Card::new(Suit::Clubs, 11),
         ];
-        let play_sequence = PlayRecord::new(crate::solver::test_fixtures::attribute_seats(
+        let play_sequence = PlayRecord::new(squeezer_solver::test_fixtures::attribute_seats(
             &cards, contract,
         ));
         let dd_results = vec![
@@ -1165,12 +1170,13 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn analyze_board_rejects_a_board_without_a_play() {
-        let board = crate::solver::test_fixtures::example_board();
-        let error = analyze_board(&crate::solver::DdsSolver, &board)
+        let board = squeezer_solver::test_fixtures::example_board();
+        let error = analyze_board(&squeezer_solver::DdsSolver, &board)
             .expect_err("a board with no play cannot be analysed");
-        assert!(matches!(error, SqueezerError::InvalidInput { .. }));
+        assert!(matches!(error, AnalysisError::InvalidInput { .. }));
     }
 
     #[test]

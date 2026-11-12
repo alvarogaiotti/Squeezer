@@ -23,7 +23,7 @@ to draw.
 | `squeezer-solver` | the solver trait, `SolverPool`/`DynSolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
 | `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `squeezer-cards`, `nom`, `serde` (optional) |
 | `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log` |
-| `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `rayon`, `serde` (optional) |
+| `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `squeezer-cards`, `rayon`, `serde` (optional) |
 
 The `Deal`/`Board` writers stay unconditional, as they are today: exporting a
 board needs no parser. Only the container writers sit behind `lin` and `pbn`.
@@ -39,6 +39,10 @@ vocabulary. That is a lower layer, so it adds no cycle. During the migration the
 root package keeps re-export shims for the historical paths (`squeezer::linparser`,
 `squeezer::pbnparser`, the prelude), so it depends on the extracted crates it
 re-exports until the last ticket dissolves it.
+
+`squeezer-sim` likewise names `squeezer-cards` directly: card-EV and lead
+results carry `Card` and `Cards`, and the model re-exports none of that
+vocabulary. It is a lower layer, so the graph stays acyclic.
 
 `squeezer-bbo` depends on no other Squeezer crate, and nothing depends on
 `squeezer-sim`, `squeezer-io` or `squeezer-bbo`, so the graph is acyclic by

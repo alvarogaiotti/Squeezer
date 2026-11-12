@@ -1,11 +1,12 @@
 // Benchmark for SIMD vs scalar preprocessing.
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use rand::{Rng, rng};
-use squeezer::performance_analysis::AnalysisInput;
-use squeezer::performance_analysis::PreprocessedDeal;
-use squeezer::performance_analysis::analyze_hand;
-use squeezer::performance_analysis::find_trick_winner;
-use squeezer::prelude::*;
+use squeezer_cards::*;
+use squeezer_model::*;
+use squeezer_sim::performance_analysis::AnalysisInput;
+use squeezer_sim::performance_analysis::PreprocessedDeal;
+use squeezer_sim::performance_analysis::analyze_hand;
+use squeezer_sim::performance_analysis::find_trick_winner;
 use std::hint::black_box;
 
 fn generate_random_cards() -> [Card; 48] {
@@ -235,7 +236,7 @@ fn find_trick_winner_branching(
         .enumerate()
         .max_by_key(|(_, s)| *s)
         .map(|(idx, _)| idx)
-        .unwrap()
+        .expect("the four strengths always have a maximum")
 }
 
 criterion_group!(

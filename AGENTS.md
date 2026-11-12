@@ -16,8 +16,8 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Structure
 
-- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards`, `squeezer-io`, `squeezer-model` and `squeezer-solver`).
-- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-io`, `crates/squeezer-model`, `crates/squeezer-solver`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
+- Root package `squeezer` is the library and the workspace root; `dds/` wraps Bo Haglund's DDS C++ solver; `squeezer_macros/` holds the proc-macro derives (`SuitIter`, `RawDDSRef`, `IntoRawDDS`, `RawDDSRefMut`); extracted crates live under `crates/` (currently `squeezer-bbo`, `squeezer-cards`, `squeezer-io`, `squeezer-model`, `squeezer-sim` and `squeezer-solver`).
+- It is a Cargo workspace (resolver 3) with `crates/squeezer-bbo`, `crates/squeezer-cards`, `crates/squeezer-io`, `crates/squeezer-model`, `crates/squeezer-sim`, `crates/squeezer-solver`, `dds` and `squeezer_macros` as members; the root package is an implicit member. `cargo test` at the root tests only the library, so use `cargo test --workspace` for every member, or `-p <member>` for one.
 
 ## Native DDS library (vendored, built from source)
 
@@ -45,8 +45,20 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 
 ## Features
 
-- `simulation` requires `dds`; `performance_analysis` requires both `dds` and `lin` (it consumes LIN plays). Verify combos with `cargo check --no-default-features --features dds,lin`.
-- `formatters` is opt-in (not in `default`): it enables `dep:colored` and, because the renderers live in the `dds`-gated simulation module, `dds`.
+- The Monte Carlo simulations (contract payoff, card EV and opening lead), the
+  result and statistics types, performance analysis, and the terminal
+  renderers live in `squeezer-sim` (`crates/squeezer-sim`). It depends on
+  `squeezer-cards`, `squeezer-model`, `squeezer-solver` (default features off)
+  and `rayon`, with `colored` optional behind `formatters` and `serde` optional.
+  Its `dds` feature (on by default) forwards to `squeezer-solver/dds`: with it
+  off the builder's `DdsSolver` fallback is compiled out and an explicit
+  `ContextFactory` is required, which is how the mock-solver tests run without
+  linking DDS. The root re-exports the historical `squeezer::simulation` and
+  `squeezer::performance_analysis` paths and forwards `dds`, `formatters` and
+  `serde`.
+- The performance-analysis pipeline test lives in `squeezer-io/tests` with its
+  LIN fixture and takes `squeezer-sim` and `squeezer-solver` as dev-dependencies,
+  so the sim crate's library and tests name no parser.
 - Card primitives live in `squeezer-cards` (`crates/squeezer-cards`) with `rand`
   (the samplers) and `serde` optional and no workspace dependency;
   `squeezer-model` enables `rand` because its dealer draws from the samplers.

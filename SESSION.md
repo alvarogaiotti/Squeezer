@@ -59,10 +59,9 @@
   out-of-range score, while `analyse_play` in the same file surfaces malformed
   DDS output as `SolverError`. Two policies for one backend: a bad solve result
   can silently look like a legal zero-trick play.
-- `cargo check -p squeezer --no-default-features` warns that the prelude's
-  `pub(crate) use std::hash::Hash` is unused; only the `dds`-gated simulation
-  uses `Hash`, so the import should be gated on `dds` as well. Pre-existing, and
-  unrelated to the solver extraction.
+- `cargo check -p squeezer --no-default-features` no longer has the prelude's
+  `std::hash::Hash` warning; ticket 15 removed the import with the simulation
+  module.
 
 ### Record, `Position`, `Board`
 - `Playthrough::new` starts at index 0 (before the opening lead); the design
@@ -257,8 +256,8 @@
   `PairwiseComparison.difference`; `DealResult` still carries `score` but no
   per-contract `value` (unlike card-EV's `CardDealOutcome.value`).
 - `CardEvaluation` reports board/position derivation failures as
-  `SqueezerError::InvalidInput` carrying the per-deal index, not as the typed
-  `BoardError`/`PositionError` boundary variants.
+  `SimulationError::InvalidInput` carrying the per-deal index, not as the typed
+  `PositionError`; the typed error is flattened into the message.
 - `CardEvBuilder::seat` is ignored for an empty play trace: the opening
   position always uses `contract.leader()` (now via
   `from_deal_prefix_with_contract`). Passing `.seat()` with no trace silently
@@ -277,9 +276,6 @@
   0.35 ms and 0.40 ms respectively. See `docs/performance-optimization.md`.
 
 ### Analysis and miscellaneous
-- `analyze_board` bounds its backend with `SqueezerError: From<A::Error>`, so a
-  third-party `PlayAnalyser` with a local error type cannot use the convenience
-  entry point without a `From` impl.
 - `PlayerRecord::plays()` yields an iterator while the `plays` field is private,
   so index-based assertions have to use `.nth()` rather than `[i]`.
 - DDS caps `SolvedPlay.number` at 49 even for a full 52-card play; the seam
@@ -302,9 +298,9 @@
   trick. The allocation-free implementation preserves that asymmetry.
 - `Cargo.lock` is git-tracked yet also listed in `.gitignore`; the ignore rule
   has no effect on tracked files, which is confusing.
-- Pre-existing clippy warnings: `decimal_bitwise_operands` at
-  `src/performance_analysis.rs` (test code), plus ~10 warnings in the `dds`
-  crate (`cast_possible_*`, `large_stack_arrays`, …).
+- Pre-existing clippy warnings in the `dds` crate (`cast_possible_*`,
+  `large_stack_arrays`, …); the `decimal_bitwise_operands` test warning moved
+  with `performance_analysis` and was fixed in `squeezer-sim`.
 
 ## Resolved
 
@@ -458,11 +454,10 @@ Found while reading the vendored solver for
 
 Deferred from ticket 14 (LIN/PBN importers move into `squeezer-io`).
 
-- `tests/83469.lin` and `crates/squeezer-io/tests/fixtures/83469.lin` are the
-  same fixture twice. The parser tests resolve it from the io manifest, while
-  `tests/performance_analysis_test.rs` still reads the root copy; they stay in
-  sync by hand until the performance-analysis test (and its fixture) moves with
-  `squeezer-sim`.
+- `tests/83469.lin` now lives once, under
+  `crates/squeezer-io/tests/fixtures/`, alongside the performance-analysis
+  pipeline test that reads it; the former duplicate in the root and the copy
+  that briefly followed the test to `squeezer-sim` are gone.
 - `squeezer-model` re-exports no card vocabulary, so any consumer that builds
   records must also name `squeezer-cards` to spell `Card`/`Cards`. That is why
   `squeezer-io` depends on it directly, although the ADR's crate table lists
@@ -471,3 +466,28 @@ Deferred from ticket 14 (LIN/PBN importers move into `squeezer-io`).
 - `src/record/serialize` in the root is now a one-line re-export of the model
   writers. It can disappear when nothing needs the historical
   `squeezer::record::serialize` path.
+
+## 2026-11-12 — squeezer-sim extraction follow-ups
+
+Deferred from ticket 15 (simulation and performance analysis move into
+`squeezer-sim`).
+
+- `squeezer-sim` takes no parser dependency, even in dev-dependencies. The
+  performance-analysis pipeline test therefore lives with its LIN input in
+  `crates/squeezer-io/tests`, using `squeezer-sim` and `squeezer-solver` as
+  dev-dependencies; the sim crate's own tests stay mock/LIN-free.
+- The root `SqueezerError::InvalidInput` variant and `invalid_input` constructor
+  have no in-library producer after the move; they remain only as a boundary
+  constructor for calls with no typed error of their own.
+- `squeezer-sim` declares `rayon`, but no code in the crate names it directly:
+  the worker pool lives in `squeezer-solver`. The dependency is retained per the
+  ticket's dependency list and would become unused if the solver ever changed to
+  a non-rayon executor.
+- The payoff, lead and formatters module doctests are `no_run`: each builds a
+  simulation without an explicit solver, so they would require the default DDS
+  fallback and cannot execute under `--no-default-features` (or, for
+  `formatters` alone, without `dds`). They still type-check on every build.
+- `tests/simulation.rs` in the root never names the simulation API; it only
+  builds a constrained deal through the dealer. It stays in the root as a dealer
+  test despite its name.
+

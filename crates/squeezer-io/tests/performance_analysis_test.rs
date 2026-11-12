@@ -7,21 +7,28 @@
 //! seam's `PlayAnalyser` produces a backend-agnostic per-play double-dummy
 //! sequence, and `analyze_board` reports per-seat statistics. No `dds` type
 //! appears on this path: the analyser's result is a plain `Vec<u8>`, and the
-//! only solver type named is the crate's own `DdsSolver`.
+//! only solver type named is `squeezer-solver`'s `DdsSolver`.
 
+use std::path::PathBuf;
 use std::str::FromStr;
 
-use squeezer::linparser::LinFile;
-use squeezer::performance_analysis::{HandAnalysis, analyze_board};
-use squeezer::solver::{DdsSolver, PlayAnalyser};
-use squeezer::{Position, Seat};
+use squeezer_io::linparser::LinFile;
+use squeezer_model::{Position, Seat};
+use squeezer_sim::performance_analysis::{HandAnalysis, analyze_board};
+use squeezer_solver::{DdsSolver, PlayAnalyser};
 
-/// Board 15 of `tests/83469.lin`: a 4H contract by West with a full 52-card
-/// play. The per-seat baselines are DDS 3.1 (the `AnalysePlay` #156 fix),
+/// The fixture lives with the importer that reads it, so it resolves from the
+/// crate manifest rather than the process working directory.
+fn analysis_fixture() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/83469.lin")
+}
+
+/// Board 15 of `tests/fixtures/83469.lin`: a 4H contract by West with a full
+/// 52-card play. The per-seat baselines are DDS 3.1 (the `AnalysePlay` #156 fix),
 /// re-baselined from the 2.9 values the analysis used to encode.
 #[test]
 fn lin_file_to_board_to_per_seat_statistics() {
-    let data = std::fs::read_to_string("tests/83469.lin").expect("fixture is readable");
+    let data = std::fs::read_to_string(analysis_fixture()).expect("fixture is readable");
     let file = LinFile::from_str(&data).expect("83469 parses");
     let board = &file.boards[0];
 

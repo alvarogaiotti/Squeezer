@@ -145,15 +145,21 @@ pub mod linparser {
 pub mod pbnparser {
     pub use squeezer_io::pbnparser::*;
 }
-/// Backend-agnostic performance analysis; the DDS-backed [`PlayAnalyser`]
-/// lives in [`solver`], so `dds` alone is enough.
+/// Backend-agnostic performance analysis; it lives in `squeezer-sim`, and the
+/// DDS-backed [`PlayAnalyser`] lives in [`solver`] behind this crate's `dds`
+/// feature.
 ///
 /// [`PlayAnalyser`]: solver::PlayAnalyser
-#[cfg(feature = "dds")]
-pub mod performance_analysis;
+pub mod performance_analysis {
+    pub use squeezer_sim::performance_analysis::*;
+}
 pub mod record;
-#[cfg(feature = "dds")]
-pub mod simulation;
+/// The Monte Carlo simulations and their result types; they live in
+/// `squeezer-sim`. This shim keeps the historical `squeezer::simulation` path
+/// while the root package still exists.
+pub mod simulation {
+    pub use squeezer_sim::simulation::*;
+}
 mod utils;
 
 pub mod prelude {
@@ -161,7 +167,6 @@ pub mod prelude {
     pub extern crate dds;
     pub use crate::card::*;
     pub use crate::error::*;
-    #[cfg(feature = "dds")]
     pub use crate::simulation::*;
     pub use crate::solver::*;
     pub use crate::utils::*;
@@ -169,8 +174,9 @@ pub mod prelude {
     /// crate owns the deals, boards, auctions, plays and positions too, and
     /// the constants it owns (hand and suit limits) come with it.
     pub use squeezer_model::*;
+    /// The errors the simulation and analysis layers own. They live in
+    /// `squeezer-sim`; the root boundary error stays separate.
+    pub use squeezer_sim::{AnalysisError, SimulationError};
     pub use std::str::FromStr;
-
-    pub(crate) use std::hash::Hash;
 }
 pub use prelude::*;

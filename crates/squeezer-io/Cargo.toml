@@ -28,6 +28,11 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 # The round-trip properties generate boards that both writers must survive.
 quickcheck = "1.1.0"
 quickcheck_macros = "1.2.0"
+# The performance-analysis pipeline test reads a LIN fixture, runs the solver
+# seam and checks the per-seat statistics. Keeping it here means the sim crate
+# itself never names a parser.
+squeezer-sim = { path = "../squeezer-sim" }
+squeezer-solver = { path = "../squeezer-solver" }
 
 # The importer tests and the property round trips need their parser feature.
 # Declaring the requirement here keeps `cargo test -p squeezer-io
@@ -44,3 +49,8 @@ required-features = ["pbn"]
 [[test]]
 name = "round_trip"
 required-features = ["lin", "pbn"]
+
+# The pipeline needs the LIN importer and the DDS-backed analyser.
+[[test]]
+name = "performance_analysis_test"
+required-features = ["lin"]

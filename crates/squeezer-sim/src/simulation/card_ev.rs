@@ -28,9 +28,10 @@
 //! also the only legal play, so the card-EV surface stays consistent without a
 //! special case.
 
+use super::resolve_solver_factory;
 use super::solve_all_cards_pool;
 use crate::prelude::*;
-use crate::solver::ContextFactory;
+use squeezer_solver::ContextFactory;
 use std::collections::{BTreeMap, HashMap};
 
 /// One option's outcome on one sampled deal.
@@ -366,29 +367,29 @@ impl<D: Dealer> CardEvBuilder<D> {
     ///
     /// # Errors
     ///
-    /// Returns [`SqueezerError::InvalidInput`] when the number of deals, the
+    /// Returns [`SimulationError::InvalidInput`] when the number of deals, the
     /// dealer or the contract is missing, when `num_deals` is zero (there would
     /// be no representative position), or when the play trace leaves no card to
     /// play.
-    pub fn build(self) -> Result<CardEvSimulation<D>, SqueezerError> {
+    pub fn build(self) -> Result<CardEvSimulation<D>, SimulationError> {
         let num_deals = self
             .num_deals
-            .ok_or_else(|| SqueezerError::invalid_input("card ev", "num_deals must be set"))?;
+            .ok_or_else(|| SimulationError::invalid_input("card ev", "num_deals must be set"))?;
         let dealer = self
             .dealer
-            .ok_or_else(|| SqueezerError::invalid_input("card ev", "dealer must be set"))?;
+            .ok_or_else(|| SimulationError::invalid_input("card ev", "dealer must be set"))?;
         let contract = self
             .contract
-            .ok_or_else(|| SqueezerError::invalid_input("card ev", "contract must be set"))?;
+            .ok_or_else(|| SimulationError::invalid_input("card ev", "contract must be set"))?;
 
         if num_deals == 0 {
-            return Err(SqueezerError::invalid_input(
+            return Err(SimulationError::invalid_input(
                 "card ev",
                 "num_deals must be at least 1",
             ));
         }
         if self.play_trace.len() >= 52 {
-            return Err(SqueezerError::invalid_input(
+            return Err(SimulationError::invalid_input(
                 "card ev",
                 "the play trace leaves no card to play",
             ));
@@ -401,9 +402,7 @@ impl<D: Dealer> CardEvBuilder<D> {
             seat: self.seat.unwrap_or_else(|| contract.leader()),
             play_trace: self.play_trace,
             denomination: self.denomination,
-            solver_factory: self
-                .solver_factory
-                .unwrap_or_else(|| Box::new(DdsSolver::new())),
+            solver_factory: resolve_solver_factory(self.solver_factory, "card ev")?,
         })
     }
 }
@@ -433,7 +432,7 @@ impl<D: Dealer> CardEvSimulation<D> {
     /// Propagates dealer and solver errors, and reports a board the play trace
     /// cannot be validated against.
     #[allow(clippy::too_many_lines)]
-    pub fn run(self) -> Result<CardEvaluation, SqueezerError> {
+    pub fn run(self) -> Result<CardEvaluation, SimulationError> {
         let Self {
             num_deals,
             dealer,
@@ -455,9 +454,9 @@ impl<D: Dealer> CardEvSimulation<D> {
             solver_factory,
             &dealer,
             num_deals,
-            |deal, deal_index| -> Result<Position, SqueezerError> {
+            |deal, deal_index| -> Result<Position, SimulationError> {
                 Position::from_deal_prefix_with_contract(deal, &prefix, contract).map_err(|cause| {
-                    SqueezerError::invalid_input(
+                    SimulationError::invalid_input(
                         "card ev",
                         format!("cannot derive position for deal {deal_index}: {cause}"),
                     )
@@ -468,7 +467,7 @@ impl<D: Dealer> CardEvSimulation<D> {
         let position = solved
             .first()
             .map(|entry| entry.position.clone())
-            .ok_or_else(|| SqueezerError::invalid_input("card ev", "no deals were solved"))?;
+            .ok_or_else(|| SimulationError::invalid_input("card ev", "no deals were solved"))?;
 
         // Expand DDS's equivalence classes into physical cards; each physical
         // card carries its class's value. The per-deal `Compared` baseline is
@@ -638,7 +637,7 @@ fn cumulative(histogram: &[usize; 14]) -> [(usize, usize); 14] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::test_fixtures::example_deal;
+    use squeezer_solver::test_fixtures::example_deal;
 
     /// A dealer that always returns DDS's example hand 0.
     fn example_dealer() -> impl Dealer {
@@ -688,6 +687,7 @@ mod tests {
         assert_eq!(declarer_tricks(Seat::East, Seat::West, 8), 8);
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn card_ev_matches_dds_example_hand_perspective() {
         let evaluation = evaluate(example_contract(), Denomination::RawPoints);
@@ -713,6 +713,7 @@ mod tests {
         assert_eq!(outcome.score, 140);
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn equals_expansion_makes_every_physical_card_carry_its_class_value() {
         let evaluation = evaluate(example_contract(), Denomination::RawPoints);
@@ -747,6 +748,7 @@ mod tests {
         assert!(!evaluation.is_dd_optimal(Card::H2));
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn raw_points_and_compared_baselines_on_the_example_hand() {
         // Raw points is the default and returns the score unchanged.
@@ -802,6 +804,7 @@ mod tests {
         assert_eq!(best.value_for(Card::H2).expect("legal").deals[0].value, 0);
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn compared_card_ev_values_remain_correct_across_deals() {
         let evaluation = CardEvaluation::builder()
@@ -827,6 +830,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn by_suit_groups_the_evaluated_cards() {
         let evaluation = evaluate(example_contract(), Denomination::RawPoints);
@@ -837,6 +841,7 @@ mod tests {
         assert_eq!(by_suit[&Suit::Clubs].len(), 3);
     }
 
+    #[cfg(feature = "dds")]
     #[test]
     fn set_percentage_counts_declarer_failures() {
         // 3S by West needs 9 tricks; the diamond/club/spade leads hold the

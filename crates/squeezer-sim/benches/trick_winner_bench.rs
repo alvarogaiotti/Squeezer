@@ -2,9 +2,10 @@
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rand::Rng;
 use rand::rng;
-use squeezer::{
-    performance_analysis::{PreprocessedDeal, find_trick_winner, find_trick_winner_naive},
-    prelude::*,
+use squeezer_cards::*;
+use squeezer_model::*;
+use squeezer_sim::performance_analysis::{
+    PreprocessedDeal, find_trick_winner, find_trick_winner_naive,
 };
 use std::hint::black_box;
 
