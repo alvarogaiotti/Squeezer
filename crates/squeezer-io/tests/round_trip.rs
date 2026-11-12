@@ -55,7 +55,12 @@ fn arbitrary_deal(g: &mut Gen) -> Deal {
     Deal::new(hands).expect("the four hands partition the deck")
 }
 
-/// A legal auction, built one legal call at a time.
+/// A legal auction, built one legal call at a time and stopped as soon as the
+/// call list completes.
+///
+/// The completion rule is [`Auction::is_complete`], the same predicate
+/// validation and the writers use: the generator must not append a call after
+/// the fourth opening pass or the third closing pass.
 fn arbitrary_auction(g: &mut Gen, dealer: Seat) -> Option<Auction> {
     let len = usize::arbitrary(g) % 13;
     if len == 0 {
@@ -103,6 +108,12 @@ fn arbitrary_auction(g: &mut Gen, dealer: Seat) -> Option<Auction> {
             alert: bool::arbitrary(g),
             annotation: arbitrary_annotation(g),
         });
+        // Cloning the short call list is cheaper than duplicating the rule
+        // here; keeping one predicate is what stops the generator drifting
+        // from validation.
+        if Auction::new(calls.clone()).is_complete() {
+            break;
+        }
     }
     Some(Auction::new(calls))
 }
@@ -264,6 +275,34 @@ impl Arbitrary for AnyPbnBoard {
     fn arbitrary(g: &mut Gen) -> Self {
         Self(pbn_representable_board(g))
     }
+}
+
+/// An auction straight from the round-trip generator, with the dealer its
+/// seats rotate from.
+#[derive(Clone, Debug)]
+struct AnyGeneratedAuction {
+    dealer: Seat,
+    auction: Auction,
+}
+
+impl Arbitrary for AnyGeneratedAuction {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let dealer = arbitrary_seat(g);
+        // An empty generated call list means "no auction"; substitute one legal
+        // pass so every sampled case actually exercises the rule.
+        let auction = arbitrary_auction(g, dealer)
+            .unwrap_or_else(|| Auction::new(vec![RecordedCall::new(Call::Pass)]));
+        Self { dealer, auction }
+    }
+}
+
+/// The generator must stop at completion: a call after the fourth opening pass
+/// or the third closing pass would make `Board::new` reject the generated
+/// board, and the round-trip properties would panic instead of testing the
+/// formats.
+#[quickcheck_macros::quickcheck]
+fn generated_auctions_are_legal(any: AnyGeneratedAuction) -> bool {
+    any.auction.validate(any.dealer).is_ok()
 }
 
 #[quickcheck_macros::quickcheck]

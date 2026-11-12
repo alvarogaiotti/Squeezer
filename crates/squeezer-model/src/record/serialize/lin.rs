@@ -14,6 +14,16 @@
 //! (BBO result strings, arbitrary comments, the exact whitespace of the input);
 //! only the modeled tags are re-emitted.
 //!
+//! # Auction completion
+//!
+//! LIN has no end-of-auction token, so a cut auction is written as exactly the
+//! calls recorded before the record stops; a completed auction ends on its
+//! closing (or opening) passes. The shared predicate is
+//! [`crate::record::Auction::is_complete`]: the PBN writer uses it to emit `*`
+//! only for a cut auction, and both importers enforce the same rule through
+//! [`crate::record::Auction::validate`]. A [`Board`] cannot carry a call after
+//! the auction's end.
+//!
 //! # The `md|` dealer and hand order
 //!
 //! LIN's `md|` tag is `<dealer-digit><hands>`, where the digit numbers the
@@ -255,6 +265,25 @@ mod tests {
             "mb|1S|mb|p|mb|2S|mb|p|mb|4S|mb|p|mb|p|mb|p|",
         );
         assert_eq!(known_board().as_lin(), expected);
+    }
+
+    #[test]
+    fn cut_auction_writes_only_the_recorded_calls() {
+        // North 1S, East pass, then the record stops: a cut auction has no
+        // terminator in LIN, so only its calls are written.
+        let auction = Auction::new(vec![bid(1, Strain::Spades), pass()]);
+        let board = Board::builder(one_suit_per_seat(), Seat::North, Vulnerability::None)
+            .auction(auction)
+            .build()
+            .expect("a cut auction is a valid board");
+        assert_eq!(
+            board.as_lin(),
+            concat!(
+                "st||md|3DAKQJT98765432,CAKQJT98765432,SAKQJT98765432,HAKQJT98765432|",
+                "sv|o|",
+                "mb|1S|mb|p|",
+            )
+        );
     }
 
     #[test]

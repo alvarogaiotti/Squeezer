@@ -127,6 +127,13 @@ pub enum AuctionError {
         /// The seat that made it.
         seat: Seat,
     },
+    /// A call made after the auction had already ended.
+    CallAfterEnd {
+        /// The offending call.
+        call: Call,
+        /// The seat that made it.
+        seat: Seat,
+    },
 }
 
 impl std::fmt::Display for AuctionError {
@@ -142,6 +149,9 @@ impl std::fmt::Display for AuctionError {
             } => write!(f, "{seat} bid {next}, which does not outrank {previous}"),
             Self::IllegalDouble { call, seat } => {
                 write!(f, "{seat} is not entitled to {call}")
+            }
+            Self::CallAfterEnd { call, seat } => {
+                write!(f, "{seat} called {call} after the auction had ended")
             }
         }
     }
@@ -191,6 +201,47 @@ impl Auction {
         self.calls.iter()
     }
 
+    /// The index one past the call that ended the auction, or `None` when the
+    /// calls never reach an ending.
+    ///
+    /// The auction ends on the fourth opening pass (a natural pass-out) or on
+    /// the third consecutive pass after any bid, double or redouble. A double
+    /// or redouble resets the closing pass count, so `1S X Pass Pass` is still
+    /// open while `1S X Pass Pass Pass` is over. The single predicate lives
+    /// here so validation, contract derivation and both format paths cannot
+    /// drift apart.
+    fn ended_at(&self) -> Option<usize> {
+        let mut closing_passes = 0;
+        let mut saw_non_pass = false;
+
+        for (index, recorded) in self.calls.iter().enumerate() {
+            if recorded.call == Call::Pass {
+                closing_passes += 1;
+                let required = if saw_non_pass { 3 } else { 4 };
+                if closing_passes == required {
+                    return Some(index + 1);
+                }
+            } else {
+                saw_non_pass = true;
+                closing_passes = 0;
+            }
+        }
+
+        None
+    }
+
+    /// True when the calls form a complete auction.
+    ///
+    /// A complete auction is a natural pass-out (four opening passes) or any
+    /// bid, double or redouble followed by three consecutive passes. A cut
+    /// auction — the calls a file recorded before the auction finished — is not
+    /// complete. Calls after the ending call do not make an illegal auction
+    /// complete; [`Auction::validate`] reports them.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.ended_at() == Some(self.calls.len())
+    }
+
     /// The seat that made the `index`-th call, given the `dealer`.
     ///
     /// Returns `None` when `index` is past the end of the auction.
@@ -203,9 +254,18 @@ impl Auction {
     ///
     /// The declarer is the first seat on the winning side to have bid the final
     /// strain; `vulnerability` supplies the per-seat answer. Returns `None` for
-    /// a passed-out auction.
+    /// a passed-out auction, and for an auction that continued after the call
+    /// that ended it: that auction is illegal, and [`Auction::validate`]
+    /// reports the offending call rather than letting it name a contract.
     #[must_use]
     pub fn contract(&self, dealer: Seat, vulnerability: Vulnerability) -> Option<Contract> {
+        // An auction that kept going after its ending call has no contract to
+        // derive. Refusing here keeps `Pass Pass Pass Pass 1S` from ever being
+        // read as a 1S contract, even by a caller that skipped validation.
+        if self.ended_at().is_some_and(|end| end < self.calls.len()) {
+            return None;
+        }
+
         let (final_index, final_level, final_strain) = self
             .calls
             .iter()
@@ -265,12 +325,27 @@ impl Auction {
     /// change the entitlement. `NonStarter` is reserved for a double or
     /// redouble that opens the auction with no prior call.
     ///
+    /// The auction may be cut — a sequence that stops before its closing
+    /// passes is legal — but no call may follow the one that ended it. A
+    /// natural pass-out ends the auction after four opening passes, and any
+    /// bid, double or redouble ends it after three consecutive passes.
+    ///
     /// # Errors
     ///
     /// Returns [`AuctionError`] when the auction opens with a double or
-    /// redouble, a bid does not outrank the previous one, or a double/redouble
-    /// is made by a side not entitled to it.
+    /// redouble, a bid does not outrank the previous one, a double/redouble is
+    /// made by a side not entitled to it, or a call follows the end of the
+    /// auction.
     pub fn validate(&self, dealer: Seat) -> Result<(), AuctionError> {
+        if let Some(end) = self.ended_at()
+            && let Some(recorded) = self.calls.get(end)
+        {
+            return Err(AuctionError::CallAfterEnd {
+                call: recorded.call,
+                seat: dealer + end,
+            });
+        }
+
         let mut highest_bid: Option<Call> = None;
         // The most recent non-pass call and the seat that made it; this is what
         // decides whether the next double or redouble is entitled.
@@ -427,6 +502,149 @@ mod tests {
     }
 
     #[test]
+    fn four_opening_passes_complete_the_auction() {
+        let auction = Auction::new(vec![pass(), pass(), pass(), pass()]);
+        assert!(auction.is_complete());
+    }
+
+    #[test]
+    fn three_closing_passes_after_a_bid_complete_the_auction() {
+        // North 1S, then three passes: the auction is over.
+        let auction = Auction::new(vec![bid(1, Strain::Spades), pass(), pass(), pass()]);
+        assert!(auction.is_complete());
+    }
+
+    #[test]
+    fn a_cut_auction_is_not_complete() {
+        for calls in [
+            Vec::new(),
+            vec![pass(), pass(), pass()],
+            vec![bid(1, Strain::Spades)],
+            vec![bid(1, Strain::Spades), pass(), pass()],
+        ] {
+            assert!(
+                !Auction::new(calls.clone()).is_complete(),
+                "these calls must be cut: {calls:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_double_resets_the_closing_pass_count() {
+        // 1S X Pass Pass is cut; the third pass completes the auction.
+        assert!(
+            !Auction::new(vec![
+                bid(1, Strain::Spades),
+                RecordedCall::new(Call::Double),
+                pass(),
+                pass(),
+            ])
+            .is_complete()
+        );
+        assert!(
+            Auction::new(vec![
+                bid(1, Strain::Spades),
+                RecordedCall::new(Call::Double),
+                pass(),
+                pass(),
+                pass(),
+            ])
+            .is_complete()
+        );
+    }
+
+    #[test]
+    fn a_bid_after_four_opening_passes_is_rejected() {
+        let auction = Auction::new(vec![pass(), pass(), pass(), pass(), bid(1, Strain::Spades)]);
+        let error = auction
+            .validate(Seat::North)
+            .expect_err("the auction passed out after four passes");
+        assert!(matches!(error, AuctionError::CallAfterEnd { .. }));
+        assert!(
+            error.to_string().contains("after the auction"),
+            "the error should say the auction ended: {error}"
+        );
+    }
+
+    #[test]
+    fn a_call_after_the_third_closing_pass_is_rejected() {
+        // North 1S, three passes close the auction; South's 2S comes too late.
+        let auction = Auction::new(vec![
+            bid(1, Strain::Spades),
+            pass(),
+            pass(),
+            pass(),
+            bid(2, Strain::Spades),
+        ]);
+        assert!(matches!(
+            auction.validate(Seat::North),
+            Err(AuctionError::CallAfterEnd { .. })
+        ));
+    }
+
+    #[test]
+    fn a_passed_out_auction_validates() {
+        let auction = Auction::new(vec![pass(), pass(), pass(), pass()]);
+        assert!(auction.validate(Seat::North).is_ok());
+    }
+
+    #[test]
+    fn a_redouble_also_resets_the_closing_pass_count() {
+        // North 1S, East X, South XX, then West and North pass: still cut.
+        let cut = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            RecordedCall::new(Call::Redouble),
+            pass(),
+            pass(),
+        ]);
+        assert!(!cut.is_complete());
+        assert!(cut.validate(Seat::North).is_ok());
+
+        let complete = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            RecordedCall::new(Call::Redouble),
+            pass(),
+            pass(),
+            pass(),
+        ]);
+        assert!(complete.is_complete());
+        assert!(complete.validate(Seat::North).is_ok());
+    }
+
+    #[test]
+    fn a_doubled_auction_validates_only_after_three_closing_passes() {
+        let cut = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            pass(),
+        ]);
+        assert!(cut.validate(Seat::North).is_ok());
+        let complete = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            pass(),
+            pass(),
+            pass(),
+        ]);
+        assert!(complete.validate(Seat::North).is_ok());
+        // A fourth pass follows the call that already ended the auction.
+        let over = Auction::new(vec![
+            bid(1, Strain::Spades),
+            RecordedCall::new(Call::Double),
+            pass(),
+            pass(),
+            pass(),
+            pass(),
+        ]);
+        assert!(matches!(
+            over.validate(Seat::North),
+            Err(AuctionError::CallAfterEnd { .. })
+        ));
+    }
+
+    #[test]
     fn contract_names_the_first_side_to_bid_the_strain() {
         // North 1S, East pass, South 2S, West pass, North 4S, three passes.
         let auction = Auction::new(vec![
@@ -451,6 +669,41 @@ mod tests {
     fn passed_out_auction_has_no_contract() {
         let auction = Auction::new(vec![pass(), pass(), pass(), pass()]);
         assert!(auction.contract(Seat::North, Vulnerability::None).is_none());
+    }
+
+    #[test]
+    fn an_auction_that_continued_after_its_end_has_no_contract() {
+        // The 1S follows the fourth opening pass: the auction was over, so it
+        // must not name a 1S contract even before validation runs.
+        let after_pass_out =
+            Auction::new(vec![pass(), pass(), pass(), pass(), bid(1, Strain::Spades)]);
+        assert!(
+            after_pass_out
+                .contract(Seat::North, Vulnerability::None)
+                .is_none()
+        );
+
+        // The 2S follows the third closing pass.
+        let after_closing_pass = Auction::new(vec![
+            bid(1, Strain::Spades),
+            pass(),
+            pass(),
+            pass(),
+            bid(2, Strain::Spades),
+        ]);
+        assert!(
+            after_closing_pass
+                .contract(Seat::North, Vulnerability::None)
+                .is_none()
+        );
+
+        // A cut auction still derives the contract of its highest bid.
+        let cut = Auction::new(vec![bid(1, Strain::Spades), pass(), pass()]);
+        assert_eq!(
+            cut.contract(Seat::North, Vulnerability::None)
+                .map(|contract| contract.level()),
+            Some(1)
+        );
     }
 
     #[test]
