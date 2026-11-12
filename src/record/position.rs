@@ -126,7 +126,7 @@ impl std::error::Error for PositionError {}
 pub fn trick_winner(trick: &[Play], trump: Strain) -> Seat {
     debug_assert_eq!(trick.len(), 4, "a completed trick has four plays");
     let led = trick[0].card.suit();
-    let trump = Suit::try_from(trump).ok();
+    let trump = trump.as_suit();
 
     // Rank a play by `(is_trump, effective_rank)`: discards rank zero, so they
     // can never outrank a card that followed suit or a trump. Keeping the

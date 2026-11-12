@@ -784,7 +784,7 @@ pub fn analyze_hand(input: AnalysisInput) -> HandAnalysis {
         play_sequence,
         dd_results,
     } = input;
-    let trump = Suit::try_from(contract.strain()).ok();
+    let trump = contract.strain().as_suit();
 
     let mut cards_array: [Card; 52] = [Card::NONCE; 52];
     let seq_len = play_sequence.len();

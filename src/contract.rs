@@ -167,6 +167,7 @@ impl From<u8> for Strain {
         }
     }
 }
+
 pub trait Scorable {
     fn score(&self, tricks: u8) -> i32;
 }
@@ -490,6 +491,23 @@ impl TryFrom<char> for Strain {
 }
 
 impl Strain {
+    /// The trump suit this strain names, or `None` for no-trumps.
+    ///
+    /// This is the partial inverse of `From<Suit> for Strain`, and it is a
+    /// method here rather than a `TryFrom<Strain> for Suit` because `Suit` and
+    /// `Strain` are destined for different crates: only the contract layer can
+    /// name both types.
+    #[must_use]
+    pub const fn as_suit(self) -> Option<Suit> {
+        match self {
+            Self::Spades => Some(Suit::Spades),
+            Self::Hearts => Some(Suit::Hearts),
+            Self::Diamonds => Some(Suit::Diamonds),
+            Self::Clubs => Some(Suit::Clubs),
+            Self::NoTrumps => None,
+        }
+    }
+
     fn not_unicode_str(self) -> String {
         match self {
             Self::Spades => String::from("S"),
@@ -508,6 +526,18 @@ impl Strain {
     ];
 }
 
+/// Every suit is a strain; the reverse conversion is [`Strain::as_suit`].
+impl From<Suit> for Strain {
+    fn from(suit: Suit) -> Self {
+        match suit {
+            Suit::Spades => Self::Spades,
+            Suit::Hearts => Self::Hearts,
+            Suit::Diamonds => Self::Diamonds,
+            Suit::Clubs => Self::Clubs,
+        }
+    }
+}
+
 impl fmt::Display for Strain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -521,7 +551,9 @@ impl fmt::Display for Strain {
 }
 #[cfg(test)]
 mod test {
-    use super::{Contract, Vulnerable};
+    use super::{Contract, Strain, Vulnerable};
+    use crate::card::Suit;
+
     #[test]
     fn can_create_contract_from_str_test() {
         let contract_c = Contract::from_str_and_vuln("3CN", Vulnerable::No).unwrap();
@@ -534,5 +566,21 @@ mod test {
         assert_eq!(contract_h.to_string(), "3♥N");
         assert_eq!(contract_s.to_string(), "3♠N");
         assert_eq!(contract_n.to_string(), "3NTNXX");
+    }
+
+    #[test]
+    fn strain_as_suit_names_the_four_trumps_and_no_suit_for_no_trumps() {
+        for (strain, suit) in [
+            (Strain::Spades, Some(Suit::Spades)),
+            (Strain::Hearts, Some(Suit::Hearts)),
+            (Strain::Diamonds, Some(Suit::Diamonds)),
+            (Strain::Clubs, Some(Suit::Clubs)),
+            (Strain::NoTrumps, None),
+        ] {
+            assert_eq!(strain.as_suit(), suit, "{strain}");
+            if let Some(suit) = suit {
+                assert_eq!(Strain::from(suit), strain);
+            }
+        }
     }
 }

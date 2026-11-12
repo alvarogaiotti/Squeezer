@@ -68,6 +68,17 @@
   at derivation as well as at `Board` import. Fine for board-derived positions;
   worth knowing for direct callers.
 
+### Card types and shape
+- `impl TryFrom<usize>`/`impl TryFrom<i32> for Suit` still return the crate-wide
+  `DealerError`. Ticket 05 leaves them beside the type as instructed, but when
+  `Suit` moves to `squeezer-cards` (ticket 10) they cannot name an error from
+  `squeezer-model`; they need a card-local error or `Option`.
+- `impl From<Suit> for dds::deal::DdsSuit` moved to `src/card.rs` with `Suit`
+  (it sat in `shape.rs`), next to the existing `impl AsDDSCard for Card`. Both
+  DDS adapters must leave `squeezer-cards` when ticket 10 extracts it, since
+  that crate may not depend on `dds` (spec: all adapters live in
+  `squeezer-solver`).
+
 ### Parsing and serialization
 - `.gitignore`'s global `*.lin`/`*.pbn` rules left the seven `tests/*.lin`
   fixtures untracked, so a clean checkout could not run `tests/lin_parser.rs`
