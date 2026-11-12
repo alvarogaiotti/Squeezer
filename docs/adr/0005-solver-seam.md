@@ -7,6 +7,9 @@ may choose static dispatch or a boxed backend. Our own simulations take a
 `Box<dyn ContextFactory>`, which keeps a solver type parameter out of the public
 simulation API and makes mocks and runtime backend selection possible; the
 dispatch cost is one indirect call per board against a multi-microsecond solve.
+The factory also carries the cold `DdTableCalculator` capability, so a caller
+holding only the boxed factory can request a DD table; a backend without table
+support keeps that trait's default error.
 The DDS implementation lives in `squeezer` behind the `dds` feature, using the
 `dds` crate only as raw FFI, so the core still builds with no native dependency
 (ADR-0004). A `SolverPool` owns a dedicated sized rayon pool because worker

@@ -34,8 +34,9 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   gets its own DDS context (`SolverPool`/`DynSolverPool`), with at most one
   context live per worker at a time, so `workers × TT-cap` bounds instantaneous
   memory and plain `cargo test` (no thread cap) is safe. `AnalysePlayBin`
-  builds its own local context per call, so the legacy play-analysis path is
-  concurrent-safe too.
+  builds its own local context per call, and so does the DD-table calculation,
+  so both are concurrent-safe; a worker that invokes either transiently holds a
+  second context besides its own.
 - The `dds` crate's own tests are parallel-safe under 3.1: the context shim
   takes a caller-owned context, and the legacy `SolveBoard`/`CalcDDtable`/
   `CalcAllTables` entry points draw their context from a `thread_local`. Run

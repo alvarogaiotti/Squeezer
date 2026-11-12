@@ -21,6 +21,10 @@ impl ContextFactory for ConstantFactory {
     }
 }
 
+// The mock backend solves positions but has no DD-table capability, so the
+// trait's default error is enough.
+impl DdTableCalculator for ConstantFactory {}
+
 impl SolverContext for ConstantContext {
     fn solve(
         &mut self,

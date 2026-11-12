@@ -12,14 +12,18 @@
 //! strain and seat enums. The published entry points for the position and play
 //! conversions stay free functions, since callers and benchmarks name them
 //! directly. The model's `record` modules stay free of the solver, so a
-//! no-default-features build never links the C++ library.
+//! no-default-features build never links the C++ library. The DD-table reader
+//! goes the other way: [`dd_table_from_dds`] turns a populated DDS table into
+//! the seam's backend-free `DdTable`.
 
 use crate::prelude::*;
+use crate::{DdTable, SolverError};
 use dds::analyseplay::PlayTraceBin;
 use dds::deal::{
     AsDDSDeal, ConstructDdsDealError, DDSDealRepr, DdsDeal, DdsDealBuilder, DdsHandEncoding,
     DdsRank, DdsSuit,
 };
+use dds::tables::{DdTableDeal, DdTableResults, Populated};
 use dds::traits::AsDDSCard;
 use dds::utils::{BuildSequenceError, RankSeq, SEQUENCE_LENGTH, SuitSeq};
 
@@ -83,8 +87,8 @@ fn dds_hand_encoding(seat: Seat) -> DdsHandEncoding {
 ///
 /// This is a local newtype because `AsDDSDeal` and `Deal` are both foreign:
 /// the orphan rule leaves the implementation no home other than a type this
-/// crate defines. The solver converts a [`Position`] directly, so this adapter
-/// exists for the `Deal`-based path rather than for a current call site.
+/// crate defines. The solver converts a [`Position`] directly, while the DD
+/// table path consumes a [`Deal`] through this adapter.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DdsDealAdapter<'a>(pub(crate) &'a Deal);
 
@@ -107,6 +111,42 @@ impl AsDDSDeal for DdsDealAdapter<'_> {
         }
         remain_cards.into()
     }
+}
+
+impl DdsDealAdapter<'_> {
+    /// The same four hands in the shape DDS's DD-table entry point reads.
+    ///
+    /// A DD table takes only the unplayed cards, so unlike the solve input it
+    /// carries no trump, leader or current trick.
+    pub(crate) fn to_table_deal(self) -> DdTableDeal {
+        DdTableDeal {
+            cards: self.as_dds_deal().as_array(),
+        }
+    }
+}
+
+/// Reads a populated DDS table as the seam's backend-free [`DdTable`].
+///
+/// The seam indexes by [`Strain`] and [`Seat`]; DDS indexes by [`DdsSuit`] and
+/// [`DdsHandEncoding`]. Translation goes through the same enums the other
+/// adapters use, so the two orderings cannot silently drift apart.
+pub(crate) fn dd_table_from_dds(
+    results: &DdTableResults<Populated>,
+) -> Result<DdTable, SolverError> {
+    let mut table = DdTable::empty();
+    for strain in Strain::ALL {
+        let dds_strain = dds_strain(strain);
+        for seat in Seat::iter() {
+            let count = results.tricks(dds_strain, dds_hand_encoding(seat));
+            let count = u8::try_from(count).map_err(|_| {
+                SolverError::Backend(format!(
+                    "DDS returned an out-of-range DD-table count: {count}"
+                ))
+            })?;
+            table = table.with(strain, seat, count);
+        }
+    }
+    Ok(table)
 }
 
 /// A borrowed [`Position`] read as DDS's raw solver input.
