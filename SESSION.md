@@ -69,15 +69,12 @@
   worth knowing for direct callers.
 
 ### Card types and shape
-- `impl TryFrom<usize>`/`impl TryFrom<i32> for Suit` still return the crate-wide
-  `DealerError`. Ticket 05 leaves them beside the type as instructed, but when
-  `Suit` moves to `squeezer-cards` (ticket 10) they cannot name an error from
-  `squeezer-model`; they need a card-local error or `Option`.
-- `impl From<Suit> for dds::deal::DdsSuit` moved to `src/card.rs` with `Suit`
-  (it sat in `shape.rs`), next to the existing `impl AsDDSCard for Card`. Both
-  DDS adapters must leave `squeezer-cards` when ticket 10 extracts it, since
-  that crate may not depend on `dds` (spec: all adapters live in
-  `squeezer-solver`).
+- `Card::from_u8` is `pub(crate)` in `squeezer-cards` with no caller; it is kept
+  only as the counterpart of the public `Card::as_u8`, and `dead_code` hides it.
+- The `squeezer-cards` samplers are behind the `rand` feature, so
+  `cargo test -p squeezer-cards` (no features) never exercises `FastSampler` or
+  `UniformSampler`; only the library's dealer tests do. A card-crate sampler test
+  would need `--features rand` to run in CI's feature matrix.
 
 ### Parsing and serialization
 - `.gitignore`'s global `*.lin`/`*.pbn` rules left the seven `tests/*.lin`
@@ -276,6 +273,17 @@
 
 ## Resolved
 
+- The card vocabulary (`Suit`, `Card`, `Cards`, `InvalidCardError` and the
+  samplers) lives in `squeezer-cards`, which names no workspace crate and no
+  DDS type (ticket 10). The two DDS adapters became root-side code in
+  `dds_bridge`: a local `DdsCardAdapter` newtype implements the foreign
+  `AsDDSCard` trait, and `dds_suit` is the free function replacing
+  `From<Suit> for DdsSuit`.
+- `impl TryFrom<usize>`/`impl TryFrom<i32> for Suit` now return the
+  card-local `InvalidSuitError` instead of the dealer error, with the same
+  `Display` text (ticket 10). `TryFrom<&[Card]> for Cards` was deleted rather
+  than moved: its error was the root boundary `SqueezerError`, which cannot be
+  named from the cards crate, and it had no caller or test.
 - `Deal::as_pbn`/`write_pbn` stayed source-compatible while becoming
   dealer-aware: `as_pbn_from(first)`/`write_pbn_from(first)` take the first
   listed seat and the old `as_pbn()`/`write_pbn()` delegate with `North`, so

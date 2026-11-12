@@ -11,8 +11,43 @@ use crate::prelude::*;
 use dds::analyseplay::PlayTraceBin;
 use dds::deal::{
     AsDDSDeal, ConstructDdsDealError, DDSDealRepr, DdsDeal, DdsDealBuilder, DdsHandEncoding,
+    DdsRank, DdsSuit,
 };
+use dds::traits::AsDDSCard;
 use dds::utils::{BuildSequenceError, RankSeq, SEQUENCE_LENGTH, SuitSeq};
+
+/// Translates a card suit into DDS's trump/suit enum.
+///
+/// `squeezer-cards` must not name `dds`, so the conversion cannot be an
+/// `impl From<Suit> for DdsSuit` on the card type; it lives here, in the one
+/// module that is allowed to know both vocabularies.
+pub(crate) fn dds_suit(suit: Suit) -> DdsSuit {
+    match suit {
+        Suit::Spades => DdsSuit::Spades,
+        Suit::Hearts => DdsSuit::Hearts,
+        Suit::Diamonds => DdsSuit::Diamonds,
+        Suit::Clubs => DdsSuit::Clubs,
+    }
+}
+
+/// A [`Card`] in the shape the DDS deal builder reads.
+///
+/// `AsDDSCard` is foreign to this crate, so the card type cannot implement it
+/// once it lives in `squeezer-cards`. The local newtype carries the
+/// implementation instead, and conversion is a copy of the packed card.
+#[derive(Clone, Copy)]
+struct DdsCardAdapter(Card);
+
+impl AsDDSCard for DdsCardAdapter {
+    fn as_card(&self) -> (DdsRank, DdsSuit) {
+        // A deck and every parsed hand hold ranks 2..=14; the `JOKER` and
+        // `NONCE` sentinels are array fillers that never enter a `Deal`.
+        (
+            DdsRank::new(i32::from(self.0.rank())).expect("a deck card has a rank in 2..=14"),
+            dds_suit(self.0.suit()),
+        )
+    }
+}
 
 impl From<Seat> for DdsHandEncoding {
     fn from(value: Seat) -> Self {
@@ -80,7 +115,7 @@ impl TryFrom<&Position> for DdsDeal {
 
         let mut current_trick = [None; 3];
         for (index, play) in position.table().iter().enumerate() {
-            current_trick[index] = Some(play.card);
+            current_trick[index] = Some(DdsCardAdapter(play.card));
         }
         let leader = position
             .table()
