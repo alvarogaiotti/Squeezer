@@ -1,7 +1,9 @@
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use squeezer::prelude::*;
-use squeezer::solver::position_to_dds_deal;
+use squeezer_cards::Cards;
+use squeezer_model::{Contract, Deal, Doubled, Position, Seat, Strain, Vulnerable};
+use squeezer_solver::position_to_dds_deal;
 use std::hint::black_box;
+use std::str::FromStr;
 
 fn example_position() -> Position {
     let deal = Deal::new([

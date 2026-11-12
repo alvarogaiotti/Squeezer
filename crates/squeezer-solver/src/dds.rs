@@ -11,7 +11,7 @@
 use super::{
     CardSolve, PlayAnalyser, Solutions, SolveMode, SolveResults, Solver, SolverContext, SolverError,
 };
-use crate::dds_bridge::{play_record_to_trace, position_to_dds_deal};
+use crate::adapters::{play_record_to_trace, position_to_dds_deal};
 use crate::prelude::*;
 use ::core::ffi::{c_int, c_void};
 use dds::context::{self, FutureTricks, SolvedPlay};
@@ -244,9 +244,8 @@ fn expand_equals(card: Card, equals: c_int) -> Cards {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::test_fixtures::{
-        example_board, example_board_hand0_play, example_board_with,
-    };
+    use crate::test_fixtures::{example_board, example_board_hand0_play, example_board_with};
+    use std::str::FromStr;
 
     fn card(suit: Suit, rank: u8) -> Card {
         Card::new(suit, rank)

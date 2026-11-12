@@ -20,13 +20,18 @@ to draw.
 | --- | --- | --- |
 | `squeezer-cards` | `Card`, `Cards`, `Suit`, `InvalidCardError`, the card samplers | `rand` (optional), `serde` (optional) |
 | `squeezer-model` | shape and shape parsing, hand constraints, the contract vocabulary (`Seat`, `Vulnerability`, `Strain`, `Doubled`, `Vulnerable`, `Contract`), `Deal`, `Dealer`, `Board`, `Auction`, `Play`, `Position`, the `Deal`/`Board` writers | `squeezer-cards`, `bitvec`, `itertools`, `rand`, `serde` (optional) |
-| `squeezer-solver` | the solver trait, `SolverPool`/`DynSolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-model`, `rayon`, `dds` (optional) |
+| `squeezer-solver` | the solver trait, `SolverPool`/`DynSolverPool`, the DDS adapters, and the DDS backend behind a `dds` feature | `squeezer-cards`, `squeezer-model`, `rayon`, `dds` (optional) |
 | `squeezer-io` | LIN and PBN parsing, and the `LinFile`/`PbnFile` container writers, behind `lin` and `pbn` features | `squeezer-model`, `nom`, `serde` (optional) |
 | `squeezer-bbo` | BBO hand retrieval, behind `blocking` and `async` features | `reqwest`, `scraper`, `url`, `time`, `log` |
 | `squeezer-sim` | simulation and performance analysis, with `formatters` gating `colored` | `squeezer-model`, `squeezer-solver`, `rayon`, `serde` (optional) |
 
 The `Deal`/`Board` writers stay unconditional, as they are today: exporting a
 board needs no parser. Only the container writers sit behind `lin` and `pbn`.
+
+`squeezer-solver` names `squeezer-cards` directly as well as `squeezer-model`:
+the seam's `CardSolve` carries `Card` and `Cards`, and `squeezer-model` does not
+re-export the card crate, so relying on it transitively would hide a real
+dependency. Cards sits below the solver in the graph, so this keeps the order.
 
 `squeezer-bbo` depends on no other Squeezer crate, and nothing depends on
 `squeezer-sim`, `squeezer-io` or `squeezer-bbo`, so the graph is acyclic by

@@ -54,6 +54,15 @@
   clamping, `with_min_len` chunking, `try_map`). A `PoolFactory` trait with an
   associated context type would collapse the two, at the cost of a blanket impl
   for `Box<dyn ContextFactory>`.
+- `DdsContext::solve`'s `read_results` (in `crates/squeezer-solver/src/dds.rs`)
+  skips malformed `(suit, rank)` entries and falls back to `0` tricks for an
+  out-of-range score, while `analyse_play` in the same file surfaces malformed
+  DDS output as `SolverError`. Two policies for one backend: a bad solve result
+  can silently look like a legal zero-trick play.
+- `cargo check -p squeezer --no-default-features` warns that the prelude's
+  `pub(crate) use std::hash::Hash` is unused; only the `dds`-gated simulation
+  uses `Hash`, so the import should be gated on `dds` as well. Pre-existing, and
+  unrelated to the solver extraction.
 
 ### Record, `Position`, `Board`
 - `Playthrough::new` starts at index 0 (before the opening lead); the design

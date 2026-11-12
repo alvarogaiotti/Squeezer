@@ -119,8 +119,18 @@ pub mod card {
 pub mod contract {
     pub use squeezer_model::contract::*;
 }
-#[cfg(feature = "dds")]
-mod dds_bridge;
+/// Backend-agnostic double-dummy solver seam; feature-independent, so the core
+/// builds without the native `dds` library.
+///
+/// The seam, worker pool and DDS adapters live in `squeezer-solver`. This
+/// module keeps the historical `squeezer::solver` path and the prelude still
+/// re-exports the items flat; the DDS backend appears here only when this
+/// crate's `dds` feature forwards to the solver crate's. It is a migration
+/// shim and disappears when the root package is dissolved, since the split
+/// deliberately has no umbrella crate.
+pub mod solver {
+    pub use squeezer_solver::*;
+}
 pub mod dealer;
 mod error;
 #[cfg(feature = "lin")]
@@ -136,9 +146,6 @@ pub mod performance_analysis;
 pub mod record;
 #[cfg(feature = "dds")]
 pub mod simulation;
-/// Backend-agnostic double-dummy solver seam; feature-independent, so the core
-/// builds without the native `dds` library.
-pub mod solver;
 mod utils;
 
 pub mod prelude {
