@@ -209,11 +209,38 @@ fn bench_position_derivation<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) 
     });
 }
 
+fn bench_card_statistics<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
+    // One card's outcome vector in a 1,000-deal card-EV run. The scores and
+    // trick counts vary across the fourteen possible declarer-trick counts so
+    // the BTreeMap and the percentile sort see realistic shape, not one
+    // bucket.
+    let outcomes: Vec<CardDealOutcome> = (0..1_000)
+        .map(|deal_index| {
+            let declarer_tricks = u8::try_from(deal_index % 14).expect("modulo 14 fits u8");
+            let score = 30 * i32::from(declarer_tricks);
+            CardDealOutcome {
+                deal_index,
+                dd_tricks: 13 - declarer_tricks,
+                declarer_tricks,
+                score,
+                value: score,
+            }
+        })
+        .collect();
+    group.throughput(Throughput::Elements(
+        u64::try_from(outcomes.len()).expect("outcome count fits u64"),
+    ));
+    group.bench_function("card_statistics_from_outcomes", |b| {
+        b.iter(|| black_box(CardStatistics::from_outcomes(&outcomes, 3)));
+    });
+}
+
 fn benchmark_simulation_paths(c: &mut Criterion) {
     let mut group = c.benchmark_group("simulation_paths_mock");
     group.sample_size(10);
 
     bench_position_derivation(&mut group);
+    bench_card_statistics(&mut group);
     bench_mock_card_ev(&mut group, "mock_card_ev_raw", || Denomination::RawPoints);
     bench_mock_card_ev(&mut group, "mock_card_ev_imps", imps_against_the_opponent);
     bench_mock_lead(&mut group);

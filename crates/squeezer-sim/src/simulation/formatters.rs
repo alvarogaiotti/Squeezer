@@ -14,6 +14,11 @@
 //!
 //! ## Example
 //!
+//! This example is `no_run`: it formats a real payoff matrix, so it needs the
+//! native DDS backend and 2,000 solved deals. It is still compiled, so the API
+//! is checked; see the `simulation` module documentation for an executable run
+//! against a mock factory.
+//!
 //! ```no_run
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {

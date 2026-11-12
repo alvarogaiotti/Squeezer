@@ -10,6 +10,11 @@
 //!
 //! ## Example
 //!
+//! This example is `no_run`: it uses the default native DDS backend and solves
+//! all legal leads on each of ten deals, which the doctest suite does not pay
+//! for. It is still compiled, so the API is checked; see the `simulation`
+//! module documentation for an executable run against a mock factory.
+//!
 //! ```no_run
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {

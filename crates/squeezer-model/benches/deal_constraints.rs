@@ -1,9 +1,10 @@
-use criterion::measurement::Measurement;
+use criterion::measurement::WallTime;
 use criterion::{BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main};
 use squeezer_cards::{Cards, Suit};
 use squeezer_model::*;
 use std::hint::black_box;
 use std::str::FromStr;
+use std::time::Instant;
 
 fn balanced_shape() -> HandConstraint {
     HandConstraint::new(&["(4432)", "(4333)", "(5332)"], HcpRange::new(0, 37))
@@ -20,19 +21,77 @@ fn nt_shape_and_hcp() -> HandConstraint {
         .expect("NT shape and HCP patterns parse")
 }
 
-fn bench_dealer<D: Dealer, M: Measurement>(
-    group: &mut BenchmarkGroup<'_, M>,
-    name: &str,
-    dealer: D,
-) {
-    group.throughput(Throughput::Elements(1));
+/// How many accepted deals the pre-measurement samples when estimating the
+/// candidate ratio for Criterion's throughput display.
+///
+/// The dealer draws from a thread-local RNG, so candidates per accepted deal
+/// varies from one run to the next. A thousand deals keep the estimate stable
+/// while staying negligible next to Criterion's own warm-up. The exact ratio
+/// is recomputed from the timed run and printed with the result.
+const RATIO_SAMPLE_DEALS: usize = 1_000;
+
+/// Measures the mean number of candidate deals generated per accepted deal.
+fn candidates_per_deal<D: Dealer>(dealer: &D) -> f64 {
+    let attempts: u64 = (0..RATIO_SAMPLE_DEALS)
+        .map(|_| {
+            let (_, attempts) = dealer
+                .deal_with_attempts()
+                .expect("constraint has a satisfying deal");
+            u64::from(attempts)
+        })
+        .sum();
+    attempts as f64 / RATIO_SAMPLE_DEALS as f64
+}
+
+/// Benchmarks accepted deals and reports both axes: accepted deals and
+/// candidates.
+///
+/// Criterion's `Throughput` takes an integral element count, so its `elem/s`
+/// can only be an approximation of candidate throughput. The timed run
+/// accumulates the real candidate count and elapsed time, and the printed line
+/// reports the exact candidates per accepted deal, nanoseconds per candidate
+/// and candidates per second.
+fn bench_dealer<D: Dealer>(group: &mut BenchmarkGroup<'_, WallTime>, name: &str, dealer: D) {
+    let ratio = candidates_per_deal(&dealer);
+    group.throughput(Throughput::Elements(ratio.round() as u64));
+
+    let mut candidates = 0u64;
+    let mut accepted = 0u64;
+    let mut elapsed_nanos = 0u128;
     group.bench_function(name, |b| {
-        b.iter(|| black_box(dealer.deal().expect("constraint has a satisfying deal")));
+        b.iter_custom(|iterations| {
+            let start = Instant::now();
+            for _ in 0..iterations {
+                let (deal, attempts) = dealer
+                    .deal_with_attempts()
+                    .expect("constraint has a satisfying deal");
+                black_box(deal);
+                candidates += u64::from(attempts);
+                accepted += 1;
+            }
+            let elapsed = start.elapsed();
+            elapsed_nanos += elapsed.as_nanos();
+            elapsed
+        });
     });
+
+    if accepted > 0 {
+        let exact_ratio = candidates as f64 / accepted as f64;
+        let ns_per_candidate = elapsed_nanos as f64 / candidates as f64;
+        let candidates_per_second = candidates as f64 / (elapsed_nanos as f64 / 1e9);
+        println!(
+            "{name}: {exact_ratio:.2} candidates per accepted deal, \
+             {ns_per_candidate:.1} ns per candidate, {:.1}M candidates/s",
+            candidates_per_second / 1e6
+        );
+    }
 }
 
 fn benchmark_constraint_matrix(c: &mut Criterion) {
-    let mut group = c.benchmark_group("deal_creation_constraints");
+    // The rounded candidate ratio only scales Criterion's display; the timed
+    // run prints the exact candidates per deal, ns per candidate and
+    // candidates/s.
+    let mut group = c.benchmark_group("deal_candidate_throughput");
     group.sample_size(10);
 
     let unconstrained = DealerBuilder::new().build().expect("dealer builds");
