@@ -456,12 +456,45 @@ fn board_errors_keep_the_exact_cause() {
 }
 
 #[test]
-fn display_includes_the_detail() {
+fn every_error_kind_renders_as_prose() {
+    // The kind is what callers match on, but its `Display` is what a person
+    // reads, so every variant spells the failure out instead of printing the
+    // variant name.
+    let cases = [
+        (ParseLinErrorKind::Syntax, "LIN syntax error"),
+        (ParseLinErrorKind::Player, "missing or malformed `pn|` line"),
+        (ParseLinErrorKind::Hands, "malformed or missing `md|` deal"),
+        (ParseLinErrorKind::Number, "malformed numeric field"),
+        (ParseLinErrorKind::Bidding, "malformed `mb|` call"),
+        (ParseLinErrorKind::Card, "malformed `pc|` card"),
+        (ParseLinErrorKind::Claim, "malformed `mc|` claim"),
+        (
+            ParseLinErrorKind::Vulnerability,
+            "unknown `sv|` vulnerability code",
+        ),
+        (ParseLinErrorKind::Board, "board parts did not fit together"),
+        (
+            ParseLinErrorKind::Metadata,
+            "malformed file-level metadata line",
+        ),
+        (ParseLinErrorKind::Trailing, "unparsed trailing input"),
+    ];
+    for (kind, prose) in cases {
+        assert_eq!(kind.to_string(), prose, "{kind:?}");
+    }
+}
+
+#[test]
+fn display_includes_the_kind_prose_and_the_detail() {
     let lin = "pn|a,b,c,d|st||md|3SAKQJT9876543X,HAKQJT98765432,DAKQJT98765432,CAKQJT98765432|rh||ah|Board 1|sv|o|mb|1S|mb|p|mb|p|mb|p|";
     let error = import_error(lin);
-    let rendered = error.to_string();
-    assert!(
-        rendered.contains("unable to parse LIN input (Hands): invalid card \"SAKQJT9876543X\":"),
-        "{rendered}"
+    // The whole rendering is pinned, input tail included, because the ticket
+    // fixes the full error string and the detail must not silently drop out.
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "unable to parse LIN input: malformed or missing `md|` deal: \
+             invalid card \"SAKQJT9876543X\":\n{lin}"
+        )
     );
 }
