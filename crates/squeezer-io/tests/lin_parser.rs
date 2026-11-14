@@ -240,6 +240,48 @@ fn parses_a_passed_out_board() {
 }
 
 #[test]
+fn a_three_hand_md_completes_the_omitted_east_hand() {
+    // `three_hand_md.lin` is the reference three-hand deal from the
+    // `lin_parser_nom` branch, commit c6b1bc5, `src/linparser/parser.rs:567`:
+    // the `md|` line lists South, West and North and leaves the fourth field
+    // empty before the trailing `|`.
+    //
+    // `Deal` is four complete thirteen-card hands and has no partial form, so
+    // the importer completes the omitted hand before building the board rather
+    // than inventing a three-handed deal. LIN lists `md|` hands South, West,
+    // North, East, so the empty slot is East and must be the deck minus the
+    // other three hands. `Deal::new` then validates the completed partition:
+    // four thirteen-card hands with no card listed twice.
+    let board = only_board("three_hand_md.lin");
+
+    assert_eq!(board.dealer(), Seat::North);
+    assert_hand(&board, Seat::South, "S34JH258TQKD2JQC7");
+    assert_hand(&board, Seat::West, "S27TH69D679TKAC23");
+    assert_hand(&board, Seat::North, "S6QH47JD458C468JA");
+    // Independently: the 52-card deck minus the three listed hands.
+    assert_hand(&board, Seat::East, "SAK985HA3D3CKQT95");
+
+    // `Deal::new` validated the completed partition, so the four hands together
+    // are exactly the 52-card deck: no seat is empty and no card repeats.
+    let all_hands = [Seat::North, Seat::East, Seat::South, Seat::West]
+        .into_iter()
+        .fold(Cards::EMPTY, |all, seat| all + board.deal()[seat]);
+    assert_eq!(all_hands, Cards::ALL);
+
+    // The reference document's expected result: 4S by East, not doubled.
+    assert_eq!(
+        board.contract(),
+        Some(Contract::new(
+            4,
+            Strain::Spades,
+            Seat::East,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        ))
+    );
+}
+
+#[test]
 fn a_completed_lin_auction_keeps_its_contract() {
     // North 1S and three passes: the auction is complete.
     let lin = format!("{VALID_HEAD}mb|1S|mb|p|mb|p|mb|p|");
