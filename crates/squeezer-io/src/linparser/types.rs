@@ -54,6 +54,30 @@ pub enum ParseLinErrorKind {
     Trailing,
 }
 
+impl std::fmt::Display for ParseLinErrorKind {
+    // Renders the category on its own, so callers can log or label a failure
+    // without the offending input that `ParseLinError` also carries.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Each arm restates the variant's doc comment; where one LIN tag
+        // identifies the bad line, the message names it so the reader can find
+        // it in the file they supplied.
+        let text = match self {
+            Self::Syntax => "LIN syntax error",
+            Self::Player => "missing or malformed `pn|` line",
+            Self::Hands => "malformed or missing `md|` deal",
+            Self::Number => "malformed numeric field",
+            Self::Bidding => "malformed `mb|` call",
+            Self::Card => "malformed `pc|` card",
+            Self::Claim => "malformed `mc|` claim",
+            Self::Vulnerability => "unknown `sv|` vulnerability code",
+            Self::Board => "board parts did not fit together",
+            Self::Metadata => "malformed file-level metadata line",
+            Self::Trailing => "unparsed trailing input",
+        };
+        f.write_str(text)
+    }
+}
+
 /// The error returned when a LIN file cannot be imported.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -101,7 +125,7 @@ impl ParseLinError {
 
 impl std::fmt::Display for ParseLinError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "unable to parse LIN input ({:?})", self.kind)?;
+        write!(f, "unable to parse LIN input: {}", self.kind)?;
         if let Some(detail) = &self.detail {
             write!(f, ": {detail}")?;
         }
