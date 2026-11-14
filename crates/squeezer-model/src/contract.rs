@@ -646,6 +646,30 @@ impl From<(Vulnerability, Seat)> for Vulnerable {
     }
 }
 /// A struct representing a contract
+///
+/// # Text forms
+///
+/// `Contract` has two display forms, and neither is a persistence format:
+/// store a contract through its derived `serde` representation instead (with
+/// the `serde` feature on).
+///
+/// - [`fmt::Display`] is the human-facing form: the strain renders as a Unicode
+///   suit symbol, e.g. `4♠N` or `3NTNXX`.
+/// - [`Contract::not_unicode_str`] is the ASCII form the PBN writer reads the
+///   `[Contract]` tag's risk suffix from: `<level><strain><declarer>` followed
+///   by no `X`, `X` or `XX`, e.g. `4SNX`. The tag itself is
+///   `<level><strain><risk>`, and the declarer goes to the separate
+///   `[Declarer]` tag.
+///
+/// Neither form carries the vulnerability. PBN's `[Vulnerable]` tag carries it
+/// separately, and [`Contract::from_str`] defaults a missing vulnerability
+/// suffix to [`Vulnerable::No`]; [`Contract::from_str_and_vuln`] is the
+/// constructor that takes it explicitly. Neither constructor parses the
+/// two-letter `NT` strain token, because both read exactly one strain character
+/// (`S`, `H`, `D`, `C` or `N`), and `FromStr` cannot read the doubled suffix
+/// either: it expects the risk before the declarer. See
+/// `text_forms_do_not_round_trip` in this module's tests for the pinned
+/// behaviour.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Contract {
@@ -898,7 +922,31 @@ impl Contract {
         self.vuln
     }
 
-    /// Returns a non-unicode string representation of the contract.
+    /// Returns the ASCII contract form: `<level><strain><declarer>`, followed
+    /// by no `X`, `X` or `XX` for the risk.
+    ///
+    /// This is the form the PBN writer reads the `[Contract]` tag's risk suffix
+    /// from; the tag itself is `<level><strain><risk>`, and the declarer goes
+    /// to the separate `[Declarer]` tag. It carries no vulnerability — PBN's
+    /// `[Vulnerable]` tag carries that separately — so it is not a round-trip
+    /// form. See the type-level text-forms note on [`Contract`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use squeezer_model::{Contract, Doubled, Seat, Strain, Vulnerable};
+    ///
+    /// // The vulnerability was supplied, but the ASCII form does not show it.
+    /// let vulnerable_spades = Contract::new(
+    ///     4,
+    ///     Strain::Spades,
+    ///     Seat::North,
+    ///     Vulnerable::Yes,
+    ///     Doubled::NotDoubled,
+    /// );
+    /// assert_eq!(vulnerable_spades.not_unicode_str(), "4SN");
+    /// assert_eq!(vulnerable_spades.to_string(), "4♠N");
+    /// ```
     #[must_use]
     pub fn not_unicode_str(&self) -> String {
         format!(
@@ -918,7 +966,14 @@ impl Contract {
         )
     }
 
-    /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
+    /// Constructs a `Contract` from `<level><strain><declarer>` with an
+    /// optional trailing `X`/`XX` risk, e.g. `4CN`, `3NW` or `3NNXX`.
+    ///
+    /// The vulnerability is not part of the string, so it is supplied here;
+    /// see the type-level text-forms note on [`Contract`].
+    ///
+    /// # Panics
+    /// Panics if the string ends with three or more `X`s, which no contract has.
     ///
     /// # Errors
     /// Errors if the contract string is improperly formatted
@@ -965,7 +1020,14 @@ impl Contract {
 
 impl FromStr for Contract {
     type Err = ContractError;
-    /// Constructs a `Contract` from a string representation: "4CN" or "3NW".
+    /// Constructs a `Contract` from `<level><strain>[X[X]]<declarer>` with an
+    /// optional `N`/`V` vulnerability suffix, e.g. `4CN` (non-vulnerable),
+    /// `4SNV` (vulnerable) or `4SXNV` (doubled and vulnerable).
+    ///
+    /// Letters are accepted in either case. A missing vulnerability defaults to
+    /// [`Vulnerable::No`], and the risk belongs between the strain and the
+    /// declarer here, unlike [`Contract::from_str_and_vuln`]'s trailing
+    /// `X`/`XX`.
     ///
     /// # Errors
     /// Errors if the contract string is improperly formatted
@@ -1017,6 +1079,11 @@ impl FromStr for Contract {
     }
 }
 impl fmt::Display for Contract {
+    /// The human-facing form: `<level><strain><declarer><X*>`, with the strain
+    /// as a Unicode suit symbol (`4♠N`, `3NTNXX`).
+    ///
+    /// This is not a parse form; see the type-level text-forms note on
+    /// [`Contract`].
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -1070,6 +1137,11 @@ impl Strain {
         }
     }
 
+    /// The ASCII strain token used by [`Contract::not_unicode_str`]: `S`, `H`,
+    /// `D`, `C` or `NT`.
+    ///
+    /// LIN's bid tokens need the single-letter `N` for no-trumps instead, so
+    /// the LIN and PBN writers keep their own strain spellings.
     fn not_unicode_str(self) -> String {
         match self {
             Self::Spades => String::from("S"),
@@ -1115,7 +1187,9 @@ impl fmt::Display for Strain {
 mod test {
     use std::str::FromStr;
 
-    use super::{Contract, ContractError, Seat, SeatError, Strain, Vulnerability, Vulnerable};
+    use super::{
+        Contract, ContractError, Doubled, Seat, SeatError, Strain, Vulnerability, Vulnerable,
+    };
     use squeezer_cards::Suit;
 
     /// Tests seat rotation.
@@ -1265,6 +1339,104 @@ mod test {
         assert_eq!(contract_h.to_string(), "3♥N");
         assert_eq!(contract_s.to_string(), "3♠N");
         assert_eq!(contract_n.to_string(), "3NTNXX");
+    }
+
+    /// The two text forms are for reading, not for storing a contract.
+    ///
+    /// This pins the asymmetry so a future change cannot silently make one
+    /// direction only half work: `Display` never re-parses, and
+    /// `not_unicode_str` re-parses a plain suit contract only by dropping its
+    /// vulnerability, which it does not carry.
+    #[test]
+    fn text_forms_do_not_round_trip() {
+        // Use a vulnerable contract so the missing vulnerability would show.
+        let vulnerable_spades = Contract::new(
+            4,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::Yes,
+            Doubled::NotDoubled,
+        );
+
+        // `Display` renders the strain as a Unicode suit symbol, which the
+        // parser's one-character strain grammar rejects.
+        assert_eq!(vulnerable_spades.to_string(), "4♠N");
+        assert_eq!(
+            vulnerable_spades.to_string().parse::<Contract>(),
+            Err(ContractError::UnknownStrain('♠'))
+        );
+
+        // `not_unicode_str` is ASCII, but it still spells no-trumps with two
+        // letters, so the parser reads `T` as the declarer. `Display` writes
+        // the same two letters for no-trumps, so it fails the same way.
+        let no_trumps = Contract::new(
+            3,
+            Strain::NoTrumps,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
+        assert_eq!(no_trumps.to_string(), "3NTN");
+        assert_eq!(no_trumps.not_unicode_str(), "3NTN");
+        let no_trump_parse_error = Err(ContractError::Seat(SeatError::NotASeat { character: 'T' }));
+        assert_eq!(
+            no_trumps.to_string().parse::<Contract>(),
+            no_trump_parse_error
+        );
+        assert_eq!(
+            no_trumps.not_unicode_str().parse::<Contract>(),
+            no_trump_parse_error
+        );
+
+        // The doubled suffix `X` lands where the parser expects the optional
+        // vulnerability letter, so it is rejected rather than read as risk.
+        let doubled = Contract::new(
+            4,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::Doubled,
+        );
+        assert_eq!(doubled.not_unicode_str(), "4SNX");
+        assert_eq!(
+            doubled.not_unicode_str().parse::<Contract>(),
+            Err(ContractError::UnknownVulnerability('X'))
+        );
+
+        // A plain suit contract's ASCII form does parse, but it carries no
+        // vulnerability (the PBN `[Vulnerable]` tag carries it separately), so
+        // `FromStr` defaults to non-vulnerable and loses the original state.
+        let parsed = vulnerable_spades
+            .not_unicode_str()
+            .parse::<Contract>()
+            .expect("a plain suit contract's ASCII form parses");
+        assert_eq!(parsed.vulnerable(), Vulnerable::No);
+        assert_ne!(parsed, vulnerable_spades);
+
+        // The non-vulnerable case is the one that happens to round-trip, which
+        // is why the asymmetry needs pinning: it is not a property of the form.
+        let non_vulnerable_spades = Contract::new(
+            4,
+            Strain::Spades,
+            Seat::North,
+            Vulnerable::No,
+            Doubled::NotDoubled,
+        );
+        assert_eq!(non_vulnerable_spades.not_unicode_str(), "4SN");
+        assert_eq!(
+            non_vulnerable_spades
+                .not_unicode_str()
+                .parse::<Contract>()
+                .expect("the non-vulnerable ASCII form parses"),
+            non_vulnerable_spades
+        );
+
+        // `from_str_and_vuln` is the parse form that keeps the vulnerability,
+        // which is why it takes it as an argument.
+        let recovered =
+            Contract::from_str_and_vuln(&vulnerable_spades.not_unicode_str(), Vulnerable::Yes)
+                .expect("the ASCII form parses with an explicit vulnerability");
+        assert_eq!(recovered, vulnerable_spades);
     }
 
     #[test]
