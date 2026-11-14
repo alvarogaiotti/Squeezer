@@ -51,6 +51,12 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
 - `cargo fmt --all`. CI (`.github/workflows/rust.yml`) checks out the `vendor/dds`
   submodule, runs `cargo test --workspace --verbose`, the feature matrix, and
   `cargo fmt --all --check`.
+- `cargo deny check advisories` audits the reachable graph against the RustSec
+  database; install it with
+  `cargo install cargo-deny --version 0.20.2 --locked`. `deny.toml` holds the
+  policy and its ignore list is deliberately empty. `cargo audit` reads
+  `Cargo.lock` directly, so it also covers optional entries that no feature
+  enables.
 - `cargo bench -p <crate> --bench <name>` (criterion, `harness = false`; see the
   owning crate's manifest). The dealer benchmark lives in `squeezer-model`, the
   card-sampling one in `squeezer-cards` (behind its `rand` feature).

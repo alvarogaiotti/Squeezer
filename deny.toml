@@ -1,0 +1,21 @@
+# cargo-deny configuration.
+#
+# Only the advisories check is configured here; AGENTS.md records the command
+# and the tool version this schema belongs to.
+#
+# `[graph] all-features` audits every feature the workspace itself declares,
+# not only the defaults. It does not pull in an optional dependency of a
+# third-party crate (`reqwest`'s rustls backend, for example) that no
+# workspace feature enables; `cargo audit` reads `Cargo.lock` directly and so
+# does see those entries.
+#
+# The ignore list is empty: every advisory against the last audited lock has a
+# patched release in `Cargo.lock`. Add an entry only for a finding with no
+# patched release, naming the advisory, the affected crate, why it cannot be
+# reached, and what upgrade would remove it.
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+ignore = []
