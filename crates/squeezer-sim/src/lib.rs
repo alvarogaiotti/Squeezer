@@ -33,6 +33,19 @@
 //! back to the native `DdsSolver`; with the feature off the caller must pass a
 //! factory, which is how the mock-solver tests run without linking DDS.
 //!
+//! # Example
+//!
+//! `examples/contract_payoff_consumer.rs` runs a small contract-payoff
+//! simulation against a stub factory, decomposes the output with
+//! [`SimulationOutput::into_parts`](crate::simulation::SimulationOutput::into_parts)
+//! (raw data, statistics and metadata) and
+//! renders the payoff matrix. It needs no DDS:
+//!
+//! ```sh
+//! cargo run -p squeezer-sim --example contract_payoff_consumer \
+//!     --no-default-features --features formatters
+//! ```
+//!
 //! # Errors
 //!
 //! A simulation reports [`SimulationError`]: invalid builder input, a sampled

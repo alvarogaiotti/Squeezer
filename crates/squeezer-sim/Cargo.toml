@@ -43,6 +43,12 @@ serde_json = "1.0"
 # never sees them.
 squeezer-solver = { path = "../squeezer-solver", default-features = false, features = ["test-support"] }
 
+# The consumer example renders with the terminal formatters, so it needs that
+# feature; it runs without DDS by disabling the default features.
+[[example]]
+name = "contract_payoff_consumer"
+required-features = ["formatters"]
+
 [[bench]]
 name = "bench_payoff"
 harness = false
