@@ -27,6 +27,13 @@
 //! matters is unchanged: `workers × table capacity` limits instantaneous
 //! memory, so a caller choosing a worker count chooses the memory ceiling.
 //!
+//! The table capacity is whatever configuration the factory carries: the pool
+//! never assumes a backend or a table size. A factory whose contexts allocate
+//! a bounded table therefore makes the bound concrete as `workers × that
+//! capacity`. A backend that also allocates a one-shot context for a cold
+//! operation can hold a second table on a worker for the duration of that
+//! call.
+//!
 //! The chunk count is fixed by this module (`ceil(len / ceil(len / workers))`,
 //! never more than the worker count) rather than left to rayon's adaptive
 //! splitter, so the bound is a property of the pool and not of the scheduler's
@@ -49,7 +56,8 @@ use rayon::prelude::*;
 ///
 /// The pool slices a call into at most one chunk per worker, gives each chunk
 /// one context, and drops every context when its chunk ends; `workers × table
-/// capacity` therefore bounds instantaneous memory.
+/// capacity` therefore bounds instantaneous memory. The capacity comes from
+/// the factory's own context configuration.
 pub struct SolverPool {
     factory: Box<dyn ContextFactory>,
     pool: rayon::ThreadPool,

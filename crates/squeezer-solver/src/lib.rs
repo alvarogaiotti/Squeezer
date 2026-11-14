@@ -76,7 +76,7 @@ mod pool;
 #[cfg(feature = "dds")]
 pub use adapters::position_to_dds_deal;
 #[cfg(feature = "dds")]
-pub use dds::{DdsContext, DdsSolver};
+pub use dds::{DdsContext, DdsSolver, DdsTtConfig, DdsTtKind};
 pub use pool::SolverPool;
 
 use crate::prelude::*;

@@ -1119,8 +1119,8 @@ mod tests {
         // test), so every recorded play is DD-optimal and no tricks are lost.
         // This is the re-baselined DDS 3.1 semantics for the analysis.
         let board = squeezer_solver::test_fixtures::example_board_hand0_play();
-        let analysis =
-            analyze_board(&squeezer_solver::DdsSolver, &board).expect("example hand 0 analyses");
+        let analysis = analyze_board(&squeezer_solver::DdsSolver::new(), &board)
+            .expect("example hand 0 analyses");
 
         let mut total = 0;
         for seat in Seat::iter() {
@@ -1246,7 +1246,7 @@ mod tests {
     #[test]
     fn analyze_board_rejects_a_board_without_a_play() {
         let board = squeezer_solver::test_fixtures::example_board();
-        let error = analyze_board(&squeezer_solver::DdsSolver, &board)
+        let error = analyze_board(&squeezer_solver::DdsSolver::new(), &board)
             .expect_err("a board with no play cannot be analysed");
         assert!(matches!(error, AnalysisError::InvalidInput { .. }));
     }
