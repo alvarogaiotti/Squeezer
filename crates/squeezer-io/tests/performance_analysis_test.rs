@@ -40,12 +40,15 @@ fn lin_file_to_board_to_per_seat_statistics() {
     // The seam is backend-agnostic: the result is a plain trick-count vector,
     // one entry per play plus the starting position. DDS caps its internal
     // sequence at 49, so the extra entries are the forced final trick.
-    let dd_tricks: Vec<u8> = DdsSolver.analyse_play(board).expect("board 15 analyses");
+    let dd_tricks: Vec<u8> = DdsSolver::new()
+        .analyse_play(board)
+        .expect("board 15 analyses");
     assert_eq!(dd_tricks.len(), 53, "52 plays plus the starting position");
 
     // The analysis drives the seam itself and keeps per-seat and per-side
     // statistics.
-    let analysis: HandAnalysis = analyze_board(&DdsSolver, board).expect("board 15 analyses");
+    let analysis: HandAnalysis =
+        analyze_board(&DdsSolver::new(), board).expect("board 15 analyses");
 
     let north = analysis.player_stats(Seat::North);
     assert_eq!(north.cards_played, 13);

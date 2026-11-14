@@ -26,15 +26,127 @@ const RETURN_NO_FAULT: c_int = 1;
 /// `target = -1` asks DDS for the maximum number of tricks.
 const TARGET_MAX_TRICKS: c_int = -1;
 
-/// The DDS solver factory.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct DdsSolver;
+/// Which concrete DDS transposition-table implementation a context allocates.
+///
+/// DDS's C ABI calls these `Small` and `Large`; the values here are the same
+/// distinction, named so callers never pass a bare integer. `Large` is DDS's
+/// own default, so it is also this seam's default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum DdsTtKind {
+    /// DDS's `TransTableS`: the cheaper table, suited to one deal at a time.
+    Small,
+    /// DDS's `TransTableL`: DDS's default, suited to many similar positions.
+    #[default]
+    Large,
+}
+
+impl DdsTtKind {
+    /// The integer `dds_c_create_solvercontext` expects for this kind.
+    const fn as_ffi(self) -> c_int {
+        match self {
+            Self::Small => 0,
+            Self::Large => 1,
+        }
+    }
+}
+
+/// An explicit transposition-table configuration for a DDS context.
+///
+/// `default_mb` is the table's initial allocation and `max_mb` its growth
+/// ceiling. DDS treats a `0` in *either* field as a request for its built-in
+/// sizes for [`DdsTtKind`] and applies them to both fields, so
+/// `{ default_mb: 50, max_mb: 0 }` allocates the built-in sizes rather than a
+/// 50 MB table with a built-in ceiling. The presets name the built-in sizes
+/// explicitly, so a caller can request either configuration without knowing
+/// DDS's constants. DDS raises `max_mb` to `default_mb` when a caller passes a
+/// smaller maximum, and the `DDS_TT_DEFAULT_MB`/`DDS_TT_LIMIT_MB` environment
+/// variables still override the two sizes.
+///
+/// Each live context allocates its own table, so the contexts a pool creates
+/// for itself are bounded by its worker count times `max_mb` (see
+/// [`crate::SolverPool`]). Cold operations add their own contexts: the DD-table
+/// call creates another configured context, and play analysis uses DDS's
+/// internal default table, which this configuration cannot reach.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DdsTtConfig {
+    /// The concrete table implementation.
+    pub kind: DdsTtKind,
+    /// Initial table size in MB; a `0` means DDS's built-in sizes for both
+    /// fields.
+    pub default_mb: u32,
+    /// Table growth ceiling in MB; a `0` means DDS's built-in sizes for both
+    /// fields.
+    pub max_mb: u32,
+}
+
+impl DdsTtConfig {
+    /// The Small preset: 20 MB initially, growing to at most 30 MB.
+    #[must_use]
+    pub const fn small() -> Self {
+        Self {
+            kind: DdsTtKind::Small,
+            default_mb: 20,
+            max_mb: 30,
+        }
+    }
+
+    /// The Large preset: 95 MB initially, growing to at most 160 MB.
+    ///
+    /// This is the same effective configuration as DDS's
+    /// `dds_c_create_solvercontext_default`, which allocates a Large table with
+    /// its built-in sizes.
+    #[must_use]
+    pub const fn large() -> Self {
+        Self {
+            kind: DdsTtKind::Large,
+            default_mb: 95,
+            max_mb: 160,
+        }
+    }
+}
+
+impl Default for DdsTtConfig {
+    /// DDS's default: a Large table with its built-in 95/160 MB sizes.
+    fn default() -> Self {
+        Self::large()
+    }
+}
+
+/// The DDS solver factory, carrying the transposition-table configuration each
+/// context it creates will use.
+#[derive(Debug, Clone, Copy)]
+pub struct DdsSolver {
+    tt_config: DdsTtConfig,
+}
+
+impl Default for DdsSolver {
+    /// The same configuration as [`DdsSolver::new`].
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl DdsSolver {
-    /// Creates the DDS factory.
+    /// Creates the DDS factory with DDS's default TT configuration.
     #[must_use]
     pub const fn new() -> Self {
-        Self
+        Self::with_tt_config(DdsTtConfig::large())
+    }
+
+    /// Creates the DDS factory with an explicit TT configuration.
+    ///
+    /// Every context this factory creates, and therefore every context in a
+    /// [`crate::SolverPool`] built from it, uses this table kind and memory
+    /// ceiling.
+    #[must_use]
+    pub const fn with_tt_config(tt_config: DdsTtConfig) -> Self {
+        Self { tt_config }
+    }
+
+    /// The TT configuration this factory passes to every context it creates.
+    #[must_use]
+    pub const fn tt_config(&self) -> DdsTtConfig {
+        self.tt_config
     }
 }
 
@@ -46,7 +158,13 @@ impl Solver for DdsSolver {
         // resource error the caller should be able to observe from `solve`,
         // not a reason to abort a worker thread.
         DdsContext {
-            raw: unsafe { context::dds_c_create_solvercontext_default() },
+            raw: unsafe {
+                context::dds_c_create_solvercontext(
+                    self.tt_config.kind.as_ffi(),
+                    mb_to_c_int(self.tt_config.default_mb),
+                    mb_to_c_int(self.tt_config.max_mb),
+                )
+            },
         }
     }
 }
@@ -200,6 +318,15 @@ impl PlayAnalyser for DdsSolver {
         }
         read_play_results(&solved, play.len())
     }
+}
+
+/// Saturates a megabyte count into the `c_int` the C ABI declares.
+///
+/// Wrapping would turn a large request into a negative or tiny allocation, so a
+/// value that does not fit is clamped instead. Every preset and any realistic
+/// caller value fits, so the clamp is a guard rather than a reachable path.
+fn mb_to_c_int(mb: u32) -> c_int {
+    c_int::try_from(mb).unwrap_or(c_int::MAX)
 }
 
 /// Wraps a non-success DDS return code as the seam's backend error.
@@ -370,12 +497,79 @@ mod tests {
 
     /// A fresh concrete DDS context.
     fn context() -> DdsContext {
-        Solver::create_context(&DdsSolver)
+        Solver::create_context(&DdsSolver::new())
+    }
+
+    /// DDS's own oracle for the example hand's opening position.
+    const EXAMPLE_OPENING_TRICKS: u8 = 5;
+
+    #[test]
+    fn tt_presets_match_dds_built_in_sizes() {
+        // DDS's `THREADMEM_*` constants: Small is 20/30 MB and Large is
+        // 95/160 MB. These literals are the independent oracle for the preset
+        // constructors.
+        let small = DdsTtConfig::small();
+        assert_eq!(small.kind, DdsTtKind::Small);
+        assert_eq!(small.default_mb, 20);
+        assert_eq!(small.max_mb, 30);
+
+        let large = DdsTtConfig::large();
+        assert_eq!(large.kind, DdsTtKind::Large);
+        assert_eq!(large.default_mb, 95);
+        assert_eq!(large.max_mb, 160);
+    }
+
+    #[test]
+    fn a_context_per_tt_preset_solves_the_example_hand() {
+        let position = opening_position();
+        for config in [DdsTtConfig::small(), DdsTtConfig::large()] {
+            let mut context = Solver::create_context(&DdsSolver::with_tt_config(config));
+            assert_eq!(
+                context
+                    .solve_tricks(&position)
+                    .expect("a configured context solves the example hand"),
+                EXAMPLE_OPENING_TRICKS,
+                "{config:?} must solve the example hand"
+            );
+        }
+    }
+
+    #[test]
+    fn the_default_solver_keeps_dds_default_tt_configuration() {
+        // DDS's `_default()` context is a Large table with the built-in
+        // 95/160 MB sizes, so the explicit default must keep Large rather than
+        // switching to the smaller table.
+        assert_eq!(DdsSolver::new().tt_config(), DdsTtConfig::large());
+        assert_eq!(DdsSolver::default().tt_config(), DdsTtConfig::large());
+
+        let mut context = Solver::create_context(&DdsSolver::new());
+        assert_eq!(
+            context
+                .solve_tricks(&opening_position())
+                .expect("the default context solves the example hand"),
+            EXAMPLE_OPENING_TRICKS
+        );
+    }
+
+    #[test]
+    fn a_solver_pool_runs_on_a_configured_factory() {
+        use crate::SolverPool;
+
+        let factory: Box<dyn ContextFactory> =
+            Box::new(DdsSolver::with_tt_config(DdsTtConfig::small()));
+        let pool = SolverPool::new(factory, 2);
+        let position = opening_position();
+        let tricks: Vec<u8> = pool.map(4, |context, _index| {
+            context
+                .solve_tricks(&position)
+                .expect("a configured pool context solves the example hand")
+        });
+        assert_eq!(tricks, vec![EXAMPLE_OPENING_TRICKS; 4]);
     }
 
     #[test]
     fn dd_table_matches_the_dds_example_hand() {
-        let table = DdsSolver
+        let table = DdsSolver::new()
             .dd_table(&example_deal())
             .expect("example hand 0 has a DD table");
 
@@ -424,7 +618,7 @@ mod tests {
             .with(Strain::NoTrumps, Seat::South, 6)
             .with(Strain::NoTrumps, Seat::West, 6);
 
-        let par = DdsSolver
+        let par = DdsSolver::new()
             .par(&table, Vulnerability::None)
             .expect("example hand 0 has a par result");
 
@@ -672,7 +866,7 @@ mod tests {
         // results, every one 8. This is the re-baselined DDS 3.1 semantics
         // (issue #156), not the under-counted 2.9 values.
         let board = example_board_hand0_play();
-        let results = DdsSolver
+        let results = DdsSolver::new()
             .analyse_play(&board)
             .expect("example hand 0 analyses");
         assert_eq!(results, vec![8u8; 46]);

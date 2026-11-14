@@ -101,6 +101,13 @@ A solver's memo of already-solved sub-positions. It is owned per solver context,
 survives across solves that are similar, and may be cleared explicitly.
 _Avoid_: cache, memo table.
 
+**TT configuration**:
+The table kind (Small or Large) and the initial and maximum memory in megabytes
+a solver context allocates for its transposition table. The table memory a pool
+creates for its own contexts is bounded by its worker count times the
+configured maximum; cold operations add contexts of their own.
+_Avoid_: cache size, TT limit (unqualified).
+
 **DD-optimal**:
 The card(s) maximising double-dummy tricks for the side to play in one exact,
 fully-known Deal. Relative to that Deal only.

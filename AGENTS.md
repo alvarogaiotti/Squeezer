@@ -35,11 +35,15 @@ Single-context: one `CONTEXT.md` with `docs/adr/` at the repo root. See `docs/ag
   for every index in that chunk, and contexts are dropped with their chunk. At
   most one context is live per worker at any instant, and a call creates no more
   contexts than it has chunks (at most `workers`), so `workers × TT-cap` bounds
-  instantaneous memory and plain `cargo test` (no thread cap) is safe.
-  `AnalysePlayBin`
-  builds its own local context per call, and so does the DD-table calculation,
-  so both are concurrent-safe; a worker that invokes either transiently holds a
-  second context besides its own.
+  instantaneous memory and plain `cargo test` (no thread cap) is safe. `TT-cap`
+  is the configured `DdsTtConfig::max_mb`: 160 MB for the default Large preset
+  and 30 MB for Small, so the contexts a pool built from
+  `DdsSolver::with_tt_config(config)` creates for its chunks are bounded by
+  `workers × config.max_mb`. Cold operations are extra:
+  `AnalysePlayBin` builds its own local context per call using DDS's default
+  Large table, which `DdsTtConfig` cannot reach, and the DD-table calculation
+  creates another configured context, so a worker that invokes either
+  transiently holds a second table besides its own.
 - The `dds` crate's own tests are parallel-safe under 3.1: the context shim
   takes a caller-owned context, and the legacy `SolveBoard`/`CalcDDtable`/
   `CalcAllTables` entry points draw their context from a `thread_local`. Run
