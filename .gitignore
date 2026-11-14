@@ -14,6 +14,9 @@ rusty-tags.vi
 .replit/
 .replit*
 dds/target
+# A package-local lockfile appears only when a member is built with
+# `--manifest-path`; the workspace lockfile at the root is the real one.
+/dds/Cargo.lock
 hash_testing.py
 
 # `Cargo.lock` is deliberately tracked; see the Gotchas in AGENTS.md.
