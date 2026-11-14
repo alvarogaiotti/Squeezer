@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 
 #[cfg(feature = "rand")]
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Represents one of the four suits in a standard deck of cards.
 ///
