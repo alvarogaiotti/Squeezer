@@ -535,6 +535,19 @@ mod tests {
     }
 
     #[test]
+    fn card_solve_tricks_are_from_the_playing_side() {
+        // The example hand makes five tricks for the side to play. If the field
+        // were the opponents' count, the maximum over all legal cards would be
+        // eight (13 - 5), so `max_dd_tricks` pins the perspective.
+        let position = opening_position();
+        let mut context = Solver::create_context(&DdsSolver::new());
+        let results = context
+            .solve(&position, SolveMode::AutoReuse, Solutions::AllLegal)
+            .expect("the example hand solves");
+        assert_eq!(results.max_dd_tricks(), Some(EXAMPLE_OPENING_TRICKS));
+    }
+
+    #[test]
     fn the_default_solver_keeps_dds_default_tt_configuration() {
         // DDS's `_default()` context is a Large table with the built-in
         // 95/160 MB sizes, so the explicit default must keep Large rather than

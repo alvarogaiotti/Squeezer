@@ -136,7 +136,13 @@ pub enum Solutions {
 pub struct CardSolve {
     /// The card this outcome is for.
     pub card: Card,
-    /// Tricks for the side to play after `card` is played.
+    /// The DD trick count for the side that *plays* `card` — the position's
+    /// side to play, not the opponent that leads to the next trick.
+    ///
+    /// The figure is from the same perspective as the position's
+    /// [`max_dd_tricks`](SolveResults::max_dd_tricks), so the two are directly
+    /// comparable; a consumer wanting the other side's count must complement it
+    /// against the tricks remaining.
     pub tricks: u8,
     /// Every card equivalent to `card` for double-dummy purposes.
     pub equivalents: Cards,
