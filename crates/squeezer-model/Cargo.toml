@@ -13,9 +13,9 @@ serde = ["dep:serde", "bitvec/serde", "squeezer-cards/serde"]
 # The dealer draws through the card samplers, so this crate turns on the cards
 # crate's optional `rand`.
 squeezer-cards = { path = "../squeezer-cards", features = ["rand"] }
-# Kept in the cards crate's major line: the dealer hands `rand::rng()` to the
-# cards samplers, so both crates must agree on the `Rng` trait.
-rand = "0.9"
+# Kept in the cards crate's rand line: the dealer hands `rand::rng()` to the
+# cards samplers, and both sides must implement the same `Rng`/`RngExt` pair.
+rand = "0.10"
 bitvec = { version = "*", features = ["atomic", "std"] }
 itertools = "*"
 serde = { version = "1.0", features = ["derive"], optional = true }

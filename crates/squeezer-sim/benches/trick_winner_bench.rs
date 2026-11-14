@@ -1,7 +1,6 @@
 // Benchmark for trick winner finding functions.
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use rand::Rng;
-use rand::rng;
+use rand::{RngExt, rng};
 use squeezer_cards::*;
 use squeezer_model::*;
 use squeezer_sim::performance_analysis::{

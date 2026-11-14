@@ -1,6 +1,6 @@
 // Benchmark for SIMD vs scalar preprocessing.
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use squeezer_cards::*;
 use squeezer_model::*;
 use squeezer_sim::performance_analysis::AnalysisInput;
